@@ -43,6 +43,10 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (user?.role === "counsellor") {
       router.replace("/counsellor-dashboard");
+    } else if (user?.role === "brand manager") {
+      router.replace("/manager-dashboard");
+    } else if (user?.role === "teacher") {
+      router.replace("/teacher-dashboard");
     }
   }, [user, router]);
 
@@ -79,7 +83,7 @@ export default function AdminDashboard() {
     }
   }, [user, startDate, endDate]);
 
-  if (!user || user.role === "counsellor") return null;
+  if (!user || user.role === "counsellor" || user.role === "brand manager" || user.role === "teacher") return null;
 
   const initialLetter = user.name ? user.name.charAt(0).toUpperCase() : "A";
 

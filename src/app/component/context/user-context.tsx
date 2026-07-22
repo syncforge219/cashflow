@@ -12,6 +12,8 @@ export interface User {
   phone?: string;
   photoUrl?: string;
   brandLogo?: string;
+  subjects?: string[];
+  subject?: any;
 }
 
 interface UserContextType {

@@ -22,8 +22,17 @@ const UserSchema = new Schema(
     },
     role: {
       type: String,
-      enum: ["super admin", "brand manager", "counsellor"],
+      enum: ["super admin", "brand manager", "counsellor", "teacher"],
       default: "super admin",
+    },
+    subjects: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
+    subject: {
+      type: Schema.Types.Mixed,
     },
     // Counsellor-specific fields (only populated when role is "counsellor")
     phone: {
@@ -63,7 +72,10 @@ const UserSchema = new Schema(
   }
 );
 
-// Prevent compiled model re-definition errors in Next.js development hot-reloads
+if (mongoose.models && mongoose.models.User) {
+  delete (mongoose.models as any).User;
+}
+
 const User = mongoose.models.User || mongoose.model("User", UserSchema);
 
 export default User;

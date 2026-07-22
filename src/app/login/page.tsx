@@ -66,6 +66,8 @@ export default function LoginPage() {
           window.location.href = "/counsellor-dashboard";
         } else if (data.user?.role === "brand manager") {
           window.location.href = "/manager-dashboard";
+        } else if (data.user?.role === "teacher") {
+          window.location.href = "/teacher-dashboard";
         } else {
           window.location.href = "/admin-dashboard";
         }

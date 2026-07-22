@@ -42,8 +42,23 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
   const [demoDate, setDemoDate] = useState("");
   const [demoTime, setDemoTime] = useState("");
   const [demoMode, setDemoMode] = useState("Online (Zoom/Google Meet)");
+  const [selectedDemoTeacher, setSelectedDemoTeacher] = useState("");
+  const [teachersList, setTeachersList] = useState<any[]>([]);
   const [demoNotes, setDemoNotes] = useState("");
   const [isSubmittingDemo, setIsSubmittingDemo] = useState(false);
+
+  useEffect(() => {
+    if (isScheduleDemoModalOpen) {
+      fetch("/api/teachers")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && (data.teachers || data.data)) {
+            setTeachersList(data.teachers || data.data);
+          }
+        })
+        .catch((err) => console.error("Error fetching teachers for demo:", err));
+    }
+  }, [isScheduleDemoModalOpen]);
 
   // Mark Demo Attended Modal states
   const [isMarkDemoAttendedModalOpen, setIsMarkDemoAttendedModalOpen] = useState(false);
@@ -254,7 +269,8 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
         date: demoDate,
         time: demoTime,
         mode: demoMode,
-        notes: demoNotes,
+        teacher: selectedDemoTeacher,
+        notes: selectedDemoTeacher ? `Teacher: ${selectedDemoTeacher} | ${demoNotes}` : demoNotes,
         status: "Scheduled",
         createdAt: new Date().toISOString()
       };
@@ -267,7 +283,8 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
             isDemoScheduled: true,
             demoDate,
             demoTime,
-            demoNotes: `${demoMode} - ${demoNotes}`,
+            demoTeacher: selectedDemoTeacher,
+            demoNotes: `${demoMode}${selectedDemoTeacher ? ` (${selectedDemoTeacher})` : ''} - ${demoNotes}`,
             status: "Demo Scheduled",
           },
           $push: {
@@ -1186,6 +1203,85 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
                   <option value="Online (Zoom/Google Meet)">Online (Zoom / Google Meet)</option>
                   <option value="In-Person Classroom">In-Person Classroom</option>
                   <option value="Recorded Demo Session">Recorded Demo Session</option>
+                </select>
+              </div>
+
+              {/* ASSIGNED TEACHER DROPDOWN */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Assign Teacher / Faculty</label>
+                  {localLead?.targetCourse && (
+                    <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded border border-purple-100">
+                      Applied: {localLead.targetCourse}
+                    </span>
+                  )}
+                </div>
+                <select
+                  value={selectedDemoTeacher}
+                  onChange={(e) => setSelectedDemoTeacher(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 transition-all bg-white font-medium"
+                >
+                  <option value="">Select a Teacher for this demo...</option>
+                  {(() => {
+                    const targetCourseLower = (localLead?.targetCourse || "").toLowerCase().trim();
+                    const targetBrandLower = (localLead?.targetBrand || "").toLowerCase().trim();
+
+                    const matched = teachersList.filter((t: any) => {
+                      const tSubjects = Array.isArray(t.subjects)
+                        ? t.subjects
+                        : Array.isArray(t.subject)
+                        ? t.subject
+                        : typeof t.subject === "string"
+                        ? t.subject.split(",")
+                        : [];
+
+                      const subjectMatch = tSubjects.some((s: any) => {
+                        const sLower = String(s).toLowerCase().trim();
+                        return sLower && targetCourseLower && (sLower.includes(targetCourseLower) || targetCourseLower.includes(sLower));
+                      });
+
+                      const brandMatch = t.brandScope && targetBrandLower && t.brandScope.toLowerCase().trim() === targetBrandLower;
+
+                      return subjectMatch || brandMatch;
+                    });
+
+                    const others = teachersList.filter((t: any) => !matched.includes(t));
+
+                    return (
+                      <>
+                        {matched.length > 0 && (
+                          <optgroup label={`⭐ Matched Faculty for ${localLead?.targetCourse || "Course"} (${matched.length})`}>
+                            {matched.map((t: any) => {
+                              const subs = Array.isArray(t.subjects)
+                                ? t.subjects.join(", ")
+                                : Array.isArray(t.subject)
+                                ? t.subject.join(", ")
+                                : t.subject || "Faculty";
+                              return (
+                                <option key={t._id} value={t.name}>
+                                  {t.name} — {subs} ({t.brandScope || "All Brands"})
+                                </option>
+                              );
+                            })}
+                          </optgroup>
+                        )}
+                        <optgroup label={matched.length > 0 ? "Other Faculty Members" : "All Faculty Teachers"}>
+                          {others.map((t: any) => {
+                            const subs = Array.isArray(t.subjects)
+                              ? t.subjects.join(", ")
+                              : Array.isArray(t.subject)
+                              ? t.subject.join(", ")
+                              : t.subject || "Faculty";
+                            return (
+                              <option key={t._id} value={t.name}>
+                                {t.name} — {subs} ({t.brandScope || "All Brands"})
+                              </option>
+                            );
+                          })}
+                        </optgroup>
+                      </>
+                    );
+                  })()}
                 </select>
               </div>
 

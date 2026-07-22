@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import ManagerSidebar from "@/components/ManagerSidebar";
 import { useUser } from "../../component/context/user-context";
 import ProfileDisplay from "@/components/ProfileDisplay";
@@ -53,6 +54,7 @@ interface DashboardStats {
 }
 
 export default function ManagerDashboard() {
+  const router = useRouter();
   const { user, logout } = useUser();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
@@ -60,6 +62,14 @@ export default function ManagerDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+
+  useEffect(() => {
+    if (user?.role === "counsellor") {
+      router.replace("/counsellor-dashboard");
+    } else if (user?.role === "teacher") {
+      router.replace("/teacher-dashboard");
+    }
+  }, [user, router]);
 
   // Fetch Dashboard Stats from Backend API
   const fetchStats = async (brandParam?: string) => {
