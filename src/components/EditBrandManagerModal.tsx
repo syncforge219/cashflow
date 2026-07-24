@@ -27,6 +27,23 @@ export default function EditBrandManagerModal({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [dbBrands, setDbBrands] = useState<{ name: string }[]>([]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const fetchBrands = async () => {
+      try {
+        const res = await fetch("/api/brands");
+        const data = await res.json();
+        if (res.ok && data.success && Array.isArray(data.brands)) {
+          setDbBrands(data.brands);
+        }
+      } catch (err) {
+        console.error("Failed fetching brands:", err);
+      }
+    };
+    fetchBrands();
+  }, [isOpen]);
 
   const cleanPhoneDigits = (phone: string) => {
     if (!phone) return "";
@@ -221,9 +238,16 @@ export default function EditBrandManagerModal({
                 className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all cursor-pointer"
                 required
               >
-                <option value="Cadd Mantra">Cadd Mantra</option>
-                <option value="Design Gateway">Design Gateway</option>
-                <option value="Corporate Enterprise">Corporate Enterprise</option>
+                {dbBrands.length > 0 ? (
+                  dbBrands.map((b, idx) => (
+                    <option key={idx} value={b.name}>{b.name}</option>
+                  ))
+                ) : (
+                  <>
+                    <option value="Cadd Mantra">Cadd Mantra</option>
+                    <option value="Design Gateway">Design Gateway</option>
+                  </>
+                )}
               </select>
             </div>
 

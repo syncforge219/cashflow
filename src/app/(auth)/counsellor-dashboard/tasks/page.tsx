@@ -123,40 +123,72 @@ export default function CounsellorTasksPage() {
 
   if (!user) return null;
 
-  const todayStr = new Date().toDateString();
+  const now = new Date();
+  const todayStr = now.toDateString();
+
+  // LOCAL OVERDUE DETECTION: a task is overdue if dueDate has passed and not completed
+  const isTaskOverdue = (t: any) => {
+    if (t.status === "Completed") return false;
+    return new Date(t.dueDate) < now && new Date(t.dueDate).toDateString() !== todayStr;
+  };
+
+  // Effective status (merges server status with local detection)
+  const effectiveStatus = (t: any) => {
+    if (t.status === "Completed") return "Completed";
+    if (t.isEscalated || t.status === "Escalated") return "Escalated";
+    if (isTaskOverdue(t) || t.status === "Overdue") return "Overdue";
+    return t.status || "Pending";
+  };
 
   // Filter tasks based on tabs and dropdowns
-  const filteredTasks = tasks.filter((t) => {
-    // Tab filter
-    if (activeTab === "today") {
-      const d = new Date(t.dueDate).toDateString();
-      if (d !== todayStr || t.status === "Completed") return false;
-    } else if (activeTab === "overdue") {
-      if (t.status !== "Overdue") return false;
-    } else if (activeTab === "escalated") {
-      if (!t.isEscalated && t.status !== "Escalated") return false;
-    }
+  const filteredTasks = tasks
+    .filter((t) => {
+      const eff = effectiveStatus(t);
 
-    // Priority filter
-    if (priorityFilter !== "All" && t.priority !== priorityFilter) return false;
-    // Type filter
-    if (typeFilter !== "All" && t.taskType !== typeFilter) return false;
+      if (activeTab === "today") {
+        // "Today" tab: show tasks due today PLUS any overdue/pending tasks from previous days
+        // (carry-forward: uncompleted past tasks must still appear)
+        const dueToday = new Date(t.dueDate).toDateString() === todayStr;
+        const isCarryForward = eff === "Overdue" || (eff === "Pending" && isTaskOverdue(t));
+        if (t.status === "Completed") return false;         // never show completed tasks in Today
+        if (!dueToday && !isCarryForward) return false;    // only today or overdue carry-forwards
+      } else if (activeTab === "overdue") {
+        if (eff !== "Overdue") return false;
+      } else if (activeTab === "escalated") {
+        if (eff !== "Escalated") return false;
+      }
 
-    // Text Search
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      (t.title && t.title.toLowerCase().includes(q)) ||
-      (t.linkedStudentName && t.linkedStudentName.toLowerCase().includes(q)) ||
-      (t.description && t.description.toLowerCase().includes(q)) ||
-      (t.taskType && t.taskType.toLowerCase().includes(q))
-    );
-  });
+      // Priority filter
+      if (priorityFilter !== "All" && t.priority !== priorityFilter) return false;
+      // Type filter
+      if (typeFilter !== "All" && t.taskType !== typeFilter) return false;
 
-  // Metrics
-  const pendingCount = tasks.filter((t) => t.status === "Pending" || t.status === "In Progress").length;
-  const overdueCount = tasks.filter((t) => t.status === "Overdue").length;
-  const escalatedCount = tasks.filter((t) => t.isEscalated || t.status === "Escalated").length;
+      // Text Search
+      if (!searchQuery) return true;
+      const q = searchQuery.toLowerCase();
+      return (
+        (t.title && t.title.toLowerCase().includes(q)) ||
+        (t.linkedStudentName && t.linkedStudentName.toLowerCase().includes(q)) ||
+        (t.description && t.description.toLowerCase().includes(q)) ||
+        (t.taskType && t.taskType.toLowerCase().includes(q))
+      );
+    })
+    // Sort: Overdue first → High priority → due date ascending
+    .sort((a, b) => {
+      const aOverdue = effectiveStatus(a) === "Overdue" ? 0 : 1;
+      const bOverdue = effectiveStatus(b) === "Overdue" ? 0 : 1;
+      if (aOverdue !== bOverdue) return aOverdue - bOverdue;
+      const priorityOrder: Record<string, number> = { "Urgent / Escalated": 0, "High": 1, "Medium": 2, "Low": 3 };
+      const aPrio = priorityOrder[a.priority] ?? 4;
+      const bPrio = priorityOrder[b.priority] ?? 4;
+      if (aPrio !== bPrio) return aPrio - bPrio;
+      return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+    });
+
+  // Metrics (local detection for accuracy)
+  const pendingCount = tasks.filter((t) => ["Pending", "In Progress"].includes(effectiveStatus(t))).length;
+  const overdueCount = tasks.filter((t) => effectiveStatus(t) === "Overdue").length;
+  const escalatedCount = tasks.filter((t) => effectiveStatus(t) === "Escalated").length;
   const completedCount = tasks.filter((t) => t.status === "Completed").length;
 
   return (
@@ -239,7 +271,7 @@ export default function CounsellorTasksPage() {
                     activeTab === "today" ? "bg-blue-600 text-white shadow-xs" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   }`}
                 >
-                  Due Today
+                  Due Today + Overdue
                 </button>
                 <button
                   onClick={() => setActiveTab("overdue")}
@@ -328,9 +360,9 @@ export default function CounsellorTasksPage() {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, height: 0 }}
                       className={`p-5 border rounded-2xl transition-all shadow-2xs ${
-                        task.status === "Completed" ? "bg-slate-50 border-slate-200 opacity-65" :
-                        task.isEscalated || task.status === "Escalated" ? "bg-purple-50/40 border-purple-200" :
-                        task.status === "Overdue" ? "bg-rose-50/40 border-rose-200" :
+                        effectiveStatus(task) === "Completed" ? "bg-slate-50 border-slate-200 opacity-65" :
+                        effectiveStatus(task) === "Escalated" ? "bg-purple-50/40 border-purple-200" :
+                        effectiveStatus(task) === "Overdue" ? "bg-rose-50/40 border-rose-200" :
                         "bg-white border-slate-200/90 hover:border-indigo-300"
                       }`}
                     >
@@ -346,6 +378,12 @@ export default function CounsellorTasksPage() {
                             }`}>
                               {task.priority}
                             </span>
+
+                            {effectiveStatus(task) === "Overdue" && (
+                              <span className="bg-rose-100 text-rose-700 text-[10px] px-2 py-0.5 rounded-full font-bold border border-rose-200 animate-pulse">
+                                🔴 OVERDUE — Carry Forward
+                              </span>
+                            )}
 
                             {task.autoTriggerSource && (
                               <span className="bg-indigo-50 text-indigo-700 text-[10px] px-2 py-0.5 rounded-full font-bold border border-indigo-100">
@@ -363,13 +401,18 @@ export default function CounsellorTasksPage() {
                           )}
                         </div>
 
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center gap-2 shrink-0 flex-col sm:flex-row">
+                          {effectiveStatus(task) === "Overdue" && (
+                            <span className="text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-2 py-1 rounded-lg text-center">
+                              Due: {new Date(task.dueDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                            </span>
+                          )}
                           {task.status !== "Completed" && (
                             <button
                               onClick={() => handleCompleteTask(task._id)}
                               className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
                             >
-                              <span>Complete Task</span>
+                              <span>Complete</span>
                               <span>✓</span>
                             </button>
                           )}

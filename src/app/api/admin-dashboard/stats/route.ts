@@ -7,6 +7,8 @@ import User from "@/models/User";
 import Company from "@/models/Company";
 import Brand from "@/models/Brand";
 import LostLeadCounter from "@/models/LostLeadCounter";
+import Payroll from "@/models/Payroll";
+import Expense from "@/models/Expense";
 
 export async function GET(req: Request) {
   try {
@@ -80,7 +82,9 @@ export async function GET(req: Request) {
       admissionsWaitingCount,
       recentAdmDocs,
       recentLeadDocs,
-      allEnquiries
+      allEnquiries,
+      allPayrolls,
+      allExpenses
     ] = await Promise.all([
       Enquiry.countDocuments(globalFilter),
       Enquiry.countDocuments({ createdAt: dateRangeFilter, status: "New" }),
@@ -182,7 +186,11 @@ export async function GET(req: Request) {
       // Recent Activity & Table Data
       Admission.find().select("counsellor fullName course createdAt").sort({ createdAt: -1 }).limit(3).lean(),
       Enquiry.find().select("leadSource studentFullName createdAt").sort({ createdAt: -1 }).limit(3).lean(),
-      Enquiry.find().select("enquiryId studentFullName targetCourse assignedCrmAdvisor status leadPriority").sort({ createdAt: -1 }).limit(10).lean()
+      Enquiry.find().select("enquiryId studentFullName targetCourse assignedCrmAdvisor status leadPriority").sort({ createdAt: -1 }).limit(10).lean(),
+
+      // Payroll & Expenses
+      Payroll.find(isFiltered ? { paymentDate: dateRangeFilter } : {}).select("netSalary paymentStatus").lean(),
+      Expense.find(isFiltered ? { expenseDate: dateRangeFilter } : {}).select("amount category").lean()
     ]);
 
     // 1. Process KPIs
@@ -206,6 +214,27 @@ export async function GET(req: Request) {
       totalOverdueAmount += Number(a.remainingBalance || 0);
     });
 
+    // Compute Payroll & Expenses Totals
+    let totalPayrollSum = 0;
+    allPayrolls.forEach((pr: any) => {
+      if (pr.paymentStatus === "Paid") {
+        totalPayrollSum += Number(pr.netSalary || 0);
+      }
+    });
+
+    let totalExpensesSum = 0;
+    const categoryExpenseMap: Record<string, number> = {};
+    allExpenses.forEach((exp: any) => {
+      const amt = Number(exp.amount || 0);
+      totalExpensesSum += amt;
+      const cat = exp.category || "Misc";
+      categoryExpenseMap[cat] = (categoryExpenseMap[cat] || 0) + amt;
+    });
+
+    const totalOutflow = totalPayrollSum + totalExpensesSum;
+    const netProfitNum = totalCollection - totalOutflow;
+    const profitMarginPct = totalCollection > 0 ? ((netProfitNum / totalCollection) * 100).toFixed(1) + "%" : "0%";
+
     const conversionRate = totalLeads > 0 ? ((admissionsTotal / totalLeads) * 100).toFixed(1) + "%" : "0%";
 
     const kpis = {
@@ -217,34 +246,60 @@ export async function GET(req: Request) {
       lostLeadsToday: (Array.isArray(lostLeadsToday) ? lostLeadsToday : []).reduce((sum, item) => sum + (item.count || 0), 0),
       conversionRate,
       revenue: `₹${(totalCollection / 100000).toFixed(2)} L`,
+      rawRevenue: totalCollection,
       todayCollection: `₹${todayCollectionSum.toLocaleString("en-IN")}`,
       monthlyCollection: `₹${(monthlyCollectionSum / 100000).toFixed(2)} L`,
       emiOverdueCount: overdueAdmissions.length,
       emiOverdueAmount: `₹${(totalOverdueAmount / 100000).toFixed(2)} L`,
-      pendingApprovals: hotLeads, // Negotiation & special discount requests
+      pendingApprovals: hotLeads,
       pendingCalls,
       hotLeads,
+      totalPayroll: `₹${(totalPayrollSum / 100000).toFixed(2)} L`,
+      rawPayroll: totalPayrollSum,
+      totalExpenses: `₹${(totalExpensesSum / 100000).toFixed(2)} L`,
+      rawExpenses: totalExpensesSum,
+      totalOutflow: `₹${(totalOutflow / 100000).toFixed(2)} L`,
+      rawOutflow: totalOutflow,
+      netProfit: `₹${(netProfitNum / 100000).toFixed(2)} L`,
+      rawNetProfit: netProfitNum,
+      profitMargin: profitMarginPct,
+      isProfitable: netProfitNum >= 0
     };
 
-    // 2. Process Pipeline Overview
+    // Financial Breakdown
+    const financialSummary = {
+      revenue: totalCollection,
+      payroll: totalPayrollSum,
+      expenses: totalExpensesSum,
+      outflow: totalOutflow,
+      netProfit: netProfitNum,
+      profitMargin: profitMarginPct,
+      categoryExpenses: Object.entries(categoryExpenseMap).map(([category, amount]) => ({
+        category,
+        amount,
+        pct: totalExpensesSum > 0 ? ((amount / totalExpensesSum) * 100).toFixed(1) + "%" : "0%"
+      }))
+    };
+
+    // 2. Process Pipeline Overview (Dynamic Stage Aggregation)
     const statusMap = new Map(statusCountsGroup.map((g: any) => [g._id, g.count]));
-    const pipelineStages = [
+    const standardStages = [
       { stage: "New Lead", status: "New", color: "bg-blue-500" },
       { stage: "Contacted", status: "Contacted", color: "bg-sky-500" },
       { stage: "Counselling Scheduled", status: "Counselling Scheduled", color: "bg-orange-400" },
-      { stage: "Visited", status: "Demo Attended", color: "bg-purple-500" },
+      { stage: "Visited", status: "Visited", color: "bg-purple-500" },
       { stage: "Demo Attended", status: "Demo Attended", color: "bg-teal-500" },
       { stage: "Negotiation", status: "Negotiation", color: "bg-amber-500" },
       { stage: "Admission", status: "Admitted", color: "bg-emerald-500" }
     ];
 
-    const pipeline = pipelineStages.map((item) => {
+    const pipeline = standardStages.map((item) => {
       const count = (statusMap.get(item.status) as number) || 0;
       const pct = totalLeads > 0 ? ((count / totalLeads) * 100).toFixed(1) + "%" : "0%";
       return { stage: item.stage, count, pct, color: item.color };
     });
 
-    // 3. Process 30-Day Trend
+    // 3. Process 30-Day Trend (Dynamic date aggregation)
     const enquiryTrendMap = new Map(thirtyDayEnquiryTrends.map((g: any) => [g._id, g.count]));
     const admissionTrendMap = new Map(thirtyDayAdmissionTrends.map((g: any) => [g._id, g.count]));
     const followupTrendMap = new Map(thirtyDayFollowupTrends.map((g: any) => [g._id, g.count]));
@@ -275,41 +330,56 @@ export async function GET(req: Request) {
       });
     }
 
-    // 4. Process Source Distribution
-    const sourceMap = new Map(sourceCountsGroup.map((g: any) => [g._id, g.count]));
-    const sources = ["Instagram", "Google Ads", "Website", "Walk-in", "Facebook", "Others"];
-    const colors = ["bg-blue-500", "bg-cyan-500", "bg-emerald-500", "bg-amber-500", "bg-purple-500", "bg-slate-300"];
-    const sourceColorsHex = ["#3b82f6", "#06b6d4", "#10b981", "#f59e0b", "#a855f7", "#cbd5e1"];
+    // 4. Process Source Distribution (Fully Dynamic from MongoDB)
+    const colorsList = ["bg-blue-500", "bg-cyan-500", "bg-emerald-500", "bg-amber-500", "bg-purple-500", "bg-rose-500", "bg-slate-400"];
+    const hexList = ["#3b82f6", "#06b6d4", "#10b981", "#f59e0b", "#a855f7", "#f43f5e", "#94a3b8"];
 
-    const enquiriesBySource = sources.map((source, i) => {
-      let count = 0;
-      if (source === "Others") {
-        const known = (sourceMap.get("Meta Ads") || 0) + (sourceMap.get("Google Ads") || 0) + (sourceMap.get("Internet Search") || 0) + (sourceMap.get("Direct Walkin") || 0);
-        count = Math.max(0, totalLeads - known);
-      } else if (source === "Instagram" || source === "Facebook") {
-        count = sourceMap.get("Meta Ads") || 0;
-      } else if (source === "Walk-in") {
-        count = sourceMap.get("Direct Walkin") || 0;
-      } else if (source === "Website") {
-        count = sourceMap.get("Internet Search") || 0;
-      } else {
-        count = sourceMap.get(source) || 0;
-      }
+    const enquiriesBySource = sourceCountsGroup.map((srcGroup: any, i: number) => {
+      const label = srcGroup._id || "Direct Walkin";
+      const count = srcGroup.count || 0;
       const pctNum = totalLeads > 0 ? (count / totalLeads) * 100 : 0;
       return {
-        label: source,
+        label,
         count,
         pct: `${pctNum.toFixed(1)}%`,
         pctNum,
-        color: colors[i],
-        hex: sourceColorsHex[i]
+        color: colorsList[i % colorsList.length],
+        hex: hexList[i % hexList.length]
       };
     });
 
-    // 5. Process Counsellor Performance
+    if (enquiriesBySource.length === 0) {
+      enquiriesBySource.push({
+        label: "Direct Walkin",
+        count: 0,
+        pct: "0%",
+        pctNum: 0,
+        color: colorsList[0],
+        hex: hexList[0]
+      });
+    }
+
+    // 5. Process Counsellor Performance (Dynamic list merging registered counsellors and active advisors)
     const counsellorStatsMap = new Map(counsellorEnquiryStatsGroup.map((g: any) => [g._id, g]));
-    const counsellorPerformance = counsellors.map((c: any) => {
-      const cName = c.name || "";
+    
+    // Combine names from User model and Enquiry/Admission data
+    const registeredNames = counsellors.map((c: any) => c.name || "").filter(Boolean);
+    const assignedAdvisorNames = Array.from(counsellorStatsMap.keys()).filter(Boolean);
+    const admissionCounsellors = Array.from(new Set(admissionsList.map((a: any) => a.counsellor).filter(Boolean)));
+    
+    const allCounsellorNamesSet = new Set<string>();
+    registeredNames.forEach((n: string) => allCounsellorNamesSet.add(n));
+    assignedAdvisorNames.forEach((n: string) => {
+      // Find matching case or add
+      const match = Array.from(allCounsellorNamesSet).find((existing) => existing.toLowerCase() === n.toLowerCase());
+      if (!match) allCounsellorNamesSet.add(n);
+    });
+    admissionCounsellors.forEach((n: string) => {
+      const match = Array.from(allCounsellorNamesSet).find((existing) => existing.toLowerCase() === n.toLowerCase());
+      if (!match) allCounsellorNamesSet.add(n);
+    });
+
+    const counsellorPerformance = Array.from(allCounsellorNamesSet).map((cName: string) => {
       const lowerName = cName.toLowerCase();
       const cAdmissions = admissionsList.filter((a: any) => 
         a.counsellor && typeof a.counsellor === 'string' && a.counsellor.toLowerCase() === lowerName
@@ -336,10 +406,19 @@ export async function GET(req: Request) {
     });
     counsellorPerformance.sort((a: any, b: any) => b.admissions - a.admissions || b.rawRev - a.rawRev);
 
-    // 6. Process Brand Performance
+    // 6. Process Brand Performance (Dynamic)
     const brandStatsMap = new Map(brandEnquiryStatsGroup.map((g: any) => [g._id, g.count]));
-    const brandPerformance = brands.map((b: any) => {
-      const bName = b.name || "";
+    const registeredBrandNames = brands.map((b: any) => b.name || "").filter(Boolean);
+    const admissionBrandNames = Array.from(new Set(admissionsList.map((a: any) => a.brand).filter(Boolean)));
+
+    const allBrandNamesSet = new Set<string>();
+    registeredBrandNames.forEach((n: string) => allBrandNamesSet.add(n));
+    admissionBrandNames.forEach((n: string) => {
+      const match = Array.from(allBrandNamesSet).find((existing) => existing.toLowerCase() === n.toLowerCase());
+      if (!match) allBrandNamesSet.add(n);
+    });
+
+    const brandPerformance = Array.from(allBrandNamesSet).map((bName: string) => {
       const lowerBName = bName.toLowerCase();
       const bAdmissions = admissionsList.filter((a: any) => 
         a.brand && typeof a.brand === 'string' && a.brand.toLowerCase() === lowerBName
@@ -359,12 +438,12 @@ export async function GET(req: Request) {
     });
     brandPerformance.sort((a: any, b: any) => b.admissions - a.admissions);
 
-    // 7. Process Company Limit & Utilization
+    // 7. Process Company Limit & Utilization (Dynamic)
     const companyUtilization = companies.map((c: any) => {
       const cap = Number(c.annualCapacityCap || 1949999);
       const collected = Number(c.collectedRevenue || 0);
-      const usedPct = ((collected / cap) * 100).toFixed(1) + "%";
-      const remaining = cap - collected;
+      const usedPct = cap > 0 ? ((collected / cap) * 100).toFixed(1) + "%" : "0%";
+      const remaining = Math.max(0, cap - collected);
 
       return {
         name: c.name,
@@ -374,7 +453,7 @@ export async function GET(req: Request) {
       };
     });
 
-    // 8. Process Work Queue
+    // 8. Process Work Queue (Dynamic)
     const workQueue = {
       followUpsDue: followUpsToday,
       missedCalls: missedCallsCount,
@@ -383,12 +462,12 @@ export async function GET(req: Request) {
       feePending: pendingFeesCount
     };
 
-    // 9. Process Recent Activity
+    // 9. Process Recent Activity (Dynamic)
     const recentActivity: { text: string; time: string; color: string; timestamp: number }[] = [];
     
     recentAdmDocs.forEach((a: any) => {
       recentActivity.push({
-        text: `${a.counsellor || 'Someone'} admitted ${a.fullName} to ${a.course || "Course"}`,
+        text: `${a.counsellor || 'Counsellor'} admitted ${a.fullName} to ${a.course || "Course"}`,
         time: new Date(a.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         color: "bg-indigo-500",
         timestamp: new Date(a.createdAt).getTime()
@@ -397,7 +476,7 @@ export async function GET(req: Request) {
 
     recentLeadDocs.forEach((e: any) => {
       recentActivity.push({
-        text: `New lead from ${e.leadSource || "direct"}: ${e.studentFullName}`,
+        text: `New lead from ${e.leadSource || "Direct"}: ${e.studentFullName}`,
         time: new Date(e.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         color: "bg-emerald-500",
         timestamp: new Date(e.createdAt).getTime()
@@ -406,7 +485,7 @@ export async function GET(req: Request) {
 
     recentActivity.sort((a, b) => b.timestamp - a.timestamp);
 
-    // 10. Process Enquiries List
+    // 10. Process Enquiries List (Dynamic)
     const enquiriesList = allEnquiries.map((e: any) => ({
       id: e.enquiryId || e._id.toString().substring(0, 8).toUpperCase(),
       dbId: e._id.toString(),
@@ -421,6 +500,7 @@ export async function GET(req: Request) {
       success: true,
       data: {
         kpis,
+        financialSummary,
         pipeline,
         trendDays,
         enquiriesBySource,

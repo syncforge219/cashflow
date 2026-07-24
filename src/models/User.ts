@@ -72,9 +72,9 @@ const UserSchema = new Schema(
   }
 );
 
-if (mongoose.models && mongoose.models.User) {
-  delete (mongoose.models as any).User;
-}
+// Performance Indexes
+UserSchema.index({ role: 1 });
+UserSchema.index({ brandScope: 1 });
 
 const User = mongoose.models.User || mongoose.model("User", UserSchema);
 

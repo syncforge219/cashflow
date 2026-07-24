@@ -6,6 +6,8 @@ import Payment from "@/models/Payment";
 import Company from "@/models/Company";
 import Brand from "@/models/Brand";
 import Task from "@/models/Task";
+import Course from "@/models/Course";
+import Notification from "@/models/Notification";
 import { getUserFromCookies } from "@/lib/helper";
 import { sendWhatsAppFeeReceipt } from "@/lib/msg91";
 
@@ -59,10 +61,47 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Course Wise Max Discount Limit Validation & Notification Trigger
+    const courseDoc = await Course.findOne({
+      $or: [{ name: data.course }, { code: data.course }]
+    }).lean();
+
+    const maxAllowedLimit = Number(courseDoc?.maxDiscountLimit || 5000);
+    const totalDiscountGiven = Number(data.discountAmount || 0) + Number(data.scholarshipAmount || 0) + Number(data.additionalDiscount || 0);
+
+    data.maxDiscountLimitAtAdmission = maxAllowedLimit;
+
+    if (totalDiscountGiven > maxAllowedLimit) {
+      data.discountApprovalStatus = "Pending Approval";
+    } else {
+      data.discountApprovalStatus = "Approved";
+    }
+
     data.companyAssigned = finalCompany;
 
     const admission = new Admission(data);
     await admission.save();
+
+    // Trigger Notification for Admin if discount exceeds max limit
+    if (totalDiscountGiven > maxAllowedLimit) {
+      try {
+        await Notification.create({
+          title: `Discount Approval Request: ${admission.fullName}`,
+          message: `${admission.counsellor || 'Counsellor'} offered ₹${totalDiscountGiven.toLocaleString('en-IN')} discount on ${admission.course} (Max allowed limit: ₹${maxAllowedLimit.toLocaleString('en-IN')}). Admin approval required.`,
+          type: "discount_approval",
+          admissionId: admission._id.toString(),
+          studentFullName: admission.fullName,
+          courseName: admission.course,
+          requestedDiscount: totalDiscountGiven,
+          maxAllowedDiscount: maxAllowedLimit,
+          requestedBy: admission.counsellor || "Staff",
+          status: "Pending",
+          read: false
+        });
+      } catch (notifErr) {
+        console.error("Failed creating Notification:", notifErr);
+      }
+    }
 
     // Optionally update the original enquiry status if enquiryId is present
     if (data.enquiryId) {

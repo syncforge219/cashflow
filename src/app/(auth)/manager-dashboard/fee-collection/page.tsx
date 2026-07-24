@@ -33,6 +33,8 @@ interface AdmissionType {
     numInstallments: number;
     installmentAmount: number;
     counsellor: string;
+    totalCourseFee?: number;
+    dueAmount?: number;
     customEmiPlan?: { dueDate: string | Date; amount: number }[];
 }
 
@@ -177,7 +179,23 @@ export default function FeeCollectionPage() {
     };
 
     const selectStudent = async (student: AdmissionType) => {
-        setSelectedStudent(student);
+        const finalFeeVal = Number(student.finalFee ?? student.totalCourseFee ?? (student as any).totalFee ?? (student as any).expectedConversionFee ?? 0) || 0;
+        const dueAmountVal = Number(student.remainingBalance ?? student.dueAmount ?? (student as any).due ?? 0) || 0;
+
+        const normalizedStudent: AdmissionType = {
+            ...student,
+            fullName: student.fullName || (student as any).studentFullName || (student as any).studentName || "Student",
+            mobileNumber: student.mobileNumber || (student as any).primaryPhoneMobile || "N/A",
+            email: student.email || (student as any).emailAddress || "N/A",
+            course: student.course || (student as any).targetCourse || "General Course",
+            brand: student.brand || (student as any).targetBrand || "General Brand",
+            counsellor: student.counsellor || (student as any).assignedCrmAdvisor || "Staff",
+            finalFee: finalFeeVal,
+            remainingBalance: dueAmountVal,
+            totalCourseFee: finalFeeVal,
+        };
+
+        setSelectedStudent(normalizedStudent);
         setSearchQuery("");
         setShowDropdown(false);
         setAmountReceived("");
@@ -197,12 +215,10 @@ export default function FeeCollectionPage() {
         }
     };
 
-
-
-    // Live Math calculations
-    const totalFees = selectedStudent ? selectedStudent.finalFee : 0;
-    const currentDue = selectedStudent ? selectedStudent.remainingBalance : 0;
-    const totalPaid = selectedStudent ? totalFees - currentDue : 0;
+    // Live Math calculations (guaranteed numbers to prevent toLocaleString error)
+    const totalFees = selectedStudent ? (Number(selectedStudent.finalFee ?? selectedStudent.totalCourseFee ?? 0) || 0) : 0;
+    const currentDue = selectedStudent ? (Number(selectedStudent.remainingBalance ?? 0) || 0) : 0;
+    const totalPaid = selectedStudent ? Math.max(0, totalFees - currentDue) : 0;
 
     const registrationFee = selectedStudent ? Math.min(1000, totalFees) : 0;
     const courseFee = selectedStudent ? Math.max(0, totalFees - registrationFee) : 0;
@@ -210,7 +226,7 @@ export default function FeeCollectionPage() {
 
     // Distribute payments across categories (Registration -> Course)
     const regPaid = Math.min(registrationFee, totalPaid);
-    const coursePaid = totalPaid - regPaid;
+    const coursePaid = Math.max(0, totalPaid - regPaid);
     const examPaid = 0;
 
     // Dues
@@ -513,62 +529,77 @@ export default function FeeCollectionPage() {
                                 )}
 
                                 {/* Selected Student Details Card */}
-                                <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs flex flex-col md:flex-row gap-5">
-                                    <div className="flex items-center gap-4">
-                                        <div className="h-16 w-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-extrabold text-xl shadow-inner shrink-0 select-none">
-                                            {selectedStudent.fullName.charAt(0)}
-                                        </div>
-                                        <div className="space-y-1">
-                                            <div className="flex items-center gap-2">
-                                                <h2 className="text-base font-bold text-slate-800">{selectedStudent.fullName}</h2>
-                                                <span className="text-[9px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-md px-1.5 py-0.5 uppercase tracking-wide">
-                                                    Active
-                                                </span>
-                                            </div>
-                                            <p className="text-[10px] text-slate-400 font-semibold font-mono">Admission No.: {selectedStudent.admissionId}</p>
-                                            <div className="flex flex-col gap-0.5 text-[10px] text-slate-500 font-medium">
-                                                <span className="flex items-center gap-1">📞 {selectedStudent.mobileNumber}</span>
-                                                <span className="flex items-center gap-1">✉️ {selectedStudent.email}</span>
-                                            </div>
-                                        </div>
-                                    </div>
+                                {(() => {
+                                    const studentName = selectedStudent.fullName || (selectedStudent as any).studentFullName || (selectedStudent as any).studentName || "Student";
+                                    const studentMobile = selectedStudent.mobileNumber || (selectedStudent as any).primaryPhoneMobile || "N/A";
+                                    const studentEmail = selectedStudent.email || (selectedStudent as any).emailAddress || "N/A";
+                                    const studentCourse = selectedStudent.course || (selectedStudent as any).targetCourse || "General Course";
+                                    const studentBrand = selectedStudent.brand || (selectedStudent as any).targetBrand || "General Brand";
+                                    const studentCompany = selectedStudent.companyAssigned || (selectedStudent as any).company || "Default Company";
+                                    const studentCounsellor = selectedStudent.counsellor || (selectedStudent as any).assignedCrmAdvisor || "Staff";
+                                    const admissionDateVal = selectedStudent.admissionDate || (selectedStudent as any).createdAt;
 
-                                    {/* Divider line for MD screen */}
-                                    <div className="hidden md:block w-px bg-slate-100 self-stretch my-1"></div>
+                                    return (
+                                        <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs flex flex-col md:flex-row gap-5">
+                                            <div className="flex items-center gap-4">
+                                                <div className="h-16 w-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-extrabold text-xl shadow-inner shrink-0 select-none">
+                                                    {studentName.charAt(0).toUpperCase()}
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <h2 className="text-base font-bold text-slate-800">{studentName}</h2>
+                                                        <span className="text-[9px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-md px-1.5 py-0.5 uppercase tracking-wide">
+                                                            Active
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-[10px] text-slate-400 font-semibold font-mono">Admission No.: {selectedStudent.admissionId || (selectedStudent as any)._id}</p>
+                                                    <div className="flex flex-col gap-0.5 text-[10px] text-slate-500 font-medium">
+                                                        <span className="flex items-center gap-1">📞 {studentMobile}</span>
+                                                        <span className="flex items-center gap-1">✉️ {studentEmail}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
 
-                                    <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-y-3 gap-x-4 text-xs font-semibold text-slate-700">
-                                        <div>
-                                            <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Course</span>
-                                            <span className="text-slate-800">{selectedStudent.course}</span>
+                                            {/* Divider line for MD screen */}
+                                            <div className="hidden md:block w-px bg-slate-100 self-stretch my-1"></div>
+
+                                            <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-y-3 gap-x-4 text-xs font-semibold text-slate-700">
+                                                <div>
+                                                    <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Course</span>
+                                                    <span className="text-slate-800">{studentCourse}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Batch</span>
+                                                    <span className="text-slate-800">{selectedStudent.batch || "Regular Batch"}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Brand</span>
+                                                    <span className="text-slate-800">{studentBrand}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Company</span>
+                                                    <span className="text-slate-800">{studentCompany}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Admission Date</span>
+                                                    <span className="text-slate-800">
+                                                        {admissionDateVal
+                                                            ? new Date(admissionDateVal).toLocaleDateString("en-IN", {
+                                                                day: "numeric",
+                                                                month: "short",
+                                                                year: "numeric",
+                                                            })
+                                                            : "N/A"}
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Counsellor</span>
+                                                    <span className="text-slate-800">{studentCounsellor}</span>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Batch</span>
-                                            <span className="text-slate-800">{selectedStudent.batch}</span>
-                                        </div>
-                                        <div>
-                                            <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Brand</span>
-                                            <span className="text-slate-800">{selectedStudent.brand}</span>
-                                        </div>
-                                        <div>
-                                            <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Company</span>
-                                            <span className="text-slate-800">{selectedStudent.companyAssigned}</span>
-                                        </div>
-                                        <div>
-                                            <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Admission Date</span>
-                                            <span className="text-slate-800">
-                                                {new Date(selectedStudent.admissionDate).toLocaleDateString("en-IN", {
-                                                    day: "numeric",
-                                                    month: "short",
-                                                    year: "numeric",
-                                                })}
-                                            </span>
-                                        </div>
-                                        <div>
-                                            <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Counsellor</span>
-                                            <span className="text-slate-800">{selectedStudent.counsellor}</span>
-                                        </div>
-                                    </div>
-                                </div>
+                                    );
+                                })()}
 
                                 {/* 1. Fee Details Table */}
                                 <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs space-y-4">

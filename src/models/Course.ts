@@ -38,6 +38,10 @@ const CourseSchema = new Schema(
       default: "ACTIVE",
       enum: ["ACTIVE", "INACTIVE"],
     },
+    maxDiscountLimit: {
+      type: Number,
+      default: 5000,
+    },
   },
   {
     timestamps: true,

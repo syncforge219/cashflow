@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
-import { useEffect } from "react";
+import { extractDominantColor, applyBrandTheme } from "@/lib/theme";
 
 interface RegisterBrandModalProps {
   isOpen: boolean;
@@ -24,10 +24,50 @@ export default function RegisterBrandModal({ isOpen, onClose, brandToEdit }: Reg
     receiptTemplateUrl: "",
     receiptTerms: "",
   });
+
   const [availableCompanies, setAvailableCompanies] = useState<{ id: string; name: string }[]>([]);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [isUploadingPdf, setIsUploadingPdf] = useState(false);
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Direct Brand Logo Image File Upload
+  const handleLogoFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Brand logo file size must be less than 5MB.");
+      return;
+    }
+
+    setIsUploadingLogo(true);
+    try {
+      const data = new FormData();
+      data.append("file", file);
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: data,
+      });
+      const result = await res.json();
+
+      if (res.ok && result.success) {
+        setFormData((prev) => ({ ...prev, logoUrl: result.url }));
+
+        // Extract dominant brand color & automatically apply theme across all dashboards
+        const themeColor = await extractDominantColor(result.url);
+        applyBrandTheme(themeColor);
+      } else {
+        alert(result.message || "Failed to upload logo image.");
+      }
+    } catch (err) {
+      console.error("Error uploading logo:", err);
+      alert("Error uploading brand logo image.");
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  };
+
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -111,13 +151,13 @@ export default function RegisterBrandModal({ isOpen, onClose, brandToEdit }: Reg
       const isEdit = !!brandToEdit;
       const url = isEdit ? `/api/brands/${brandToEdit._id || brandToEdit.id}` : "/api/brands";
       const method = isEdit ? "PUT" : "POST";
-      
+
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
-      
+
       if (res.ok) {
         window.location.reload();
       } else {
@@ -159,7 +199,7 @@ export default function RegisterBrandModal({ isOpen, onClose, brandToEdit }: Reg
 
         {/* Modal Body (Scrollable) */}
         <div className="p-6 overflow-y-auto space-y-6">
-          
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Brand Name *</label>
@@ -186,16 +226,66 @@ export default function RegisterBrandModal({ isOpen, onClose, brandToEdit }: Reg
             </div>
           </div>
 
-          <div>
-            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Brand Logo URL</label>
-            <input
-              type="text"
-              name="logoUrl"
-              value={formData.logoUrl}
-              onChange={handleChange}
-              placeholder="https://images.unsplash.com/... or blank for custom monogram"
-              className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
-            />
+          {/* BRAND LOGO FILE UPLOAD SECTION */}
+          <div className="p-4 bg-slate-50/80 border border-slate-200 rounded-2xl space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-800 uppercase tracking-wider">
+                  Upload Brand Logo Image *
+                </label>
+                <p className="text-[10px] text-slate-500 font-medium">
+                  Select a PNG, JPG, WebP, or SVG logo file from your computer
+                </p>
+              </div>
+              {formData.logoUrl && (
+                <div className="flex items-center gap-2">
+                  <div className="h-10 w-10 rounded-lg border border-slate-200 bg-white p-1 shadow-xs flex items-center justify-center overflow-hidden shrink-0">
+                    <img src={formData.logoUrl} alt="Brand Logo Preview" className="max-h-full max-w-full object-contain" />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFormData((prev) => ({ ...prev, logoUrl: "" }))}
+                    className="text-[10px] text-rose-500 font-bold hover:underline"
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">
+                  Upload Image File
+                </label>
+                <input
+                  type="file"
+                  accept="image/png, image/jpeg, image/webp, image/svg+xml"
+                  onChange={handleLogoFileUpload}
+                  disabled={isUploadingLogo}
+                  className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2 focus:outline-none file:mr-3 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[10px] file:font-bold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer"
+                />
+                {isUploadingLogo && (
+                  <span className="text-[10px] font-bold text-indigo-600 animate-pulse mt-1 block">
+                    Uploading brand logo image...
+                  </span>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">
+                  Logo Image URL (Or direct link)
+                </label>
+                <input
+                  type="text"
+                  name="logoUrl"
+                  value={formData.logoUrl}
+                  onChange={handleChange}
+                  placeholder="/uploads/123-logo.png or https://..."
+                  className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                />
+              </div>
+            </div>
           </div>
 
           <div>
@@ -334,7 +424,7 @@ export default function RegisterBrandModal({ isOpen, onClose, brandToEdit }: Reg
                 <input
                   type="file"
                   accept="application/pdf,image/*"
-                  onChange={handleFileUpload}
+                  onChange={handlePdfUpload}
                   disabled={isUploadingPdf}
                   className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2 focus:outline-none file:mr-3 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[10px] file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
                 />

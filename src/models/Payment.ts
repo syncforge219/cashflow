@@ -51,6 +51,11 @@ const PaymentSchema = new Schema(
   }
 );
 
+// Performance Indexes
+PaymentSchema.index({ admissionId: 1 });
+PaymentSchema.index({ receiptNo: 1 });
+PaymentSchema.index({ createdAt: -1 });
+
 // Auto-generate receiptNo before saving
 PaymentSchema.pre("save", async function () {
   if (!this.receiptNo) {

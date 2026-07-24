@@ -98,6 +98,12 @@ const TaskSchema = new Schema(
   }
 );
 
+// Performance Indexes
+TaskSchema.index({ assignedTo: 1 });
+TaskSchema.index({ dueDate: 1 });
+TaskSchema.index({ status: 1 });
+TaskSchema.index({ createdAt: -1 });
+
 // Prevent mongoose model re-compilation error in Next.js development hot-reloads
 const Task = mongoose.models.Task || mongoose.model("Task", TaskSchema);
 

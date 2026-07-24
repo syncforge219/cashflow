@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import AddCourseModal from "./AddCourseModal";
+import ImportCourseModal from "./ImportCourseModal";
 import DeleteConfirmModal from "./DeleteConfirmModal";
 import { useUser } from "@/app/component/context/user-context";
 
@@ -10,6 +11,7 @@ export default function CourseDisplay() {
   const [courses, setCourses] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   // Delete Modal state
   const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string } | null>(null);
@@ -211,10 +213,19 @@ export default function CourseDisplay() {
 
         {/* Buttons */}
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsImportModalOpen(true)}
+            className="flex items-center gap-1.5 text-xs font-bold border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-xl px-4 py-2 shadow-xs transition-all cursor-pointer"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4 text-indigo-600">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+            </svg>
+            Bulk Import Courses
+          </button>
 
           <button
             onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center gap-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl px-4 py-2 shadow-md shadow-indigo-600/10 transition-all"
+            className="flex items-center gap-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl px-4 py-2 shadow-md shadow-indigo-600/10 transition-all cursor-pointer"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -333,6 +344,7 @@ export default function CourseDisplay() {
                 <th className="py-3 px-6">Category</th>
                 <th className="py-3 px-6">Duration</th>
                 <th className="py-3 px-6">Fee (INR)</th>
+                <th className="py-3 px-6">Max Discount Limit</th>
                 <th className="py-3 px-6">Status</th>
                 <th className="py-3 px-6 text-center">Actions</th>
               </tr>
@@ -340,7 +352,7 @@ export default function CourseDisplay() {
             <tbody className="divide-y divide-slate-100 font-semibold text-slate-600">
               {isLoading ? (
                 <tr>
-                  <td colSpan={7} className="py-10 text-center text-slate-400 select-none">
+                  <td colSpan={8} className="py-10 text-center text-slate-400 select-none">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <div className="h-5 w-5 border-2 border-indigo-600/30 border-t-indigo-600 rounded-full animate-spin"></div>
                       <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400/80">Loading courses...</span>
@@ -349,7 +361,7 @@ export default function CourseDisplay() {
                 </tr>
               ) : filteredCourses.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400 select-none">
+                  <td colSpan={8} className="py-12 text-center text-slate-400 select-none">
                     No courses found. Add a course to get started!
                   </td>
                 </tr>
@@ -389,6 +401,14 @@ export default function CourseDisplay() {
                     {/* Fee */}
                     <td className="py-4 px-6 text-slate-800 font-bold">
                       {course.fee}
+                    </td>
+
+                    {/* Max Discount Limit */}
+                    <td className="py-4 px-6">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 rounded-lg px-2 py-0.5">
+                        <span>🏷️</span>
+                        <span>₹{Number(course.maxDiscountLimit || 5000).toLocaleString('en-IN')} Cap</span>
+                      </span>
                     </td>
 
                     {/* Status */}
@@ -457,6 +477,16 @@ export default function CourseDisplay() {
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onSuccess={handleAddSuccess}
+      />
+
+      {/* Bulk Import Course Modal */}
+      <ImportCourseModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onSuccess={() => {
+          setIsImportModalOpen(false);
+          fetchCourses();
+        }}
       />
 
       {/* Reusable Delete Confirmation Modal */}

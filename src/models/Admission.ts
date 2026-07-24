@@ -41,6 +41,12 @@ const AdmissionSchema = new Schema(
     additionalDiscount: { type: Number, default: 0 },
     totalDiscount: { type: Number, default: 0 },
     finalFee: { type: Number, required: true },
+    discountApprovalStatus: {
+      type: String,
+      enum: ["Approved", "Pending Approval", "Rejected"],
+      default: "Approved",
+    },
+    maxDiscountLimitAtAdmission: { type: Number, default: 0 },
 
     // 4. Payment & EMI
     paymentMode: { type: String, required: true },
@@ -60,6 +66,13 @@ const AdmissionSchema = new Schema(
     timestamps: true,
   }
 );
+
+// Performance Indexes
+AdmissionSchema.index({ admissionId: 1 });
+AdmissionSchema.index({ counsellor: 1 });
+AdmissionSchema.index({ brand: 1 });
+AdmissionSchema.index({ createdAt: -1 });
+AdmissionSchema.index({ mobileNumber: 1 });
 
 // Auto-generate admissionId
 AdmissionSchema.pre("save", async function () {

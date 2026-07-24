@@ -46,9 +46,21 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
   const [scholarshipType, setScholarshipType] = useState("None");
   const [scholarshipAmount, setScholarshipAmount] = useState(0);
   const [discountType, setDiscountType] = useState("None");
+  const [discountUnitMode, setDiscountUnitMode] = useState<"INR" | "PERCENT">("INR");
+  const [discountInputValue, setDiscountInputValue] = useState(0);
   const [discountAmount, setDiscountAmount] = useState(0);
   const [additionalDiscount, setAdditionalDiscount] = useState(0);
   const [discountReason, setDiscountReason] = useState("");
+
+  // Auto recalculate discountAmount when percentage, mode, or courseFee changes
+  useEffect(() => {
+    if (discountUnitMode === "PERCENT") {
+      const computedInr = Math.round((courseFee * discountInputValue) / 100);
+      setDiscountAmount(computedInr);
+    } else {
+      setDiscountAmount(discountInputValue);
+    }
+  }, [discountUnitMode, discountInputValue, courseFee]);
 
   // Calculated Fees
   const totalDiscount = scholarshipAmount + discountAmount + additionalDiscount;
@@ -410,6 +422,27 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
                   <div className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs">3</div>
                   Discount & Scholarship
                 </h2>
+                <div className="flex items-center gap-1.5 bg-white p-1 rounded-xl border border-slate-200 shadow-2xs">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">Discount Mode:</span>
+                  <button
+                    type="button"
+                    onClick={() => setDiscountUnitMode("INR")}
+                    className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      discountUnitMode === "INR" ? "bg-indigo-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-800"
+                    }`}
+                  >
+                    ₹ INR
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDiscountUnitMode("PERCENT")}
+                    className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      discountUnitMode === "PERCENT" ? "bg-indigo-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-800"
+                    }`}
+                  >
+                    % Percent
+                  </button>
+                </div>
               </div>
               <div className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -439,8 +472,25 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
                     </select>
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-500">Discount Amount (₹)</label>
-                    <input type="number" step="any" value={discountAmount} onChange={e=>setDiscountAmount(Number(e.target.value))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white" />
+                    <label className="text-xs font-bold text-slate-500 flex items-center justify-between">
+                      <span>Discount ({discountUnitMode === "INR" ? "₹ INR" : "% Percent"})</span>
+                      {discountUnitMode === "PERCENT" && (
+                        <span className="text-[10px] text-emerald-600 font-extrabold">= ₹{discountAmount.toLocaleString()}</span>
+                      )}
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step="any"
+                        value={discountInputValue}
+                        onChange={e => setDiscountInputValue(Number(e.target.value))}
+                        placeholder={discountUnitMode === "INR" ? "Amount in ₹" : "% Discount"}
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white pr-12"
+                      />
+                      <span className="absolute right-3 top-2.5 text-xs font-bold text-slate-400">
+                        {discountUnitMode === "INR" ? "₹" : "%"}
+                      </span>
+                    </div>
                   </div>
                 </div>
 

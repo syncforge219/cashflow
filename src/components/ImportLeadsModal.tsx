@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import ExcelJS from "exceljs";
 
 interface ImportLeadsModalProps {
@@ -16,15 +16,31 @@ export default function ImportLeadsModal({ isOpen, onClose, onSuccess }: ImportL
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  
+  // Counsellor assignment state
+  const [counsellors, setCounsellors] = useState<any[]>([]);
+  const [assignedCounsellor, setAssignedCounsellor] = useState<string>("auto");
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetch("/api/counsellors")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && Array.isArray(data.counsellors)) {
+            setCounsellors(data.counsellors);
+          }
+        })
+        .catch((err) => console.error("Failed to fetch counsellors:", err));
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
   // Key normalization map for Leads
   const normalizeKey = (k: string) => {
     const norm = k.replace(/[^a-z0-9_]/gi, "").toLowerCase();
-    if (norm.includes("parentmobile") || norm.includes("parentscontact") || norm.includes("parentsphone")) return "parentMobile";
-    if (norm.includes("parentname") || norm.includes("parentsname")) return "parentName";
     if (norm.includes("parentmobile") || norm.includes("parentscontact") || norm.includes("parentsphone")) return "parentMobile";
     if (norm.includes("parentname") || norm.includes("parentsname")) return "parentName";
     if (norm.includes("mobile") || norm.includes("phone")) return "mobile";
@@ -35,6 +51,7 @@ export default function ImportLeadsModal({ isOpen, onClose, onSuccess }: ImportL
     if (norm.includes("source")) return "leadSource";
     if (norm.includes("priority")) return "priority";
     if (norm.includes("fee")) return "expectedFee";
+    if (norm.includes("counsellor") || norm.includes("advisor")) return "assignedCrmAdvisor";
     if (norm.includes("remark") || norm.includes("comment")) return "remarks";
     if (norm.includes("name")) return "name";
     return k;
@@ -201,7 +218,10 @@ export default function ImportLeadsModal({ isOpen, onClose, onSuccess }: ImportL
       const response = await fetch("/api/enquiries/bulk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(previewData),
+        body: JSON.stringify({
+          leads: previewData,
+          assignedCounsellor: assignedCounsellor,
+        }),
       });
 
       const resData = await response.json();
@@ -212,7 +232,6 @@ export default function ImportLeadsModal({ isOpen, onClose, onSuccess }: ImportL
         setPastedText("");
         if (fileInputRef.current) fileInputRef.current.value = "";
         
-        // Wait briefly for success display then trigger reload
         setTimeout(() => {
           onSuccess();
           onClose();
@@ -241,7 +260,7 @@ export default function ImportLeadsModal({ isOpen, onClose, onSuccess }: ImportL
             </div>
             <div>
               <h2 className="text-xl font-bold text-slate-800">Bulk Import CRM Leads</h2>
-              <p className="text-xs text-slate-500 font-medium">Upload via CSV or Paste Data</p>
+              <p className="text-xs text-slate-500 font-medium">Upload via CSV/Excel and assign to counsellor</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors">
@@ -271,13 +290,33 @@ export default function ImportLeadsModal({ isOpen, onClose, onSuccess }: ImportL
             </div>
           )}
 
+          {/* Counsellor Selection Dropdown */}
+          <div className="mb-5 bg-indigo-50/70 border border-indigo-100 p-3.5 rounded-2xl">
+            <label className="block text-xs font-bold text-indigo-900 mb-1.5 flex items-center justify-between">
+              <span>👤 Assign Uploaded Leads To Counsellor:</span>
+              <span className="text-[10px] font-semibold text-indigo-600">Select target advisor for this file batch</span>
+            </label>
+            <select
+              value={assignedCounsellor}
+              onChange={(e) => setAssignedCounsellor(e.target.value)}
+              className="w-full text-xs font-bold text-slate-800 bg-white border border-indigo-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
+            >
+              <option value="auto">⚡ Auto Round-Robin / Auto Assign</option>
+              {counsellors.map((c: any) => (
+                <option key={c._id || c.name} value={c.name}>
+                  {c.name} ({c.brandScope || "All Brands"})
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="mb-6">
-            <p className="text-sm text-slate-600 mb-2 leading-relaxed">
-              Upload a structured CSV file containing contact records. Supported headers are:
+            <p className="text-xs text-slate-600 mb-2 leading-relaxed">
+              Upload a structured CSV or Excel file containing contact records. Supported headers are:
             </p>
             <div className="flex flex-wrap gap-1">
-              {['Name', 'Mobile', 'ParentName', 'ParentContact', 'Email', 'City', 'Course', 'Brand', 'LeadSource', 'Priority', 'ExpectedFee', 'Remarks'].map(h => (
-                <span key={h} className="px-2 py-1 bg-slate-100 text-slate-700 text-xs font-mono rounded-md border border-slate-200">
+              {['Name', 'Mobile', 'ParentName', 'ParentContact', 'Email', 'City', 'Course', 'Brand', 'Counsellor', 'LeadSource', 'Priority', 'ExpectedFee', 'Remarks'].map(h => (
+                <span key={h} className="px-2 py-1 bg-slate-100 text-slate-700 text-[11px] font-mono rounded-md border border-slate-200">
                   {h}
                 </span>
               ))}
@@ -293,20 +332,20 @@ export default function ImportLeadsModal({ isOpen, onClose, onSuccess }: ImportL
               onChange={handleFileUpload}
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
             />
-            <div className="w-16 h-16 bg-white border border-slate-100 shadow-sm rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+            <div className="w-16 h-16 bg-white border border-slate-100 shadow-xs rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-8 h-8 text-indigo-500">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
               </svg>
             </div>
-            <h3 className="text-lg font-bold text-slate-800 mb-1">Drag & Drop or Click to browse</h3>
-            <p className="text-sm text-slate-500">Accepts CSV and Excel (.xlsx) files</p>
+            <h3 className="text-base font-bold text-slate-800 mb-1">Drag & Drop or Click to browse file</h3>
+            <p className="text-xs text-slate-500">Accepts CSV and Excel (.xlsx, .xls) files</p>
           </div>
 
           {/* Preview Section */}
           {previewData.length > 0 && (
             <div className="mt-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-bold text-slate-800">Preview Data ({previewData.length} records)</h3>
+                <h3 className="text-xs font-bold text-slate-800">Preview Data ({previewData.length} records)</h3>
                 <button 
                   onClick={() => { setPreviewData([]); if (fileInputRef.current) fileInputRef.current.value = ""; }}
                   className="text-xs text-rose-500 hover:text-rose-600 font-semibold"
@@ -318,29 +357,31 @@ export default function ImportLeadsModal({ isOpen, onClose, onSuccess }: ImportL
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider font-bold text-slate-500">
-                        <th className="px-4 py-3 whitespace-nowrap">Name</th>
-                        <th className="px-4 py-3 whitespace-nowrap">Mobile</th>
-                        <th className="px-4 py-3 whitespace-nowrap">Parent Contact</th>
-                        <th className="px-4 py-3 whitespace-nowrap">Course</th>
-                        <th className="px-4 py-3 whitespace-nowrap">Brand</th>
+                      <tr className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase tracking-wider font-bold text-slate-500">
+                        <th className="px-4 py-2.5 whitespace-nowrap">Name</th>
+                        <th className="px-4 py-2.5 whitespace-nowrap">Mobile</th>
+                        <th className="px-4 py-2.5 whitespace-nowrap">Course</th>
+                        <th className="px-4 py-2.5 whitespace-nowrap">Brand</th>
+                        <th className="px-4 py-2.5 whitespace-nowrap">Assigned Counsellor</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 text-sm">
+                    <tbody className="divide-y divide-slate-100 text-xs font-semibold">
                       {previewData.slice(0, 5).map((row, i) => (
                         <tr key={i} className="hover:bg-slate-50/50">
-                          <td className="px-4 py-3 font-medium text-slate-800">{row.name || <span className="text-slate-300 italic">Empty</span>}</td>
-                          <td className="px-4 py-3 text-slate-600">{row.mobile || "-"}</td>
-                          <td className="px-4 py-3 text-slate-600">{row.parentMobile || "-"}</td>
-                          <td className="px-4 py-3 text-slate-600">{row.course || "-"}</td>
-                          <td className="px-4 py-3 text-slate-600">{row.brand || "-"}</td>
+                          <td className="px-4 py-2.5 font-bold text-slate-800">{row.name || <span className="text-slate-300 italic">Empty</span>}</td>
+                          <td className="px-4 py-2.5 text-slate-600">{row.mobile || "-"}</td>
+                          <td className="px-4 py-2.5 text-slate-600">{row.course || "-"}</td>
+                          <td className="px-4 py-2.5 text-slate-600">{row.brand || "-"}</td>
+                          <td className="px-4 py-2.5 text-indigo-600 font-bold">
+                            {row.assignedCrmAdvisor || (assignedCounsellor === "auto" ? "⚡ Auto Assign" : assignedCounsellor)}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
                 {previewData.length > 5 && (
-                  <div className="bg-slate-50 border-t border-slate-200 p-3 text-center text-xs text-slate-500 font-medium">
+                  <div className="bg-slate-50 border-t border-slate-200 p-2.5 text-center text-xs text-slate-500 font-medium">
                     Showing 5 of {previewData.length} records
                   </div>
                 )}
@@ -354,14 +395,14 @@ export default function ImportLeadsModal({ isOpen, onClose, onSuccess }: ImportL
           <button 
             onClick={onClose}
             disabled={isSubmitting}
-            className="px-5 py-2.5 text-sm font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 hover:text-slate-900 rounded-xl transition-all disabled:opacity-50"
+            className="px-5 py-2.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 hover:text-slate-900 rounded-xl transition-all disabled:opacity-50"
           >
             Cancel
           </button>
           <button 
             onClick={handleImportSubmit}
             disabled={isSubmitting || previewData.length === 0}
-            className="px-5 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl shadow-md shadow-indigo-600/20 transition-all disabled:opacity-50 disabled:shadow-none flex items-center gap-2"
+            className="px-5 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl shadow-md shadow-indigo-600/20 transition-all disabled:opacity-50 disabled:shadow-none flex items-center gap-2"
           >
             {isSubmitting ? (
               <>
@@ -372,7 +413,7 @@ export default function ImportLeadsModal({ isOpen, onClose, onSuccess }: ImportL
                 Importing...
               </>
             ) : (
-              "Confirm Import"
+              "Confirm Import & Assign"
             )}
           </button>
         </div>

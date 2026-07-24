@@ -7,19 +7,27 @@ import { getUserFromCookies } from "@/lib/helper";
 export async function POST(req: Request) {
   try {
     await dbConnect();
-    const leadsBatch = await req.json();
+    const body = await req.json();
     const currentUser = await getUserFromCookies();
+
+    let leadsBatch: any[] = [];
+    let overrideCounsellor = "";
+
+    if (Array.isArray(body)) {
+      leadsBatch = body;
+    } else if (body && typeof body === "object" && Array.isArray(body.leads)) {
+      leadsBatch = body.leads;
+      overrideCounsellor = body.assignedCounsellor || "";
+    } else {
+      return NextResponse.json(
+        { success: false, message: "Payload must be a JSON Array or an Object with a 'leads' array." },
+        { status: 400 }
+      );
+    }
 
     // Fetch all counsellors for round-robin assignment
     const allCounsellors = await User.find({ role: "counsellor" }).lean();
     const brandIndexMap: Record<string, number> = {};
-
-    if (!Array.isArray(leadsBatch)) {
-      return NextResponse.json(
-        { success: false, message: "Payload must be a JSON Array of leads." },
-        { status: 400 }
-      );
-    }
 
     if (leadsBatch.length === 0) {
       return NextResponse.json(
@@ -65,18 +73,25 @@ export async function POST(req: Request) {
             currency: "INR",
           }).format(numFee);
         } else {
-            feeVal = "₹0";
+          feeVal = "₹0";
         }
       }
 
-      // Round-robin assignment logic or counsellor self-assignment
+      // Counsellor Assignment Hierarchy:
+      // 1. Row-level specified advisor (if in CSV)
+      // 2. Override counsellor selected in upload modal
+      // 3. Counsellor self-assignment (if logged in user is counsellor)
+      // 4. Round-robin auto-assignment
       const eligibleCounsellors = allCounsellors.filter((c: any) => 
         c.brandScope?.toLowerCase() === leadBrand.toLowerCase() || c.brandScope === "All Brands" || c.brandScope === "All"
       );
       
-      let assignedName = currentUser?.name || "Unassigned";
-      
-      if (currentUser?.role === "counsellor" && currentUser?.name) {
+      let assignedName = "";
+      if (row.assignedCrmAdvisor && String(row.assignedCrmAdvisor).trim()) {
+        assignedName = String(row.assignedCrmAdvisor).trim();
+      } else if (overrideCounsellor && overrideCounsellor !== "auto") {
+        assignedName = overrideCounsellor;
+      } else if (currentUser?.role === "counsellor" && currentUser?.name) {
         assignedName = currentUser.name;
       } else if (eligibleCounsellors.length > 0) {
         if (brandIndexMap[leadBrand] === undefined) {
@@ -85,6 +100,8 @@ export async function POST(req: Request) {
         const cIndex = brandIndexMap[leadBrand] % eligibleCounsellors.length;
         assignedName = eligibleCounsellors[cIndex].name;
         brandIndexMap[leadBrand]++;
+      } else {
+        assignedName = currentUser?.name || "Unassigned";
       }
 
       const todayDate = new Date().toISOString().split("T")[0];
@@ -111,7 +128,7 @@ export async function POST(req: Request) {
             time: currentTime,
             priority: row.priority ? String(row.priority).trim() : "Medium",
             typeOfContact: "Initial Contact",
-            remarks: row.remarks ? String(row.remarks).trim() : "New lead uploaded and assigned",
+            remarks: row.remarks ? String(row.remarks).trim() : `New lead uploaded and assigned to ${assignedName}`,
             status: "Pending",
             plannedBy: currentUser?.name || "System",
             isCompleted: false,
@@ -151,15 +168,15 @@ export async function POST(req: Request) {
     // 3. Save sequentially to avoid race condition with ENQ ID generation
     const insertedLeads = [];
     for (const leadData of leadsToInsert) {
-        const newLead = new Enquiry(leadData);
-        await newLead.save();
-        insertedLeads.push(newLead);
+      const newLead = new Enquiry(leadData);
+      await newLead.save();
+      insertedLeads.push(newLead);
     }
 
     return NextResponse.json(
       {
         success: true,
-        message: `Successfully imported ${insertedLeads.length} leads.`,
+        message: `Successfully imported ${insertedLeads.length} leads assigned to ${overrideCounsellor || 'counsellors'}.`,
         errors: errors.length > 0 ? errors : undefined,
       },
       { status: 200 }

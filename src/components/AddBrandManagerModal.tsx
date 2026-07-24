@@ -20,6 +20,26 @@ export default function AddBrandManagerModal({ isOpen, onClose, onSuccess }: Add
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [dbBrands, setDbBrands] = useState<{ name: string }[]>([]);
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const fetchBrands = async () => {
+      try {
+        const res = await fetch("/api/brands");
+        const data = await res.json();
+        if (res.ok && data.success && Array.isArray(data.brands)) {
+          setDbBrands(data.brands);
+          if (data.brands.length > 0 && !formData.brandScope) {
+            setFormData(prev => ({ ...prev, brandScope: data.brands[0].name }));
+          }
+        }
+      } catch (err) {
+        console.error("Failed fetching brands:", err);
+      }
+    };
+    fetchBrands();
+  }, [isOpen]);
 
   React.useEffect(() => {
     if (isOpen) {
@@ -29,11 +49,11 @@ export default function AddBrandManagerModal({ isOpen, onClose, onSuccess }: Add
         email: "",
         phone: "+91 ",
         photoUrl: "",
-        brandScope: "Cadd Mantra",
+        brandScope: dbBrands[0]?.name || "Cadd Mantra",
         password: "",
       });
     }
-  }, [isOpen]);
+  }, [isOpen, dbBrands]);
 
   if (!isOpen) return null;
 
@@ -196,9 +216,16 @@ export default function AddBrandManagerModal({ isOpen, onClose, onSuccess }: Add
                 className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all appearance-none cursor-pointer"
                 required
               >
-                <option value="Cadd Mantra">Cadd Mantra</option>
-                <option value="Design Gateway">Design Gateway</option>
-                <option value="Corporate Enterprise">Corporate Enterprise</option>
+                {dbBrands.length > 0 ? (
+                  dbBrands.map((b, idx) => (
+                    <option key={idx} value={b.name}>{b.name}</option>
+                  ))
+                ) : (
+                  <>
+                    <option value="Cadd Mantra">Cadd Mantra</option>
+                    <option value="Design Gateway">Design Gateway</option>
+                  </>
+                )}
               </select>
             </div>
 

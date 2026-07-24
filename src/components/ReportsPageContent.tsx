@@ -13,27 +13,20 @@ interface ReportsPageContentProps {
   role: "admin" | "manager";
 }
 
-const AVAILABLE_COLUMNS = [
-  { id: "studentName", label: "Student Name" },
-  { id: "mobileNumber", label: "Mobile Number" },
-  { id: "email", label: "Email" },
-  { id: "course", label: "Course" },
-  { id: "brand", label: "Brand" },
-  { id: "company", label: "Company" },
-  { id: "receiptNo", label: "Receipt No" },
-  { id: "amountReceived", label: "Amount Received" },
-  { id: "paymentDate", label: "Payment Date" },
-  { id: "paymentMode", label: "Payment Mode" },
-];
-
 export default function ReportsPageContent({ role }: ReportsPageContentProps) {
   const { user, logout } = useUser();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+
+  // Filter States
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [selectedColumns, setSelectedColumns] = useState<string[]>(AVAILABLE_COLUMNS.map(c => c.id));
+  const [activeReportTab, setActiveReportTab] = useState<"super" | "leads" | "counsellors" | "brandManagers">("super");
+
+  // Status & Loaders
   const [isGenerating, setIsGenerating] = useState(false);
   const [message, setMessage] = useState({ text: "", type: "" });
+
+  // WhatsApp States
   const [adminPhone, setAdminPhone] = useState("919335913286");
   const [isSendingWhatsAppReport, setIsSendingWhatsAppReport] = useState(false);
   const [waReportStatus, setWaReportStatus] = useState({ text: "", type: "" });
@@ -49,6 +42,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
     }
   }, [user]);
 
+  // ── WhatsApp Daily & Monthly Triggers ───────────────────
   const handleSendDailyWhatsAppReport = async () => {
     setIsSendingWhatsAppReport(true);
     setWaReportStatus({ text: "Gathering metrics & generating PDF report...", type: "info" });
@@ -107,43 +101,39 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
     }
   };
 
-  const toggleColumn = (id: string) => {
-    setSelectedColumns(prev =>
-      prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
-    );
-  };
-
+  // ── Fetch Master Data & Trigger Selected Excel Report ───
   const handleGenerateReport = async () => {
-    if (selectedColumns.length === 0) {
-      setMessage({ text: "Please select at least one column to include in the report.", type: "error" });
-      return;
-    }
-
     setIsGenerating(true);
-    setMessage({ text: "Fetching data...", type: "info" });
+    setMessage({ text: "Fetching comprehensive master dataset...", type: "info" });
 
     try {
       const query = new URLSearchParams();
       if (startDate) query.append("startDate", startDate);
       if (endDate) query.append("endDate", endDate);
 
-      const res = await fetch(`/api/reports/collections?${query.toString()}`);
+      const res = await fetch(`/api/reports/master?${query.toString()}`);
       const data = await res.json();
 
       if (!data.success) {
-        throw new Error(data.message || "Failed to fetch data");
+        throw new Error(data.message || "Failed to fetch master report data");
       }
 
-      const payments = data.data;
-      if (payments.length === 0) {
-        setMessage({ text: "No collections found for the selected date range.", type: "error" });
-        setIsGenerating(false);
-        return;
+      const master = data.data;
+
+      if (activeReportTab === "super") {
+        setMessage({ text: "Building Super Master Multi-Sheet Excel Workbook...", type: "info" });
+        await generateSuperMasterExcel(master);
+      } else if (activeReportTab === "leads") {
+        setMessage({ text: "Building Leads & Enquiries Register Excel...", type: "info" });
+        await generateLeadsExcel(master);
+      } else if (activeReportTab === "counsellors") {
+        setMessage({ text: "Building Counsellor Performance Scorecard Excel...", type: "info" });
+        await generateCounsellorExcel(master);
+      } else if (activeReportTab === "brandManagers") {
+        setMessage({ text: "Building Brand Manager Performance Excel...", type: "info" });
+        await generateBrandManagerExcel(master);
       }
 
-      setMessage({ text: "Generating Excel file...", type: "info" });
-      await generateExcel(payments);
-      
       setMessage({ text: "Report downloaded successfully!", type: "success" });
     } catch (error: any) {
       console.error(error);
@@ -153,123 +143,334 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
     }
   };
 
-  const generateExcel = async (payments: any[]) => {
+  // ══════════════════════════════════════════════════════════
+  // 1. SUPER MASTER MULTI-SHEET REPORT GENERATOR
+  // ══════════════════════════════════════════════════════════
+  const generateSuperMasterExcel = async (master: any) => {
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = "Coach CRM";
+    workbook.creator = "SyncForge CRM";
     workbook.created = new Date();
 
-    // Organize data
-    const collectionsByBrand: Record<string, any[]> = {};
-    const collectionsByCompany: Record<string, any[]> = {};
-    const brandTotals: Record<string, number> = {};
-    const companyTotals: Record<string, number> = {};
+    const { enquiries = [], payments = [], brands = [], companies = [], counsellors = [] } = master;
 
-    payments.forEach((payment) => {
-      const admission = payment.admissionId || {};
-      const brand = admission.brand || "Unknown Brand";
-      const company = admission.companyAssigned || "Unknown Company";
-      const amount = payment.amountReceived || 0;
+    // ── SHEET 1: MASTER SUMMARY (ALL BRANDS & ALL COMPANIES) ──
+    const summarySheet = workbook.addWorksheet("Master Executive Summary");
 
-      // Brand groupings
-      if (!collectionsByBrand[brand]) collectionsByBrand[brand] = [];
-      collectionsByBrand[brand].push(payment);
-      brandTotals[brand] = (brandTotals[brand] || 0) + amount;
+    // Title Block
+    summarySheet.addRow(["ACADEMIC & CORPORATE MASTER EXECUTIVE SUMMARY REPORT"]);
+    summarySheet.addRow([`Generated On: ${new Date().toLocaleString('en-IN')}`, `Date Scope: ${startDate || 'Beginning'} to ${endDate || 'Today'}`]);
+    summarySheet.addRow([]);
 
-      // Company groupings
-      if (!collectionsByCompany[company]) collectionsByCompany[company] = [];
-      collectionsByCompany[company].push(payment);
-      companyTotals[company] = (companyTotals[company] || 0) + amount;
+    // 1A. ALL BRANDS SUMMARY TABLE
+    summarySheet.addRow(["1. ALL BRANDS PERFORMANCE SUMMARY"]);
+    const brandHeaders = ["Brand Name", "Brand ID", "Total Enquiries", "Demos Conducted", "Admissions", "Conversion Rate", "Total Revenue Billed (INR)"];
+    const brandHeaderRow = summarySheet.addRow(brandHeaders);
+    brandHeaderRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    brandHeaderRow.eachCell(cell => {
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4F46E5" } }; // Indigo
     });
 
-    // --- SHEET 1: SUMMARY ---
-    const summarySheet = workbook.addWorksheet("Summary");
-    
-    // Brand Summary
-    summarySheet.addRow(["COLLECTION SUMMARY BY BRAND"]);
-    summarySheet.addRow(["Brand", "Total Collected (INR)"]);
-    Object.entries(brandTotals).forEach(([brand, total]) => {
-      summarySheet.addRow([brand, total]);
+    let globalTotalEnquiries = 0;
+    let globalTotalAdmissions = 0;
+    let globalTotalRevenue = 0;
+
+    brands.forEach((b: any) => {
+      const bNameLower = (b.name || "").toLowerCase().trim();
+      const bEnquiries = enquiries.filter((e: any) =>
+        (e.targetBrand || "").toLowerCase().trim() === bNameLower ||
+        (e.brand || "").toLowerCase().trim() === bNameLower
+      );
+      const bDemos = bEnquiries.filter((e: any) => e.isDemoScheduled || (e.demos && e.demos.length > 0) || (e.status || "").toLowerCase().includes("demo")).length;
+      const bAdmissions = bEnquiries.filter((e: any) => (e.status || "").toLowerCase() === "admitted").length;
+
+      const bRev = payments.reduce((sum: number, p: any) => {
+        const admission = p.admissionId || {};
+        const pBrand = (admission.brand || p.brand || "").toLowerCase().trim();
+        return pBrand === bNameLower ? sum + Number(p.amountReceived || 0) : sum;
+      }, 0);
+
+      const convPct = bEnquiries.length > 0 ? ((bAdmissions / bEnquiries.length) * 100).toFixed(1) + "%" : "0.0%";
+
+      globalTotalEnquiries += bEnquiries.length;
+      globalTotalAdmissions += bAdmissions;
+      globalTotalRevenue += bRev;
+
+      summarySheet.addRow([b.name, b.brandId || "N/A", bEnquiries.length, bDemos, bAdmissions, convPct, bRev]);
     });
-    summarySheet.addRow([]); // Empty row
-    
-    // Company Summary
-    summarySheet.addRow(["COLLECTION SUMMARY BY COMPANY"]);
-    summarySheet.addRow(["Company", "Total Collected (INR)"]);
-    Object.entries(companyTotals).forEach(([company, total]) => {
-      summarySheet.addRow([company, total]);
+
+    // Total Brand Row
+    const brandTotalRow = summarySheet.addRow([
+      "TOTAL ALL BRANDS", "-", globalTotalEnquiries, "-", globalTotalAdmissions,
+      globalTotalEnquiries > 0 ? ((globalTotalAdmissions / globalTotalEnquiries) * 100).toFixed(1) + "%" : "0.0%",
+      globalTotalRevenue
+    ]);
+    brandTotalRow.font = { bold: true };
+
+    summarySheet.addRow([]); // Blank Row
+    summarySheet.addRow([]); // Blank Row
+
+    // 1B. ALL COMPANIES SUMMARY TABLE
+    summarySheet.addRow(["2. ALL LEGAL COMPANIES FINANCIAL SUMMARY"]);
+    const companyHeaders = ["Company Name", "GST Number", "Receipts Issued", "Total Billed Collections (INR)"];
+    const companyHeaderRow = summarySheet.addRow(companyHeaders);
+    companyHeaderRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    companyHeaderRow.eachCell(cell => {
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF059669" } }; // Emerald
     });
 
-    // Format Summary Sheet
-    summarySheet.getColumn(1).width = 30;
-    summarySheet.getColumn(2).width = 25;
-    summarySheet.getRow(1).font = { bold: true, size: 14 };
-    summarySheet.getRow(2).font = { bold: true };
-    const companyStartRow = Object.keys(brandTotals).length + 4;
-    summarySheet.getRow(companyStartRow).font = { bold: true, size: 14 };
-    summarySheet.getRow(companyStartRow + 1).font = { bold: true };
+    let globalCompanyTotalRevenue = 0;
+    let globalReceiptsCount = 0;
 
-    // Define columns based on selection
-    const excelColumns = AVAILABLE_COLUMNS
-      .filter(col => selectedColumns.includes(col.id))
-      .map(col => ({
-        header: col.label,
-        key: col.id,
-        width: 20
-      }));
-
-    // Helper to format a row
-    const formatRow = (payment: any) => {
-      const admission = payment.admissionId || {};
-      return {
-        studentName: admission.fullName || payment.studentName || "N/A",
-        mobileNumber: admission.mobileNumber || "N/A",
-        email: admission.email || "N/A",
-        course: admission.course || "N/A",
-        brand: admission.brand || "N/A",
-        company: admission.companyAssigned || "N/A",
-        receiptNo: payment.receiptNo,
-        amountReceived: payment.amountReceived,
-        paymentDate: new Date(payment.paymentDate).toLocaleDateString(),
-        paymentMode: payment.paymentMode
-      };
-    };
-
-    // --- BRAND SHEETS ---
-    Object.entries(collectionsByBrand).forEach(([brand, brandPayments]) => {
-      // Clean sheet name (Excel limits to 31 chars and no special chars like ? * / \ [ ])
-      const safeBrandName = brand.replace(/[?*/\\[\]]/g, '').substring(0, 31);
-      const sheet = workbook.addWorksheet(safeBrandName);
-      sheet.columns = excelColumns;
-      sheet.getRow(1).font = { bold: true };
-
-      brandPayments.forEach(payment => {
-        sheet.addRow(formatRow(payment));
+    companies.forEach((comp: any) => {
+      const cNameLower = (comp.name || "").toLowerCase().trim();
+      const compPayments = payments.filter((p: any) => {
+        const admission = p.admissionId || {};
+        const pComp = (admission.companyAssigned || p.company || "").toLowerCase().trim();
+        return pComp.includes(cNameLower) || cNameLower.includes(pComp);
       });
+
+      const compRev = compPayments.reduce((sum: number, p: any) => sum + Number(p.amountReceived || 0), 0);
+      globalCompanyTotalRevenue += compRev;
+      globalReceiptsCount += compPayments.length;
+
+      summarySheet.addRow([comp.name, comp.gst || "Registered", compPayments.length, compRev]);
     });
 
-    // --- COMPANY SHEETS ---
-    Object.entries(collectionsByCompany).forEach(([company, companyPayments]) => {
-      const safeCompanyName = company.replace(/[?*/\\[\]]/g, '').substring(0, 31);
-      
-      // If a brand and company have the exact same name, we need to ensure unique sheet names
-      let finalSheetName = safeCompanyName;
-      if (workbook.getWorksheet(finalSheetName)) {
-        finalSheetName = (safeCompanyName + " (Comp)").substring(0, 31);
+    const compTotalRow = summarySheet.addRow(["TOTAL ALL COMPANIES", "-", globalReceiptsCount, globalCompanyTotalRevenue]);
+    compTotalRow.font = { bold: true };
+
+    // Format Sheet 1 Columns
+    summarySheet.columns.forEach(col => col.width = 24);
+
+    // ── SHEETS FOR EACH BRAND ────────────────────────────────
+    brands.forEach((b: any) => {
+      const bNameLower = (b.name || "").toLowerCase().trim();
+      const bEnquiries = enquiries.filter((e: any) =>
+        (e.targetBrand || "").toLowerCase().trim() === bNameLower ||
+        (e.brand || "").toLowerCase().trim() === bNameLower
+      );
+
+      const safeSheetName = `Brand - ${b.name}`.replace(/[?*/\\[\]]/g, '').substring(0, 31);
+      const sheet = workbook.addWorksheet(safeSheetName);
+
+      sheet.addRow([`BRAND REGISTER: ${b.name.toUpperCase()} (${b.brandId || ''})`]);
+      sheet.addRow([]);
+
+      sheet.addRow([
+        "Enquiry ID", "Student Name", "Mobile", "Email", "Target Course",
+        "Assigned Counsellor", "Lead Source", "Priority", "Status", "Fees Collected (INR)"
+      ]);
+      sheet.getRow(3).font = { bold: true };
+
+      bEnquiries.forEach((e: any) => {
+        sheet.addRow([
+          e.enquiryId || "N/A",
+          e.studentFullName || "Student",
+          e.primaryPhoneMobile || e.phone || "N/A",
+          e.emailAddress || e.email || "N/A",
+          e.targetCourse || "General",
+          e.assignedCrmAdvisor || "Unassigned",
+          e.leadSource || "Direct",
+          e.priorityLevel || e.priority || "Medium",
+          e.status || "New",
+          parseFloat(String(e.feesCollected || "0").replace(/[^0-9.]/g, "")) || 0
+        ]);
+      });
+
+      sheet.columns.forEach(col => col.width = 20);
+    });
+
+    // ── SHEETS FOR EACH COMPANY ──────────────────────────────
+    companies.forEach((comp: any) => {
+      const cNameLower = (comp.name || "").toLowerCase().trim();
+      const compPayments = payments.filter((p: any) => {
+        const admission = p.admissionId || {};
+        const pComp = (admission.companyAssigned || p.company || "").toLowerCase().trim();
+        return pComp.includes(cNameLower) || cNameLower.includes(pComp);
+      });
+
+      let safeSheetName = `Comp - ${comp.name}`.replace(/[?*/\\[\]]/g, '').substring(0, 31);
+      if (workbook.getWorksheet(safeSheetName)) {
+        safeSheetName = `Company - ${comp.name}`.replace(/[?*/\\[\]]/g, '').substring(0, 31);
       }
-      
-      const sheet = workbook.addWorksheet(finalSheetName);
-      sheet.columns = excelColumns;
-      sheet.getRow(1).font = { bold: true };
 
-      companyPayments.forEach(payment => {
-        sheet.addRow(formatRow(payment));
+      const sheet = workbook.addWorksheet(safeSheetName);
+      sheet.addRow([`CORPORATE FINANCIAL REGISTER: ${comp.name.toUpperCase()} (GST: ${comp.gst || 'N/A'})`]);
+      sheet.addRow([]);
+
+      sheet.addRow([
+        "Receipt No", "Student Name", "Mobile", "Course Billed", "Brand",
+        "Payment Date", "Payment Mode", "Reference No", "Amount Received (INR)"
+      ]);
+      sheet.getRow(3).font = { bold: true };
+
+      compPayments.forEach((p: any) => {
+        const admission = p.admissionId || {};
+        sheet.addRow([
+          p.receiptNo || "N/A",
+          admission.fullName || p.studentName || "N/A",
+          admission.mobileNumber || "N/A",
+          admission.course || "N/A",
+          admission.brand || p.brand || "N/A",
+          p.paymentDate ? new Date(p.paymentDate).toLocaleDateString("en-IN") : "N/A",
+          p.paymentMode || "Cash",
+          p.referenceNo || "-",
+          Number(p.amountReceived || 0)
+        ]);
       });
+
+      sheet.columns.forEach(col => col.width = 20);
     });
 
-    // Generate blob and download
+    // Download Workbook
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-    saveAs(blob, `Collections_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+    saveAs(blob, `Super_Master_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  // ══════════════════════════════════════════════════════════
+  // 2. LEADS & ENQUIRIES REGISTER REPORT GENERATOR
+  // ══════════════════════════════════════════════════════════
+  const generateLeadsExcel = async (master: any) => {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Leads Register");
+
+    sheet.addRow(["ACADEMIC LEADS & ENQUIRIES FULL REGISTER"]);
+    sheet.addRow([`Export Date: ${new Date().toLocaleString('en-IN')}`]);
+    sheet.addRow([]);
+
+    sheet.addRow([
+      "Enquiry ID", "Student Name", "Mobile", "Email", "Target Brand",
+      "Target Course", "Counsellor", "Lead Source", "Priority", "Status",
+      "Demo Scheduled", "Date Created"
+    ]);
+    sheet.getRow(4).font = { bold: true, color: { argb: "FFFFFFFF" } };
+    sheet.getRow(4).eachCell(c => c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4F46E5" } });
+
+    (master.enquiries || []).forEach((e: any) => {
+      sheet.addRow([
+        e.enquiryId || "N/A",
+        e.studentFullName || "Student",
+        e.primaryPhoneMobile || e.phone || "N/A",
+        e.emailAddress || e.email || "N/A",
+        e.targetBrand || "N/A",
+        e.targetCourse || "N/A",
+        e.assignedCrmAdvisor || "Unassigned",
+        e.leadSource || "Direct",
+        e.priorityLevel || e.priority || "Medium",
+        e.status || "New",
+        e.isDemoScheduled ? "Yes" : "No",
+        e.createdAt ? new Date(e.createdAt).toLocaleDateString("en-IN") : "N/A"
+      ]);
+    });
+
+    sheet.columns.forEach(col => col.width = 20);
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    saveAs(new Blob([buffer]), `Leads_Register_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  // ══════════════════════════════════════════════════════════
+  // 3. COUNSELLOR PERFORMANCE REPORT GENERATOR
+  // ══════════════════════════════════════════════════════════
+  const generateCounsellorExcel = async (master: any) => {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Counsellor Performance");
+
+    sheet.addRow(["COUNSELLOR PERFORMANCE & CONVERSION SCORECARD"]);
+    sheet.addRow([`Export Date: ${new Date().toLocaleString('en-IN')}`]);
+    sheet.addRow([]);
+
+    sheet.addRow([
+      "Counsellor Name", "Email", "Brand Scope", "Assigned Leads",
+      "Demos Conducted", "Admissions Closed", "Conversion Rate %", "Total Revenue Collected (INR)"
+    ]);
+    sheet.getRow(4).font = { bold: true, color: { argb: "FFFFFFFF" } };
+    sheet.getRow(4).eachCell(c => c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF7C3AED" } }); // Purple
+
+    const statsMap: Record<string, any> = {};
+
+    (master.enquiries || []).forEach((e: any) => {
+      const cName = (e.assignedCrmAdvisor || "Unassigned").trim();
+      const key = cName.toLowerCase();
+      if (!statsMap[key]) {
+        statsMap[key] = { name: cName, leads: 0, demos: 0, admissions: 0, revenue: 0 };
+      }
+      statsMap[key].leads++;
+      if (e.isDemoScheduled || (e.demos && e.demos.length > 0) || (e.status || "").toLowerCase().includes("demo")) {
+        statsMap[key].demos++;
+      }
+      if ((e.status || "").toLowerCase() === "admitted") {
+        statsMap[key].admissions++;
+        const fee = parseFloat(String(e.feesCollected || "0").replace(/[^0-9.]/g, ""));
+        statsMap[key].revenue += isNaN(fee) ? 0 : fee;
+      }
+    });
+
+    Object.values(statsMap).forEach((c: any) => {
+      const conv = c.leads > 0 ? ((c.admissions / c.leads) * 100).toFixed(1) + "%" : "0.0%";
+      sheet.addRow([c.name, "-", "-", c.leads, c.demos, c.admissions, conv, c.revenue]);
+    });
+
+    sheet.columns.forEach(col => col.width = 22);
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    saveAs(new Blob([buffer]), `Counsellor_Performance_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  // ══════════════════════════════════════════════════════════
+  // 4. BRAND MANAGER PERFORMANCE REPORT GENERATOR
+  // ══════════════════════════════════════════════════════════
+  const generateBrandManagerExcel = async (master: any) => {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Brand Manager Scorecard");
+
+    sheet.addRow(["BRAND MANAGER & BRAND SCOPE PERFORMANCE SCORECARD"]);
+    sheet.addRow([`Export Date: ${new Date().toLocaleString('en-IN')}`]);
+    sheet.addRow([]);
+
+    sheet.addRow([
+      "Brand Name", "Brand ID", "Linked Companies", "Active Staff",
+      "Total Enquiries", "Demos Conducted", "Admissions Closed", "Conversion %", "Total Revenue (INR)"
+    ]);
+    sheet.getRow(4).font = { bold: true, color: { argb: "FFFFFFFF" } };
+    sheet.getRow(4).eachCell(c => c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2563EB" } }); // Blue
+
+    (master.brands || []).forEach((b: any) => {
+      const bNameLower = (b.name || "").toLowerCase().trim();
+      const bEnquiries = (master.enquiries || []).filter((e: any) =>
+        (e.targetBrand || "").toLowerCase().trim() === bNameLower ||
+        (e.brand || "").toLowerCase().trim() === bNameLower
+      );
+
+      const bDemos = bEnquiries.filter((e: any) => e.isDemoScheduled || (e.demos && e.demos.length > 0) || (e.status || "").toLowerCase().includes("demo")).length;
+      const bAdmitted = bEnquiries.filter((e: any) => (e.status || "").toLowerCase() === "admitted").length;
+
+      const bRev = (master.payments || []).reduce((sum: number, p: any) => {
+        const admission = p.admissionId || {};
+        const pBrand = (admission.brand || p.brand || "").toLowerCase().trim();
+        return pBrand === bNameLower ? sum + Number(p.amountReceived || 0) : sum;
+      }, 0);
+
+      const conv = bEnquiries.length > 0 ? ((bAdmitted / bEnquiries.length) * 100).toFixed(1) + "%" : "0.0%";
+
+      sheet.addRow([
+        b.name,
+        b.brandId || "N/A",
+        (b.companies || []).length,
+        b.stats?.counsellorsCount || 1,
+        bEnquiries.length,
+        bDemos,
+        bAdmitted,
+        conv,
+        bRev
+      ]);
+    });
+
+    sheet.columns.forEach(col => col.width = 22);
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    saveAs(new Blob([buffer]), `BrandManager_Performance_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   return (
@@ -280,11 +481,11 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
         {/* Header Area */}
         <header className="h-20 px-8 flex items-center justify-between bg-white/50 backdrop-blur-md sticky top-0 z-10 border-b border-slate-100 shrink-0">
           <div className="flex items-center gap-4">
-            <h2 className="text-xl font-extrabold text-slate-800 tracking-tight">Reports</h2>
+            <h2 className="text-xl font-extrabold text-slate-800 tracking-tight">Executive Reports Center</h2>
           </div>
 
           <div className="flex items-center gap-6">
-            <button onClick={() => setIsProfileOpen(true)} className="flex items-center gap-3 hover:bg-slate-50 p-2 rounded-2xl transition-all border border-transparent hover:border-slate-200">
+            <button onClick={() => setIsProfileOpen(true)} className="flex items-center gap-3 hover:bg-slate-50 p-2 rounded-2xl transition-all border border-transparent hover:border-slate-200 cursor-pointer">
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-extrabold text-slate-700 leading-tight">{user?.name}</p>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{user?.role}</p>
@@ -298,264 +499,162 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
 
         <div className="p-8 space-y-8 max-w-5xl mx-auto w-full">
           <div>
-            <h2 className="text-3xl font-black text-[#1e293b] tracking-tight">Data Exports</h2>
-            <p className="text-slate-500 font-medium mt-1">Export comprehensive collections data and insights to Excel</p>
+            <h2 className="text-3xl font-black text-[#1e293b] tracking-tight">Executive Data Exports & Analytics</h2>
+            <p className="text-slate-500 font-medium mt-1">Export comprehensive multi-sheet Excel workbooks, performance scorecards, and automated WhatsApp reports.</p>
           </div>
 
-          {/* Daily WhatsApp Report Trigger Card */}
-          <motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white border border-emerald-200/80 rounded-3xl shadow-xl shadow-emerald-900/5 overflow-hidden ring-1 ring-emerald-100"
-          >
-            <div className="p-6 border-b border-emerald-100 bg-emerald-50/50 flex flex-wrap justify-between items-center gap-2">
-              <div>
-                <h3 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+          {/* Daily & Monthly WhatsApp Report Trigger Cards */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Daily WhatsApp Trigger */}
+            <div className="bg-white border border-emerald-200/80 rounded-3xl p-6 shadow-md space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  Daily WhatsApp Executive Report
+                  Daily Executive PDF Report
                 </h3>
-                <p className="text-xs font-semibold text-slate-500 mt-1">
-                  Automated 24-hour midnight dispatch & on-demand force trigger (Midnight to current time metrics in PDF format).
-                </p>
+                <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[9px] font-extrabold uppercase">
+                  Daily WhatsApp
+                </span>
               </div>
-              <span className="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-extrabold uppercase tracking-wider">
-                MSG91 Template: dailyreport
-              </span>
+              <p className="text-xs text-slate-500 font-medium">Triggers 24-hour midnight dispatch & instant PDF summary on WhatsApp.</p>
+              <button
+                onClick={handleSendDailyWhatsAppReport}
+                disabled={isSendingWhatsAppReport}
+                className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-extrabold shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {isSendingWhatsAppReport ? "Sending PDF Report..." : "📲 Trigger Daily WhatsApp Report"}
+              </button>
+              {waReportStatus.text && <p className="text-[11px] font-bold text-emerald-700">{waReportStatus.text}</p>}
             </div>
 
-            <div className="p-6 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                <div className="md:col-span-2 space-y-1">
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                    Admin Mobile Number
-                  </label>
-                  <input
-                    type="text"
-                    value={adminPhone}
-                    onChange={(e) => setAdminPhone(e.target.value)}
-                    placeholder="e.g. 919335913286"
-                    className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                  />
-                  <p className="text-[10px] text-slate-400 font-medium">
-                    Includes: Total Leads, Demo Sessions, Admissions, Today's & Monthly Collection, Pending Fees & Overdue EMIs.
-                  </p>
-                </div>
-
-                <div>
-                  <button
-                    onClick={handleSendDailyWhatsAppReport}
-                    disabled={isSendingWhatsAppReport}
-                    className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-extrabold shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                  >
-                    {isSendingWhatsAppReport ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                        Generating & Sending...
-                      </>
-                    ) : (
-                      <>
-                        <span>📲</span>
-                        Send Daily Report Now
-                      </>
-                    )}
-                  </button>
-                </div>
+            {/* Monthly MTD WhatsApp Trigger */}
+            <div className="bg-white border border-indigo-200/80 rounded-3xl p-6 shadow-md space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-indigo-600 animate-pulse"></span>
+                  Monthly MTD PDF Report
+                </h3>
+                <span className="px-2.5 py-0.5 bg-indigo-100 text-indigo-800 rounded-full text-[9px] font-extrabold uppercase">
+                  Monthly MTD
+                </span>
               </div>
-
-              {waReportStatus.text && (
-                <div
-                  className={`p-3.5 rounded-xl text-xs font-bold flex items-center gap-2 ${
-                    waReportStatus.type === "success"
-                      ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-                      : waReportStatus.type === "error"
-                      ? "bg-rose-50 text-rose-800 border border-rose-200"
-                      : "bg-blue-50 text-blue-800 border border-blue-200"
-                  }`}
-                >
-                  {waReportStatus.text}
-                </div>
-              )}
+              <p className="text-xs text-slate-500 font-medium">Aggregates Day 1 to Today MTD metrics into a formal executive PDF on WhatsApp.</p>
+              <button
+                onClick={handleSendMonthlyWhatsAppReport}
+                disabled={isSendingMonthlyReport}
+                className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-extrabold shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {isSendingMonthlyReport ? "Generating MTD PDF..." : "📊 Trigger Monthly MTD Report"}
+              </button>
+              {monthlyReportStatus.text && <p className="text-[11px] font-bold text-indigo-700">{monthlyReportStatus.text}</p>}
             </div>
-          </motion.div>
+          </div>
 
-          {/* Monthly WhatsApp Report Trigger Card */}
+          {/* MAIN EXCEL REPORT EXPORT CENTER */}
           <motion.div 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white border border-indigo-200/80 rounded-3xl shadow-xl shadow-indigo-900/5 overflow-hidden ring-1 ring-indigo-100"
+            className="bg-white border border-slate-200/80 rounded-3xl shadow-xl overflow-hidden"
           >
-            <div className="p-6 border-b border-indigo-100 bg-indigo-50/50 flex flex-wrap justify-between items-center gap-2">
-              <div>
-                <h3 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                  <span className="h-2.5 w-2.5 rounded-full bg-indigo-600 animate-pulse"></span>
-                  Monthly WhatsApp Executive Report (Day 1 to Date)
-                </h3>
-                <p className="text-xs font-semibold text-slate-500 mt-1">
-                  Automated end-of-month dispatch (last day of month at 23:59) & on-demand force trigger (Day 1 to Today MTD metrics in PDF format).
-                </p>
-              </div>
-              <span className="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-[10px] font-extrabold uppercase tracking-wider">
-                MSG91 Template: dailyreport (MTD)
-              </span>
+            <div className="p-6 border-b border-slate-100 bg-slate-50/50">
+              <h3 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider">
+                1. Select Report Type & Data Scope
+              </h3>
+              <p className="text-xs font-semibold text-slate-500 mt-1">Choose between Super Master Multi-Sheet workbooks, leads register, or performance scorecards.</p>
             </div>
 
-            <div className="p-6 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                <div className="md:col-span-2 space-y-1">
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                    Target Mobile Number
-                  </label>
-                  <input
-                    type="text"
-                    value={adminPhone}
-                    onChange={(e) => setAdminPhone(e.target.value)}
-                    placeholder="e.g. 919335913286"
-                    className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                  />
-                  <p className="text-[10px] text-slate-400 font-medium">
-                    Aggregates: MTD Leads, MTD Demos, MTD Admissions, Monthly Collection (Day 1 to Date), Pending Fees & Overdue EMIs.
-                  </p>
-                </div>
-
-                <div>
+            <div className="p-6 space-y-6">
+              
+              {/* REPORT TYPE SELECTOR TABS */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {[
+                  { id: "super", label: "🌟 Super Master Report", desc: "Sheet 1: All Brands & Companies Summary + Separate sheets for each Brand & Company" },
+                  { id: "leads", label: "📥 Leads & Enquiries", desc: "Full enquiry database register with contact, status & demo details" },
+                  { id: "counsellors", label: "🏆 Counsellor Performance", desc: "Per-counsellor leads, demos, admissions & fee collection scorecard" },
+                  { id: "brandManagers", label: "🏢 Brand Manager Analytics", desc: "Brand manager performance, active staff & revenue per brand" }
+                ].map((tab) => (
                   <button
-                    onClick={handleSendMonthlyWhatsAppReport}
-                    disabled={isSendingMonthlyReport}
-                    className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-extrabold shadow-md shadow-indigo-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    key={tab.id}
+                    onClick={() => setActiveReportTab(tab.id as any)}
+                    className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                      activeReportTab === tab.id
+                        ? "bg-gradient-to-br from-indigo-50 to-purple-50 border-indigo-500 ring-2 ring-indigo-500/20 shadow-sm"
+                        : "bg-white border-slate-200 hover:border-slate-300"
+                    }`}
                   >
-                    {isSendingMonthlyReport ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                        Generating MTD Report...
-                      </>
-                    ) : (
-                      <>
-                        <span>📊</span>
-                        Send Monthly Report Now
-                      </>
-                    )}
+                    <div>
+                      <span className={`text-xs font-extrabold block ${activeReportTab === tab.id ? "text-indigo-700" : "text-slate-800"}`}>
+                        {tab.label}
+                      </span>
+                      <p className="text-[10px] font-semibold text-slate-500 mt-1 leading-snug">
+                        {tab.desc}
+                      </p>
+                    </div>
                   </button>
+                ))}
+              </div>
+
+              {/* DATE RANGE FILTER */}
+              <div className="pt-2 border-t border-slate-100">
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">2. Optional Date Range Filter</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Start Date</label>
+                    <input 
+                      type="date" 
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">End Date</label>
+                    <input 
+                      type="date" 
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
                 </div>
               </div>
 
-              {monthlyReportStatus.text && (
-                <div
-                  className={`p-3.5 rounded-xl text-xs font-bold flex items-center gap-2 ${
-                    monthlyReportStatus.type === "success"
-                      ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-                      : monthlyReportStatus.type === "error"
-                      ? "bg-rose-50 text-rose-800 border border-rose-200"
-                      : "bg-indigo-50 text-indigo-800 border border-indigo-200"
-                  }`}
-                >
-                  {monthlyReportStatus.text}
+              {/* DOWNLOAD TRIGGER ACTION */}
+              <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex-1">
+                  {message.text && (
+                    <p className={`text-xs font-bold ${
+                      message.type === 'error' ? 'text-rose-500' : 
+                      message.type === 'success' ? 'text-emerald-600' : 'text-indigo-600'
+                    }`}>
+                      {message.text}
+                    </p>
+                  )}
                 </div>
-              )}
+
+                <button
+                  onClick={handleGenerateReport}
+                  disabled={isGenerating}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs px-6 py-3.5 rounded-xl shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 min-w-[240px]"
+                >
+                  {isGenerating ? (
+                    <>
+                      <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Generating Excel Workbook...
+                    </>
+                  ) : (
+                    <>
+                      <span>📥</span>
+                      <span>Download {activeReportTab === "super" ? "Super Master Excel" : "Excel Report"}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
             </div>
           </motion.div>
 
-      <motion.div 
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-white border border-slate-200/60 rounded-3xl shadow-xl shadow-slate-200/40 overflow-hidden ring-1 ring-slate-100"
-      >
-        <div className="p-6 border-b border-slate-100 bg-slate-50/50">
-          <h3 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-indigo-500">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
-            </svg>
-            Collections Summary Report
-          </h3>
-          <p className="text-xs font-semibold text-slate-500 mt-1">Filter by date and choose the data points you want to include in the exported sheets.</p>
         </div>
-
-        <div className="p-6 space-y-8">
-          {/* Date Filter */}
-          <div>
-            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">1. Select Date Range</h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg">
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Start Date</label>
-                <input 
-                  type="date" 
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">End Date</label>
-                <input 
-                  type="date" 
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Column Selector */}
-          <div>
-            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">2. Select Student Details (Columns)</h4>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {AVAILABLE_COLUMNS.map((col) => (
-                <label key={col.id} className="flex items-center gap-2 cursor-pointer group">
-                  <div className="relative flex items-center justify-center">
-                    <input 
-                      type="checkbox" 
-                      className="peer sr-only"
-                      checked={selectedColumns.includes(col.id)}
-                      onChange={() => toggleColumn(col.id)}
-                    />
-                    <div className="w-5 h-5 border-2 border-slate-200 rounded bg-white peer-checked:bg-indigo-500 peer-checked:border-indigo-500 transition-colors"></div>
-                    <svg className="absolute w-3 h-3 text-white pointer-events-none opacity-0 peer-checked:opacity-100" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  </div>
-                  <span className="text-xs font-bold text-slate-600 group-hover:text-slate-800 transition-colors select-none">{col.label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* Action Area */}
-          <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex-1">
-              {message.text && (
-                <p className={`text-xs font-bold ${
-                  message.type === 'error' ? 'text-rose-500' : 
-                  message.type === 'success' ? 'text-emerald-500' : 'text-indigo-500'
-                }`}>
-                  {message.text}
-                </p>
-              )}
-            </div>
-            <button
-              onClick={handleGenerateReport}
-              disabled={isGenerating}
-              className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm px-6 py-3 rounded-xl shadow-md shadow-emerald-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed min-w-[200px]"
-            >
-              {isGenerating ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                  </svg>
-                  Download Excel
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </motion.div>
-
-      </div>
       </div>
       
       {user && (

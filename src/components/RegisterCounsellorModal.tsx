@@ -24,6 +24,26 @@ export default function RegisterCounsellorModal({ isOpen, onClose, onSuccess }: 
   });
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [dbBrands, setDbBrands] = useState<{ name: string }[]>([]);
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const fetchBrands = async () => {
+      try {
+        const res = await fetch("/api/brands");
+        const data = await res.json();
+        if (res.ok && data.success && Array.isArray(data.brands)) {
+          setDbBrands(data.brands);
+          if (data.brands.length > 0 && !formData.brandScope) {
+            setFormData(prev => ({ ...prev, brandScope: data.brands[0].name }));
+          }
+        }
+      } catch (err) {
+        console.error("Failed fetching brands:", err);
+      }
+    };
+    fetchBrands();
+  }, [isOpen]);
 
   React.useEffect(() => {
     if (isOpen) {
@@ -33,7 +53,7 @@ export default function RegisterCounsellorModal({ isOpen, onClose, onSuccess }: 
         email: "",
         phone: "+91 ",
         photoUrl: "",
-        brandScope: "Cadd Mantra",
+        brandScope: dbBrands[0]?.name || "Cadd Mantra",
         joiningDate: "2026-07-14",
         annualTarget: 500000,
         currentRevenue: 0,
@@ -42,7 +62,7 @@ export default function RegisterCounsellorModal({ isOpen, onClose, onSuccess }: 
       });
       setError("");
     }
-  }, [isOpen]);
+  }, [isOpen, dbBrands]);
 
   if (!isOpen) return null;
 
@@ -196,12 +216,19 @@ export default function RegisterCounsellorModal({ isOpen, onClose, onSuccess }: 
               name="brandScope"
               value={formData.brandScope}
               onChange={handleChange}
-              required
               disabled={isLoading}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-600 focus:outline-none disabled:opacity-50"
             >
-              <option value="Cadd Mantra">Cadd Mantra</option>
-              <option value="Design Gateway">Design Gateway</option>
+              {dbBrands.length > 0 ? (
+                dbBrands.map((b, idx) => (
+                  <option key={idx} value={b.name}>{b.name}</option>
+                ))
+              ) : (
+                <>
+                  <option value="Cadd Mantra">Cadd Mantra</option>
+                  <option value="Design Gateway">Design Gateway</option>
+                </>
+              )}
             </select>
           </div>
 

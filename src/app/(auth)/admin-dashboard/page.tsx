@@ -40,6 +40,40 @@ export default function AdminDashboard() {
   const [enquiryToDelete, setEnquiryToDelete] = useState<any>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const [notifications, setNotifications] = useState<any[]>([]);
+
+  const fetchNotifications = async () => {
+    try {
+      const res = await fetch("/api/notifications?status=Pending");
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setNotifications(data.notifications || []);
+      }
+    } catch (err) {
+      console.error("Failed fetching notifications:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  const handleApproveRejectDiscount = async (notificationId: string, action: "Approved" | "Rejected") => {
+    try {
+      const res = await fetch("/api/notifications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notificationId, action })
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchNotifications();
+      }
+    } catch (err) {
+      console.error("Failed updating discount approval:", err);
+    }
+  };
+
   useEffect(() => {
     if (user?.role === "counsellor") {
       router.replace("/counsellor-dashboard");
@@ -95,11 +129,13 @@ export default function AdminDashboard() {
     { name: "Today's Admissions", value: data?.kpis?.admissionsToday || 0, trend: "Today", isGreen: true, color: "text-teal-600 bg-teal-50 border-teal-100" },
     { name: "Today's Collection", value: data?.kpis?.todayCollection || "₹0", trend: "Today", isGreen: true, color: "text-emerald-600 bg-emerald-50 border-emerald-100" },
     { name: "Monthly Collection", value: data?.kpis?.monthlyCollection || "₹0 L", trend: "Current Month", isGreen: true, color: "text-purple-600 bg-purple-50 border-purple-100" },
+    { name: "Total Revenue", value: data?.kpis?.revenue || "₹0 L", trend: "Total Collections", isGreen: true, color: "text-indigo-600 bg-indigo-50 border-indigo-100" },
+    { name: "Total Payroll", value: data?.kpis?.totalPayroll || "₹0 L", trend: "Paid Staff Salaries", isGreen: false, color: "text-rose-600 bg-rose-50 border-rose-100" },
+    { name: "Total Expenses", value: data?.kpis?.totalExpenses || "₹0 L", trend: "Operational Overhead", isGreen: false, color: "text-amber-600 bg-amber-50 border-amber-100" },
+    { name: "Net Profit", value: data?.kpis?.netProfit || "₹0 L", trend: `Margin: ${data?.kpis?.profitMargin || "0%"}`, isGreen: data?.kpis?.isProfitable ?? true, color: data?.kpis?.isProfitable ?? true ? "text-emerald-600 bg-emerald-50 border-emerald-100" : "text-rose-600 bg-rose-50 border-rose-100" },
+    { name: "Conversion Rate", value: data?.kpis?.conversionRate || "0%", trend: filterLabel === "Overall" ? "Overall" : filterLabel, isGreen: true, color: "text-sky-600 bg-sky-50 border-sky-100" },
     { name: "Pending Approvals", value: data?.kpis?.pendingApprovals || 0, trend: "Needs Action", isGreen: false, color: "text-amber-600 bg-amber-50 border-amber-100" },
     { name: "EMI Overdue Summary", value: data?.kpis?.emiOverdueAmount || "₹0 L", trend: `${data?.kpis?.emiOverdueCount || 0} Overdue Students`, isGreen: false, color: "text-rose-600 bg-rose-50 border-rose-100" },
-    { name: "Conversion Rate", value: data?.kpis?.conversionRate || "0%", trend: filterLabel === "Overall" ? "Overall" : filterLabel, isGreen: true, color: "text-sky-600 bg-sky-50 border-sky-100" },
-    { name: "Total Revenue", value: data?.kpis?.revenue || "₹0 L", trend: "Total Collections", isGreen: true, color: "text-indigo-600 bg-indigo-50 border-indigo-100" },
-    { name: "Pending Calls", value: data?.kpis?.pendingCalls || 0, trend: "Follow-up due", isGreen: false, color: "text-orange-600 bg-orange-50 border-orange-100", simpleText: true },
     { name: "Hot Negotiation Leads", value: data?.kpis?.hotLeads || 0, trend: "High Priority", isGreen: true, color: "text-red-600 bg-red-50 border-red-100", simpleText: true }
   ];
 
@@ -243,10 +279,69 @@ export default function AdminDashboard() {
           </div>
         </header>
 
+        {/* ADMIN PENDING DISCOUNT APPROVAL NOTIFICATIONS BANNER */}
+        {notifications.length > 0 && (
+          <div className="mb-6 space-y-3 shrink-0">
+            {notifications.map((notif: any) => (
+              <div
+                key={notif._id}
+                className="bg-amber-50/90 border border-amber-200 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fade-in"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-amber-100 text-amber-800 rounded-xl text-lg shrink-0">
+                    🚨
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">{notif.title}</h4>
+                      <span className="text-[9px] font-extrabold bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full uppercase">
+                        Requires Admin Approval
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-600 font-semibold mt-1">{notif.message}</p>
+                    <div className="flex items-center gap-3 text-[10px] font-bold text-slate-500 mt-1">
+                      <span>Requested Discount: <strong className="text-rose-600">₹{Number(notif.requestedDiscount || 0).toLocaleString('en-IN')}</strong></span>
+                      <span>•</span>
+                      <span>Course Cap: <strong className="text-slate-700">₹{Number(notif.maxAllowedDiscount || 5000).toLocaleString('en-IN')}</strong></span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => handleApproveRejectDiscount(notif._id, "Approved")}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1"
+                  >
+                    <span>✓ Approve Discount</span>
+                  </button>
+                  <button
+                    onClick={() => handleApproveRejectDiscount(notif._id, "Rejected")}
+                    className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1"
+                  >
+                    <span>✕ Reject</span>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Super Admin Quick Actions Bar */}
         <div className="bg-white border border-slate-200/90 rounded-2xl p-3 mb-6 shadow-xs flex items-center justify-between gap-3 overflow-x-auto shrink-0">
           <div className="flex items-center gap-2">
             <span className="text-xs font-extrabold text-slate-800 uppercase tracking-wider px-2 select-none">Quick Actions:</span>
+            <button
+              onClick={() => router.push("/payroll")}
+              className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-xl border border-emerald-200 transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+            >
+              <span>💳 Manage Payroll</span>
+            </button>
+            <button
+              onClick={() => router.push("/expenses")}
+              className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl border border-rose-200 transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+            >
+              <span>💸 Track Expenses</span>
+            </button>
             <button
               onClick={() => router.push("/admin-dashboard/brands")}
               className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-xl border border-blue-200 transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
@@ -261,7 +356,7 @@ export default function AdminDashboard() {
             </button>
             <button
               onClick={() => router.push("/counsellors")}
-              className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-xl border border-emerald-200 transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+              className="px-3 py-1.5 bg-teal-50 hover:bg-teal-100 text-teal-700 text-xs font-bold rounded-xl border border-teal-200 transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
             >
               <span>👤 Add User</span>
             </button>
@@ -332,7 +427,180 @@ export default function AdminDashboard() {
             )}
           </div>
 
+          {/* Financial Profit & Loss Breakdown Section */}
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4 mb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm font-extrabold text-slate-900 tracking-tight">Financial Profit & Loss Command Center</h2>
+                  <span
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${
+                      (data?.financialSummary?.netProfit || 0) >= 0
+                        ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
+                        : "bg-rose-50 text-rose-600 border border-rose-200"
+                    }`}
+                  >
+                    Profit Margin: {data?.financialSummary?.profitMargin || "0%"}
+                  </span>
+                </div>
+                <p className="text-[11px] font-medium text-slate-500 mt-0.5">
+                  Calculated from Total Fee Revenue vs Staff Payroll and Operational Expenses
+                </p>
+              </div>
 
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => router.push("/payroll")}
+                  className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                >
+                  💳 Manage Payroll
+                </button>
+                <button
+                  onClick={() => router.push("/expenses")}
+                  className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                >
+                  💸 Track Expenses
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-5">
+              <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-3.5">
+                <span className="text-[10px] font-bold text-indigo-500 uppercase">Total Revenue (Income)</span>
+                <div className="text-xl font-black text-indigo-900 mt-0.5">
+                  ₹{((data?.financialSummary?.revenue || 0) / 100000).toFixed(2)} L
+                </div>
+                <span className="text-[10px] text-indigo-600 font-semibold">
+                  ₹{(data?.financialSummary?.revenue || 0).toLocaleString("en-IN")} total
+                </span>
+              </div>
+
+              <div className="bg-purple-50/50 border border-purple-100 rounded-xl p-3.5">
+                <span className="text-[10px] font-bold text-purple-500 uppercase">Total Staff Payroll</span>
+                <div className="text-xl font-black text-purple-900 mt-0.5">
+                  ₹{((data?.financialSummary?.payroll || 0) / 100000).toFixed(2)} L
+                </div>
+                <span className="text-[10px] text-purple-600 font-semibold">
+                  ₹{(data?.financialSummary?.payroll || 0).toLocaleString("en-IN")} total
+                </span>
+              </div>
+
+              <div className="bg-amber-50/50 border border-amber-100 rounded-xl p-3.5">
+                <span className="text-[10px] font-bold text-amber-600 uppercase">Operational Expenses</span>
+                <div className="text-xl font-black text-amber-900 mt-0.5">
+                  ₹{((data?.financialSummary?.expenses || 0) / 100000).toFixed(2)} L
+                </div>
+                <span className="text-[10px] text-amber-700 font-semibold">
+                  ₹{(data?.financialSummary?.expenses || 0).toLocaleString("en-IN")} total
+                </span>
+              </div>
+
+              <div
+                className={`border rounded-xl p-3.5 ${
+                  (data?.financialSummary?.netProfit || 0) >= 0
+                    ? "bg-emerald-50/50 border-emerald-100"
+                    : "bg-rose-50/50 border-rose-100"
+                }`}
+              >
+                <span
+                  className={`text-[10px] font-bold uppercase ${
+                    (data?.financialSummary?.netProfit || 0) >= 0 ? "text-emerald-600" : "text-rose-600"
+                  }`}
+                >
+                  Net Profit (Bottom Line)
+                </span>
+                <div
+                  className={`text-xl font-black mt-0.5 ${
+                    (data?.financialSummary?.netProfit || 0) >= 0 ? "text-emerald-900" : "text-rose-900"
+                  }`}
+                >
+                  ₹{((data?.financialSummary?.netProfit || 0) / 100000).toFixed(2)} L
+                </div>
+                <span
+                  className={`text-[10px] font-bold ${
+                    (data?.financialSummary?.netProfit || 0) >= 0 ? "text-emerald-700" : "text-rose-700"
+                  }`}
+                >
+                  ₹{(data?.financialSummary?.netProfit || 0).toLocaleString("en-IN")} net
+                </span>
+              </div>
+            </div>
+
+            {/* Income vs Outflow Bar Visualization */}
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs font-bold text-slate-700 select-none">
+                <span>Revenue vs Expenses & Payroll Allocation</span>
+                <span className="text-slate-500 font-semibold text-[11px]">
+                  Total Outflow: ₹{((data?.financialSummary?.outflow || 0) / 100000).toFixed(2)} L
+                </span>
+              </div>
+              <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden flex p-0.5 gap-0.5">
+                <div
+                  style={{
+                    width: `${
+                      (data?.financialSummary?.revenue || 0) > 0
+                        ? Math.min(
+                            100,
+                            ((data?.financialSummary?.payroll || 0) / (data?.financialSummary?.revenue || 1)) * 100
+                          )
+                        : 0
+                    }%`,
+                  }}
+                  className="bg-purple-500 h-full rounded-l-full transition-all"
+                  title="Payroll Payouts"
+                ></div>
+                <div
+                  style={{
+                    width: `${
+                      (data?.financialSummary?.revenue || 0) > 0
+                        ? Math.min(
+                            100,
+                            ((data?.financialSummary?.expenses || 0) / (data?.financialSummary?.revenue || 1)) * 100
+                          )
+                        : 0
+                    }%`,
+                  }}
+                  className="bg-amber-500 h-full transition-all"
+                  title="Operational Expenses"
+                ></div>
+                <div
+                  style={{
+                    width: `${
+                      (data?.financialSummary?.revenue || 0) > 0 && (data?.financialSummary?.netProfit || 0) > 0
+                        ? Math.min(
+                            100,
+                            ((data?.financialSummary?.netProfit || 0) / (data?.financialSummary?.revenue || 1)) * 100
+                          )
+                        : 0
+                    }%`,
+                  }}
+                  className="bg-emerald-500 h-full rounded-r-full transition-all"
+                  title="Net Profit"
+                ></div>
+              </div>
+
+              <div className="flex items-center gap-4 text-[10px] font-bold text-slate-500 pt-1">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-purple-500"></span> Payroll (
+                  {data?.financialSummary?.revenue > 0
+                    ? ((data.financialSummary.payroll / data.financialSummary.revenue) * 100).toFixed(1)
+                    : 0}
+                  %)
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-amber-500"></span> Expenses (
+                  {data?.financialSummary?.revenue > 0
+                    ? ((data.financialSummary.expenses / data.financialSummary.revenue) * 100).toFixed(1)
+                    : 0}
+                  %)
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-500"></span> Net Profit (
+                  {data?.financialSummary?.profitMargin || "0%"})
+                </span>
+              </div>
+            </div>
+          </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
@@ -500,22 +768,22 @@ export default function AdminDashboard() {
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className="border-b border-slate-100 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                      <th className="pb-2">Counsellor</th>
-                      <th className="pb-2 text-right">Assigned</th>
-                      <th className="pb-2 text-right">Follow-ups</th>
-                      <th className="pb-2 text-right">Admissions</th>
-                      <th className="pb-2 text-right">Conversion</th>
+                    <tr className="border-b border-slate-200/80 text-[10px] text-slate-400 font-bold uppercase tracking-wider bg-slate-50/50">
+                      <th className="py-2.5 px-2 whitespace-nowrap select-none">Counsellor</th>
+                      <th className="py-2.5 px-2 text-right whitespace-nowrap select-none">Assigned</th>
+                      <th className="py-2.5 px-2 text-right whitespace-nowrap select-none">Follow-ups</th>
+                      <th className="py-2.5 px-2 text-right whitespace-nowrap select-none">Admissions</th>
+                      <th className="py-2.5 px-2 text-right whitespace-nowrap select-none">Conv %</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100/50 font-semibold text-slate-600">
+                  <tbody className="divide-y divide-slate-100/80 font-semibold text-slate-600">
                     {data?.counsellorPerformance?.map((c: any, i: number) => (
-                      <tr key={i}>
-                        <td className="py-2.5 text-slate-800">{c.name}</td>
-                        <td className="text-right">{c.assigned}</td>
-                        <td className="text-right">{c.followups}</td>
-                        <td className="text-right text-emerald-600">{c.admissions}</td>
-                        <td className="text-right">{c.conversion}</td>
+                      <tr key={i} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="py-2.5 px-2 text-slate-800 font-bold capitalize whitespace-nowrap">{c.name}</td>
+                        <td className="py-2.5 px-2 text-right font-medium">{c.assigned}</td>
+                        <td className="py-2.5 px-2 text-right font-medium">{c.followups}</td>
+                        <td className="py-2.5 px-2 text-right font-extrabold text-emerald-600">{c.admissions}</td>
+                        <td className="py-2.5 px-2 text-right font-bold text-slate-700">{c.conversion}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -530,22 +798,22 @@ export default function AdminDashboard() {
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className="border-b border-slate-100 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                      <th className="pb-2">Brand</th>
-                      <th className="pb-2 text-right">Leads</th>
-                      <th className="pb-2 text-right">Admissions</th>
-                      <th className="pb-2 text-right">Revenue</th>
-                      <th className="pb-2 text-right">Conv %</th>
+                    <tr className="border-b border-slate-200/80 text-[10px] text-slate-400 font-bold uppercase tracking-wider bg-slate-50/50">
+                      <th className="py-2.5 px-2 whitespace-nowrap select-none">Brand</th>
+                      <th className="py-2.5 px-2 text-right whitespace-nowrap select-none">Leads</th>
+                      <th className="py-2.5 px-2 text-right whitespace-nowrap select-none">Admissions</th>
+                      <th className="py-2.5 px-2 text-right whitespace-nowrap select-none">Revenue</th>
+                      <th className="py-2.5 px-2 text-right whitespace-nowrap select-none">Conv %</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100/50 font-semibold text-slate-600">
+                  <tbody className="divide-y divide-slate-100/80 font-semibold text-slate-600">
                     {data?.brandPerformance?.map((b: any, i: number) => (
-                      <tr key={i}>
-                        <td className="py-2.5 text-slate-800">{b.name}</td>
-                        <td className="text-right">{b.leads}</td>
-                        <td className="text-right">{b.admissions}</td>
-                        <td className="text-right text-indigo-600">{b.revenue}</td>
-                        <td className="text-right text-emerald-600">{b.achievePct}</td>
+                      <tr key={i} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="py-2.5 px-2 text-slate-800 font-bold whitespace-nowrap">{b.name}</td>
+                        <td className="py-2.5 px-2 text-right font-medium">{b.leads}</td>
+                        <td className="py-2.5 px-2 text-right font-medium">{b.admissions}</td>
+                        <td className="py-2.5 px-2 text-right font-bold text-indigo-600">{b.revenue}</td>
+                        <td className="py-2.5 px-2 text-right font-bold text-emerald-600">{b.achievePct}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -560,20 +828,20 @@ export default function AdminDashboard() {
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className="border-b border-slate-100 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                      <th className="pb-2">Company</th>
-                      <th className="pb-2 text-right">Collection</th>
-                      <th className="pb-2 text-right">Used %</th>
-                      <th className="pb-2 text-right">Remaining</th>
+                    <tr className="border-b border-slate-200/80 text-[10px] text-slate-400 font-bold uppercase tracking-wider bg-slate-50/50">
+                      <th className="py-2.5 px-2 whitespace-nowrap select-none">Company</th>
+                      <th className="py-2.5 px-2 text-right whitespace-nowrap select-none">Collection</th>
+                      <th className="py-2.5 px-2 text-right whitespace-nowrap select-none">Used %</th>
+                      <th className="py-2.5 px-2 text-right whitespace-nowrap select-none">Remaining</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100/50 font-semibold text-slate-600">
+                  <tbody className="divide-y divide-slate-100/80 font-semibold text-slate-600">
                     {data?.companyUtilization?.map((c: any, i: number) => (
-                      <tr key={i}>
-                        <td className="py-2.5 text-slate-800">{c.name}</td>
-                        <td className="text-right">{c.collection}</td>
-                        <td className="text-right text-emerald-600">{c.usedPct}</td>
-                        <td className="text-right">{c.remaining}</td>
+                      <tr key={i} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="py-2.5 px-2 text-slate-800 font-bold whitespace-nowrap">{c.name}</td>
+                        <td className="py-2.5 px-2 text-right font-medium">{c.collection}</td>
+                        <td className="py-2.5 px-2 text-right font-bold text-emerald-600">{c.usedPct}</td>
+                        <td className="py-2.5 px-2 text-right font-medium">{c.remaining}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -617,20 +885,20 @@ export default function AdminDashboard() {
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className="border-b border-slate-100 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                      <th className="pb-2 w-10 text-center">Lost</th>
-                      <th className="pb-2">Enquiry No</th>
-                      <th className="pb-2">Student</th>
-                      <th className="pb-2">Course</th>
-                      <th className="pb-2">Counsellor</th>
-                      <th className="pb-2">Stage</th>
-                      <th className="pb-2">Priority</th>
+                    <tr className="border-b border-slate-200/80 text-[10px] text-slate-400 font-bold uppercase tracking-wider bg-slate-50/50">
+                      <th className="py-2.5 px-2.5 w-10 text-center select-none">Lost</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap select-none">Enquiry No</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap select-none">Student</th>
+                      <th className="py-2.5 px-3 select-none">Course</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap select-none">Counsellor</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap select-none">Stage</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap text-right select-none">Priority</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100/50 font-semibold text-slate-600">
+                  <tbody className="divide-y divide-slate-100/80 font-semibold text-slate-600">
                     {data?.enquiriesList?.map((e: any, i: number) => (
-                      <tr key={i}>
-                        <td className="py-2.5 text-center">
+                      <tr key={i} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="py-3 px-2.5 text-center">
                           <input
                             type="checkbox"
                             checked={false}
@@ -648,12 +916,20 @@ export default function AdminDashboard() {
                             title="Mark as Lost Lead (Deletes Enquiry)"
                           />
                         </td>
-                        <td className="py-2.5 text-indigo-600 font-bold">{e.id}</td>
-                        <td className="text-slate-800">{e.student}</td>
-                        <td>{e.course}</td>
-                        <td>{e.counsellor}</td>
-                        <td><span className="text-[9px] bg-slate-50 border border-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-bold uppercase">{e.stage}</span></td>
-                        <td><span className="text-[9px] bg-slate-50 border border-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-bold uppercase">{e.priority}</span></td>
+                        <td className="py-3 px-3 text-indigo-600 font-extrabold whitespace-nowrap">{e.id}</td>
+                        <td className="py-3 px-3 text-slate-800 font-bold whitespace-nowrap">{e.student}</td>
+                        <td className="py-3 px-3 text-slate-600 min-w-[180px] max-w-[240px] truncate">{e.course}</td>
+                        <td className="py-3 px-3 text-slate-700 whitespace-nowrap">{e.counsellor}</td>
+                        <td className="py-3 px-3 whitespace-nowrap">
+                          <span className="text-[9px] bg-slate-100 border border-slate-200/80 text-slate-700 px-2 py-0.5 rounded-md font-extrabold uppercase tracking-wide inline-block whitespace-nowrap">
+                            {e.stage}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-right whitespace-nowrap">
+                          <span className="text-[9px] bg-amber-50 border border-amber-200/60 text-amber-700 px-2 py-0.5 rounded-md font-extrabold uppercase tracking-wide inline-block whitespace-nowrap">
+                            {e.priority}
+                          </span>
+                        </td>
                       </tr>
                     ))}
                   </tbody>

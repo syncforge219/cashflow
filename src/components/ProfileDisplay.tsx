@@ -7,11 +7,12 @@ import { motion, AnimatePresence } from "framer-motion";
 interface ProfileDisplayProps {
   isOpen: boolean;
   onClose: () => void;
-  user: User;
+  user: User | null;
   logout: () => Promise<void>;
 }
 
 export default function ProfileDisplay({ isOpen, onClose, user, logout }: ProfileDisplayProps) {
+  if (!user) return null;
   const { login } = useUser();
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");

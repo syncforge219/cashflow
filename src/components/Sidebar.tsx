@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useUser } from "@/app/component/context/user-context";
+import { extractDominantColor, applyBrandTheme } from "@/lib/theme";
 
 interface SidebarItem {
   name: string;
@@ -50,6 +51,11 @@ export default function Sidebar() {
       if (result) {
         setLocalLogo(result);
         setImgError(false);
+
+        // Dynamically extract logo color and update theme across all dashboards
+        const themeColor = await extractDominantColor(result);
+        applyBrandTheme(themeColor);
+
         try {
           localStorage.setItem("app_brand_logo", result);
         } catch (err) { }
@@ -156,6 +162,24 @@ export default function Sidebar() {
             <span className="font-semibold text-[17px] leading-none h-5 w-5 flex items-center justify-center select-none text-slate-500 group-hover:text-slate-900 transition-colors">
               ₹
             </span>
+          ),
+        },
+        {
+          name: "Payroll",
+          href: "/payroll",
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+            </svg>
+          ),
+        },
+        {
+          name: "Expenses",
+          href: "/expenses",
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5h16.5a1.5 1.5 0 011.5 1.5v9.75a1.5 1.5 0 01-1.5 1.5H3.75a1.5 1.5 0 01-1.5-1.5V6a1.5 1.5 0 011.5-1.5z" />
+            </svg>
           ),
         },
         {

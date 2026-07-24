@@ -13,10 +13,31 @@ export default function AddCourseModal({ isOpen, onClose, onSuccess }: AddCourse
   const { user } = useUser();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [dbBrands, setDbBrands] = React.useState<string[]>([]);
+  const [discountLimitMode, setDiscountLimitMode] = useState<"INR" | "PERCENT">("INR");
+  const [discountLimitValue, setDiscountLimitValue] = useState<number>(5000);
+  const [formDataFee, setFormDataFee] = useState<string>("18000");
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const fetchBrands = async () => {
+      try {
+        const res = await fetch("/api/brands");
+        const data = await res.json();
+        if (res.ok && data.success && Array.isArray(data.brands)) {
+          const names = data.brands.map((b: any) => b.name).filter(Boolean);
+          if (names.length > 0) setDbBrands(names);
+        }
+      } catch (err) {
+        console.error("Failed fetching brands:", err);
+      }
+    };
+    fetchBrands();
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
-  // Determine available brands based on logged-in user role & brandScope
+  // Determine available brands based on logged-in user role & brandScope or DB registered brands
   const getBrandOptions = (): string[] => {
     if (user?.brandScope && user.role === "brand manager") {
       const userBrands = user.brandScope.split(",").map((b: string) => b.trim()).filter(Boolean);
@@ -26,7 +47,7 @@ export default function AddCourseModal({ isOpen, onClose, onSuccess }: AddCourse
       const userBrands = user.brandScope.split(",").map((b: string) => b.trim()).filter(Boolean);
       if (userBrands.length > 0) return userBrands;
     }
-    return ["Cadd Mantra", "SyncForge", "Design Gateway", "Corporate Enterprise", "Apex Academy"];
+    return dbBrands.length > 0 ? dbBrands : ["Cadd Mantra", "Design Gateway"];
   };
 
   const brandOptions = getBrandOptions();
@@ -230,6 +251,68 @@ export default function AddCourseModal({ isOpen, onClose, onSuccess }: AddCourse
                 required
                 className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
               />
+            </div>
+
+            {/* Max Discount Limit */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                  Max Allowed Discount Limit *
+                </label>
+                <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setDiscountLimitMode("INR")}
+                    className={`px-2 py-0.5 text-[9px] font-bold rounded-md transition-all cursor-pointer ${
+                      discountLimitMode === "INR" ? "bg-indigo-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-800"
+                    }`}
+                  >
+                    ₹ INR
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDiscountLimitMode("PERCENT")}
+                    className={`px-2 py-0.5 text-[9px] font-bold rounded-md transition-all cursor-pointer ${
+                      discountLimitMode === "PERCENT" ? "bg-indigo-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-800"
+                    }`}
+                  >
+                    % Percent
+                  </button>
+                </div>
+              </div>
+
+              <div className="relative">
+                <input
+                  name="maxDiscountLimitInput"
+                  type="number"
+                  step="any"
+                  value={discountLimitValue}
+                  onChange={(e) => setDiscountLimitValue(Number(e.target.value))}
+                  placeholder={discountLimitMode === "INR" ? "e.g. 5000" : "e.g. 15"}
+                  required
+                  className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 pr-12"
+                />
+                <span className="absolute right-3 top-2.5 text-xs font-bold text-slate-400">
+                  {discountLimitMode === "INR" ? "INR (₹)" : "% Off"}
+                </span>
+              </div>
+
+              {/* Hidden field submitting converted numeric INR value */}
+              <input
+                type="hidden"
+                name="maxDiscountLimit"
+                value={
+                  discountLimitMode === "PERCENT"
+                    ? Math.round((parseFloat(String(formDataFee).replace(/[^\d.]/g, "") || "0") * discountLimitValue) / 100)
+                    : discountLimitValue
+                }
+              />
+
+              <p className="text-[10px] text-slate-400 font-medium mt-1">
+                {discountLimitMode === "PERCENT"
+                  ? `Equivalent to ₹${Math.round((parseFloat(String(formDataFee).replace(/[^\d.]/g, "") || "0") * discountLimitValue) / 100).toLocaleString('en-IN')} max cap on course fee.`
+                  : "If counsellor gives discount > this limit, Admin approval notification will be triggered."}
+              </p>
             </div>
 
             {/* Status */}
