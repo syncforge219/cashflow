@@ -42,6 +42,12 @@ const CourseSchema = new Schema(
       type: Number,
       default: 5000,
     },
+    batches: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
   },
   {
     timestamps: true,

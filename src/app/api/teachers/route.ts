@@ -52,8 +52,10 @@ export async function POST(request: Request) {
       );
     }
 
+    const cleanEmail = email.trim().toLowerCase();
+
     // Check if email already registered
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: cleanEmail });
     if (existingUser) {
       return NextResponse.json(
         { error: "A user with this email already exists" },
@@ -72,7 +74,7 @@ export async function POST(request: Request) {
     // Create user with role "teacher"
     const newTeacher = await User.create({
       name: `${firstName} ${lastName}`,
-      email,
+      email: cleanEmail,
       password: hashedPassword,
       role: "teacher",
       phone: phone || "",

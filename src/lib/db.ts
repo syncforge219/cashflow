@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import dns from "node:dns";
+import { initEmiReminderCron } from "./emiCron";
 
 let cached = (global as any).mongoose;
 
@@ -68,6 +69,8 @@ async function dbConnect() {
 
   try {
     cached.conn = await cached.promise;
+    // Auto-start background worker for overdue EMI WhatsApp reminders
+    initEmiReminderCron();
   } catch (e) {
     cached.promise = null;
     cached.conn = null;

@@ -35,6 +35,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
   // 2. Course Details
   const [course, setCourse] = useState(lead?.targetCourse || "");
   const [batch, setBatch] = useState("");
+  const [isCustomBatch, setIsCustomBatch] = useState(false);
   const [duration, setDuration] = useState("");
   const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
   const [academicYear, setAcademicYear] = useState(new Date().getFullYear() + " - " + (new Date().getFullYear() + 1).toString().slice(2));
@@ -367,6 +368,8 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
                       onChange={e => {
                         const selectedCourseName = e.target.value;
                         setCourse(selectedCourseName);
+                        setBatch("");
+                        setIsCustomBatch(false);
                         
                         const selectedCourseObj = courses.find(c => c.name === selectedCourseName);
                         if (selectedCourseObj) {
@@ -387,7 +390,54 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
                   </div>
                   <div className="flex flex-col gap-1.5 md:col-span-2">
                     <label className="text-xs font-bold text-slate-500">Batch <span className="text-rose-500">*</span></label>
-                    <input type="text" value={batch} onChange={e=>setBatch(e.target.value)} placeholder="e.g. Weekend Batch - Jul 2026" className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white" />
+                    {(() => {
+                      const selectedCourseObj = courses.find((c) => c.name === course);
+                      const availableBatches: string[] = Array.isArray(selectedCourseObj?.batches) && selectedCourseObj.batches.length > 0
+                        ? selectedCourseObj.batches
+                        : [
+                            "Morning Batch (9:00 AM - 12:00 PM)",
+                            "Afternoon Batch (12:00 PM - 3:00 PM)",
+                            "Evening Batch (4:00 PM - 7:00 PM)",
+                            "Weekend Batch (Saturday - Sunday)",
+                            "Fast-Track Batch",
+                            "Online / Live Hybrid Batch"
+                          ];
+
+                      return (
+                        <>
+                          <select 
+                            value={isCustomBatch ? "Custom" : batch} 
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === "Custom") {
+                                setIsCustomBatch(true);
+                                setBatch("");
+                              } else {
+                                setIsCustomBatch(false);
+                                setBatch(val);
+                              }
+                            }} 
+                            disabled={!course}
+                            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white disabled:bg-slate-100 disabled:cursor-not-allowed cursor-pointer"
+                          >
+                            <option value="">{course ? "-- Select Batch --" : "-- Select a Course First --"}</option>
+                            {availableBatches.map((b, idx) => (
+                              <option key={idx} value={b}>{b}</option>
+                            ))}
+                            <option value="Custom">+ Enter Custom Batch...</option>
+                          </select>
+                          {isCustomBatch && (
+                            <input 
+                              type="text" 
+                              value={batch} 
+                              onChange={(e) => setBatch(e.target.value)} 
+                              placeholder="Type custom batch name..." 
+                              className="mt-2 w-full px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 focus:outline-none focus:border-indigo-500 bg-white" 
+                            />
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                   
                   <div className="flex flex-col gap-1.5">

@@ -16,6 +16,8 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
   const [counsellors, setCounsellors] = useState<any[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
   const [brands, setBrands] = useState<any[]>([]);
+  const [teachers, setTeachers] = useState<any[]>([]);
+  const [selectedBrand, setSelectedBrand] = useState<string>("");
   const [expectedCourseFee, setExpectedCourseFee] = useState("₹0");
   const [isDemoScheduled, setIsDemoScheduled] = useState(false);
   const [primaryPhone, setPrimaryPhone] = useState("+91 ");
@@ -25,6 +27,7 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
     if (isOpen) {
       setPrimaryPhone("+91 ");
       setParentsPhone("+91 ");
+      setSelectedBrand("");
 
       fetch("/api/counsellors")
         .then(res => res.json())
@@ -52,8 +55,23 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
           }
         })
         .catch(console.error);
+
+      fetch("/api/teachers")
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setTeachers(data.teachers || data.data || []);
+          }
+        })
+        .catch(console.error);
     }
   }, [isOpen]);
+
+  const filteredTeachers = teachers.filter((t) => {
+    if (!selectedBrand) return true;
+    if (!t.brandScope || t.brandScope === "All Brands" || t.brandScope === "All") return true;
+    return t.brandScope.toLowerCase().trim() === selectedBrand.toLowerCase().trim();
+  });
 
   const handlePrimaryPhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
@@ -204,7 +222,13 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Target Brand *</label>
-                <select name="targetBrand" required className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
+                <select 
+                  name="targetBrand" 
+                  required 
+                  value={selectedBrand}
+                  onChange={(e) => setSelectedBrand(e.target.value)}
+                  className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                >
                   <option value="">-- Select a Brand --</option>
                   {brands.map(b => (
                     <option key={b._id || b.name} value={b.name}>{b.name}</option>
@@ -364,6 +388,23 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
                   disabled={!isDemoScheduled}
                   className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 disabled:bg-slate-100" 
                 />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">
+                  Assigned Teacher for Demo {selectedBrand ? `(${selectedBrand})` : ""}
+                </label>
+                <select 
+                  name="demoTeacher" 
+                  disabled={!isDemoScheduled}
+                  className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 disabled:bg-slate-100"
+                >
+                  <option value="">-- Select Teacher --</option>
+                  {filteredTeachers.map((t) => (
+                    <option key={t._id || t.name} value={t.name}>
+                      {t.name} {t.brandScope ? `(${t.brandScope})` : ""}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="col-span-2">
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Demo Notes</label>

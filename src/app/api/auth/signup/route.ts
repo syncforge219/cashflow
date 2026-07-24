@@ -40,8 +40,10 @@ export async function POST(request: Request) {
     // Connect to database
     await dbConnect();
 
+    const cleanEmail = email.trim().toLowerCase();
+
     // Check if user already exists
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    const existingUser = await User.findOne({ email: cleanEmail });
     if (existingUser) {
       return NextResponse.json(
         { error: "A user with this email address already exists" },
@@ -64,7 +66,7 @@ export async function POST(request: Request) {
     // Create user in database
     const user = await User.create({
       name: name.trim(),
-      email: email.toLowerCase(),
+      email: cleanEmail,
       password: hashedPassword,
       role: "super admin",
     });

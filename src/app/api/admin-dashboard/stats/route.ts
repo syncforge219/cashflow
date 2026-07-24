@@ -10,10 +10,11 @@ import LostLeadCounter from "@/models/LostLeadCounter";
 import Payroll from "@/models/Payroll";
 import Expense from "@/models/Expense";
 
+
 export async function GET(req: Request) {
   try {
     await dbConnect();
-    
+
     const { searchParams } = new URL(req.url);
     const startDateParam = searchParams.get("startDate");
     const endDateParam = searchParams.get("endDate");

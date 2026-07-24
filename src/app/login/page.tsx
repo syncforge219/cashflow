@@ -58,7 +58,12 @@ export default function LoginPage() {
       }
 
       if (!response.ok) {
-        setErrors({ email: data.error || "Login failed. Please check your credentials." });
+        const errorMsg = data.error || "Login failed. Please check your credentials.";
+        if (errorMsg.toLowerCase().includes("password")) {
+          setErrors({ password: errorMsg });
+        } else {
+          setErrors({ email: errorMsg });
+        }
       } else {
         setIsSuccess(true);
         // Redirect to role-based dashboard

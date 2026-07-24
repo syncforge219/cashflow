@@ -59,8 +59,13 @@ const AdmissionSchema = new Schema(
     installmentAmount: { type: Number, default: 0 },
     customEmiPlan: [{
       dueDate: { type: Date },
-      amount: { type: Number }
+      amount: { type: Number },
+      isPaid: { type: Boolean, default: false },
+      paidDate: { type: Date },
+      reminderSentAt: { type: Date },
+      lastReminderStatus: { type: String }
     }],
+    lastEmiReminderSentAt: { type: Date },
   },
   {
     timestamps: true,
@@ -68,7 +73,6 @@ const AdmissionSchema = new Schema(
 );
 
 // Performance Indexes
-AdmissionSchema.index({ admissionId: 1 });
 AdmissionSchema.index({ counsellor: 1 });
 AdmissionSchema.index({ brand: 1 });
 AdmissionSchema.index({ createdAt: -1 });

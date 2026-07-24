@@ -11,59 +11,6 @@ export default function EnquiriesDisplay() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<any | null>(null);
 
-  const stats = [
-    {
-      title: "Today's Enquiries",
-      value: "0",
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5 text-blue-500">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
-        </svg>
-      ),
-      bg: "bg-blue-50/50 border-blue-100"
-    },
-    {
-      title: "Pending Follow-ups",
-      value: "4",
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5 text-amber-500">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-        </svg>
-      ),
-      bg: "bg-amber-50/50 border-amber-100"
-    },
-    {
-      title: "Admissions Converted",
-      value: "0",
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5 text-emerald-500">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-        </svg>
-      ),
-      bg: "bg-emerald-50/50 border-emerald-100"
-    },
-    {
-      title: "Lost Leads",
-      value: "0",
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5 text-rose-500">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
-        </svg>
-      ),
-      bg: "bg-rose-50/50 border-rose-100"
-    },
-    {
-      title: "Conversion Rate",
-      value: "0%",
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5 text-purple-500">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" />
-        </svg>
-      ),
-      bg: "bg-purple-50/50 border-purple-100"
-    }
-  ];
-
   const [enquiries, setEnquiries] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
@@ -168,8 +115,86 @@ export default function EnquiriesDisplay() {
   const uniqueSources = Array.from(new Set(enquiries.map(e => e.leadSource).filter(Boolean)));
   const uniquePriorities = Array.from(new Set(enquiries.map(e => e.priorityLevel).filter(Boolean)));
   const uniqueStatuses = Array.from(new Set(enquiries.map(e => e.status).filter(Boolean)));
-
   const isCustomDateRangeActive = startDateFilter !== "" || endDateFilter !== "";
+
+  // Dynamic metric computations based on actual database entries
+  const todayStr = new Date().toDateString();
+  const todaysCount = enquiries.filter(
+    (e) => e.createdAt && new Date(e.createdAt).toDateString() === todayStr
+  ).length;
+
+  const pendingFollowupsCount = enquiries.reduce((acc, lead) => {
+    const pendingTasks = lead.followUps?.filter((t: any) => !t.isCompleted && t.status !== "Completed").length || 0;
+    if (pendingTasks > 0) return acc + pendingTasks;
+    if (lead.status === "Pending" || lead.status === "Hot Follow-up" || lead.status === "Cold Follow-up" || lead.status === "Follow-up") {
+      return acc + 1;
+    }
+    return acc;
+  }, 0);
+
+  const admissionsConvertedCount = enquiries.filter(
+    (e) => e.status === "Admission" || e.status === "Admitted" || e.status === "Converted"
+  ).length;
+
+  const lostLeadsCount = enquiries.filter(
+    (e) => e.status === "Lost" || e.status === "Closed"
+  ).length;
+
+  const totalLeadsCount = enquiries.length;
+  const conversionRateStr = totalLeadsCount > 0 ? `${Math.round((admissionsConvertedCount / totalLeadsCount) * 100)}%` : "0%";
+
+  const stats = [
+    {
+      title: "Today's Enquiries",
+      value: String(todaysCount),
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5 text-blue-500">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
+        </svg>
+      ),
+      bg: "bg-blue-50/50 border-blue-100"
+    },
+    {
+      title: "Pending Follow-ups",
+      value: String(pendingFollowupsCount),
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5 text-amber-500">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+        </svg>
+      ),
+      bg: "bg-amber-50/50 border-amber-100"
+    },
+    {
+      title: "Admissions Converted",
+      value: String(admissionsConvertedCount),
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5 text-emerald-500">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+        </svg>
+      ),
+      bg: "bg-emerald-50/50 border-emerald-100"
+    },
+    {
+      title: "Lost Leads",
+      value: String(lostLeadsCount),
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5 text-rose-500">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+        </svg>
+      ),
+      bg: "bg-rose-50/50 border-rose-100"
+    },
+    {
+      title: "Conversion Rate",
+      value: conversionRateStr,
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5 text-purple-500">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" />
+        </svg>
+      ),
+      bg: "bg-purple-50/50 border-purple-100"
+    }
+  ];
 
   return (
     <div className="space-y-6 flex-1 flex flex-col justify-between">

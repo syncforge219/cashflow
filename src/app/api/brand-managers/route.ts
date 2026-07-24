@@ -24,8 +24,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
+    const cleanEmail = email.trim().toLowerCase();
+
     // Check if user already exists
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: cleanEmail });
     if (existingUser) {
       return NextResponse.json({ error: "Email already registered" }, { status: 400 });
     }
@@ -37,7 +39,7 @@ export async function POST(req: Request) {
     // Create brand manager
     const newBrandManager = new User({
       name: `${firstName} ${lastName}`,
-      email,
+      email: cleanEmail,
       password: hashedPassword,
       role: "brand manager",
       phone: phone || "",

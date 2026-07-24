@@ -430,3 +430,224 @@ export async function sendWhatsAppMonthlyReport(params: {
     };
   }
 }
+
+export interface FeeReminderWhatsAppParams {
+  studentName: string;
+  mobileNumber: string;
+  courseName: string;
+  amountDue: number | string;
+  dueDate: string | Date;
+}
+
+/**
+ * Dispatch MSG91 WhatsApp Fee Reminder Outbound Message for Overdue EMIs
+ * Template: "feeremainderstudent"
+ * Namespace: "610ca09d_29b3_4193_8bab_18e0fab26f84"
+ */
+export async function sendWhatsAppEmiReminder(params: FeeReminderWhatsAppParams) {
+  try {
+    const authKey =
+      process.env.MSG91_AUTHKEY || "478610A465a065I869fed7fdP1";
+    const integratedNumber =
+      process.env.MSG91_INTEGRATED_NUMBER || "919335913286";
+
+    const formattedPhone = formatPhoneNumber(params.mobileNumber);
+    if (!formattedPhone) {
+      console.warn("MSG91 WhatsApp Warning: Missing or invalid phone number for fee reminder.");
+      return { success: false, error: "Invalid recipient phone number." };
+    }
+
+    const formattedAmount = typeof params.amountDue === "number"
+      ? `₹${params.amountDue.toLocaleString("en-IN")}`
+      : (String(params.amountDue).startsWith("₹") ? String(params.amountDue) : `₹${params.amountDue}`);
+
+    const formattedDueDate = formatDateOnly(
+      typeof params.dueDate === "string" ? params.dueDate : params.dueDate.toISOString()
+    );
+
+    const payload = {
+      integrated_number: integratedNumber,
+      content_type: "template",
+      payload: {
+        messaging_product: "whatsapp",
+        type: "template",
+        template: {
+          name: "feeremainderstudent",
+          language: {
+            code: "en",
+            policy: "deterministic",
+          },
+          namespace: "610ca09d_29b3_4193_8bab_18e0fab26f84",
+          to_and_components: [
+            {
+              to: [formattedPhone],
+              components: {
+                body_1: {
+                  type: "text",
+                  value: params.studentName || "Student",
+                },
+                body_2: {
+                  type: "text",
+                  value: params.courseName || "Course",
+                },
+                body_3: {
+                  type: "text",
+                  value: formattedAmount,
+                },
+                body_4: {
+                  type: "text",
+                  value: formattedDueDate,
+                },
+              },
+            },
+          ],
+        },
+      },
+    };
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+
+    if (authKey) {
+      headers["authkey"] = authKey;
+    }
+
+    console.log(
+      `MSG91 WhatsApp Sending Overdue Fee Reminder (feeremainderstudent) to ${formattedPhone} for ${params.studentName}...`
+    );
+
+    const response = await fetch(
+      "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/",
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload),
+      }
+    );
+
+    const resText = await response.text();
+    let resJson: any = null;
+    try {
+      resJson = JSON.parse(resText);
+    } catch (_) {}
+
+    console.log("MSG91 Fee Reminder Response:", resText);
+
+    if (response.ok) {
+      return {
+        success: true,
+        data: resJson || resText,
+      };
+    } else {
+      return {
+        success: false,
+        error: resJson?.message || resText || "Failed to send MSG91 WhatsApp fee reminder.",
+      };
+    }
+  } catch (error: any) {
+    console.error("MSG91 Fee Reminder Error:", error);
+    return {
+      success: false,
+      error: error.message || "Network error during MSG91 fee reminder dispatch.",
+    };
+  }
+}
+
+export interface CounsellorEmiReminderParams {
+  counsellorName: string;
+  counsellorMobile: string;
+  studentName: string;
+  courseName: string;
+  studentMobile: string;
+  studentEmail: string;
+  amountDue: number | string;
+  dueDate: string | Date;
+}
+
+/**
+ * Dispatch MSG91 WhatsApp Fee Reminder to Counsellor for Overdue EMI
+ * Template: "feeremindercounsellor"
+ * Namespace: "610ca09d_29b3_4193_8bab_18e0fab26f84"
+ * Body params:
+ *   body_1: counsellor name
+ *   body_2: student name
+ *   body_3: course name
+ *   body_4: student mobile
+ *   body_5: student email
+ *   body_6: amount due
+ *   body_7: due date
+ */
+export async function sendWhatsAppCounsellorEmiReminder(params: CounsellorEmiReminderParams) {
+  try {
+    const authKey = process.env.MSG91_AUTHKEY || "478610A465a065I869fed7fdP1";
+    const integratedNumber = process.env.MSG91_INTEGRATED_NUMBER || "919335913286";
+
+    const formattedPhone = formatPhoneNumber(params.counsellorMobile);
+    if (!formattedPhone) {
+      console.warn(`[MSG91] Counsellor ${params.counsellorName} has no valid phone — skipping.`);
+      return { success: false, error: "Invalid counsellor phone number." };
+    }
+
+    const formattedAmount = typeof params.amountDue === "number"
+      ? `₹${params.amountDue.toLocaleString("en-IN")}`
+      : (String(params.amountDue).startsWith("₹") ? String(params.amountDue) : `₹${params.amountDue}`);
+
+    const formattedDueDate = formatDateOnly(
+      typeof params.dueDate === "string" ? params.dueDate : params.dueDate.toISOString()
+    );
+
+    const payload = {
+      integrated_number: integratedNumber,
+      content_type: "template",
+      payload: {
+        messaging_product: "whatsapp",
+        type: "template",
+        template: {
+          name: "feeremindercounsellor",
+          language: { code: "en", policy: "deterministic" },
+          namespace: "610ca09d_29b3_4193_8bab_18e0fab26f84",
+          to_and_components: [
+            {
+              to: [formattedPhone],
+              components: {
+                body_1: { type: "text", value: params.counsellorName || "Counsellor" },
+                body_2: { type: "text", value: params.studentName || "Student" },
+                body_3: { type: "text", value: params.courseName || "Course" },
+                body_4: { type: "text", value: params.studentMobile || "N/A" },
+                body_5: { type: "text", value: params.studentEmail || "N/A" },
+                body_6: { type: "text", value: formattedAmount },
+                body_7: { type: "text", value: formattedDueDate },
+              },
+            },
+          ],
+        },
+      },
+    };
+
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (authKey) headers["authkey"] = authKey;
+
+    console.log(`[MSG91] Sending Counsellor Reminder (feeremindercounsellor) to ${params.counsellorName} (${formattedPhone}) for student ${params.studentName}...`);
+
+    const response = await fetch(
+      "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/",
+      { method: "POST", headers, body: JSON.stringify(payload) }
+    );
+
+    const resText = await response.text();
+    let resJson: any = null;
+    try { resJson = JSON.parse(resText); } catch (_) {}
+
+    console.log("[MSG91] Counsellor Reminder Response:", resText);
+
+    if (response.ok) {
+      return { success: true, data: resJson || resText };
+    } else {
+      return { success: false, error: resJson?.message || resText || "Failed to send counsellor reminder." };
+    }
+  } catch (error: any) {
+    console.error("[MSG91] Counsellor Reminder Error:", error);
+    return { success: false, error: error.message || "Network error during counsellor reminder." };
+  }
+}

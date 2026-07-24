@@ -7,9 +7,11 @@ import Brand from "@/models/Brand";
 import { getUserFromCookies } from "@/lib/helper";
 import { sendWhatsAppFeeReceipt } from "@/lib/msg91";
 
+
 export async function GET(req: Request) {
   try {
     await dbConnect();
+
     const user = await getUserFromCookies();
     const { searchParams } = new URL(req.url);
     const admissionId = searchParams.get("admissionId");
@@ -125,7 +127,7 @@ export async function POST(req: Request) {
     admission.remainingBalance = Math.max(0, admission.remainingBalance - Number(amountReceived));
     await admission.save();
 
-    // 4. Dispatch MSG91 WhatsApp Fee Receipt notification
+    // 4. Dispatch MSG91 WhatsApp Fee Receipt notification & trigger overdue EMI check
     try {
       if (admission.mobileNumber) {
         sendWhatsAppFeeReceipt({
@@ -137,6 +139,7 @@ export async function POST(req: Request) {
           receiptNo: payment.receiptNo,
         }).catch((err) => console.error("Async MSG91 WhatsApp Error:", err));
       }
+
     } catch (waErr) {
       console.error("Failed to trigger WhatsApp receipt:", waErr);
     }

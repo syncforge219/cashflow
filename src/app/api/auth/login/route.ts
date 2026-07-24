@@ -17,15 +17,17 @@ export async function POST(request: Request) {
     }
 
     const { email, password } = body;
+    const cleanEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+    const cleanPassword = typeof password === "string" ? password : "";
 
-    if (!email || !password) {
+    if (!cleanEmail || !cleanPassword) {
       return NextResponse.json(
         { error: "Email and password are required" },
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    if (!email.includes("@")) {
+    if (!cleanEmail.includes("@")) {
       return NextResponse.json(
         { error: "Please enter a valid email address" },
         { status: 400, headers: { "Content-Type": "application/json" } }
@@ -44,10 +46,19 @@ export async function POST(request: Request) {
     }
 
     // Find user by email
-    const user = await User.findOne({ email: email.toLowerCase() });
-    if (!user || !user.password) {
+    const user = await User.findOne({ email: cleanEmail });
+    if (!user) {
+      console.warn(`[Login 404] User not found in DB for email: "${cleanEmail}"`);
       return NextResponse.json(
-        { error: "Invalid email or password" },
+        { error: "Account does not exist" },
+        { status: 404, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!user.password) {
+      console.warn(`[Login 401] User record exists but missing password field: "${cleanEmail}"`);
+      return NextResponse.json(
+        { error: "Account does not exist or is disabled" },
         { status: 401, headers: { "Content-Type": "application/json" } }
       );
     }
@@ -55,18 +66,22 @@ export async function POST(request: Request) {
     // Compare passwords
     let isPasswordValid = false;
     try {
-      isPasswordValid = await bcrypt.compare(password, user.password);
+      isPasswordValid = await bcrypt.compare(cleanPassword, user.password);
+      if (!isPasswordValid && cleanPassword !== cleanPassword.trim()) {
+        isPasswordValid = await bcrypt.compare(cleanPassword.trim(), user.password);
+      }
     } catch (bcErr: any) {
       console.error("Bcrypt compare error:", bcErr);
       return NextResponse.json(
-        { error: "Invalid email or password" },
+        { error: "Password is incorrect" },
         { status: 401, headers: { "Content-Type": "application/json" } }
       );
     }
 
     if (!isPasswordValid) {
+      console.warn(`[Login 401] Password mismatch for user: "${cleanEmail}"`);
       return NextResponse.json(
-        { error: "Invalid email or password" },
+        { error: "Password is incorrect" },
         { status: 401, headers: { "Content-Type": "application/json" } }
       );
     }

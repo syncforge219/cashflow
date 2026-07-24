@@ -98,6 +98,10 @@ const EnquirySchema = new Schema(
     demoNotes: {
       type: String,
     },
+    demoTeacher: {
+      type: String,
+      trim: true,
+    },
     status: {
       type: String,
       default: "New",
