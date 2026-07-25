@@ -111,7 +111,14 @@ export default function EnquiriesDisplay() {
 
   // Compute unique values for dropdowns based on actual database entries
   const uniqueBrands = Array.from(new Set(enquiries.map(e => e.targetBrand).filter(Boolean)));
-  const uniqueAdvisors = Array.from(new Set(enquiries.map(e => e.assignedCrmAdvisor).filter(Boolean)));
+  const uniqueAdvisors = Array.from(
+    new Set(
+      enquiries
+        .filter(e => !brandFilter || e.targetBrand === brandFilter)
+        .map(e => e.assignedCrmAdvisor)
+        .filter(Boolean)
+    )
+  );
   const uniqueSources = Array.from(new Set(enquiries.map(e => e.leadSource).filter(Boolean)));
   const uniquePriorities = Array.from(new Set(enquiries.map(e => e.priorityLevel).filter(Boolean)));
   const uniqueStatuses = Array.from(new Set(enquiries.map(e => e.status).filter(Boolean)));
@@ -324,21 +331,26 @@ export default function EnquiriesDisplay() {
         </div>
 
         {/* Lead Source Channels */}
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs flex flex-col justify-between h-full">
           <div>
-            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider select-none">Lead Source Channels</h2>
-            <p className="text-[10px] text-slate-400/90 mt-0.5 select-none">Marketing acquisition mix distribution.</p>
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider select-none">Lead Source Channels</h2>
+              <span className="text-[10px] font-extrabold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100 select-none">
+                Live Mix
+              </span>
+            </div>
+            <p className="text-[11px] font-medium text-slate-400 mt-0.5 select-none">Marketing acquisition mix distribution</p>
           </div>
-          
+
           {(() => {
             const sourceStats = filteredEnquiries.reduce((acc, curr) => {
               const source = curr.leadSource || "Other";
               acc[source] = (acc[source] || 0) + 1;
               return acc;
             }, {} as Record<string, number>);
-            
+
             const totalSources = filteredEnquiries.length || 1;
-            
+
             const sourceColors: Record<string, string> = {
               "Google Ads": "#6366f1",
               "Google Search": "#06b6d4",
@@ -362,35 +374,54 @@ export default function EnquiriesDisplay() {
               currentAngle = end;
               return `${color} ${start}% ${end}%`;
             }).join(", ");
-            
+
             return (
               <>
-                <div className="flex-1 flex items-center justify-center my-4">
+                <div className="my-auto py-3 flex items-center justify-center">
                   {filteredEnquiries.length > 0 ? (
-                    <div 
-                      className="w-24 h-24 sm:w-32 sm:h-32 rounded-full shadow-sm flex items-center justify-center"
+                    <div
+                      className="w-28 h-28 sm:w-32 sm:h-32 rounded-full shadow-sm flex items-center justify-center relative"
                       style={{
                         background: `conic-gradient(${gradientStops})`,
                       }}
                     >
-                      {/* Inner circle to create donut effect */}
-                      <div className="w-14 h-14 sm:w-20 sm:h-20 bg-white rounded-full shadow-inner" />
+                      {/* Inner circle to create donut effect with centered total count */}
+                      <div className="w-18 h-18 sm:w-20 sm:h-20 bg-white rounded-full shadow-inner flex flex-col items-center justify-center text-center">
+                        <span className="text-base sm:text-lg font-black text-slate-800 tracking-tight">{filteredEnquiries.length}</span>
+                        <span className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase select-none">Total</span>
+                      </div>
                     </div>
                   ) : (
-                    <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-slate-100 flex items-center justify-center">
+                    <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full border-4 border-slate-100 flex items-center justify-center">
                       <span className="text-[10px] text-slate-400 font-bold">No Data</span>
                     </div>
                   )}
                 </div>
 
-                <div className="flex flex-col gap-3 mt-auto">
-                  {Object.entries(sourceStats).map(([source, count]) => (
-                    <div key={source} className="flex items-center gap-2">
-                      <span className={`h-2 w-2 rounded-full ${tailwindColors[source] || tailwindColors["Other"]}`}></span>
-                      <span className="text-xs font-semibold text-slate-500 flex-1">{source}</span>
-                      <span className="text-xs font-bold text-slate-800">{String(count)}</span>
-                    </div>
-                  ))}
+                <div className="space-y-2.5 pt-3 border-t border-slate-100">
+                  {Object.entries(sourceStats).map(([source, count]) => {
+                    const pct = Math.round(((count as number) / totalSources) * 100);
+                    return (
+                      <div key={source} className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2">
+                            <span className={`h-2.5 w-2.5 rounded-full ${tailwindColors[source] || tailwindColors["Other"]}`}></span>
+                            <span className="font-semibold text-slate-700">{source}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-extrabold text-slate-800">{pct}%</span>
+                            <span className="text-[10px] font-semibold text-slate-400">({String(count)})</span>
+                          </div>
+                        </div>
+                        <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${tailwindColors[source] || tailwindColors["Other"]}`}
+                            style={{ width: `${pct}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </>
             );

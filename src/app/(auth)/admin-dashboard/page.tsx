@@ -9,12 +9,14 @@ import CommandPalette from "@/components/CommandPalette";
 import DashboardFilter from "@/components/DashboardFilter";
 import DeleteConfirmModal from "@/components/DeleteConfirmModal";
 import StudentSearchCenter from "@/components/StudentSearchCenter";
+import AddBatchModal from "@/components/AddBatchModal";
 
 export default function AdminDashboard() {
   const { user, logout } = useUser();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
 
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -39,6 +41,38 @@ export default function AdminDashboard() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [enquiryToDelete, setEnquiryToDelete] = useState<any>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSendingWeeklyReport, setIsSendingWeeklyReport] = useState(false);
+
+  const handleSendWeeklyReport = async () => {
+    setIsSendingWeeklyReport(true);
+    try {
+      const res = await fetch("/api/email/send-weekly-report", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        alert(`✅ Success: ${data.message}`);
+      } else {
+        alert(`❌ Email Error: ${data.error}`);
+      }
+    } catch (err: any) {
+      alert("Error triggering report email: " + err.message);
+    } finally {
+      setIsSendingWeeklyReport(false);
+    }
+  };
+
+  const handleCheckOverdueEmis = async () => {
+    try {
+      const res = await fetch("/api/email/check-overdue-emis", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        alert(`✅ Overdue Scan Complete: Sent ${data.emailsSentCount} overdue EMI email reminders.`);
+      } else {
+        alert(`❌ Error: ${data.error}`);
+      }
+    } catch (err: any) {
+      alert("Error scanning overdue EMIs: " + err.message);
+    }
+  };
 
   const [notifications, setNotifications] = useState<any[]>([]);
 
@@ -327,9 +361,11 @@ export default function AdminDashboard() {
         )}
 
         {/* Super Admin Quick Actions Bar */}
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-3 mb-6 shadow-xs flex items-center justify-between gap-3 overflow-x-auto shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-extrabold text-slate-800 uppercase tracking-wider px-2 select-none">Quick Actions:</span>
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-3 mb-6 shadow-xs flex items-center gap-3 overflow-hidden shrink-0">
+          <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider px-2 select-none shrink-0 border-r border-slate-200 pr-3">
+            Quick Actions:
+          </span>
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth py-0.5 w-full">
             <button
               onClick={() => router.push("/payroll")}
               className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-xl border border-emerald-200 transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
@@ -366,24 +402,42 @@ export default function AdminDashboard() {
             >
               <span>📊 View Reports</span>
             </button>
+            <button
+              onClick={() => setIsBatchModalOpen(true)}
+              className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl border border-indigo-200 transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+            >
+              <span>📚 Create Faculty Batch</span>
+            </button>
+            <button
+              onClick={handleSendWeeklyReport}
+              disabled={isSendingWeeklyReport}
+              className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold rounded-xl border border-purple-200 transition-all flex items-center gap-1.5 cursor-pointer shrink-0 disabled:opacity-50"
+            >
+              <span>📧 {isSendingWeeklyReport ? "Sending..." : "Weekly Excel Report"}</span>
+            </button>
+            <button
+              onClick={handleCheckOverdueEmis}
+              className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl border border-rose-200 transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+            >
+              <span>⏰ Overdue EMIs</span>
+            </button>
+            <button
+              onClick={() => {
+                if (!data?.enquiriesList) return;
+                const csvContent = "data:text/csv;charset=utf-8," + ["ID,Student,Course,Counsellor,Stage"].concat(data.enquiriesList.map((e: any) => `${e.id},${e.student},${e.course},${e.counsellor},${e.stage}`)).join("\n");
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", `CoachFlow_Export_${new Date().toISOString().split("T")[0]}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }}
+              className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shrink-0 shadow-xs ml-auto"
+            >
+              <span>📥 Export CSV</span>
+            </button>
           </div>
-
-          <button
-            onClick={() => {
-              if (!data?.enquiriesList) return;
-              const csvContent = "data:text/csv;charset=utf-8," + ["ID,Student,Course,Counsellor,Stage"].concat(data.enquiriesList.map((e: any) => `${e.id},${e.student},${e.course},${e.counsellor},${e.stage}`)).join("\n");
-              const encodedUri = encodeURI(csvContent);
-              const link = document.createElement("a");
-              link.setAttribute("href", encodedUri);
-              link.setAttribute("download", `CoachFlow_Export_${new Date().toISOString().split("T")[0]}.csv`);
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-            }}
-            className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shrink-0 shadow-xs"
-          >
-            <span>📥 Export Data (CSV)</span>
-          </button>
         </div>
 
         <CommandPalette isOpen={isCommandPaletteOpen} onClose={() => setIsCommandPaletteOpen(false)} />
@@ -401,24 +455,25 @@ export default function AdminDashboard() {
             }}
           />
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 xl:grid-cols-10 gap-3">
+          {/* 12 KPI Metric Cards Grid in 2 Balanced 6-Column Rows */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-6 gap-3.5">
             {isLoading && !data ? (
-              Array.from({ length: 10 }).map((_, i) => (
-                <div key={i} className="bg-white border border-slate-200/80 rounded-2xl p-3 shadow-xs flex flex-col justify-between h-24 animate-pulse">
-                  <div className="h-2.5 w-16 bg-slate-200 rounded-md"></div>
-                  <div className="h-6 w-12 bg-slate-200 rounded-lg my-1"></div>
-                  <div className="h-3.5 w-14 bg-slate-100 rounded-md"></div>
+              Array.from({ length: 12 }).map((_, i) => (
+                <div key={i} className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs flex flex-col justify-between h-28 animate-pulse">
+                  <div className="h-3 w-20 bg-slate-200 rounded-md"></div>
+                  <div className="h-7 w-16 bg-slate-200 rounded-lg my-2"></div>
+                  <div className="h-4 w-16 bg-slate-100 rounded-md"></div>
                 </div>
               ))
             ) : (
               metrics.map((card, i) => (
-                <div key={i} className="bg-white border border-slate-200/80 rounded-2xl p-3 shadow-xs flex flex-col justify-between">
-                  <span className="text-[10px] font-semibold text-slate-400/90 truncate uppercase select-none">{card.name}</span>
+                <div key={i} className="bg-white border border-slate-200/80 rounded-2xl p-3.5 shadow-xs flex flex-col justify-between hover:border-slate-300 transition-all">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider select-none leading-snug">{card.name}</span>
                   <div className="my-2 flex items-baseline gap-1">
-                    <span className="text-xl font-bold text-slate-800 tracking-tight">{card.value}</span>
+                    <span className="text-xl lg:text-2xl font-black text-slate-800 tracking-tight">{card.value}</span>
                   </div>
-                  <span className={`text-[9px] font-bold truncate rounded-md px-1 py-0.5 w-fit ${card.simpleText ? "text-slate-500 bg-slate-100" :
-                      card.isGreen ? "text-emerald-600 bg-emerald-50" : "text-rose-600 bg-rose-50"
+                  <span className={`text-[10px] font-extrabold rounded-lg px-2 py-0.5 w-fit ${card.simpleText ? "text-slate-600 bg-slate-100 border border-slate-200" :
+                      card.isGreen ? "text-emerald-700 bg-emerald-50 border border-emerald-200/60" : "text-rose-700 bg-rose-50 border border-rose-200/60"
                     }`}>
                     {card.trend}
                   </span>
@@ -466,19 +521,23 @@ export default function AdminDashboard() {
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-5">
               <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-3.5">
-                <span className="text-[10px] font-bold text-indigo-500 uppercase">Total Revenue (Income)</span>
+                <span className="text-[10px] font-bold text-indigo-500 uppercase">Total Revenue (Billed)</span>
                 <div className="text-xl font-black text-indigo-900 mt-0.5">
-                  ₹{((data?.financialSummary?.revenue || 0) / 100000).toFixed(2)} L
+                  {(data?.financialSummary?.revenue || 0) >= 100000
+                    ? `₹${(data.financialSummary.revenue / 100000).toFixed(2)} L`
+                    : `₹${(data?.financialSummary?.revenue || 0).toLocaleString("en-IN")}`}
                 </div>
                 <span className="text-[10px] text-indigo-600 font-semibold">
-                  ₹{(data?.financialSummary?.revenue || 0).toLocaleString("en-IN")} total
+                  Collections: ₹{(data?.financialSummary?.collections || data?.financialSummary?.revenue || 0).toLocaleString("en-IN")}
                 </span>
               </div>
 
               <div className="bg-purple-50/50 border border-purple-100 rounded-xl p-3.5">
                 <span className="text-[10px] font-bold text-purple-500 uppercase">Total Staff Payroll</span>
                 <div className="text-xl font-black text-purple-900 mt-0.5">
-                  ₹{((data?.financialSummary?.payroll || 0) / 100000).toFixed(2)} L
+                  {(data?.financialSummary?.payroll || 0) >= 100000
+                    ? `₹${(data.financialSummary.payroll / 100000).toFixed(2)} L`
+                    : `₹${(data?.financialSummary?.payroll || 0).toLocaleString("en-IN")}`}
                 </div>
                 <span className="text-[10px] text-purple-600 font-semibold">
                   ₹{(data?.financialSummary?.payroll || 0).toLocaleString("en-IN")} total
@@ -488,7 +547,9 @@ export default function AdminDashboard() {
               <div className="bg-amber-50/50 border border-amber-100 rounded-xl p-3.5">
                 <span className="text-[10px] font-bold text-amber-600 uppercase">Operational Expenses</span>
                 <div className="text-xl font-black text-amber-900 mt-0.5">
-                  ₹{((data?.financialSummary?.expenses || 0) / 100000).toFixed(2)} L
+                  {(data?.financialSummary?.expenses || 0) >= 100000
+                    ? `₹${(data.financialSummary.expenses / 100000).toFixed(2)} L`
+                    : `₹${(data?.financialSummary?.expenses || 0).toLocaleString("en-IN")}`}
                 </div>
                 <span className="text-[10px] text-amber-700 font-semibold">
                   ₹{(data?.financialSummary?.expenses || 0).toLocaleString("en-IN")} total
@@ -514,7 +575,9 @@ export default function AdminDashboard() {
                     (data?.financialSummary?.netProfit || 0) >= 0 ? "text-emerald-900" : "text-rose-900"
                   }`}
                 >
-                  ₹{((data?.financialSummary?.netProfit || 0) / 100000).toFixed(2)} L
+                  {Math.abs(data?.financialSummary?.netProfit || 0) >= 100000
+                    ? `₹${((data?.financialSummary?.netProfit || 0) / 100000).toFixed(2)} L`
+                    : `₹${(data?.financialSummary?.netProfit || 0).toLocaleString("en-IN")}`}
                 </div>
                 <span
                   className={`text-[10px] font-bold ${
@@ -531,7 +594,7 @@ export default function AdminDashboard() {
               <div className="flex justify-between text-xs font-bold text-slate-700 select-none">
                 <span>Revenue vs Expenses & Payroll Allocation</span>
                 <span className="text-slate-500 font-semibold text-[11px]">
-                  Total Outflow: ₹{((data?.financialSummary?.outflow || 0) / 100000).toFixed(2)} L
+                  Total Outflow: ₹{(data?.financialSummary?.outflow || 0).toLocaleString("en-IN")}
                 </span>
               </div>
               <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden flex p-0.5 gap-0.5">
@@ -735,26 +798,55 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
-              <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider select-none mb-3">Lead Source Distribution</h2>
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs flex flex-col justify-between h-full">
+              <div>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider select-none">Lead Source Channels</h2>
+                  <span className="text-[10px] font-extrabold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100 select-none">
+                    Live Mix
+                  </span>
+                </div>
+                <p className="text-[11px] font-medium text-slate-400 mt-0.5 select-none">Marketing acquisition distribution</p>
+              </div>
 
-              <div className="flex items-center gap-4">
-                <div className="h-28 w-28 shrink-0 relative flex items-center justify-center">
+              <div className="my-auto py-3 flex flex-col items-center justify-center">
+                <div className="h-32 w-32 relative flex items-center justify-center">
                   <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                    <circle cx="18" cy="18" r="15.915" fill="transparent" stroke="#f1f5f9" strokeWidth="3" />
+                    <circle cx="18" cy="18" r="15.915" fill="transparent" stroke="#f1f5f9" strokeWidth="3.5" />
                     {donutCircles}
                   </svg>
-                  <span className="absolute text-[10px] font-bold text-slate-500 select-none">Sources</span>
+                  <div className="absolute flex flex-col items-center justify-center text-center pointer-events-none">
+                    <span className="text-xl font-black text-slate-800 tracking-tight">
+                      {data?.kpis?.totalLeads ?? 0}
+                    </span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider select-none">
+                      Total Leads
+                    </span>
+                  </div>
                 </div>
+              </div>
 
-                <div className="flex-1 space-y-1 text-[10px] font-semibold text-slate-500">
-                  {data?.enquiriesBySource?.map((src: any, i: number) => (
-                    <div key={i} className="flex justify-between items-center">
-                      <span className="flex items-center gap-1.5"><span className={`h-2 w-2 rounded-full ${src.color}`}></span>{src.label}</span>
-                      <span>{src.pct}</span>
+              <div className="space-y-2.5 pt-3 border-t border-slate-100">
+                {data?.enquiriesBySource?.map((src: any, i: number) => (
+                  <div key={i} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${src.color || "bg-indigo-500"}`}></span>
+                        <span className="font-semibold text-slate-700">{src.label}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-extrabold text-slate-800">{src.pct}</span>
+                        <span className="text-[10px] font-semibold text-slate-400">({src.count || 0})</span>
+                      </div>
                     </div>
-                  ))}
-                </div>
+                    <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${src.color || "bg-indigo-500"}`}
+                        style={{ width: src.pct || "0%" }}
+                      ></div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -896,26 +988,41 @@ export default function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100/80 font-semibold text-slate-600">
-                    {data?.enquiriesList?.map((e: any, i: number) => (
-                      <tr key={i} className="hover:bg-slate-50/60 transition-colors">
-                        <td className="py-3 px-2.5 text-center">
-                          <input
-                            type="checkbox"
-                            checked={false}
-                            className="w-3.5 h-3.5 rounded border-slate-300 text-rose-500 focus:ring-rose-500 cursor-pointer"
-                            onChange={(ev) => {
-                              if (ev.target.checked) {
-                                if (!e.dbId || e.dbId === "undefined") {
-                                  alert("Please refresh the page to sync the latest data before performing this action.");
-                                  return;
-                                }
-                                setEnquiryToDelete(e);
-                                setIsDeleteModalOpen(true);
-                              }
-                            }}
-                            title="Mark as Lost Lead (Deletes Enquiry)"
-                          />
-                        </td>
+                    {data?.enquiriesList?.map((e: any, i: number) => {
+                      const isAdmittedStudent =
+                        (e.stage || "").toUpperCase().includes("ADMIT") ||
+                        (e.status || "").toUpperCase().includes("ADMIT") ||
+                        e.isAdmitted === true;
+
+                      return (
+                        <tr key={i} className="hover:bg-slate-50/60 transition-colors">
+                          <td className="py-3 px-2.5 text-center">
+                            {isAdmittedStudent ? (
+                              <span
+                                className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60 select-none cursor-not-allowed inline-block whitespace-nowrap"
+                                title="Enrolled/Admitted student cannot be marked as Lost Lead"
+                              >
+                                ✓ Enrolled
+                              </span>
+                            ) : (
+                              <input
+                                type="checkbox"
+                                checked={false}
+                                className="w-3.5 h-3.5 rounded border-slate-300 text-rose-500 focus:ring-rose-500 cursor-pointer"
+                                onChange={(ev) => {
+                                  if (ev.target.checked) {
+                                    if (!e.dbId || e.dbId === "undefined") {
+                                      alert("Please refresh the page to sync the latest data before performing this action.");
+                                      return;
+                                    }
+                                    setEnquiryToDelete(e);
+                                    setIsDeleteModalOpen(true);
+                                  }
+                                }}
+                                title="Mark as Lost Lead (Deletes Enquiry)"
+                              />
+                            )}
+                          </td>
                         <td className="py-3 px-3 text-indigo-600 font-extrabold whitespace-nowrap">{e.id}</td>
                         <td className="py-3 px-3 text-slate-800 font-bold whitespace-nowrap">{e.student}</td>
                         <td className="py-3 px-3 text-slate-600 min-w-[180px] max-w-[240px] truncate">{e.course}</td>
@@ -931,7 +1038,8 @@ export default function AdminDashboard() {
                           </span>
                         </td>
                       </tr>
-                    ))}
+                    );
+                  })}
                   </tbody>
                 </table>
               </div>
@@ -953,6 +1061,15 @@ export default function AdminDashboard() {
         itemName={enquiryToDelete?.student ? `enquiry for ${enquiryToDelete.student}` : "this enquiry"}
         description="Are you sure you want to mark this enquiry as lost? It will be permanently deleted and the lost lead count will increment."
         isLoading={isDeleting}
+      />
+
+      <AddBatchModal
+        isOpen={isBatchModalOpen}
+        onClose={() => setIsBatchModalOpen(false)}
+        onSuccess={() => {
+          setIsBatchModalOpen(false);
+          window.location.reload();
+        }}
       />
     </div>
   );

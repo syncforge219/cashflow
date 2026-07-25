@@ -6,6 +6,7 @@ import ManagerSidebar from "@/components/ManagerSidebar";
 import { useUser } from "../../component/context/user-context";
 import ProfileDisplay from "@/components/ProfileDisplay";
 import CommandPalette from "@/components/CommandPalette";
+import AddBatchModal from "@/components/AddBatchModal";
 
 interface DashboardStats {
   selectedBrand: string;
@@ -62,6 +63,7 @@ export default function ManagerDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
 
   useEffect(() => {
     if (user?.role === "counsellor") {
@@ -180,6 +182,13 @@ export default function ManagerDashboard() {
 
           <div className="flex items-center gap-6">
 
+
+            <button
+              onClick={() => setIsBatchModalOpen(true)}
+              className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
+            >
+              <span>📚 + Create Batch</span>
+            </button>
 
             {/* Search Input Button */}
             <div className="relative hidden md:block">
@@ -557,6 +566,15 @@ export default function ManagerDashboard() {
       </div>
 
       {user && <ProfileDisplay isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} user={user} logout={logout} />}
+      <AddBatchModal
+        isOpen={isBatchModalOpen}
+        onClose={() => setIsBatchModalOpen(false)}
+        onSuccess={() => {
+          setIsBatchModalOpen(false);
+          window.location.reload();
+        }}
+        initialBrandScope={user?.brandScope}
+      />
     </div>
   );
 }

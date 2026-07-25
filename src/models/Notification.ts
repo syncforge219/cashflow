@@ -14,8 +14,17 @@ const NotificationSchema = new Schema(
     },
     type: {
       type: String,
-      enum: ["discount_approval", "task_escalation", "general"],
-      default: "discount_approval",
+      enum: ["discount_approval", "task_escalation", "demo_scheduled", "attendance_reminder", "student_enrolled", "general"],
+      default: "general",
+    },
+    targetRole: {
+      type: String,
+      enum: ["teacher", "counsellor", "admin", "brand manager", "all"],
+      default: "all",
+    },
+    targetTeacherId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
     },
     admissionId: {
       type: String,
@@ -39,13 +48,13 @@ const NotificationSchema = new Schema(
     },
     requestedBy: {
       type: String,
-      default: "Counsellor",
+      default: "System",
       trim: true,
     },
     status: {
       type: String,
-      enum: ["Pending", "Approved", "Rejected"],
-      default: "Pending",
+      enum: ["Pending", "Approved", "Rejected", "Unread", "Read"],
+      default: "Unread",
     },
     read: {
       type: Boolean,

@@ -39,6 +39,14 @@ export async function GET(req: Request) {
       isFiltered = true;
     }
 
+    const startOfDay = new Date(now);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(now);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+
     const globalFilter = isFiltered ? { createdAt: { $gte: targetStart, $lte: targetEnd } } : {};
     const dateRangeFilter = { $gte: targetStart, $lte: targetEnd };
     const stringDateFilter = { $gte: startStr, $lte: endStr };
@@ -95,9 +103,9 @@ export async function GET(req: Request) {
       Admission.countDocuments({ createdAt: dateRangeFilter }),
       LostLeadCounter.find({ date: { $gte: startStr, $lte: endStr } }).lean(),
       Admission.countDocuments({ ...globalFilter, remainingBalance: { $gt: 0 } }),
-      Payment.find(isFiltered ? { date: stringDateFilter } : {}).select("amountReceived date").lean(),
-      Payment.find({ date: stringDateFilter }).select("amountReceived").lean(),
-      Payment.find({ date: { $gte: firstDayOfMonthStr, $lte: todayStr } }).select("amountReceived").lean(),
+      Payment.find(isFiltered ? { createdAt: dateRangeFilter } : {}).select("amountReceived createdAt").lean(),
+      Payment.find({ createdAt: { $gte: startOfDay, $lte: endOfDay } }).select("amountReceived").lean(),
+      Payment.find({ createdAt: { $gte: firstDayOfMonth, $lte: endOfDay } }).select("amountReceived").lean(),
       Admission.find({ remainingBalance: { $gt: 0 } }).select("fullName remainingBalance").lean(),
       Enquiry.countDocuments({
         followUps: {
@@ -195,6 +203,7 @@ export async function GET(req: Request) {
     ]);
 
     // 1. Process KPIs
+    // 1. Process KPIs & Financial Summary
     let totalCollection = 0;
     totalPayments.forEach((p: any) => {
       totalCollection += Number(p.amountReceived || 0);
@@ -214,6 +223,12 @@ export async function GET(req: Request) {
     overdueAdmissions.forEach((a: any) => {
       totalOverdueAmount += Number(a.remainingBalance || 0);
     });
+
+    let totalBilledRevenue = 0;
+    admissionsList.forEach((a: any) => {
+      totalBilledRevenue += Number(a.finalFee || 0);
+    });
+    if (totalBilledRevenue === 0) totalBilledRevenue = totalCollection;
 
     // Compute Payroll & Expenses Totals
     let totalPayrollSum = 0;
@@ -238,6 +253,11 @@ export async function GET(req: Request) {
 
     const conversionRate = totalLeads > 0 ? ((admissionsTotal / totalLeads) * 100).toFixed(1) + "%" : "0%";
 
+    const formatLakhsOrRupees = (amt: number) => {
+      if (Math.abs(amt) >= 100000) return `₹${(amt / 100000).toFixed(2)} L`;
+      return `₹${amt.toLocaleString("en-IN")}`;
+    };
+
     const kpis = {
       totalLeads,
       newLeadsToday,
@@ -246,22 +266,22 @@ export async function GET(req: Request) {
       admissionsToday,
       lostLeadsToday: (Array.isArray(lostLeadsToday) ? lostLeadsToday : []).reduce((sum, item) => sum + (item.count || 0), 0),
       conversionRate,
-      revenue: `₹${(totalCollection / 100000).toFixed(2)} L`,
-      rawRevenue: totalCollection,
+      revenue: formatLakhsOrRupees(totalBilledRevenue),
+      rawRevenue: totalBilledRevenue,
       todayCollection: `₹${todayCollectionSum.toLocaleString("en-IN")}`,
-      monthlyCollection: `₹${(monthlyCollectionSum / 100000).toFixed(2)} L`,
+      monthlyCollection: formatLakhsOrRupees(monthlyCollectionSum),
       emiOverdueCount: overdueAdmissions.length,
-      emiOverdueAmount: `₹${(totalOverdueAmount / 100000).toFixed(2)} L`,
+      emiOverdueAmount: formatLakhsOrRupees(totalOverdueAmount),
       pendingApprovals: hotLeads,
       pendingCalls,
       hotLeads,
-      totalPayroll: `₹${(totalPayrollSum / 100000).toFixed(2)} L`,
+      totalPayroll: formatLakhsOrRupees(totalPayrollSum),
       rawPayroll: totalPayrollSum,
-      totalExpenses: `₹${(totalExpensesSum / 100000).toFixed(2)} L`,
+      totalExpenses: formatLakhsOrRupees(totalExpensesSum),
       rawExpenses: totalExpensesSum,
-      totalOutflow: `₹${(totalOutflow / 100000).toFixed(2)} L`,
+      totalOutflow: formatLakhsOrRupees(totalOutflow),
       rawOutflow: totalOutflow,
-      netProfit: `₹${(netProfitNum / 100000).toFixed(2)} L`,
+      netProfit: formatLakhsOrRupees(netProfitNum),
       rawNetProfit: netProfitNum,
       profitMargin: profitMarginPct,
       isProfitable: netProfitNum >= 0
@@ -269,7 +289,8 @@ export async function GET(req: Request) {
 
     // Financial Breakdown
     const financialSummary = {
-      revenue: totalCollection,
+      revenue: totalBilledRevenue || totalCollection,
+      collections: totalCollection,
       payroll: totalPayrollSum,
       expenses: totalExpensesSum,
       outflow: totalOutflow,

@@ -14,6 +14,7 @@ interface AdmissionModalProps {
 export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: AdmissionModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [courses, setCourses] = useState<any[]>([]);
+  const [batchesList, setBatchesList] = useState<any[]>([]);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [receiptData, setReceiptData] = useState<any>(null);
   const [admissionData, setAdmissionData] = useState<any>(null);
@@ -52,6 +53,22 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
   const [discountAmount, setDiscountAmount] = useState(0);
   const [additionalDiscount, setAdditionalDiscount] = useState(0);
   const [discountReason, setDiscountReason] = useState("");
+
+  const handleSwitchDiscountMode = (newMode: "INR" | "PERCENT") => {
+    if (newMode === discountUnitMode) return;
+    if (newMode === "PERCENT") {
+      if (courseFee > 0 && discountInputValue > 0) {
+        const pct = parseFloat(((discountInputValue / courseFee) * 100).toFixed(2));
+        setDiscountInputValue(pct);
+      }
+    } else {
+      if (courseFee > 0 && discountInputValue > 0) {
+        const inr = Math.round((courseFee * discountInputValue) / 100);
+        setDiscountInputValue(inr);
+      }
+    }
+    setDiscountUnitMode(newMode);
+  };
 
   // Auto recalculate discountAmount when percentage, mode, or courseFee changes
   useEffect(() => {
@@ -101,6 +118,12 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
   }, [isOpen, paymentMode, brand]);
 
   useEffect(() => {
+    if (!hasEmi && finalFee >= 0) {
+      setAmountReceivedToday(finalFee);
+    }
+  }, [hasEmi, finalFee]);
+
+  useEffect(() => {
     if (hasEmi && numInstallments > 0) {
       setInstallmentAmount(Math.round(remainingBalance / numInstallments));
     }
@@ -116,6 +139,15 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
           }
         })
         .catch((err) => console.error("Failed to fetch courses:", err));
+
+      fetch("/api/batches")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && data.data) {
+            setBatchesList(data.data);
+          }
+        })
+        .catch((err) => console.error("Failed to fetch batches:", err));
     }
   }, [isOpen]);
 
@@ -137,7 +169,24 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
       setDob("");
       setGender("");
       setBatch("");
-      setDuration("");
+
+      const targetCourseName = lead.targetCourse || "";
+      const foundCourseObj = courses.find(c => c.name?.trim().toLowerCase() === targetCourseName.trim().toLowerCase());
+      if (foundCourseObj && foundCourseObj.duration) {
+        setDuration(foundCourseObj.duration);
+      } else if (targetCourseName) {
+        const nameUpper = targetCourseName.toUpperCase();
+        if (nameUpper.includes("BVOC") || nameUpper.includes("DEGREE") || nameUpper.includes("BSC") || nameUpper.includes("BACHELOR")) {
+          setDuration("36 Months");
+        } else if (nameUpper.includes("ADVANCE") || nameUpper.includes("DIPLOMA")) {
+          setDuration("12 Months");
+        } else {
+          setDuration("6 Months");
+        }
+      } else {
+        setDuration("6 Months");
+      }
+
       setStartDate(new Date().toISOString().split("T")[0]);
       setCompanyAssigned("");
       setScholarshipType("None");
@@ -311,8 +360,8 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
                     <input type="text" value={mobileNumber} onChange={e=>setMobileNumber(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white" />
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-500">Email</label>
-                    <input type="email" value={email} onChange={e=>setEmail(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white" />
+                    <label className="text-xs font-bold text-slate-500">Email Address <span className="text-indigo-600 text-[10px] font-semibold">(for PDF Receipt & Email)</span></label>
+                    <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="student@example.com" className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white" />
                   </div>
                   <div className="flex flex-col gap-1.5 md:col-span-3">
                     <label className="text-xs font-bold text-slate-500">Address</label>
@@ -371,13 +420,23 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
                         setBatch("");
                         setIsCustomBatch(false);
                         
-                        const selectedCourseObj = courses.find(c => c.name === selectedCourseName);
-                        if (selectedCourseObj) {
-                          if (selectedCourseObj.duration) setDuration(selectedCourseObj.duration);
-                          if (selectedCourseObj.fee) {
-                            const numFee = Math.floor(Number(selectedCourseObj.fee.replace(/[^0-9.]/g, ''))) || 0;
-                            setCourseFee(numFee);
+                        const selectedCourseObj = courses.find(c => c.name?.trim().toLowerCase() === selectedCourseName.trim().toLowerCase());
+                        if (selectedCourseObj && selectedCourseObj.duration) {
+                          setDuration(selectedCourseObj.duration);
+                        } else if (selectedCourseName) {
+                          const nameUpper = selectedCourseName.toUpperCase();
+                          if (nameUpper.includes("BVOC") || nameUpper.includes("DEGREE") || nameUpper.includes("BSC") || nameUpper.includes("BACHELOR")) {
+                            setDuration("36 Months");
+                          } else if (nameUpper.includes("ADVANCE") || nameUpper.includes("DIPLOMA")) {
+                            setDuration("12 Months");
+                          } else {
+                            setDuration("6 Months");
                           }
+                        }
+
+                        if (selectedCourseObj && selectedCourseObj.fee) {
+                          const numFee = Math.floor(Number(selectedCourseObj.fee.replace(/[^0-9.]/g, ''))) || 0;
+                          setCourseFee(numFee);
                         }
                       }} 
                       className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white"
@@ -389,7 +448,6 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
                     </select>
                   </div>
                   <div className="flex flex-col gap-1.5 md:col-span-2">
-                    <label className="text-xs font-bold text-slate-500">Batch <span className="text-rose-500">*</span></label>
                     {(() => {
                       const selectedCourseObj = courses.find((c) => c.name === course);
                       const availableBatches: string[] = Array.isArray(selectedCourseObj?.batches) && selectedCourseObj.batches.length > 0
@@ -417,13 +475,24 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
                                 setBatch(val);
                               }
                             }} 
-                            disabled={!course}
+                            disabled={!course && batchesList.length === 0}
                             className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white disabled:bg-slate-100 disabled:cursor-not-allowed cursor-pointer"
                           >
-                            <option value="">{course ? "-- Select Batch --" : "-- Select a Course First --"}</option>
-                            {availableBatches.map((b, idx) => (
-                              <option key={idx} value={b}>{b}</option>
-                            ))}
+                            <option value="">{course || batchesList.length > 0 ? "-- Select Batch --" : "-- Select a Course First --"}</option>
+                            {batchesList.length > 0 && (
+                              <optgroup label="Faculty Batches">
+                                {batchesList.map((b) => (
+                                  <option key={b._id} value={b.batchName}>
+                                    {b.batchName} ({b.course} - Faculty: {b.teacherName})
+                                  </option>
+                                ))}
+                              </optgroup>
+                            )}
+                            <optgroup label="Standard Course Batches">
+                              {availableBatches.map((b, idx) => (
+                                <option key={idx} value={b}>{b}</option>
+                              ))}
+                            </optgroup>
                             <option value="Custom">+ Enter Custom Batch...</option>
                           </select>
                           {isCustomBatch && (
@@ -476,7 +545,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">Discount Mode:</span>
                   <button
                     type="button"
-                    onClick={() => setDiscountUnitMode("INR")}
+                    onClick={() => handleSwitchDiscountMode("INR")}
                     className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                       discountUnitMode === "INR" ? "bg-indigo-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-800"
                     }`}
@@ -485,7 +554,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
                   </button>
                   <button
                     type="button"
-                    onClick={() => setDiscountUnitMode("PERCENT")}
+                    onClick={() => handleSwitchDiscountMode("PERCENT")}
                     className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                       discountUnitMode === "PERCENT" ? "bg-indigo-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-800"
                     }`}
@@ -567,24 +636,33 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
               <div className="bg-indigo-50/50 px-6 py-4 border-b border-slate-200 flex items-center justify-between">
                 <h2 className="text-sm font-extrabold text-slate-800 flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs">4</div>
-                  Payment & EMI
+                  <div className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-bold">4</div>
+                  Payment & EMI Details
                 </h2>
               </div>
-              <div className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+              <div className="p-6 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-500">Payment Mode <span className="text-rose-500">*</span></label>
-                    <select value={paymentMode} onChange={e=>setPaymentMode(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white">
+                    <label className="text-xs font-bold text-slate-500 h-5 flex items-center">
+                      Payment Mode <span className="text-rose-500 ml-1">*</span>
+                    </label>
+                    <select
+                      value={paymentMode}
+                      onChange={(e) => setPaymentMode(e.target.value)}
+                      className="w-full h-11 px-4 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white"
+                    >
                       <option value="UPI">UPI</option>
                       <option value="Bank Transfer">Bank Transfer</option>
                       <option value="Cash">Cash</option>
                       <option value="Credit Card">Credit Card</option>
                     </select>
                   </div>
-                  <div className="flex flex-col gap-1.5 md:col-span-1">
-                    <label className="text-xs font-bold text-slate-500">Company Allocation</label>
-                    <div className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 bg-slate-50 cursor-not-allowed flex items-center justify-between">
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-slate-500 h-5 flex items-center">
+                      Company Allocation
+                    </label>
+                    <div className="w-full h-11 px-4 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 bg-slate-50 cursor-not-allowed flex items-center justify-between">
                       <span className="truncate">
                         {paymentMode === "Cash" ? "Cash (Unallocated)" : (autoAllocatedCompany || "Allocating...")}
                       </span>
@@ -595,38 +673,101 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
                       )}
                     </div>
                   </div>
-                  <div className="flex flex-col gap-1.5 md:col-span-2">
-                    <label className="text-xs font-bold text-slate-500">Transaction / Reference No. <span className="text-rose-500">*</span></label>
-                    <input type="text" value={transactionNo} onChange={e=>setTransactionNo(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white" />
-                  </div>
+
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-500">Amount Received Today (₹) <span className="text-rose-500">*</span></label>
-                    <input type="number" step="any" value={amountReceivedToday} onChange={e=>setAmountReceivedToday(Number(e.target.value))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-indigo-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-indigo-50" />
+                    <label className="text-xs font-bold text-slate-500 h-5 flex items-center">
+                      Transaction / Reference No. <span className="text-rose-500 ml-1">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={transactionNo}
+                      onChange={(e) => setTransactionNo(e.target.value)}
+                      placeholder="Ref / Transaction No."
+                      className="w-full h-11 px-4 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-slate-500 h-5 flex items-center truncate">
+                      Amount Received Today (₹) <span className="text-rose-500 ml-1">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={amountReceivedToday}
+                      onChange={(e) => setAmountReceivedToday(Number(e.target.value))}
+                      className="w-full h-11 px-4 rounded-xl border border-slate-200 text-sm font-extrabold text-indigo-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-indigo-50/70"
+                    />
                   </div>
                 </div>
 
-                <div className="p-6 border border-slate-200 bg-slate-50 rounded-xl grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="p-5 border border-slate-200/80 bg-slate-50/70 rounded-xl grid grid-cols-1 md:grid-cols-4 gap-5 items-center">
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-500">Remaining Balance (₹)</label>
-                    <div className="w-full px-4 py-2.5 rounded-xl text-lg font-extrabold text-slate-800">{remainingBalance.toLocaleString()}</div>
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-500">EMI / Installment</label>
-                    <div className="flex items-center gap-2 mt-1">
-                      <button onClick={()=>setHasEmi(true)} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-colors border ${hasEmi ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>Yes</button>
-                      <button onClick={()=>setHasEmi(false)} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-colors border ${!hasEmi ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>No</button>
+                    <label className="text-xs font-bold text-slate-500 h-5 flex items-center">
+                      EMI / Installment
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setHasEmi(true)}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border shadow-xs ${
+                          hasEmi
+                            ? 'bg-indigo-600 text-white border-indigo-600'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        Yes
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setHasEmi(false);
+                          setAmountReceivedToday(finalFee);
+                        }}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border shadow-xs ${
+                          !hasEmi
+                            ? 'bg-indigo-600 text-white border-indigo-600'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        No
+                      </button>
                     </div>
                   </div>
-                  
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-slate-500 h-5 flex items-center">
+                      Remaining Balance (₹)
+                    </label>
+                    <div className="w-full h-11 px-4 rounded-xl border border-slate-200 text-base font-extrabold text-slate-800 bg-white flex items-center">
+                      ₹{remainingBalance.toLocaleString("en-IN")}
+                    </div>
+                  </div>
+
                   {hasEmi && (
                     <>
                       <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-bold text-slate-500">Number of Installments</label>
-                        <input type="number" min="1" value={numInstallments} onChange={e=>setNumInstallments(Number(e.target.value))} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white" />
+                        <label className="text-xs font-bold text-slate-500 h-5 flex items-center">
+                          Number of Installments
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={numInstallments}
+                          onChange={(e) => setNumInstallments(Number(e.target.value))}
+                          className="w-full h-11 px-4 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white"
+                        />
                       </div>
                       <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-bold text-slate-500">Installment Amount (₹)</label>
-                        <input type="number" readOnly value={installmentAmount} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-500 bg-slate-100 outline-none" />
+                        <label className="text-xs font-bold text-slate-500 h-5 flex items-center">
+                          Installment Amount (₹)
+                        </label>
+                        <input
+                          type="number"
+                          readOnly
+                          value={installmentAmount}
+                          className="w-full h-11 px-4 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 bg-slate-100 outline-none"
+                        />
                       </div>
                     </>
                   )}

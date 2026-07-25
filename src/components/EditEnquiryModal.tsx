@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 
 interface EditEnquiryModalProps {
   isOpen: boolean;
@@ -11,6 +11,7 @@ interface EditEnquiryModalProps {
 
 export default function EditEnquiryModal({ isOpen, onClose, onSuccess, lead }: EditEnquiryModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [counsellors, setCounsellors] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     studentFullName: "",
     primaryPhoneMobile: "",
@@ -30,6 +31,19 @@ export default function EditEnquiryModal({ isOpen, onClose, onSuccess, lead }: E
   };
 
   useEffect(() => {
+    if (isOpen) {
+      fetch("/api/counsellors")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success) {
+            setCounsellors(data.counsellors);
+          }
+        })
+        .catch(console.error);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
     if (lead) {
       setFormData({
         studentFullName: lead.studentFullName || "",
@@ -39,12 +53,25 @@ export default function EditEnquiryModal({ isOpen, onClose, onSuccess, lead }: E
         currentCity: lead.currentCity || "",
         status: lead.status || "New",
         priorityLevel: lead.priorityLevel || "Medium",
-        assignedCrmAdvisor: lead.assignedCrmAdvisor || "Rahul Sharma",
+        assignedCrmAdvisor: lead.assignedCrmAdvisor || "",
         leadSource: lead.leadSource || "Website",
         remarks: lead.remarks || "",
       });
     }
   }, [lead]);
+
+  const filteredCounsellors = useMemo(() => {
+    const brand = lead?.targetBrand || "";
+    if (!brand) return counsellors;
+    return counsellors.filter((c: any) => {
+      if (!c.brandScope) return true;
+      const scope = String(c.brandScope).toLowerCase().trim();
+      const target = brand.toLowerCase().trim();
+      if (scope === "all" || scope === "global" || scope === "*") return true;
+      const parts = scope.split(/[,/|]/).map((p: string) => p.trim());
+      return parts.some((p: string) => p === target || p.includes(target) || target.includes(p));
+    });
+  }, [counsellors, lead?.targetBrand]);
 
   if (!isOpen || !lead) return null;
 
@@ -204,11 +231,14 @@ export default function EditEnquiryModal({ isOpen, onClose, onSuccess, lead }: E
               </select>
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-500 mb-1.5">CRM Advisor</label>
+              <label className="block text-xs font-bold text-slate-500 mb-1.5">
+                CRM Advisor {lead?.targetBrand ? `(${filteredCounsellors.length} for ${lead.targetBrand})` : ""}
+              </label>
               <select name="assignedCrmAdvisor" value={formData.assignedCrmAdvisor} onChange={handleChange} className="w-full text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
-                <option value="Rahul Sharma">Rahul Sharma</option>
-                <option value="Chaitanya Singhal">Chaitanya Singhal</option>
-                <option value="Abhigyan Mishra">Abhigyan Mishra</option>
+                <option value="">-- Select Advisor --</option>
+                {filteredCounsellors.map(c => (
+                  <option key={c._id} value={c.name}>{c.name} {c.brandScope ? `(${c.brandScope})` : ""}</option>
+                ))}
               </select>
             </div>
           </div>

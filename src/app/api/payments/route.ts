@@ -6,6 +6,7 @@ import Company from "@/models/Company";
 import Brand from "@/models/Brand";
 import { getUserFromCookies } from "@/lib/helper";
 import { sendWhatsAppFeeReceipt } from "@/lib/msg91";
+import { sendFeePaymentReceiptEmail } from "@/lib/emailService";
 
 
 export async function GET(req: Request) {
@@ -127,7 +128,18 @@ export async function POST(req: Request) {
     admission.remainingBalance = Math.max(0, admission.remainingBalance - Number(amountReceived));
     await admission.save();
 
-    // 4. Dispatch MSG91 WhatsApp Fee Receipt notification & trigger overdue EMI check
+    // 4. Dispatch Email Fee Receipt Notification (with official PDF attachment)
+    try {
+      if (admission.email) {
+        sendFeePaymentReceiptEmail({ payment, admission })
+          .then((res) => console.log(`[Payment API] Fee receipt email sent to ${admission.email}. Res:`, res))
+          .catch((err) => console.error("[Payment API] Fee receipt email error:", err));
+      }
+    } catch (emailErr) {
+      console.error("Failed to trigger Email fee receipt:", emailErr);
+    }
+
+    // 5. Dispatch MSG91 WhatsApp Fee Receipt notification
     try {
       if (admission.mobileNumber) {
         sendWhatsAppFeeReceipt({
