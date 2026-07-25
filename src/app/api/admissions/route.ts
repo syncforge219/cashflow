@@ -10,6 +10,7 @@ import Course from "@/models/Course";
 import Notification from "@/models/Notification";
 import { getUserFromCookies } from "@/lib/helper";
 import { sendWhatsAppFeeReceipt } from "@/lib/msg91";
+import { sendAdmissionConfirmationEmail } from "@/lib/emailService";
 
 export async function POST(req: NextRequest) {
   try {
@@ -225,6 +226,21 @@ export async function POST(req: NextRequest) {
       ]);
     } catch (taskErr) {
       console.error("Auto task SOP generation failed on admission:", taskErr);
+    }
+
+    // Trigger Admission Confirmation Email directly to Student's Email
+    const studentEmail = (admission.email || data.email || data.emailAddress || "").trim();
+
+    if (studentEmail) {
+      const emailPayload = {
+        ...admission.toObject(),
+        email: studentEmail
+      };
+      sendAdmissionConfirmationEmail(emailPayload)
+        .then((res) => console.log(`[Admission API] Admission email sent directly to student (${studentEmail}). Res:`, res))
+        .catch((err) => console.error("[Admission API] Admission email error:", err));
+    } else {
+      console.warn(`[Admission API] No student email provided for ${admission.fullName} (${admission.admissionId}). Email not sent.`);
     }
 
     return NextResponse.json(

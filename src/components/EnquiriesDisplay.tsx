@@ -56,7 +56,7 @@ export default function EnquiriesDisplay() {
       if (lead.createdAt) {
         const leadDate = new Date(lead.createdAt);
         leadDate.setHours(0, 0, 0, 0);
-        
+
         if (startDateFilter) {
           const start = new Date(startDateFilter);
           start.setHours(0, 0, 0, 0);
@@ -125,32 +125,19 @@ export default function EnquiriesDisplay() {
       .catch(console.error);
   }, []);
 
-  // Compute unique values for dropdowns based on database entries & API data
-  const uniqueBrands = Array.from(new Set([
-    ...brandsList.map(b => b.name),
-    ...enquiries.map(e => e.targetBrand)
-  ].filter(Boolean)));
-
-  const uniqueAdvisors = Array.from(new Set([
-    ...counsellorsList.map(c => c.name),
-    ...enquiries.map(e => e.assignedCrmAdvisor)
-  ].filter(Boolean)));
-
-  const uniqueSources = Array.from(new Set([
-    "Google Ads", "Meta Ads", "Website", "Seminar", "Hoarding", "Reference", "Paper Ads", "Internet Search", "Direct Walkin", "Call on Database",
-    ...enquiries.map(e => e.leadSource)
-  ].filter(Boolean)));
-
-  const uniquePriorities = Array.from(new Set([
-    "High", "Medium", "Low",
-    ...enquiries.map(e => e.priorityLevel)
-  ].filter(Boolean)));
-
-  const uniqueStatuses = Array.from(new Set([
-    "New", "Active", "In Progress", "Follow-up", "Hot Follow-up", "Cold Follow-up", "Admission", "Admitted", "Converted", "Enrolled", "Lost", "Closed",
-    ...enquiries.map(e => e.status)
-  ].filter(Boolean)));
-
+  // Compute unique values for dropdowns based on actual database entries
+  const uniqueBrands = Array.from(new Set(enquiries.map(e => e.targetBrand).filter(Boolean)));
+  const uniqueAdvisors = Array.from(
+    new Set(
+      enquiries
+        .filter(e => !brandFilter || e.targetBrand === brandFilter)
+        .map(e => e.assignedCrmAdvisor)
+        .filter(Boolean)
+    )
+  );
+  const uniqueSources = Array.from(new Set(enquiries.map(e => e.leadSource).filter(Boolean)));
+  const uniquePriorities = Array.from(new Set(enquiries.map(e => e.priorityLevel).filter(Boolean)));
+  const uniqueStatuses = Array.from(new Set(enquiries.map(e => e.status).filter(Boolean)));
   const isCustomDateRangeActive = startDateFilter !== "" || endDateFilter !== "";
 
   // Dynamic metric computations based on actual database entries
@@ -234,7 +221,7 @@ export default function EnquiriesDisplay() {
 
   return (
     <div className="space-y-6 flex-1 flex flex-col justify-between">
-      
+
       {/* Header Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -246,7 +233,7 @@ export default function EnquiriesDisplay() {
 
         {/* Buttons */}
         <div className="flex items-center gap-2">
-          <button 
+          <button
             onClick={() => setIsImportModalOpen(true)}
             className="flex items-center gap-1.5 text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:text-slate-900 rounded-xl px-4 py-2 shadow-sm transition-all"
           >
@@ -255,7 +242,7 @@ export default function EnquiriesDisplay() {
             </svg>
             Upload Leads
           </button>
-          <button 
+          <button
             onClick={() => setIsAddModalOpen(true)}
             className="flex items-center gap-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl px-4 py-2 shadow-md shadow-indigo-600/10 transition-all"
           >
@@ -290,7 +277,7 @@ export default function EnquiriesDisplay() {
 
       {/* Middle row: Filtering & Distribution */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
+
         {/* Filtering Column */}
         <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs lg:col-span-2">
           <div className="flex items-center gap-1.5 mb-4 text-slate-500">
@@ -360,21 +347,26 @@ export default function EnquiriesDisplay() {
         </div>
 
         {/* Lead Source Channels */}
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs flex flex-col justify-between h-full">
           <div>
-            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider select-none">Lead Source Channels</h2>
-            <p className="text-[10px] text-slate-400/90 mt-0.5 select-none">Marketing acquisition mix distribution.</p>
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider select-none">Lead Source Channels</h2>
+              <span className="text-[10px] font-extrabold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100 select-none">
+                Live Mix
+              </span>
+            </div>
+            <p className="text-[11px] font-medium text-slate-400 mt-0.5 select-none">Marketing acquisition mix distribution</p>
           </div>
-          
+
           {(() => {
             const sourceStats = filteredEnquiries.reduce((acc, curr) => {
               const source = curr.leadSource || "Other";
               acc[source] = (acc[source] || 0) + 1;
               return acc;
             }, {} as Record<string, number>);
-            
+
             const totalSources = filteredEnquiries.length || 1;
-            
+
             const sourceColors: Record<string, string> = {
               "Google Ads": "#6366f1",
               "Meta Ads": "#8b5cf6",
@@ -410,35 +402,54 @@ export default function EnquiriesDisplay() {
               currentAngle = end;
               return `${color} ${start}% ${end}%`;
             }).join(", ");
-            
+
             return (
               <>
-                <div className="flex-1 flex items-center justify-center my-4">
+                <div className="my-auto py-3 flex items-center justify-center">
                   {filteredEnquiries.length > 0 ? (
-                    <div 
-                      className="w-24 h-24 sm:w-32 sm:h-32 rounded-full shadow-sm flex items-center justify-center"
+                    <div
+                      className="w-28 h-28 sm:w-32 sm:h-32 rounded-full shadow-sm flex items-center justify-center relative"
                       style={{
                         background: `conic-gradient(${gradientStops})`,
                       }}
                     >
-                      {/* Inner circle to create donut effect */}
-                      <div className="w-14 h-14 sm:w-20 sm:h-20 bg-white rounded-full shadow-inner" />
+                      {/* Inner circle to create donut effect with centered total count */}
+                      <div className="w-18 h-18 sm:w-20 sm:h-20 bg-white rounded-full shadow-inner flex flex-col items-center justify-center text-center">
+                        <span className="text-base sm:text-lg font-black text-slate-800 tracking-tight">{filteredEnquiries.length}</span>
+                        <span className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase select-none">Total</span>
+                      </div>
                     </div>
                   ) : (
-                    <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-slate-100 flex items-center justify-center">
+                    <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full border-4 border-slate-100 flex items-center justify-center">
                       <span className="text-[10px] text-slate-400 font-bold">No Data</span>
                     </div>
                   )}
                 </div>
 
-                <div className="flex flex-col gap-3 mt-auto">
-                  {Object.entries(sourceStats).map(([source, count]) => (
-                    <div key={source} className="flex items-center gap-2">
-                      <span className={`h-2 w-2 rounded-full ${tailwindColors[source] || tailwindColors["Other"]}`}></span>
-                      <span className="text-xs font-semibold text-slate-500 flex-1">{source}</span>
-                      <span className="text-xs font-bold text-slate-800">{String(count)}</span>
-                    </div>
-                  ))}
+                <div className="space-y-2.5 pt-3 border-t border-slate-100">
+                  {Object.entries(sourceStats).map(([source, count]) => {
+                    const pct = Math.round(((count as number) / totalSources) * 100);
+                    return (
+                      <div key={source} className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2">
+                            <span className={`h-2.5 w-2.5 rounded-full ${tailwindColors[source] || tailwindColors["Other"]}`}></span>
+                            <span className="font-semibold text-slate-700">{source}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-extrabold text-slate-800">{pct}%</span>
+                            <span className="text-[10px] font-semibold text-slate-400">({String(count)})</span>
+                          </div>
+                        </div>
+                        <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${tailwindColors[source] || tailwindColors["Other"]}`}
+                            style={{ width: `${pct}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </>
             );
@@ -449,7 +460,7 @@ export default function EnquiriesDisplay() {
 
       {/* Leads Table */}
       <div className="bg-white border border-slate-200/80 rounded-2xl shadow-xs overflow-hidden flex-1 flex flex-col justify-between">
-        
+
         {/* Table Title bar */}
         <div className="flex items-center justify-between border-b border-slate-100 p-4 shrink-0 select-none">
           <h2 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Client Directory Leads ({filteredEnquiries.length})</h2>
@@ -485,8 +496,8 @@ export default function EnquiriesDisplay() {
                 </tr>
               ) : (
                 filteredEnquiries.map((lead, idx) => (
-                  <tr 
-                    key={lead._id || idx} 
+                  <tr
+                    key={lead._id || idx}
                     onClick={() => setSelectedLead(lead)}
                     className="hover:bg-slate-50/40 transition-colors cursor-pointer group"
                   >
@@ -563,7 +574,7 @@ export default function EnquiriesDisplay() {
 
         {/* Date Pagination */}
         <div className={`flex items-center justify-between p-4 border-t border-slate-100 bg-slate-50/50 shrink-0 ${isCustomDateRangeActive ? 'opacity-50 pointer-events-none' : ''}`}>
-          <button 
+          <button
             onClick={() => setDateOffset(prev => prev + 1)}
             className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors"
           >
@@ -572,7 +583,7 @@ export default function EnquiriesDisplay() {
             </svg>
             Previous Day
           </button>
-          
+
           <div className="flex flex-col items-center">
             <span className="text-xs font-bold text-slate-700">
               {isCustomDateRangeActive ? "Custom Range Active" : dateOffset === 0 ? "All Leads (Newest First)" : dateOffset === 1 ? "Yesterday's Leads" : targetDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
@@ -582,7 +593,7 @@ export default function EnquiriesDisplay() {
             </span>
           </div>
 
-          <button 
+          <button
             onClick={() => setDateOffset(prev => Math.max(0, prev - 1))}
             disabled={dateOffset === 0}
             className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -596,25 +607,25 @@ export default function EnquiriesDisplay() {
 
       </div>
 
-      <AddEnquiryModal 
-        isOpen={isAddModalOpen} 
-        onClose={() => setIsAddModalOpen(false)} 
+      <AddEnquiryModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
         onSuccess={() => {
           setIsAddModalOpen(false);
           fetchEnquiries();
         }}
       />
 
-      <LeadProfile 
-        lead={selectedLead} 
-        onClose={() => setSelectedLead(null)} 
+      <LeadProfile
+        lead={selectedLead}
+        onClose={() => setSelectedLead(null)}
         onSuccess={() => fetchEnquiries()}
       />
 
-      <ImportLeadsModal 
-        isOpen={isImportModalOpen} 
-        onClose={() => setIsImportModalOpen(false)} 
-        onSuccess={fetchEnquiries} 
+      <ImportLeadsModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onSuccess={fetchEnquiries}
       />
 
     </div>

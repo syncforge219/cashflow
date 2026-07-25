@@ -1,26 +1,35 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useUser } from "@/app/component/context/user-context";
 
-interface AddCourseModalProps {
+interface EditCourseModalProps {
   isOpen: boolean;
+  course: any | null;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export default function AddCourseModal({ isOpen, onClose, onSuccess }: AddCourseModalProps) {
+export default function EditCourseModal({ isOpen, course, onClose, onSuccess }: EditCourseModalProps) {
   const { user } = useUser();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [dbBrands, setDbBrands] = React.useState<string[]>([]);
+  const [dbBrands, setDbBrands] = useState<string[]>([]);
   const [discountLimitMode, setDiscountLimitMode] = useState<"INR" | "PERCENT">("INR");
   const [discountLimitValue, setDiscountLimitValue] = useState<number>(5000);
-  const [formDataFee, setFormDataFee] = useState<string>("18000");
+
+  // Form State
+  const [name, setName] = useState("");
+  const [code, setCode] = useState("");
+  const [brand, setBrand] = useState("");
+  const [category, setCategory] = useState("Technology");
+  const [duration, setDuration] = useState("");
+  const [fee, setFee] = useState("");
+  const [status, setStatus] = useState("ACTIVE");
 
   const handleSwitchDiscountMode = (newMode: "INR" | "PERCENT") => {
     if (newMode === discountLimitMode) return;
-    const numFee = parseFloat(String(formDataFee).replace(/[^\d.]/g, "")) || 0;
+    const numFee = parseFloat(String(fee).replace(/[^\d.]/g, "")) || 0;
 
     if (newMode === "PERCENT") {
       if (numFee > 0 && discountLimitValue > 0) {
@@ -36,7 +45,7 @@ export default function AddCourseModal({ isOpen, onClose, onSuccess }: AddCourse
     setDiscountLimitMode(newMode);
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!isOpen) return;
     const fetchBrands = async () => {
       try {
@@ -53,9 +62,25 @@ export default function AddCourseModal({ isOpen, onClose, onSuccess }: AddCourse
     fetchBrands();
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (course && isOpen) {
+      setName(course.name || "");
+      setCode(course.code || "");
+      setBrand(course.brand || "");
+      setCategory(course.category || "Technology");
+      setDuration(course.duration || "");
+      
+      const rawFeeNum = course.fee ? parseFloat(String(course.fee).replace(/[^\d.]/g, "")) : 0;
+      setFee(rawFeeNum ? String(rawFeeNum) : "");
+      
+      setDiscountLimitValue(Number(course.maxDiscountLimit || 5000));
+      setStatus(course.status || "ACTIVE");
+      setErrorMessage("");
+    }
+  }, [course, isOpen]);
 
-  // Determine available brands based on logged-in user role & brandScope or DB registered brands
+  if (!isOpen || !course) return null;
+
   const getBrandOptions = (): string[] => {
     if (user?.brandScope && user.role === "brand manager") {
       const userBrands = user.brandScope.split(",").map((b: string) => b.trim()).filter(Boolean);
@@ -75,12 +100,7 @@ export default function AddCourseModal({ isOpen, onClose, onSuccess }: AddCourse
     setIsSubmitting(true);
     setErrorMessage("");
 
-    const formData = new FormData(e.currentTarget);
-    const data = Object.fromEntries(formData.entries());
-    
-    // Format fee as standard currency representation, e.g. "₹ 18,000.00"
-    const rawFee = data.fee as string;
-    const numericFee = parseFloat(rawFee.replace(/[^\d.]/g, ""));
+    const numericFee = parseFloat(fee.replace(/[^\d.]/g, ""));
     const formattedFee = isNaN(numericFee)
       ? "₹ 0.00"
       : new Intl.NumberFormat("en-IN", {
@@ -88,14 +108,25 @@ export default function AddCourseModal({ isOpen, onClose, onSuccess }: AddCourse
           currency: "INR",
         }).format(numericFee);
 
+    const calculatedMaxDiscount =
+      discountLimitMode === "PERCENT"
+        ? Math.round((numericFee * discountLimitValue) / 100)
+        : discountLimitValue;
+
     const payload = {
-      ...data,
+      name,
+      code,
+      brand: brand || brandOptions[0],
+      category,
+      duration,
       fee: formattedFee,
+      maxDiscountLimit: calculatedMaxDiscount,
+      status,
     };
 
     try {
-      const response = await fetch("/api/courses", {
-        method: "POST",
+      const response = await fetch(`/api/courses/${course._id}`, {
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
@@ -107,11 +138,11 @@ export default function AddCourseModal({ isOpen, onClose, onSuccess }: AddCourse
       if (response.ok && resData.success) {
         onSuccess();
       } else {
-        setErrorMessage(resData.message || "Failed to create course");
+        setErrorMessage(resData.error || resData.message || "Failed to update course");
       }
     } catch (error) {
-      console.error("Error submitting form:", error);
-      setErrorMessage("Error submitting form. Please check your connection.");
+      console.error("Error updating course:", error);
+      setErrorMessage("Error updating course. Please check connection.");
     } finally {
       setIsSubmitting(false);
     }
@@ -124,23 +155,25 @@ export default function AddCourseModal({ isOpen, onClose, onSuccess }: AddCourse
         className="bg-white border border-slate-200 rounded-2xl w-full max-w-xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-100 p-4 shrink-0">
+        <div className="flex items-center justify-between border-b border-slate-100 p-4 shrink-0 bg-indigo-50/50">
           <h3 className="text-sm font-extrabold text-slate-800 flex items-center gap-2">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={2}
-              stroke="currentColor"
-              className="w-5 h-5 text-indigo-600"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25"
-              />
-            </svg>
-            Add New Course Curriculum
+            <div className="h-7 w-7 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-xs">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+                className="w-4 h-4"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"
+                />
+              </svg>
+            </div>
+            Edit Course Curriculum: <span className="text-indigo-600 font-black">{course.name}</span>
           </h3>
           <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors p-1">
             <svg
@@ -185,8 +218,9 @@ export default function AddCourseModal({ isOpen, onClose, onSuccess }: AddCourse
                 Course Name *
               </label>
               <input
-                name="name"
                 type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. AutoCAD, ETABS, Python Development"
                 required
                 className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
@@ -199,8 +233,9 @@ export default function AddCourseModal({ isOpen, onClose, onSuccess }: AddCourse
                 Course Code *
               </label>
               <input
-                name="code"
                 type="text"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
                 placeholder="e.g. CM-CAD-09"
                 required
                 className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 font-mono"
@@ -213,9 +248,9 @@ export default function AddCourseModal({ isOpen, onClose, onSuccess }: AddCourse
                 Assigned Brand *
               </label>
               <select
-                name="brand"
+                value={brand}
+                onChange={(e) => setBrand(e.target.value)}
                 required
-                defaultValue={brandOptions[0]}
                 className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
               >
                 {brandOptions.map((brandName: string, idx: number) => (
@@ -232,7 +267,8 @@ export default function AddCourseModal({ isOpen, onClose, onSuccess }: AddCourse
                 Category *
               </label>
               <select
-                name="category"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
                 required
                 className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
               >
@@ -240,6 +276,9 @@ export default function AddCourseModal({ isOpen, onClose, onSuccess }: AddCourse
                 <option value="Design">Design</option>
                 <option value="Business">Business</option>
                 <option value="Management">Management</option>
+                <option value="Graphic Design">Graphic Design</option>
+                <option value="Fashion Design">Fashion Design</option>
+                <option value="Degree Program">Degree Program</option>
               </select>
             </div>
 
@@ -249,9 +288,10 @@ export default function AddCourseModal({ isOpen, onClose, onSuccess }: AddCourse
                 Duration *
               </label>
               <input
-                name="duration"
                 type="text"
-                placeholder="e.g. 40 Hours, 3 Months"
+                value={duration}
+                onChange={(e) => setDuration(e.target.value)}
+                placeholder="e.g. 40 Hours, 6 Months, 36 Months"
                 required
                 className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
               />
@@ -263,13 +303,13 @@ export default function AddCourseModal({ isOpen, onClose, onSuccess }: AddCourse
                 Fee (INR) *
               </label>
               <input
-                name="fee"
-                type="text"
-                value={formDataFee}
-                onChange={(e) => setFormDataFee(e.target.value)}
+                type="number"
+                step="any"
+                value={fee}
+                onChange={(e) => setFee(e.target.value)}
                 placeholder="e.g. 18000"
                 required
-                className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 font-bold"
               />
             </div>
 
@@ -303,7 +343,6 @@ export default function AddCourseModal({ isOpen, onClose, onSuccess }: AddCourse
 
               <div className="relative">
                 <input
-                  name="maxDiscountLimitInput"
                   type="number"
                   step="any"
                   value={discountLimitValue}
@@ -316,33 +355,16 @@ export default function AddCourseModal({ isOpen, onClose, onSuccess }: AddCourse
                   {discountLimitMode === "INR" ? "INR (₹)" : "% Off"}
                 </span>
               </div>
-
-              {/* Hidden field submitting converted numeric INR value */}
-              <input
-                type="hidden"
-                name="maxDiscountLimit"
-                value={
-                  discountLimitMode === "PERCENT"
-                    ? Math.round((parseFloat(String(formDataFee).replace(/[^\d.]/g, "") || "0") * discountLimitValue) / 100)
-                    : discountLimitValue
-                }
-              />
-
-              <p className="text-[10px] text-slate-400 font-medium mt-1">
-                {discountLimitMode === "PERCENT"
-                  ? `Equivalent to ₹${Math.round((parseFloat(String(formDataFee).replace(/[^\d.]/g, "") || "0") * discountLimitValue) / 100).toLocaleString('en-IN')} max cap on course fee.`
-                  : "If counsellor gives discount > this limit, Admin approval notification will be triggered."}
-              </p>
             </div>
 
             {/* Status */}
             <div>
               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">
-                Initial Status
+                Course Status
               </label>
               <select
-                name="status"
-                defaultValue="ACTIVE"
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
                 className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
               >
                 <option value="ACTIVE">ACTIVE</option>
@@ -357,16 +379,16 @@ export default function AddCourseModal({ isOpen, onClose, onSuccess }: AddCourse
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 rounded-xl transition-colors"
+            className="px-5 py-2.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={isSubmitting}
-            className="px-5 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/20 rounded-xl transition-all disabled:opacity-50"
+            className="px-5 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/20 rounded-xl transition-all cursor-pointer disabled:opacity-50"
           >
-            {isSubmitting ? "Creating..." : "Create Course"}
+            {isSubmitting ? "Saving Changes..." : "Save Course Changes"}
           </button>
         </div>
       </form>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUser } from "@/app/component/context/user-context";
 
@@ -18,6 +18,7 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
   const [brands, setBrands] = useState<any[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
   const [selectedBrand, setSelectedBrand] = useState<string>("");
+  const [selectedAdvisor, setSelectedAdvisor] = useState("");
   const [expectedCourseFee, setExpectedCourseFee] = useState("₹0");
   const [isDemoScheduled, setIsDemoScheduled] = useState(false);
   const [primaryPhone, setPrimaryPhone] = useState("+91 ");
@@ -28,6 +29,7 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
       setPrimaryPhone("+91 ");
       setParentsPhone("+91 ");
       setSelectedBrand("");
+      setSelectedAdvisor("");
 
       fetch("/api/counsellors")
         .then(res => res.json())
@@ -72,6 +74,26 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
     if (!t.brandScope || t.brandScope === "All Brands" || t.brandScope === "All") return true;
     return t.brandScope.toLowerCase().trim() === selectedBrand.toLowerCase().trim();
   });
+
+  const filteredCounsellors = useMemo(() => {
+    if (!selectedBrand) return counsellors;
+    return counsellors.filter((c: any) => {
+      if (!c.brandScope) return true;
+      const scope = String(c.brandScope).toLowerCase().trim();
+      const target = selectedBrand.toLowerCase().trim();
+      if (scope === "all" || scope === "global" || scope === "*") return true;
+      const parts = scope.split(/[,/|]/).map((p: string) => p.trim());
+      return parts.some((p: string) => p === target || p.includes(target) || target.includes(p));
+    });
+  }, [counsellors, selectedBrand]);
+
+  const filteredCourses = useMemo(() => {
+    if (!selectedBrand) return courses;
+    return courses.filter((c: any) => {
+      if (!c.brand) return true;
+      return c.brand.toLowerCase().trim() === selectedBrand.toLowerCase().trim();
+    });
+  }, [courses, selectedBrand]);
 
   const handlePrimaryPhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
@@ -226,7 +248,10 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
                   name="targetBrand" 
                   required 
                   value={selectedBrand}
-                  onChange={(e) => setSelectedBrand(e.target.value)}
+                  onChange={(e) => {
+                    setSelectedBrand(e.target.value);
+                    setSelectedAdvisor("");
+                  }}
                   className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
                 >
                   <option value="">-- Select a Brand --</option>
@@ -243,7 +268,7 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
                   className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
                   onChange={(e) => {
                     const selectedCourseName = e.target.value;
-                    const course = courses.find(c => c.name === selectedCourseName);
+                    const course = filteredCourses.find(c => c.name === selectedCourseName);
                     if (course) {
                       setExpectedCourseFee(course.fee);
                     } else {
@@ -252,7 +277,7 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
                   }}
                 >
                   <option value="">-- Select a Course --</option>
-                  {courses.map(c => (
+                  {filteredCourses.map(c => (
                     <option key={c._id || c.name} value={c.name}>{c.name}</option>
                   ))}
                 </select>
@@ -261,11 +286,19 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
                 <input type="hidden" name="assignedCrmAdvisor" value={user.name} />
               ) : (
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Assigned CRM Advisor *</label>
-                  <select name="assignedCrmAdvisor" required className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
-                    <option value="">-- Select Advisor --</option>
-                    {counsellors.map(c => (
-                      <option key={c._id} value={c.name}>{c.name}</option>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">
+                    Assigned CRM Advisor * {selectedBrand ? `(${filteredCounsellors.length} for ${selectedBrand})` : ""}
+                  </label>
+                  <select 
+                    name="assignedCrmAdvisor" 
+                    required 
+                    value={selectedAdvisor}
+                    onChange={(e) => setSelectedAdvisor(e.target.value)}
+                    className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                  >
+                    <option value="">{selectedBrand ? `-- Select Advisor for ${selectedBrand} --` : "-- Select Advisor --"}</option>
+                    {filteredCounsellors.map(c => (
+                      <option key={c._id} value={c.name}>{c.name} {c.brandScope ? `(${c.brandScope})` : ""}</option>
                     ))}
                   </select>
                 </div>

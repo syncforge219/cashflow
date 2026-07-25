@@ -7,6 +7,7 @@ import ProfileDisplay from "@/components/ProfileDisplay";
 import CommandPalette from "@/components/CommandPalette";
 import AddEnquiryModal from "@/components/AddEnquiryModal";
 import AdmissionModal from "@/components/AdmissionModal";
+import AddBatchModal from "@/components/AddBatchModal";
 import LeadProfile from "@/components/LeadProfile";
 import StudentSearchCenter from "@/components/StudentSearchCenter";
 import { motion, AnimatePresence } from "framer-motion";
@@ -19,6 +20,7 @@ export default function CounsellorDashboardPage() {
   // Quick Action Modals
   const [isAddLeadModalOpen, setIsAddLeadModalOpen] = useState(false);
   const [isAdmissionModalOpen, setIsAdmissionModalOpen] = useState(false);
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
   const [isCallModalOpen, setIsCallModalOpen] = useState(false);
   const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
@@ -259,10 +261,11 @@ export default function CounsellorDashboardPage() {
 
         {/* COUNSELLOR QUICK ACTION TOOLBAR */}
         <div className="px-8 pt-4">
-          <div className="bg-white border border-slate-200/90 rounded-2xl p-3 shadow-xs flex items-center justify-between gap-3 overflow-x-auto">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-extrabold text-slate-800 uppercase tracking-wider px-2 select-none">Quick Actions:</span>
-              
+          <div className="bg-white border border-slate-200/90 rounded-2xl p-3 shadow-xs flex items-center gap-3 overflow-hidden">
+            <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider px-2 select-none shrink-0 border-r border-slate-200 pr-3">
+              Quick Actions:
+            </span>
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth py-0.5 w-full">
               <button
                 onClick={() => setIsAddLeadModalOpen(true)}
                 className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
@@ -308,6 +311,13 @@ export default function CounsellorDashboardPage() {
                 className="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-bold rounded-xl border border-amber-200 transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
               >
                 <span>🎓 Convert to Admission</span>
+              </button>
+
+              <button
+                onClick={() => setIsBatchModalOpen(true)}
+                className="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl border border-indigo-200 transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+              >
+                <span>📚 Create Faculty Batch</span>
               </button>
             </div>
           </div>
@@ -627,6 +637,17 @@ export default function CounsellorDashboardPage() {
             </div>
           </div>
         )}
+
+        {/* Add Batch Modal */}
+        <AddBatchModal
+          isOpen={isBatchModalOpen}
+          onClose={() => setIsBatchModalOpen(false)}
+          onSuccess={() => {
+            setIsBatchModalOpen(false);
+            fetchCounsellorData();
+          }}
+          initialBrandScope={user?.brandScope}
+        />
 
       </div>
     </div>

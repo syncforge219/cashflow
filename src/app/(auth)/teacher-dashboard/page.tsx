@@ -5,11 +5,15 @@ import { useUser } from "@/app/component/context/user-context";
 import TeacherSidebar from "@/components/TeacherSidebar";
 import ProfileDisplay from "@/components/ProfileDisplay";
 import CommandPalette from "@/components/CommandPalette";
+import TakeAttendanceModal from "@/components/TakeAttendanceModal";
+import NotificationPanel from "@/components/NotificationPanel";
 
 export default function TeacherDashboard() {
   const { user, logout } = useUser();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
+  const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<"courses" | "demos" | "students">("courses");
   const [trendMode, setTrendMode] = useState<"daily" | "cumulative">("daily");
@@ -31,62 +35,49 @@ export default function TeacherDashboard() {
   }, []);
 
   // Fetch teacher-specific 100% dynamic data from MongoDB API
-  useEffect(() => {
-    const fetchTeacherDashboardData = async () => {
-      try {
-        setIsLoading(true);
-        const res = await fetch("/api/teacher-dashboard/stats");
-        const json = await res.json();
+  const fetchTeacherDashboardData = async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch("/api/teacher-dashboard/stats");
+      const json = await res.json();
 
-        if (res.ok && json.success && json.data) {
-          setTeacherData(json.data);
-        } else {
-          // Fallback fetch if route fails
-          const [coursesRes, enquiriesRes] = await Promise.all([
-            fetch("/api/courses").then((r) => r.json().catch(() => ({}))),
-            fetch("/api/enquiries").then((r) => r.json().catch(() => ({}))),
-          ]);
-
-          const allCourses = coursesRes.data || coursesRes.courses || [];
-          const allEnquiries = enquiriesRes.enquiries || [];
-
-          setTeacherData({
-            assignedSubjectsCount: allCourses.length,
-            activeBatchesCount: Math.ceil(allCourses.length * 1.2),
-            enrolledStudentsCount: allEnquiries.filter((e: any) => e.status === "Admitted").length,
-            demosScheduledCount: allEnquiries.filter((e: any) => e.isDemoScheduled).length,
-            demosCompletedCount: allEnquiries.filter((e: any) => e.status === "Demo Attended").length,
-            highPriorityDemosCount: allEnquiries.filter((e: any) => e.priorityLevel === "High").length,
-            todaysClassesCount: 2,
-            conversionRatePct: "85.0%",
-            attendanceRatePct: "94.2%",
-            ratingScore: "4.9 ⭐",
-            myBrandCourses: allCourses,
-            extractedDemos: allEnquiries.filter((e: any) => e.isDemoScheduled),
-            enrolledStudentsList: allEnquiries.filter((e: any) => e.status === "Admitted"),
-            subjectBreakdown: [
-              { name: "CAD & Civil", pctNum: 40, hex: "#6366f1" },
-              { name: "Web & Coding", pctNum: 30, hex: "#10b981" },
-              { name: "Design & VFX", pctNum: 30, hex: "#f59e0b" }
-            ],
-            weeklyTrendDays: [
-              { dayLabel: "Mon", demos: 2, classes: 4, conversions: 1 },
-              { dayLabel: "Tue", demos: 3, classes: 5, conversions: 2 },
-              { dayLabel: "Wed", demos: 1, classes: 3, conversions: 1 },
-              { dayLabel: "Thu", demos: 4, classes: 6, conversions: 3 },
-              { dayLabel: "Fri", demos: 2, classes: 4, conversions: 1 },
-              { dayLabel: "Sat", demos: 5, classes: 7, conversions: 4 },
-              { dayLabel: "Sun", demos: 1, classes: 2, conversions: 1 },
-            ]
-          });
-        }
-      } catch (err) {
-        console.error("Failed to load teacher dashboard stats:", err);
-      } finally {
-        setIsLoading(false);
+      if (res.ok && json.success && json.data) {
+        setTeacherData(json.data);
+      } else {
+        setTeacherData({
+          assignedSubjectsCount: 0,
+          activeBatchesCount: 0,
+          enrolledStudentsCount: 0,
+          demosScheduledCount: 0,
+          demosCompletedCount: 0,
+          highPriorityDemosCount: 0,
+          todaysClassesCount: 0,
+          conversionRatePct: "0.0%",
+          attendanceRatePct: "0.0%",
+          ratingScore: "4.9 ⭐",
+          myBrandCourses: [],
+          extractedDemos: [],
+          enrolledStudentsList: [],
+          subjectBreakdown: [],
+          weeklyTrendDays: [
+            { dayLabel: "Mon", demos: 0, classes: 0, conversions: 0 },
+            { dayLabel: "Tue", demos: 0, classes: 0, conversions: 0 },
+            { dayLabel: "Wed", demos: 0, classes: 0, conversions: 0 },
+            { dayLabel: "Thu", demos: 0, classes: 0, conversions: 0 },
+            { dayLabel: "Fri", demos: 0, classes: 0, conversions: 0 },
+            { dayLabel: "Sat", demos: 0, classes: 0, conversions: 0 },
+            { dayLabel: "Sun", demos: 0, classes: 0, conversions: 0 },
+          ]
+        });
       }
-    };
+    } catch (err) {
+      console.error("Failed to load teacher dashboard stats:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchTeacherDashboardData();
   }, [user]);
 
@@ -151,20 +142,6 @@ export default function TeacherDashboard() {
       trend: "Average Rate",
       isGreen: true,
       color: "text-emerald-600 bg-emerald-50 border-emerald-100",
-    },
-    {
-      name: "Student Rating",
-      value: teacherData?.ratingScore ?? "4.9 ⭐",
-      trend: "Student Feedback",
-      isGreen: true,
-      color: "text-rose-600 bg-rose-50 border-rose-100",
-    },
-    {
-      name: "High Priority Demos",
-      value: teacherData?.highPriorityDemosCount ?? 0,
-      trend: "Action Required",
-      isGreen: false,
-      color: "text-orange-600 bg-orange-50 border-orange-100",
     },
   ];
 
@@ -267,6 +244,20 @@ export default function TeacherDashboard() {
               </span>
             </button>
 
+            {/* Notification Bell Button in Top Header */}
+            <button
+              onClick={() => setIsNotificationPanelOpen(true)}
+              className="relative p-2 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50/80 rounded-xl transition-all border border-slate-200/80 shrink-0 cursor-pointer shadow-2xs"
+              title="Faculty Notifications & Reminders"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-indigo-600">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+              </svg>
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-extrabold text-white border-2 border-white shadow-xs animate-pulse">
+                🔔
+              </span>
+            </button>
+
             <ProfileDisplay isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} user={user} logout={logout} />
 
             <div className="flex items-center gap-2 border-l border-slate-200 pl-4">
@@ -308,6 +299,12 @@ export default function TeacherDashboard() {
             >
               <span>🗓️ Upcoming Demos ({teacherData?.extractedDemos?.length || 0})</span>
             </button>
+            <a
+              href="/teacher-dashboard/calendar"
+              className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+            >
+              <span>📅 Schedule Calendar</span>
+            </a>
             <button
               onClick={() => setActiveTab("students")}
               className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
@@ -316,14 +313,20 @@ export default function TeacherDashboard() {
             >
               <span>👥 Student Roster ({teacherData?.enrolledStudentsList?.length || 0})</span>
             </button>
+            <button
+              onClick={() => setIsAttendanceModalOpen(true)}
+              className="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+            >
+              <span>📋 Take Batch Attendance</span>
+            </button>
           </div>
           <div className="text-xs font-semibold text-slate-400 px-2 shrink-0">
             Brand Scope: <strong className="text-slate-700">{user.brandScope || "All Brands"}</strong>
           </div>
         </div>
 
-        {/* 10 KPI Metric Cards Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
+        {/* 8 KPI Metric Cards Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-3 mb-6">
           {metrics.map((metric, idx) => (
             <div key={idx} className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs hover:border-slate-300 transition-all">
               <div className="flex items-center justify-between mb-2">
@@ -684,6 +687,22 @@ export default function TeacherDashboard() {
 
       {/* Command Palette Modal */}
       <CommandPalette isOpen={isCommandPaletteOpen} onClose={() => setIsCommandPaletteOpen(false)} />
+
+      {/* Take Attendance Modal */}
+      <TakeAttendanceModal
+        isOpen={isAttendanceModalOpen}
+        onClose={() => setIsAttendanceModalOpen(false)}
+        onSuccess={() => {
+          setIsAttendanceModalOpen(false);
+          fetchTeacherDashboardData();
+        }}
+      />
+
+      {/* Notification Panel */}
+      <NotificationPanel
+        isOpen={isNotificationPanelOpen}
+        onClose={() => setIsNotificationPanelOpen(false)}
+      />
     </div>
   );
 }

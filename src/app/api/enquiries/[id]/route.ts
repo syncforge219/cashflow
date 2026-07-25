@@ -48,14 +48,27 @@ export async function DELETE(
     await dbConnect();
     const { id } = await params;
 
-    const deletedEnquiry = await Enquiry.findByIdAndDelete(id);
-
-    if (!deletedEnquiry) {
+    const existingEnquiry = await Enquiry.findById(id);
+    if (!existingEnquiry) {
       return NextResponse.json(
         { error: "Enquiry not found" },
         { status: 404 }
       );
     }
+
+    const enquiryDoc = existingEnquiry as any;
+    if (
+      (enquiryDoc.status || "").toUpperCase() === "ADMITTED" ||
+      (enquiryDoc.stage || "").toUpperCase() === "ADMITTED" ||
+      enquiryDoc.isAdmitted === true
+    ) {
+      return NextResponse.json(
+        { error: "Cannot mark an admitted student as a lost lead or delete their enquiry record." },
+        { status: 400 }
+      );
+    }
+
+    const deletedEnquiry = await Enquiry.findByIdAndDelete(id);
 
     const { searchParams } = new URL(req.url);
     const isLostLead = searchParams.get('lostLead') === 'true';

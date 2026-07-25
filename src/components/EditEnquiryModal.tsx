@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 
 interface EditEnquiryModalProps {
   isOpen: boolean;
@@ -11,6 +11,7 @@ interface EditEnquiryModalProps {
 
 export default function EditEnquiryModal({ isOpen, onClose, onSuccess, lead }: EditEnquiryModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [counsellors, setCounsellors] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     studentFullName: "",
     primaryPhoneMobile: "",
@@ -29,14 +30,12 @@ export default function EditEnquiryModal({ isOpen, onClose, onSuccess, lead }: E
     return String(phone).replace(/^\+?91\s?/, "").replace(/\D/g, "").slice(0, 10);
   };
 
-  const [counsellors, setCounsellors] = useState<any[]>([]);
-
   useEffect(() => {
     if (isOpen) {
       fetch("/api/counsellors")
         .then((res) => res.json())
         .then((data) => {
-          if (data.success && Array.from(data.counsellors).length > 0) {
+          if (data.success && data.counsellors) {
             setCounsellors(data.counsellors);
           }
         })
@@ -60,6 +59,19 @@ export default function EditEnquiryModal({ isOpen, onClose, onSuccess, lead }: E
       });
     }
   }, [lead]);
+
+  const filteredCounsellors = useMemo(() => {
+    const brand = lead?.targetBrand || "";
+    if (!brand) return counsellors;
+    return counsellors.filter((c: any) => {
+      if (!c.brandScope) return true;
+      const scope = String(c.brandScope).toLowerCase().trim();
+      const target = brand.toLowerCase().trim();
+      if (scope === "all" || scope === "global" || scope === "*") return true;
+      const parts = scope.split(/[,/|]/).map((p: string) => p.trim());
+      return parts.some((p: string) => p === target || p.includes(target) || target.includes(p));
+    });
+  }, [counsellors, lead?.targetBrand]);
 
   if (!isOpen || !lead) return null;
 
@@ -137,40 +149,40 @@ export default function EditEnquiryModal({ isOpen, onClose, onSuccess, lead }: E
                 <span className="inline-flex items-center px-3 bg-slate-50 text-slate-600 font-bold text-xs border-r border-slate-200 select-none">
                   +91
                 </span>
-                <input 
-                  name="primaryPhoneMobile" 
-                  value={formData.primaryPhoneMobile} 
+                <input
+                  name="primaryPhoneMobile"
+                  value={formData.primaryPhoneMobile}
                   onChange={(e) => {
                     const cleaned = cleanPhoneDigits(e.target.value);
                     setFormData(prev => ({ ...prev, primaryPhoneMobile: cleaned }));
-                  }} 
-                  type="tel" 
+                  }}
+                  type="tel"
                   placeholder="9876543210"
                   pattern="^\d{10}$"
                   maxLength={10}
-                  className="w-full text-sm font-semibold text-slate-700 px-4 py-2.5 focus:outline-none bg-transparent" 
+                  className="w-full text-sm font-semibold text-slate-700 px-4 py-2.5 focus:outline-none bg-transparent"
                 />
               </div>
             </div>
-            
+
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1.5">Alternate Mobile</label>
               <div className="flex rounded-xl border border-slate-200 overflow-hidden focus-within:ring-1 focus-within:ring-indigo-500/50 bg-white">
                 <span className="inline-flex items-center px-3 bg-slate-50 text-slate-600 font-bold text-xs border-r border-slate-200 select-none">
                   +91
                 </span>
-                <input 
-                  name="parentsPhoneNumber" 
-                  value={formData.parentsPhoneNumber} 
+                <input
+                  name="parentsPhoneNumber"
+                  value={formData.parentsPhoneNumber}
                   onChange={(e) => {
                     const cleaned = cleanPhoneDigits(e.target.value);
                     setFormData(prev => ({ ...prev, parentsPhoneNumber: cleaned }));
-                  }} 
-                  type="tel" 
+                  }}
+                  type="tel"
                   placeholder="9876500000"
                   pattern="^\d{10}$"
                   maxLength={10}
-                  className="w-full text-sm font-semibold text-slate-700 px-4 py-2.5 focus:outline-none bg-transparent" 
+                  className="w-full text-sm font-semibold text-slate-700 px-4 py-2.5 focus:outline-none bg-transparent"
                 />
               </div>
             </div>
@@ -219,19 +231,17 @@ export default function EditEnquiryModal({ isOpen, onClose, onSuccess, lead }: E
               </select>
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-500 mb-1.5">CRM Advisor</label>
+              <label className="block text-xs font-bold text-slate-500 mb-1.5">
+                CRM Advisor {lead?.targetBrand ? `(${filteredCounsellors.length} for ${lead.targetBrand})` : ""}
+              </label>
               <select name="assignedCrmAdvisor" value={formData.assignedCrmAdvisor} onChange={handleChange} className="w-full text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
-                <option value="">Unassigned</option>
-                {counsellors.map((c) => (
-                  <option key={c._id || c.name} value={c.name}>{c.name}</option>
-                ))}
-                {formData.assignedCrmAdvisor && !counsellors.some((c) => c.name === formData.assignedCrmAdvisor) && (
-                  <option value={formData.assignedCrmAdvisor}>{formData.assignedCrmAdvisor}</option>
-                )}
+                <option value="Rahul Sharma">Rahul Sharma</option>
+                <option value="Chaitanya Singhal">Chaitanya Singhal</option>
+                <option value="Abhigyan Mishra">Abhigyan Mishra</option>
               </select>
             </div>
           </div>
-          
+
           <div>
             <label className="block text-xs font-bold text-slate-500 mb-1.5">Remarks & notes</label>
             <textarea name="remarks" value={formData.remarks} onChange={handleChange} rows={4} className="w-full text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 resize-y"></textarea>
