@@ -59,6 +59,16 @@ export function formatPhoneNumber(phone: string): string {
   return cleaned;
 }
 
+const PUBLIC_PRODUCTION_URL = "https://cashflow-git-734957305541.asia-south2.run.app";
+
+export function getPublicPdfBaseUrl(): string {
+  const envUrl = process.env.PUBLIC_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "";
+  if (envUrl && !envUrl.includes("localhost") && !envUrl.includes("127.0.0.1") && !envUrl.includes("ngrok")) {
+    return envUrl.replace(/\/$/, "");
+  }
+  return process.env.MSG91_DEFAULT_PDF_HOST || PUBLIC_PRODUCTION_URL;
+}
+
 /**
  * Dispatch MSG91 WhatsApp Outbound Template Message for Fee Receipt
  */
@@ -76,16 +86,8 @@ export async function sendWhatsAppFeeReceipt(params: FeeReceiptWhatsAppParams) {
     }
 
     const rNo = params.receiptNo || "GEN-001";
-    const appBaseUrl =
-      process.env.PUBLIC_APP_URL ||
-      process.env.NEXT_PUBLIC_APP_URL ||
-      "";
     const receiptDocUrl =
-      params.receiptUrl ||
-      (appBaseUrl
-        ? `${appBaseUrl.replace(/\/$/, "")}/api/receipts/${rNo}/pdf`
-        : process.env.MSG91_DEFAULT_PDF_URL ||
-          "https://pdfobject.com/pdf/sample-3pp.pdf");
+      params.receiptUrl || `${getPublicPdfBaseUrl()}/api/receipts/${rNo}/pdf`;
     const filename = `Fee_Receipt_${rNo}.pdf`;
     const formattedAmount = `₹${Number(params.amountPaid || 0).toLocaleString(
       "en-IN",
@@ -210,24 +212,23 @@ export async function sendWhatsAppDailyReport(params: DailyReportWhatsAppParams)
       return { success: false, error: "Invalid admin mobile number." };
     }
 
-    const appBaseUrl =
-      process.env.PUBLIC_APP_URL ||
-      process.env.NEXT_PUBLIC_APP_URL ||
-      "";
-    
     const reportPdfUrl =
-      params.pdfUrl ||
-      (appBaseUrl
-        ? `${appBaseUrl.replace(/\/$/, "")}/api/reports/daily/pdf`
-        : process.env.MSG91_DEFAULT_PDF_URL ||
-          "https://pdfobject.com/pdf/sample-3pp.pdf");
+      params.pdfUrl || `${getPublicPdfBaseUrl()}/api/reports/daily/pdf`;
 
     const safeDate = params.reportData.dateStr.replace(/[^a-zA-Z0-9]/g, "_");
     const filename = `Daily_Report_${safeDate}.pdf`;
 
+    const totalLeads = params.reportData.executiveSummary?.totalLeads?.value ?? 0;
+    const demoSessions = params.reportData.conversionFunnel?.demosScheduled ?? 0;
+    const admissionsToday = params.reportData.executiveSummary?.admissions?.value ?? 0;
+    const todaysCollection = params.reportData.executiveSummary?.totalCollections?.value ?? 0;
+    const monthlyCollection = params.reportData.executiveSummary?.totalRevenue?.value ?? 0;
+    const pendingFees = params.reportData.executiveSummary?.outstandingFees?.value ?? 0;
+    const overdueEmis = params.reportData.pendingFeeSummary?.overdueStudentsCount ?? 0;
+
     const body1 = params.reportData.dateStr;
-    const body2 = `Leads: ${params.reportData.totalLeads} | Demos: ${params.reportData.demoSessions} | Admissions: ${params.reportData.admissionsToday}`;
-    const body3 = `Today: ₹${params.reportData.todaysCollection.toLocaleString('en-IN')} | Month: ₹${params.reportData.monthlyCollection.toLocaleString('en-IN')} | Pending: ₹${params.reportData.pendingFees.toLocaleString('en-IN')} | Overdue EMIs: ${params.reportData.overdueEmis}`;
+    const body2 = `Leads: ${totalLeads} | Demos: ${demoSessions} | Admissions: ${admissionsToday}`;
+    const body3 = `Today: ₹${todaysCollection.toLocaleString('en-IN')} | Month: ₹${monthlyCollection.toLocaleString('en-IN')} | Pending: ₹${pendingFees.toLocaleString('en-IN')} | Overdue EMIs: ${overdueEmis}`;
 
     const payload = {
       integrated_number: integratedNumber,
@@ -327,23 +328,26 @@ export async function sendWhatsAppMonthlyReport(params: {
   reportData: import("./dailyReportService").DailyReportStats;
 }) {
   try {
-    const authKey = process.env.MSG91_AUTHKEY;
-    const integratedNumber =
-      process.env.MSG91_INTEGRATED_NUMBER || "919335913286";
-    const publicAppUrl =
-      process.env.PUBLIC_APP_URL || "https://cashflow-git-734957305541.asia-south2.run.app";
-
-    let formattedPhone = params.adminMobileNumber.replace(/\D/g, "");
-    if (formattedPhone.length === 10) {
-      formattedPhone = `91${formattedPhone}`;
+    const authKey = process.env.MSG91_AUTHKEY || "478610A465a065I869fed7fdP1";
+    const integratedNumber = process.env.MSG91_INTEGRATED_NUMBER || "919335913286";
+    const formattedPhone = formatPhoneNumber(params.adminMobileNumber);
+    if (!formattedPhone) {
+      return { success: false, error: "Invalid admin mobile number." };
     }
-
-    const reportPdfUrl = `${publicAppUrl}/api/reports/monthly/pdf`;
+    const reportPdfUrl = `${getPublicPdfBaseUrl()}/api/reports/monthly/pdf`;
     const filename = `Monthly_Report_${params.reportData.dateStr.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
 
+    const totalLeads = params.reportData.executiveSummary?.totalLeads?.value ?? 0;
+    const demoSessions = params.reportData.conversionFunnel?.demosScheduled ?? 0;
+    const admissionsToday = params.reportData.executiveSummary?.admissions?.value ?? 0;
+    const todaysCollection = params.reportData.executiveSummary?.totalCollections?.value ?? 0;
+    const monthlyCollection = params.reportData.executiveSummary?.totalRevenue?.value ?? 0;
+    const pendingFees = params.reportData.executiveSummary?.outstandingFees?.value ?? 0;
+    const overdueEmis = params.reportData.pendingFeeSummary?.overdueStudentsCount ?? 0;
+
     const body1 = params.reportData.dateStr;
-    const body2 = `MTD Leads: ${params.reportData.totalLeads} | MTD Demos: ${params.reportData.demoSessions} | MTD Admissions: ${params.reportData.admissionsToday}`;
-    const body3 = `Monthly Revenue: ₹${params.reportData.monthlyCollection.toLocaleString('en-IN')} | Today: ₹${params.reportData.todaysCollection.toLocaleString('en-IN')} | Pending: ₹${params.reportData.pendingFees.toLocaleString('en-IN')} | Overdue EMIs: ${params.reportData.overdueEmis}`;
+    const body2 = `MTD Leads: ${totalLeads} | MTD Demos: ${demoSessions} | MTD Admissions: ${admissionsToday}`;
+    const body3 = `Monthly Revenue: ₹${monthlyCollection.toLocaleString('en-IN')} | Today: ₹${todaysCollection.toLocaleString('en-IN')} | Pending: ₹${pendingFees.toLocaleString('en-IN')} | Overdue EMIs: ${overdueEmis}`;
 
     const payload = {
       integrated_number: integratedNumber,
