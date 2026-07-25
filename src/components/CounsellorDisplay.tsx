@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import RegisterCounsellorModal from "./RegisterCounsellorModal";
 import EditCounsellorModal from "./EditCounsellorModal";
 import DeleteConfirmModal from "./DeleteConfirmModal";
+import TransferCounsellorModal from "./TransferCounsellorModal";
 import { useUser } from "@/app/component/context/user-context";
 
 export default function CounsellorDisplay() {
@@ -12,6 +13,8 @@ export default function CounsellorDisplay() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [counsellorToEdit, setCounsellorToEdit] = useState<any | null>(null);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [counsellorToTransfer, setCounsellorToTransfer] = useState<any | null>(null);
   const [counsellorToDelete, setCounsellorToDelete] = useState<{ id: string; name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [counsellorList, setCounsellorList] = useState<any[]>([]);
@@ -27,13 +30,17 @@ export default function CounsellorDisplay() {
   const loadCounsellors = async () => {
     try {
       setIsLoading(true);
-      const [counsellorsRes, enquiriesRes] = await Promise.all([
+      const [counsellorsRes, enquiriesRes, admissionsRes] = await Promise.all([
         fetch("/api/counsellors"),
-        fetch("/api/enquiries")
+        fetch("/api/enquiries"),
+        fetch("/api/admissions")
       ]);
       const data = await counsellorsRes.json();
       const enqData = await enquiriesRes.json();
+      const admData = await admissionsRes.json();
+
       const enquiries = (enqData && enqData.enquiries) ? enqData.enquiries : [];
+      const admissions = (admData && (admData.admissions || admData.data)) ? (admData.admissions || admData.data) : [];
 
       if (data.success && data.counsellors && data.counsellors.length > 0) {
         const list = data.counsellors.map((c: any) => {
@@ -44,19 +51,30 @@ export default function CounsellorDisplay() {
 
           const nameLower = (c.name || "").toLowerCase().trim();
           const emailLower = (c.email || "").toLowerCase().trim();
+          const idLower = String(c._id || "").toLowerCase().trim();
 
-          const myEnquiries = enquiries.filter((e: any) => {
-            const advisorLower = (e.assignedCrmAdvisor || "").toLowerCase().trim();
-            return (nameLower && advisorLower.includes(nameLower)) || (emailLower && advisorLower.includes(emailLower));
-          });
+          const matchesCounsellor = (val: string) => {
+            if (!val) return false;
+            const low = val.toLowerCase().trim();
+            return (
+              low === nameLower ||
+              low === emailLower ||
+              low === idLower ||
+              (nameLower && low.includes(nameLower)) ||
+              (nameLower && nameLower.includes(low))
+            );
+          };
+
+          const myEnquiries = enquiries.filter((e: any) => matchesCounsellor(e.assignedCrmAdvisor));
+          const myAdmissions = admissions.filter((a: any) => matchesCounsellor(a.counsellor));
 
           const assignedLeadsCount = myEnquiries.length;
           const demosCount = myEnquiries.filter((e: any) => 
             e.isDemoScheduled || (e.demos && e.demos.length > 0) || (e.followUps || []).some((f: any) => f.typeOfContact === "Demo Class")
           ).length;
-          const admissionsCount = myEnquiries.filter((e: any) => e.status === "Admitted").length;
+          const admittedEnquiriesCount = myEnquiries.filter((e: any) => e.status === "Admitted").length;
 
-          const realRevenue = myEnquiries.reduce((sum: number, e: any) => {
+          const realEnquiryRevenue = myEnquiries.reduce((sum: number, e: any) => {
             if (e.status === "Admitted") {
               const fee = parseFloat(String(e.feesCollected || e.expectedConversionFee || "0").replace(/[^0-9.]/g, ""));
               return sum + (isNaN(fee) ? 0 : fee);
@@ -64,8 +82,19 @@ export default function CounsellorDisplay() {
             return sum;
           }, 0);
 
-          const revenue = realRevenue > 0 ? realRevenue : (c.currentRevenue || 0);
-          const convRate = assignedLeadsCount > 0 ? ((admissionsCount / assignedLeadsCount) * 100).toFixed(1) : "0.0";
+          const realAdmissionRevenue = myAdmissions.reduce((sum: number, adm: any) => {
+            const paid = adm.amountReceivedToday || Number(adm.finalFee || 0) - Number(adm.remainingBalance || 0);
+            return sum + Math.max(Number(paid) || 0, 0);
+          }, 0);
+
+          const maxRealRevenue = Math.max(realEnquiryRevenue, realAdmissionRevenue);
+          const maxAdmissionsCount = Math.max(admittedEnquiriesCount, myAdmissions.length);
+
+          const hasAssignedRecords = assignedLeadsCount > 0 || myAdmissions.length > 0;
+
+          const revenue = hasAssignedRecords ? maxRealRevenue : (c.currentRevenue || 0);
+          const admissionsNum = hasAssignedRecords ? maxAdmissionsCount : (c.admissionsRecorded || 0);
+          const convRate = assignedLeadsCount > 0 ? ((maxAdmissionsCount / assignedLeadsCount) * 100).toFixed(1) : "0.0";
 
           return {
             id: c._id,
@@ -76,7 +105,7 @@ export default function CounsellorDisplay() {
             scope: c.brandScope || "Cadd Mantra",
             targetNum: target,
             revenueNum: revenue,
-            admissionsNum: admissionsCount || (c.admissionsRecorded || 0),
+            admissionsNum: admissionsNum,
             assignedLeadsNum: assignedLeadsCount,
             demosNum: demosCount,
             convRate: `${convRate}%`,
@@ -86,7 +115,7 @@ export default function CounsellorDisplay() {
             annualTarget: `₹${target.toLocaleString("en-IN")}`,
             revenueCollected: `₹${revenue.toLocaleString("en-IN")}`,
             joiningDate: c.joiningDate ? new Date(c.joiningDate).toISOString().split("T")[0] : "—",
-            admissions: `${admissionsCount || (c.admissionsRecorded || 0)} Seats`,
+            admissions: `${admissionsNum} Seats`,
             initials: `${firstInitial}${lastInitial}`.toUpperCase() || "CU",
             scopeBadge: "Sales Counsellor Scope",
           };
@@ -208,6 +237,11 @@ export default function CounsellorDisplay() {
   const handleEditCounsellor = (counsellor: any) => {
     setCounsellorToEdit(counsellor);
     setIsEditModalOpen(true);
+  };
+
+  const handleTransferData = (counsellor: any) => {
+    setCounsellorToTransfer(counsellor);
+    setIsTransferModalOpen(true);
   };
 
   const handleExportCSV = () => {
@@ -452,8 +486,29 @@ export default function CounsellorDisplay() {
                   </div>
                 </div>
 
-                {/* Edit & Delete Action Buttons */}
-                <div className="flex items-center gap-1 select-none">
+                {/* Edit, Transfer & Delete Action Buttons */}
+                <div className="flex items-center gap-1.5 select-none">
+                  <button
+                    onClick={() => handleTransferData(selectedCounsellor)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/80 rounded-xl transition-all font-sans shadow-xs"
+                    title="Transfer data of this counsellor to another counsellor within brand"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={2}
+                      stroke="currentColor"
+                      className="h-3.5 w-3.5"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"
+                      />
+                    </svg>
+                    Transfer Data
+                  </button>
                   <button
                     onClick={() => handleEditCounsellor(selectedCounsellor)}
                     className="p-1 hover:bg-slate-50 rounded-lg text-slate-400 hover:text-indigo-600 transition-colors"
@@ -654,6 +709,24 @@ export default function CounsellorDisplay() {
           onSuccess={() => {
             setIsEditModalOpen(false);
             setCounsellorToEdit(null);
+            loadCounsellors();
+          }}
+        />
+      )}
+
+      {/* Modal: Transfer Sales Counsellor Data */}
+      {isTransferModalOpen && (
+        <TransferCounsellorModal
+          isOpen={isTransferModalOpen}
+          onClose={() => {
+            setIsTransferModalOpen(false);
+            setCounsellorToTransfer(null);
+          }}
+          sourceCounsellor={counsellorToTransfer}
+          allCounsellors={counsellorList}
+          onSuccess={() => {
+            setIsTransferModalOpen(false);
+            setCounsellorToTransfer(null);
             loadCounsellors();
           }}
         />

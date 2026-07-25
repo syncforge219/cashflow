@@ -24,6 +24,7 @@ export default function EnquiriesDisplay() {
   const [sourceFilter, setSourceFilter] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [dateFilterMode, setDateFilterMode] = useState<"today" | "week" | "month" | "year" | "custom" | "all">("month");
   const [startDateFilter, setStartDateFilter] = useState("");
   const [endDateFilter, setEndDateFilter] = useState("");
 
@@ -42,46 +43,54 @@ export default function EnquiriesDisplay() {
   targetDate.setDate(targetDate.getDate() - dateOffset);
   const targetDateString = targetDate.toDateString();
 
-  const filteredEnquiries = enquiries.filter((lead) => {
-    // 1. Dropdown Filters
+  // 1. Date Filtered Enquiries (for Date Range Presets)
+  const dateFilteredEnquiries = enquiries.filter((lead) => {
+    if (!lead.createdAt || dateFilterMode === "all") return true;
+    const leadDate = new Date(lead.createdAt);
+    const now = new Date();
+
+    if (dateFilterMode === "today") {
+      const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      const endToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      return leadDate >= startToday && leadDate <= endToday;
+    } else if (dateFilterMode === "week") {
+      const startWeek = new Date(now);
+      startWeek.setDate(startWeek.getDate() - 7);
+      startWeek.setHours(0, 0, 0, 0);
+      const endWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      return leadDate >= startWeek && leadDate <= endWeek;
+    } else if (dateFilterMode === "month") {
+      const startMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      const endMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      return leadDate >= startMonth && leadDate <= endMonth;
+    } else if (dateFilterMode === "year") {
+      const startYear = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
+      const endYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+      return leadDate >= startYear && leadDate <= endYear;
+    } else if (dateFilterMode === "custom") {
+      if (startDateFilter) {
+        const startCustom = new Date(startDateFilter);
+        startCustom.setHours(0, 0, 0, 0);
+        if (leadDate < startCustom) return false;
+      }
+      if (endDateFilter) {
+        const endCustom = new Date(endDateFilter);
+        endCustom.setHours(23, 59, 59, 999);
+        if (leadDate > endCustom) return false;
+      }
+      return true;
+    }
+    return true;
+  });
+
+  // 2. Full Filtered Enquiries (dropdowns + search)
+  const filteredEnquiries = dateFilteredEnquiries.filter((lead) => {
     if (brandFilter && lead.targetBrand !== brandFilter) return false;
     if (advisorFilter && lead.assignedCrmAdvisor !== advisorFilter) return false;
     if (sourceFilter && lead.leadSource !== sourceFilter) return false;
     if (priorityFilter && lead.priorityLevel !== priorityFilter) return false;
     if (statusFilter && lead.status !== statusFilter) return false;
 
-    // 2. Date Filtering
-    if (startDateFilter || endDateFilter) {
-      // Custom date range overrides the daily pagination
-      if (lead.createdAt) {
-        const leadDate = new Date(lead.createdAt);
-        leadDate.setHours(0, 0, 0, 0);
-
-        if (startDateFilter) {
-          const start = new Date(startDateFilter);
-          start.setHours(0, 0, 0, 0);
-          if (leadDate < start) return false;
-        }
-        if (endDateFilter) {
-          const end = new Date(endDateFilter);
-          end.setHours(23, 59, 59, 999);
-          if (leadDate > end) return false;
-        }
-      } else {
-        return false;
-      }
-    } else if (dateOffset > 0) {
-      // Show specific target day when user clicks Previous/Next day
-      if (lead.createdAt) {
-        const leadDate = new Date(lead.createdAt);
-        if (leadDate.toDateString() !== targetDateString) return false;
-      } else {
-        return false;
-      }
-    }
-    // Note: When dateOffset === 0 and no custom date filter is set, show all leads sorted by date descending
-
-    // Text filtering
     if (!debouncedSearchQuery) return true;
     const query = debouncedSearchQuery.toLowerCase();
     return (
@@ -138,15 +147,12 @@ export default function EnquiriesDisplay() {
   const uniqueSources = Array.from(new Set(enquiries.map(e => e.leadSource).filter(Boolean)));
   const uniquePriorities = Array.from(new Set(enquiries.map(e => e.priorityLevel).filter(Boolean)));
   const uniqueStatuses = Array.from(new Set(enquiries.map(e => e.status).filter(Boolean)));
-  const isCustomDateRangeActive = startDateFilter !== "" || endDateFilter !== "";
+  const isCustomDateRangeActive = startDateFilter !== "" || endDateFilter !== "" || dateFilterMode !== "all";
 
-  // Dynamic metric computations based on actual database entries
-  const todayStr = new Date().toDateString();
-  const todaysCount = enquiries.filter(
-    (e) => e.createdAt && new Date(e.createdAt).toDateString() === todayStr
-  ).length;
+  // Dynamic metric computations calculated on dateFilteredEnquiries
+  const totalPeriodEnquiries = dateFilteredEnquiries.length;
 
-  const pendingFollowupsCount = enquiries.reduce((acc, lead) => {
+  const pendingFollowupsCount = dateFilteredEnquiries.reduce((acc, lead) => {
     const pendingTasks = lead.followUps?.filter((t: any) => !t.isCompleted && t.status !== "Completed").length || 0;
     if (pendingTasks > 0) return acc + pendingTasks;
     if (lead.status === "Pending" || lead.status === "Hot Follow-up" || lead.status === "Cold Follow-up" || lead.status === "Follow-up") {
@@ -155,21 +161,29 @@ export default function EnquiriesDisplay() {
     return acc;
   }, 0);
 
-  const admissionsConvertedCount = enquiries.filter(
+  const admissionsConvertedCount = dateFilteredEnquiries.filter(
     (e) => e.status === "Admission" || e.status === "Admitted" || e.status === "Converted"
   ).length;
 
-  const lostLeadsCount = enquiries.filter(
+  const lostLeadsCount = dateFilteredEnquiries.filter(
     (e) => e.status === "Lost" || e.status === "Closed"
   ).length;
 
-  const totalLeadsCount = enquiries.length;
-  const conversionRateStr = totalLeadsCount > 0 ? `${Math.round((admissionsConvertedCount / totalLeadsCount) * 100)}%` : "0%";
+  const conversionRateStr = totalPeriodEnquiries > 0 ? `${Math.round((admissionsConvertedCount / totalPeriodEnquiries) * 100)}%` : "0%";
+
+  const firstCardTitleMap: Record<string, string> = {
+    today: "Today's Enquiries",
+    week: "This Week's Enquiries",
+    month: "This Month's Enquiries",
+    year: "This Year's Enquiries",
+    custom: "Period Enquiries",
+    all: "Total Enquiries",
+  };
 
   const stats = [
     {
-      title: "Today's Enquiries",
-      value: String(todaysCount),
+      title: firstCardTitleMap[dateFilterMode] || "Enquiries",
+      value: String(totalPeriodEnquiries),
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5 text-blue-500">
           <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
@@ -254,6 +268,52 @@ export default function EnquiriesDisplay() {
         </div>
       </div>
 
+      {/* Date Filter Preset Bar ABOVE KPI Cards */}
+      <div className="bg-white border border-slate-200/80 rounded-2xl p-3 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl overflow-x-auto">
+          {[
+            { id: "today", label: "Today" },
+            { id: "week", label: "This Week" },
+            { id: "month", label: "This Month" },
+            { id: "year", label: "This Year" },
+            { id: "custom", label: "Custom Range" },
+            { id: "all", label: "All Time" },
+          ].map((btn) => (
+            <button
+              type="button"
+              key={btn.id}
+              onClick={() => setDateFilterMode(btn.id as any)}
+              className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                dateFilterMode === btn.id
+                  ? "bg-indigo-600 text-white shadow-xs"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
+              }`}
+            >
+              {btn.label}
+            </button>
+          ))}
+        </div>
+
+        {dateFilterMode === "custom" && (
+          <div className="flex items-center gap-2 animate-fade-in">
+            <span className="text-xs font-bold text-slate-500 select-none">Custom Range:</span>
+            <input
+              type="date"
+              value={startDateFilter}
+              onChange={(e) => setStartDateFilter(e.target.value)}
+              className="text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+            />
+            <span className="text-xs font-bold text-slate-400 select-none">to</span>
+            <input
+              type="date"
+              value={endDateFilter}
+              onChange={(e) => setEndDateFilter(e.target.value)}
+              className="text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+            />
+          </div>
+        )}
+      </div>
+
       {/* Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {stats.map((stat, idx) => (
@@ -325,24 +385,6 @@ export default function EnquiriesDisplay() {
               <option value="">All Pipeline Statuses</option>
               {uniqueStatuses.map(s => <option key={s as string} value={s as string}>{s as string}</option>)}
             </select>
-
-            {/* Date Picker Row */}
-            <div className="sm:col-span-3 flex items-center gap-2 mt-1">
-              <input
-                type="date"
-                value={startDateFilter}
-                onChange={(e) => setStartDateFilter(e.target.value)}
-                className="flex-1 text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-500 focus:outline-none"
-              />
-              <span className="text-xs font-bold text-slate-400 select-none">to</span>
-              <input
-                type="date"
-                value={endDateFilter}
-                onChange={(e) => setEndDateFilter(e.target.value)}
-                className="flex-1 text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-500 focus:outline-none"
-              />
-            </div>
-
           </div>
         </div>
 

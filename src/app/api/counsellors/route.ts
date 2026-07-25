@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
 import Admission from "@/models/Admission";
+import Enquiry from "@/models/Enquiry";
 
 export async function POST(request: Request) {
   try {
@@ -81,41 +82,83 @@ export async function POST(request: Request) {
 export async function GET() {
   try {
     await dbConnect();
-    const counsellors = await User.find({ role: "counsellor" }).select("-password").sort({ createdAt: -1 });
-    const admissions = await Admission.find({});
+    const [counsellors, admissions, admittedEnquiries, allEnquiries] = await Promise.all([
+      User.find({ role: "counsellor" }).select("-password").sort({ createdAt: -1 }),
+      Admission.find({}),
+      Enquiry.find({ status: "Admitted" }),
+      Enquiry.find({}),
+    ]);
 
     const counsellorsWithLiveStats = counsellors.map((c: any) => {
       const cObj = c.toObject();
+      const cName = (c.name || "").toLowerCase().trim();
+      const cEmail = (c.email || "").toLowerCase().trim();
+      const cId = c._id.toString();
 
-      // Find all admissions assigned to this counsellor
-      const matchingAdmissions = admissions.filter((adm: any) => {
-        if (!adm.counsellor) return false;
-        const admCounsellor = adm.counsellor.toLowerCase().trim();
-        const cName = (c.name || "").toLowerCase().trim();
-        const cEmail = (c.email || "").toLowerCase().trim();
-        const cId = c._id.toString();
-
+      const matchesCounsellor = (val: string) => {
+        if (!val) return false;
+        const low = val.toLowerCase().trim();
         return (
-          admCounsellor === cName ||
-          admCounsellor === cEmail ||
-          admCounsellor === cId ||
-          (cName && admCounsellor.includes(cName)) ||
-          (cName && cName.includes(admCounsellor))
+          low === cName ||
+          low === cEmail ||
+          low === cId ||
+          (cName && low.includes(cName)) ||
+          (cName && cName.includes(low))
         );
-      });
+      };
 
-      const actualAdmissionsCount = matchingAdmissions.length;
-      const actualRevenue = matchingAdmissions.reduce((sum: number, adm: any) => {
+      // 1. Find matching Admissions
+      const matchingAdmissions = admissions.filter((adm: any) =>
+        matchesCounsellor(adm.counsellor)
+      );
+
+      // 2. Find matching Admitted Enquiries
+      const matchingAdmittedEnquiries = admittedEnquiries.filter((enq: any) =>
+        matchesCounsellor(enq.assignedCrmAdvisor)
+      );
+
+      // 3. Find all assigned Enquiries
+      const totalAssignedEnquiries = allEnquiries.filter((enq: any) =>
+        matchesCounsellor(enq.assignedCrmAdvisor)
+      );
+
+      const admissionRev = matchingAdmissions.reduce((sum: number, adm: any) => {
         const paid =
           adm.amountReceivedToday ||
           Number(adm.finalFee || 0) - Number(adm.remainingBalance || 0);
         return sum + Math.max(Number(paid) || 0, 0);
       }, 0);
 
+      const enquiryRev = matchingAdmittedEnquiries.reduce((sum: number, enq: any) => {
+        const fee = parseFloat(
+          String(enq.feesCollected || enq.expectedConversionFee || "0").replace(/[^0-9.]/g, "")
+        );
+        return sum + (isNaN(fee) ? 0 : fee);
+      }, 0);
+
+      const calculatedRevenue = Math.max(admissionRev, enquiryRev);
+      const calculatedAdmissionsCount = Math.max(
+        matchingAdmissions.length,
+        matchingAdmittedEnquiries.length
+      );
+
+      const hasAssignedData =
+        matchingAdmissions.length > 0 ||
+        totalAssignedEnquiries.length > 0 ||
+        matchingAdmittedEnquiries.length > 0;
+
+      const finalRevenue = hasAssignedData
+        ? calculatedRevenue
+        : (c.currentRevenue || 0);
+
+      const finalAdmissionsCount = hasAssignedData
+        ? calculatedAdmissionsCount
+        : (c.admissionsRecorded || 0);
+
       return {
         ...cObj,
-        currentRevenue: actualRevenue > 0 ? actualRevenue : c.currentRevenue || 0,
-        admissionsRecorded: actualAdmissionsCount > 0 ? actualAdmissionsCount : c.admissionsRecorded || 0,
+        currentRevenue: finalRevenue,
+        admissionsRecorded: finalAdmissionsCount,
       };
     });
 
