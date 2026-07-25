@@ -10,11 +10,12 @@ export default function AdminAdmissionHub() {
   const [activeTab, setActiveTab] = useState("Enrollment Ledgers");
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
-  const [searchResult, setSearchResult] = useState<{ stage: string; data: any } | null>(null);
+  const [searchResult, setSearchResult] = useState<{ stage: string; data: any; admissions?: any[]; enquiries?: any[] } | null>(null);
 
   // Modal States
   const [selectedLead, setSelectedLead] = useState<any | null>(null);
   const [openTaskModalOnLoad, setOpenTaskModalOnLoad] = useState(false);
+  const [openDemoModalOnLoad, setOpenDemoModalOnLoad] = useState(false);
   const [isAdmissionModalOpen, setIsAdmissionModalOpen] = useState(false);
   const [leadForAdmission, setLeadForAdmission] = useState<any | null>(null);
   const [isAddEnquiryOpen, setIsAddEnquiryOpen] = useState(false);
@@ -240,333 +241,370 @@ export default function AdminAdmissionHub() {
           </div>
 
           {/* Search Results Area */}
-          {searchResult && (
-            <div className="mb-8 animate-fade-in">
-              {/* Scenario 1: Not Found */}
-              {searchResult.stage === "NOT_FOUND" && (
-                <div className="bg-rose-50 border border-rose-200 rounded-2xl p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="h-10 w-10 bg-rose-100 rounded-full flex items-center justify-center text-rose-600">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={2}
-                        stroke="currentColor"
-                        className="w-5 h-5"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                        />
-                      </svg>
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-rose-800">Student Not Registered</h3>
-                      <p className="text-xs font-semibold text-rose-600/80">
-                        This mobile number / query doesn't exist in our records.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => setIsAddEnquiryOpen(true)}
-                      className="bg-white border border-rose-200 hover:bg-rose-100 text-rose-700 text-xs font-bold px-4 py-2 rounded-xl transition-colors"
-                    >
-                      Create New Enquiry
-                    </button>
-                    <button
-                      onClick={() => {
-                        setLeadForAdmission({ studentFullName: searchQuery });
-                        setIsAdmissionModalOpen(true);
-                      }}
-                      className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors shadow-sm"
-                    >
-                      Create Direct Admission
-                    </button>
-                  </div>
-                </div>
-              )}
+          {searchResult && (() => {
+            const admissionsList = Array.isArray(searchResult.admissions)
+              ? searchResult.admissions
+              : searchResult.stage === "ADMISSION" && searchResult.data
+              ? (Array.isArray(searchResult.data) ? searchResult.data : [searchResult.data])
+              : [];
 
-              {/* Scenario 2: Enquiry Found */}
-              {searchResult.stage === "ENQUIRY" && searchResult.data.length > 0 && (
-                <div className="space-y-6">
-                  {searchResult.data.map((lead: any, index: number) => {
-                    const isAdmitted = lead.status === "Admitted";
-                    const c = (amberClass: string, emeraldClass: string) =>
-                      isAdmitted ? emeraldClass : amberClass;
-                    return (
-                      <div
-                        key={index}
-                        className={
-                          c("bg-amber-50 border-amber-200", "bg-emerald-50 border-emerald-200") +
-                          " border rounded-2xl p-6"
-                        }
+            const enquiriesList = Array.isArray(searchResult.enquiries)
+              ? searchResult.enquiries
+              : searchResult.stage === "ENQUIRY" && searchResult.data
+              ? (Array.isArray(searchResult.data) ? searchResult.data : [searchResult.data])
+              : [];
+
+            const isNotFound = admissionsList.length === 0 && enquiriesList.length === 0;
+
+            return (
+              <div className="mb-8 space-y-6 animate-fade-in">
+                {/* Scenario 1: Not Found */}
+                {isNotFound && (
+                  <div className="bg-rose-50 border border-rose-200 rounded-2xl p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="h-10 w-10 bg-rose-100 rounded-full flex items-center justify-center text-rose-600">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={2}
+                          stroke="currentColor"
+                          className="w-5 h-5"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                          />
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-rose-800">Student Not Registered</h3>
+                        <p className="text-xs font-semibold text-rose-600/80">
+                          This mobile number / query doesn't exist in our records.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setIsAddEnquiryOpen(true)}
+                        className="bg-white border border-rose-200 hover:bg-rose-100 text-rose-700 text-xs font-bold px-4 py-2 rounded-xl transition-colors cursor-pointer"
                       >
-                        <div className="flex items-start justify-between mb-6">
-                          <div className="flex items-center gap-3">
-                            <div
-                              className={
-                                c("bg-amber-100 text-amber-600", "bg-emerald-100 text-emerald-600") +
-                                " h-10 w-10 rounded-full flex items-center justify-center"
-                              }
+                        Create New Enquiry
+                      </button>
+                      <button
+                        onClick={() => {
+                          setLeadForAdmission({ studentFullName: searchQuery });
+                          setIsAdmissionModalOpen(true);
+                        }}
+                        className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors shadow-sm cursor-pointer"
+                      >
+                        Create Direct Admission
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Scenario 3: Enrolled Admissions Found */}
+                {admissionsList.length > 0 && (
+                  <div className="space-y-4">
+                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-emerald-800 px-1">
+                      Enrolled Admissions ({admissionsList.length})
+                    </h3>
+                    {admissionsList.map((admItem: any, index: number) => (
+                      <div key={admItem._id || admItem.admissionId || index} className="bg-emerald-50 border border-emerald-200 rounded-2xl p-6">
+                        <div className="flex items-center gap-3 mb-6">
+                          <div className="h-10 w-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              strokeWidth={2}
+                              stroke="currentColor"
+                              className="w-5 h-5"
                             >
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                strokeWidth={2}
-                                stroke="currentColor"
-                                className="w-5 h-5"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"
-                                />
-                              </svg>
-                            </div>
-                            <div>
-                              <h3
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z"
+                              />
+                            </svg>
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-bold text-emerald-900 flex items-center gap-2">
+                              Admission Already Exists
+                              <span className="bg-emerald-200 text-emerald-800 text-[9px] px-2 py-0.5 rounded-md uppercase tracking-wider font-mono">
+                                {admItem.admissionNumber || admItem.admissionId}
+                              </span>
+                            </h3>
+                            <p className="text-xs font-semibold text-emerald-700/80">
+                              This student is already enrolled in the system.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 p-4 bg-white/60 rounded-xl border border-emerald-100">
+                          <div>
+                            <p className="text-[10px] font-bold text-emerald-600/70 uppercase">Student Name</p>
+                            <p className="text-xs font-bold text-emerald-950">
+                              {admItem.studentName || admItem.fullName}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold text-emerald-600/70 uppercase">Course & Brand</p>
+                            <p className="text-xs font-bold text-emerald-950">
+                              {admItem.course} • {admItem.brand}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold text-emerald-600/70 uppercase">Admission Date</p>
+                            <p className="text-xs font-bold text-emerald-950">
+                              {admItem.admissionDate ||
+                                new Date(admItem.createdAt || Date.now()).toLocaleDateString("en-IN")}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold text-emerald-600/70 uppercase">Fee Status</p>
+                            <p className="text-xs font-bold text-emerald-950">
+                              {admItem.feeStatus || "Enrolled"}{" "}
+                              <span className="text-emerald-600 font-semibold">
+                                (₹{admItem.remainingBalance || admItem.outstandingAmount || 0} due)
+                              </span>
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-3">
+                          <button
+                            onClick={() => handlePrintSlip(admItem)}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors shadow-sm ml-auto cursor-pointer"
+                          >
+                            Print Admission Slip
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Scenario 2: Active Enquiries Found */}
+                {enquiriesList.length > 0 && (
+                  <div className="space-y-4">
+                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-amber-800 px-1">
+                      Active Prospect Enquiries ({enquiriesList.length})
+                    </h3>
+                    {enquiriesList.map((lead: any, index: number) => {
+                      const isAdmitted = lead.status === "Admitted";
+                      const c = (amberClass: string, emeraldClass: string) =>
+                        isAdmitted ? emeraldClass : amberClass;
+                      return (
+                        <div
+                          key={lead._id || index}
+                          className={
+                            c("bg-amber-50 border-amber-200", "bg-emerald-50 border-emerald-200") +
+                            " border rounded-2xl p-6"
+                          }
+                        >
+                          <div className="flex items-start justify-between mb-6">
+                            <div className="flex items-center gap-3">
+                              <div
                                 className={
-                                  c("text-amber-900", "text-emerald-900") +
-                                  " text-sm font-bold flex items-center gap-2"
+                                  c("bg-amber-100 text-amber-600", "bg-emerald-100 text-emerald-600") +
+                                  " h-10 w-10 rounded-full flex items-center justify-center"
                                 }
                               >
-                                Active Enquiry Found
-                                <span
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  strokeWidth={2}
+                                  stroke="currentColor"
+                                  className="w-5 h-5"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"
+                                  />
+                                </svg>
+                              </div>
+                              <div>
+                                <h3
                                   className={
-                                    c("bg-amber-200 text-amber-800", "bg-emerald-200 text-emerald-800") +
-                                    " text-[9px] px-2 py-0.5 rounded-md uppercase tracking-wider"
+                                    c("text-amber-900", "text-emerald-900") +
+                                    " text-sm font-bold flex items-center gap-2"
                                   }
                                 >
-                                  {lead.enquiryId}
-                                </span>
-                              </h3>
-                              <p className={c("text-amber-700/80", "text-emerald-700/80") + " text-xs font-semibold"}>
-                                This prospect is already in the sales pipeline.
+                                  Active Enquiry Found
+                                  <span
+                                    className={
+                                      c("bg-amber-200 text-amber-800", "bg-emerald-200 text-emerald-800") +
+                                      " text-[9px] px-2 py-0.5 rounded-md uppercase tracking-wider font-mono"
+                                    }
+                                  >
+                                    {lead.enquiryId}
+                                  </span>
+                                </h3>
+                                <p className={c("text-amber-700/80", "text-emerald-700/80") + " text-xs font-semibold"}>
+                                  This prospect is already in the sales pipeline.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div
+                            className={
+                              c("border-amber-100", "border-emerald-100") +
+                              " grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 p-4 bg-white/60 rounded-xl border"
+                            }
+                          >
+                            <div>
+                              <p className={c("text-amber-600/70", "text-emerald-600/70") + " text-[10px] font-bold uppercase"}>
+                                Student Name
+                              </p>
+                              <p className={c("text-amber-950", "text-emerald-950") + " text-xs font-bold"}>
+                                {lead.studentFullName}
+                              </p>
+                            </div>
+                            <div>
+                              <p className={c("text-amber-600/70", "text-emerald-600/70") + " text-[10px] font-bold uppercase"}>
+                                Course & Brand
+                              </p>
+                              <p className={c("text-amber-950", "text-emerald-950") + " text-xs font-bold"}>
+                                {lead.targetCourse} • {lead.targetBrand}
+                              </p>
+                            </div>
+                            <div>
+                              <p className={c("text-amber-600/70", "text-emerald-600/70") + " text-[10px] font-bold uppercase"}>
+                                Lead Status
+                              </p>
+                              <p className={c("text-amber-950", "text-emerald-950") + " text-xs font-bold"}>
+                                {lead.status}
+                              </p>
+                            </div>
+                            <div>
+                              <p className={c("text-amber-600/70", "text-emerald-600/70") + " text-[10px] font-bold uppercase"}>
+                                Assigned Counsellor
+                              </p>
+                              <p className={c("text-amber-950", "text-emerald-950") + " text-xs font-bold"}>
+                                {lead.assignedCrmAdvisor}
+                              </p>
+                            </div>
+                            <div>
+                              <p className={c("text-amber-600/70", "text-emerald-600/70") + " text-[10px] font-bold uppercase"}>
+                                Last Follow-up
+                              </p>
+                              <p className={c("text-amber-950", "text-emerald-950") + " text-xs font-bold"}>
+                                {lead.lastFollowUp || "None"}
+                              </p>
+                            </div>
+                            <div className="col-span-3">
+                              <p className={c("text-amber-600/70", "text-emerald-600/70") + " text-[10px] font-bold uppercase"}>
+                                Next Follow-up
+                              </p>
+                              <p className={c("text-amber-950", "text-emerald-950") + " text-xs font-bold"}>
+                                {lead.nextFollowUp || "None"}
                               </p>
                             </div>
                           </div>
-                        </div>
 
-                        <div
-                          className={
-                            c("border-amber-100", "border-emerald-100") +
-                            " grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 p-4 bg-white/60 rounded-xl border"
-                          }
+                          {!isAdmitted && (
+                            <div className="flex flex-wrap items-center gap-3">
+                              <button
+                                onClick={() => {
+                                  setSelectedLead(lead);
+                                  setOpenTaskModalOnLoad(false);
+                                  setOpenDemoModalOnLoad(false);
+                                }}
+                                className={
+                                  c("border-amber-200 hover:bg-amber-100 text-amber-700", "border-emerald-200 hover:bg-emerald-100 text-emerald-700") +
+                                  " bg-white border text-xs font-bold px-4 py-2 rounded-xl transition-colors cursor-pointer"
+                                }
+                              >
+                                View Enquiry
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setSelectedLead(lead);
+                                  setOpenTaskModalOnLoad(true);
+                                  setOpenDemoModalOnLoad(false);
+                                }}
+                                className={
+                                  c("border-amber-200 hover:bg-amber-100 text-amber-700", "border-emerald-200 hover:bg-emerald-100 text-emerald-700") +
+                                  " bg-white border text-xs font-bold px-4 py-2 rounded-xl transition-colors cursor-pointer"
+                                }
+                              >
+                                Schedule Follow-up
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setSelectedLead(lead);
+                                  setOpenTaskModalOnLoad(false);
+                                  setOpenDemoModalOnLoad(true);
+                                }}
+                                className="bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 text-xs font-bold px-4 py-2 rounded-xl transition-colors cursor-pointer"
+                              >
+                                Schedule Demo
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setLeadForAdmission(lead);
+                                  setIsAdmissionModalOpen(true);
+                                }}
+                                className="bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors shadow-sm shadow-emerald-500/20 ml-auto cursor-pointer"
+                              >
+                                Convert to Admission
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {/* Scenario 4: Student Found */}
+                {searchResult.stage === "STUDENT" && searchResult.data && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={2}
+                          stroke="currentColor"
+                          className="w-5 h-5"
                         >
-                          <div>
-                            <p className={c("text-amber-600/70", "text-emerald-600/70") + " text-[10px] font-bold uppercase"}>
-                              Student Name
-                            </p>
-                            <p className={c("text-amber-950", "text-emerald-950") + " text-xs font-bold"}>
-                              {lead.studentFullName}
-                            </p>
-                          </div>
-                          <div>
-                            <p className={c("text-amber-600/70", "text-emerald-600/70") + " text-[10px] font-bold uppercase"}>
-                              Course & Brand
-                            </p>
-                            <p className={c("text-amber-950", "text-emerald-950") + " text-xs font-bold"}>
-                              {lead.targetCourse} • {lead.targetBrand}
-                            </p>
-                          </div>
-                          <div>
-                            <p className={c("text-amber-600/70", "text-emerald-600/70") + " text-[10px] font-bold uppercase"}>
-                              Lead Status
-                            </p>
-                            <p className={c("text-amber-950", "text-emerald-950") + " text-xs font-bold"}>
-                              {lead.status}
-                            </p>
-                          </div>
-                          <div>
-                            <p className={c("text-amber-600/70", "text-emerald-600/70") + " text-[10px] font-bold uppercase"}>
-                              Assigned Counsellor
-                            </p>
-                            <p className={c("text-amber-950", "text-emerald-950") + " text-xs font-bold"}>
-                              {lead.assignedCrmAdvisor}
-                            </p>
-                          </div>
-                          <div>
-                            <p className={c("text-amber-600/70", "text-emerald-600/70") + " text-[10px] font-bold uppercase"}>
-                              Last Follow-up
-                            </p>
-                            <p className={c("text-amber-950", "text-emerald-950") + " text-xs font-bold"}>
-                              {lead.lastFollowUp || "None"}
-                            </p>
-                          </div>
-                          <div className="col-span-3">
-                            <p className={c("text-amber-600/70", "text-emerald-600/70") + " text-[10px] font-bold uppercase"}>
-                              Next Follow-up
-                            </p>
-                            <p className={c("text-amber-950", "text-emerald-950") + " text-xs font-bold"}>
-                              {lead.nextFollowUp || "None"}
-                            </p>
-                          </div>
-                        </div>
-
-                        {!isAdmitted && (
-                          <div className="flex flex-wrap items-center gap-3">
-                            <button
-                              onClick={() => {
-                                setSelectedLead(lead);
-                                setOpenTaskModalOnLoad(false);
-                              }}
-                              className={
-                                c("border-amber-200 hover:bg-amber-100 text-amber-700", "border-emerald-200 hover:bg-emerald-100 text-emerald-700") +
-                                " bg-white border text-xs font-bold px-4 py-2 rounded-xl transition-colors"
-                              }
-                            >
-                              View Enquiry
-                            </button>
-                            <button
-                              onClick={() => {
-                                setSelectedLead(lead);
-                                setOpenTaskModalOnLoad(true);
-                              }}
-                              className={
-                                c("border-amber-200 hover:bg-amber-100 text-amber-700", "border-emerald-200 hover:bg-emerald-100 text-emerald-700") +
-                                " bg-white border text-xs font-bold px-4 py-2 rounded-xl transition-colors"
-                              }
-                            >
-                              Schedule Follow-up
-                            </button>
-                            <button
-                              onClick={() => {
-                                setLeadForAdmission(lead);
-                                setIsAdmissionModalOpen(true);
-                              }}
-                              className="bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors shadow-sm shadow-emerald-500/20 ml-auto"
-                            >
-                              Convert to Admission
-                            </button>
-                          </div>
-                        )}
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342M6.75 15a.75.75 0 100-1.5.75.75 0 000 1.5zm0 0v-3.675A55.378 55.378 0 0112 8.443m-7.007 11.55A5.981 5.981 0 006.75 15.75v-1.5"
+                          />
+                        </svg>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Scenario 3: Admission Found */}
-              {searchResult.stage === "ADMISSION" && (
-                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-6">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="h-10 w-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={2}
-                        stroke="currentColor"
-                        className="w-5 h-5"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z"
-                        />
-                      </svg>
+                      <div>
+                        <h3 className="text-sm font-bold text-blue-900 flex items-center gap-2">
+                          Active Student Found
+                          <span className="bg-blue-200 text-blue-800 text-[9px] px-2 py-0.5 rounded-md uppercase tracking-wider">
+                            {searchResult.data.studentId}
+                          </span>
+                        </h3>
+                        <p className="text-xs font-semibold text-blue-700/80">
+                          This student is currently active in ongoing batches.
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-emerald-900 flex items-center gap-2">
-                        Admission Already Exists
-                        <span className="bg-emerald-200 text-emerald-800 text-[9px] px-2 py-0.5 rounded-md uppercase tracking-wider">
-                          {searchResult.data.admissionNumber || searchResult.data.admissionId}
-                        </span>
-                      </h3>
-                      <p className="text-xs font-semibold text-emerald-700/80">
-                        This student is already enrolled in the system.
-                      </p>
+
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors shadow-sm">
+                        Open Student Profile
+                      </button>
                     </div>
                   </div>
-
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 p-4 bg-white/60 rounded-xl border border-emerald-100">
-                    <div>
-                      <p className="text-[10px] font-bold text-emerald-600/70 uppercase">Student Name</p>
-                      <p className="text-xs font-bold text-emerald-950">
-                        {searchResult.data.studentName || searchResult.data.fullName}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold text-emerald-600/70 uppercase">Course & Brand</p>
-                      <p className="text-xs font-bold text-emerald-950">
-                        {searchResult.data.course} • {searchResult.data.brand}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold text-emerald-600/70 uppercase">Admission Date</p>
-                      <p className="text-xs font-bold text-emerald-950">
-                        {searchResult.data.admissionDate ||
-                          new Date(searchResult.data.createdAt || Date.now()).toLocaleDateString("en-IN")}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold text-emerald-600/70 uppercase">Fee Status</p>
-                      <p className="text-xs font-bold text-emerald-950">
-                        {searchResult.data.feeStatus || "Enrolled"}{" "}
-                        <span className="text-emerald-600 font-semibold">
-                          (₹{searchResult.data.remainingBalance || searchResult.data.outstandingAmount || 0} due)
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-3">
-                    <button
-                      onClick={() => handlePrintSlip(searchResult.data)}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors shadow-sm ml-auto"
-                    >
-                      Print Admission Slip
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Scenario 4: Student Found */}
-              {searchResult.stage === "STUDENT" && (
-                <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={2}
-                        stroke="currentColor"
-                        className="w-5 h-5"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342M6.75 15a.75.75 0 100-1.5.75.75 0 000 1.5zm0 0v-3.675A55.378 55.378 0 0112 8.443m-7.007 11.55A5.981 5.981 0 006.75 15.75v-1.5"
-                        />
-                      </svg>
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-blue-900 flex items-center gap-2">
-                        Active Student Found
-                        <span className="bg-blue-200 text-blue-800 text-[9px] px-2 py-0.5 rounded-md uppercase tracking-wider">
-                          {searchResult.data.studentId}
-                        </span>
-                      </h3>
-                      <p className="text-xs font-semibold text-blue-700/80">
-                        This student is currently active in ongoing batches.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-3">
-                    <button className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors shadow-sm">
-                      Open Student Profile
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            );
+          })()}
 
           {/* Metric Cards Row */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -926,9 +964,16 @@ export default function AdminAdmissionHub() {
         onClose={() => {
           setSelectedLead(null);
           setOpenTaskModalOnLoad(false);
+          setOpenDemoModalOnLoad(false);
         }}
-        onSuccess={() => handleSearch()}
+        onSuccess={() => {
+          setSelectedLead(null);
+          setOpenTaskModalOnLoad(false);
+          setOpenDemoModalOnLoad(false);
+          handleSearch();
+        }}
         defaultOpenTaskModal={openTaskModalOnLoad}
+        defaultOpenDemoModal={openDemoModalOnLoad}
       />
 
       {isAdmissionModalOpen && (

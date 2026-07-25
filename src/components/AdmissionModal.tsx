@@ -393,7 +393,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
                     </select>
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-500">Counsellor <span className="text-rose-500">*</span></label>
+                    <label className="text-xs font-bold text-slate-500">Sales Executive <span className="text-rose-500">*</span></label>
                     <input type="text" value={counsellor} onChange={e=>setCounsellor(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white" />
                   </div>
                 </div>
@@ -448,18 +448,12 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
                     </select>
                   </div>
                   <div className="flex flex-col gap-1.5 md:col-span-2">
+                    <label className="text-xs font-bold text-slate-500">Batch <span className="text-rose-500">*</span></label>
                     {(() => {
                       const selectedCourseObj = courses.find((c) => c.name === course);
                       const availableBatches: string[] = Array.isArray(selectedCourseObj?.batches) && selectedCourseObj.batches.length > 0
                         ? selectedCourseObj.batches
-                        : [
-                            "Morning Batch (9:00 AM - 12:00 PM)",
-                            "Afternoon Batch (12:00 PM - 3:00 PM)",
-                            "Evening Batch (4:00 PM - 7:00 PM)",
-                            "Weekend Batch (Saturday - Sunday)",
-                            "Fast-Track Batch",
-                            "Online / Live Hybrid Batch"
-                          ];
+                        : [];
 
                       return (
                         <>
@@ -488,11 +482,13 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
                                 ))}
                               </optgroup>
                             )}
-                            <optgroup label="Standard Course Batches">
-                              {availableBatches.map((b, idx) => (
-                                <option key={idx} value={b}>{b}</option>
-                              ))}
-                            </optgroup>
+                            {availableBatches.length > 0 && (
+                              <optgroup label="Course Batches">
+                                {availableBatches.map((b, idx) => (
+                                  <option key={idx} value={b}>{b}</option>
+                                ))}
+                              </optgroup>
+                            )}
                             <option value="Custom">+ Enter Custom Batch...</option>
                           </select>
                           {isCustomBatch && (
@@ -836,7 +832,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
                     <span className="font-semibold text-slate-800">{city || "-"}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500 font-medium">Counsellor</span>
+                    <span className="text-slate-500 font-medium">Sales Executive</span>
                     <span className="font-semibold text-slate-800">{counsellor || "-"}</span>
                   </div>
                 </div>

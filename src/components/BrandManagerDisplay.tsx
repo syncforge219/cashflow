@@ -387,7 +387,7 @@ export default function BrandManagerDisplay() {
                 <div className="border border-slate-200 rounded-xl p-3.5 shadow-xs bg-white hover:border-slate-300 transition-all">
                   <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-1.5">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5 text-purple-500"><path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-1.81.588l1.234 5.265c.15.64-.533 1.141-1.077.782l-4.72-3.13a.563.563 0 00-.616 0l-4.72 3.13c-.544.36-1.228-.142-1.077-.782l1.234-5.265a.563.563 0 00-.181-.588L2.345 10.386c-.38-.325-.178-.948.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" /></svg>
-                    Brand Managers
+                    Centre Heads
                   </span>
                   <span className="text-lg font-extrabold text-slate-800 tracking-tight">{selectedBrand.brandManagers}</span>
                 </div>

@@ -225,7 +225,7 @@ export default function Sidebar() {
       category: "People",
       items: [
         {
-          name: "Counsellors",
+          name: "Sales Executives",
           href: "/counsellors",
           icon: (
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5">
@@ -234,7 +234,7 @@ export default function Sidebar() {
           ),
         },
         {
-          name: "Brand Managers",
+          name: "Centre Heads",
           href: "/admin-dashboard/brand-managers",
           icon: (
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5">

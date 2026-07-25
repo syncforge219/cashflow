@@ -13,6 +13,7 @@ interface ExpenseRecord {
   expenseDate: string;
   paymentMode: string;
   brand?: string;
+  company?: string;
   recordedBy?: string;
   isRecurring?: boolean;
   recurringFrequency?: string;
@@ -28,6 +29,12 @@ export default function ExpensesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedBrand, setSelectedBrand] = useState("All Brands");
+  const [brands, setBrands] = useState<string[]>([]);
+  const [selectedCompany, setSelectedCompany] = useState("All Companies");
+  const [companies, setCompanies] = useState<string[]>([]);
+  const [rawBrands, setRawBrands] = useState<any[]>([]);
+  const [rawCompanies, setRawCompanies] = useState<any[]>([]);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -39,10 +46,90 @@ export default function ExpensesPage() {
     expenseDate: new Date().toISOString().slice(0, 10),
     paymentMode: "UPI",
     brand: "All Brands",
+    company: "All Companies",
     isRecurring: false,
     recurringFrequency: "Monthly",
     remarks: "",
   });
+
+  useEffect(() => {
+    fetch("/api/brands")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.brands)) {
+          setRawBrands(data.brands);
+          const names = data.brands.map((b: any) => b.name).filter(Boolean);
+          setBrands(names);
+        }
+      })
+      .catch((err) => console.error("Failed to fetch brands:", err));
+
+    fetch("/api/companies")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.companies)) {
+          setRawCompanies(data.companies);
+          const names = data.companies.map((c: any) => c.name).filter(Boolean);
+          setCompanies(names);
+        }
+      })
+      .catch((err) => console.error("Failed to fetch companies:", err));
+  }, []);
+
+  const getLinkedCompaniesForBrand = (targetBrand: string) => {
+    if (!targetBrand || targetBrand === "All Brands" || targetBrand === "All") {
+      return companies;
+    }
+
+    const brandObj = rawBrands.find(
+      (b) => b.name?.trim().toLowerCase() === targetBrand.trim().toLowerCase()
+    );
+
+    const linkedNames = new Set<string>();
+
+    rawCompanies.forEach((c: any) => {
+      const cName = c.name;
+      const cBrand = c.brand;
+      const cBrands = Array.isArray(c.brands) ? c.brands : [];
+
+      if (
+        cBrand?.trim().toLowerCase() === targetBrand.trim().toLowerCase() ||
+        cBrands.some((b: string) => b.trim().toLowerCase() === targetBrand.trim().toLowerCase())
+      ) {
+        if (cName) linkedNames.add(cName);
+      }
+    });
+
+    if (brandObj) {
+      if (Array.isArray(brandObj.companies)) {
+        brandObj.companies.forEach((cn: string) => {
+          if (cn) linkedNames.add(cn);
+        });
+      }
+      if (Array.isArray(brandObj.legalEntities)) {
+        brandObj.legalEntities.forEach((le: any) => {
+          const leName = typeof le === "string" ? le : le?.name;
+          if (leName) linkedNames.add(leName);
+        });
+      }
+    }
+
+    return Array.from(linkedNames);
+  };
+
+  const availableFilterCompanies = getLinkedCompaniesForBrand(selectedBrand);
+  const availableFormCompanies = getLinkedCompaniesForBrand(formData.brand);
+
+  const handleBrandChangeInForm = (newBrand: string) => {
+    const linked = getLinkedCompaniesForBrand(newBrand);
+    let newCompany = "All Companies";
+    if (linked.length === 1) {
+      newCompany = linked[0];
+    } else if (linked.length > 1) {
+      newCompany = linked.includes(formData.company) ? formData.company : linked[0];
+    }
+    setFormData((prev) => ({ ...prev, brand: newBrand, company: newCompany }));
+  };
 
   const fetchExpenses = async () => {
     setIsLoading(true);
@@ -50,6 +137,8 @@ export default function ExpensesPage() {
       let url = "/api/expenses";
       const params = new URLSearchParams();
       if (selectedCategory && selectedCategory !== "All") params.append("category", selectedCategory);
+      if (selectedBrand && selectedBrand !== "All Brands" && selectedBrand !== "All") params.append("brand", selectedBrand);
+      if (selectedCompany && selectedCompany !== "All Companies" && selectedCompany !== "All") params.append("company", selectedCompany);
       if (searchQuery) params.append("search", searchQuery);
       if (params.toString()) url += `?${params.toString()}`;
 
@@ -67,7 +156,7 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     fetchExpenses();
-  }, [selectedCategory]);
+  }, [selectedCategory, selectedBrand, selectedCompany]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,6 +187,7 @@ export default function ExpensesPage() {
           expenseDate: new Date().toISOString().slice(0, 10),
           paymentMode: "UPI",
           brand: "All Brands",
+          company: "All Companies",
           isRecurring: false,
           recurringFrequency: "Monthly",
           remarks: "",
@@ -208,22 +298,59 @@ export default function ExpensesPage() {
             </button>
           </form>
 
-          <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto">
-            {["All", "Marketing / Ads", "Rent", "Utilities", "Software / Tools", "Office Supplies", "Travel", "Misc"].map(
-              (cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
-                    selectedCategory === cat
-                      ? "bg-rose-600 text-white shadow-xs"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
-                >
-                  {cat}
-                </button>
-              )
-            )}
+          <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-xs font-bold text-slate-500">Brand:</span>
+              <select
+                value={selectedBrand}
+                onChange={(e) => {
+                  const nb = e.target.value;
+                  setSelectedBrand(nb);
+                  const linked = getLinkedCompaniesForBrand(nb);
+                  if (selectedCompany !== "All Companies" && !linked.includes(selectedCompany)) {
+                    setSelectedCompany("All Companies");
+                  }
+                }}
+                className="px-3 py-1.5 text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-slate-700 cursor-pointer"
+              >
+                <option value="All Brands">All Brands</option>
+                {brands.map((b) => (
+                  <option key={b} value={b}>{b}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-xs font-bold text-slate-500">Company:</span>
+              <select
+                value={selectedCompany}
+                onChange={(e) => setSelectedCompany(e.target.value)}
+                className="px-3 py-1.5 text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-slate-700 cursor-pointer"
+              >
+                <option value="All Companies">All Companies</option>
+                {availableFilterCompanies.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-1.5 overflow-x-auto">
+              {["All", "Marketing / Ads", "Rent", "Utilities", "Software / Tools", "Office Supplies", "Travel", "Misc"].map(
+                (cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
+                      selectedCategory === cat
+                        ? "bg-rose-600 text-white shadow-xs"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                )
+              )}
+            </div>
           </div>
         </div>
 
@@ -236,6 +363,7 @@ export default function ExpensesPage() {
                   <th className="pb-3">Title / Description</th>
                   <th className="pb-3">Category</th>
                   <th className="pb-3">Brand Tag</th>
+                  <th className="pb-3">Company Tag</th>
                   <th className="pb-3 text-right">Amount</th>
                   <th className="pb-3 text-center">Recurring</th>
                   <th className="pb-3">Payment Mode</th>
@@ -246,13 +374,13 @@ export default function ExpensesPage() {
               <tbody className="divide-y divide-slate-100/60 font-semibold text-slate-600">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={8} className="py-8 text-center text-slate-400">
+                    <td colSpan={9} className="py-8 text-center text-slate-400">
                       Loading expenses...
                     </td>
                   </tr>
                 ) : expenses.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-8 text-center text-slate-400">
+                    <td colSpan={9} className="py-8 text-center text-slate-400">
                       No expense records found. Click &quot;Record Expense&quot; to add one.
                     </td>
                   </tr>
@@ -266,6 +394,7 @@ export default function ExpensesPage() {
                         </span>
                       </td>
                       <td className="text-slate-600">{e.brand || "All Brands"}</td>
+                      <td className="text-slate-600">{e.company || "All Companies"}</td>
                       <td className="text-right font-black text-rose-600">₹{e.amount.toLocaleString("en-IN")}</td>
                       <td className="text-center">
                         {e.isRecurring ? (
@@ -410,14 +539,31 @@ export default function ExpensesPage() {
                 </div>
 
                 <div>
-                  <label className="block text-slate-600 mb-1">Brand Tag</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. TechPro, DataCamp, or All Brands"
+                  <label className="block text-slate-600 mb-1 font-semibold text-xs">Brand Tag</label>
+                  <select
                     value={formData.brand}
-                    onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20"
-                  />
+                    onChange={(e) => handleBrandChangeInForm(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-xs font-semibold text-slate-800 bg-white cursor-pointer"
+                  >
+                    <option value="All Brands">All Brands</option>
+                    {brands.map((b) => (
+                      <option key={b} value={b}>{b}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-600 mb-1 font-semibold text-xs">Company Tag</label>
+                  <select
+                    value={formData.company}
+                    onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-xs font-semibold text-slate-800 bg-white cursor-pointer"
+                  >
+                    <option value="All Companies">All Companies</option>
+                    {availableFormCompanies.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>

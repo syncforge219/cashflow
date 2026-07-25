@@ -101,7 +101,7 @@ export default function AddBrandManagerModal({ isOpen, onClose, onSuccess }: Add
           password: "",
         });
       } else {
-        alert(data.error || "Failed to provision brand manager");
+        alert(data.error || "Failed to provision Centre Head");
       }
     } catch (error) {
       console.error("Submission error:", error);
@@ -125,7 +125,7 @@ export default function AddBrandManagerModal({ isOpen, onClose, onSuccess }: Add
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
           <h2 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
-            <span className="text-indigo-600 font-bold text-lg">+</span> Provision Brand Manager Account
+            <span className="text-indigo-600 font-bold text-lg">+</span> Provision Centre Head Account
           </h2>
           <button 
             onClick={onClose}

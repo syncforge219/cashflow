@@ -248,7 +248,7 @@ export default function CounsellorDashboardPage() {
               </div>
               <div className="hidden sm:block">
                 <p className="text-sm font-bold text-slate-800 leading-tight">{displayName}</p>
-                <p className="text-[11px] font-semibold text-emerald-600 leading-tight mt-0.5 capitalize">{user.role}</p>
+                <p className="text-[11px] font-semibold text-emerald-600 leading-tight mt-0.5 capitalize">{user.role === "counsellor" ? "Sales Executive" : user.role}</p>
               </div>
             </div>
           </div>

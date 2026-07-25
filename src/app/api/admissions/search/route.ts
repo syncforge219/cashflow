@@ -27,90 +27,89 @@ export async function GET(req: Request) {
     const cleanRegex = new RegExp(safeCleanQ, "i");
     const mobileSlice = cleanQ.length > 5 ? escapeRegex(cleanQ.slice(-10)) : safeCleanQ;
 
-    // 1. Search in Admission records first
-    const admission = await Admission.findOne({
+    // 1. Search in Admission records (Student Name & Student Mobile only)
+    const admissions = await Admission.find({
       $or: [
         { fullName: regex },
-        { email: regex },
-        { admissionId: regex },
         { mobileNumber: cleanRegex },
         { mobileNumber: { $regex: mobileSlice, $options: "i" } },
       ],
-    }).sort({ createdAt: -1 });
+    }).sort({ createdAt: -1 }).limit(50);
 
-    if (admission) {
-      return NextResponse.json({
-        stage: "ADMISSION",
-        data: {
-          ...admission.toObject(),
-          studentName: admission.fullName,
-          admissionNumber: admission.admissionId,
-          feeStatus: Number(admission.remainingBalance) === 0 ? "Paid In Full" : "Pending Balance",
-          outstandingAmount: admission.remainingBalance,
-          admissionDate: new Date(admission.createdAt).toLocaleDateString("en-IN", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-          }),
-        },
-      });
-    }
+    const formattedAdmissions = (admissions || []).map((admission: any) => ({
+      ...admission.toObject(),
+      studentName: admission.fullName,
+      admissionNumber: admission.admissionId,
+      feeStatus: Number(admission.remainingBalance) === 0 ? "Paid In Full" : "Pending Balance",
+      outstandingAmount: admission.remainingBalance,
+      admissionDate: new Date(admission.createdAt).toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }),
+    }));
 
-    // 2. Search in Enquiry records
+    // 2. Search in Enquiry records (Active Prospects only - Student Name & Student Mobile only)
     const enquiries = await Enquiry.find({
+      isAdmitted: { $ne: true },
+      status: { $nin: ["Admitted", "Closed", "Lost", "Converted", "Admission"] },
       $or: [
         { studentFullName: regex },
-        { parentsName: regex },
-        { emailAddress: regex },
-        { enquiryId: regex },
         { primaryPhoneMobile: cleanRegex },
-        { parentsPhoneNumber: cleanRegex },
         { primaryPhoneMobile: { $regex: mobileSlice, $options: "i" } },
-        { parentsPhoneNumber: { $regex: mobileSlice, $options: "i" } },
       ],
     }).sort({ createdAt: -1 }).limit(50);
 
-    if (enquiries && enquiries.length > 0) {
-      const formattedResults = enquiries.map((enquiry: any) => {
-        let lastFollowUp = null;
-        let nextFollowUp = null;
+    const formattedEnquiries = (enquiries || []).map((enquiry: any) => {
+      let lastFollowUp = null;
+      let nextFollowUp = null;
 
-        if (enquiry.followUps && Array.isArray(enquiry.followUps) && enquiry.followUps.length > 0) {
-          const sortedFollowUps = [...enquiry.followUps].sort((a: any, b: any) => {
-            const timeA = a.date && a.time ? new Date(`${a.date}T${a.time}`).getTime() : 0;
-            const timeB = b.date && b.time ? new Date(`${b.date}T${b.time}`).getTime() : 0;
-            return timeA - timeB;
-          });
+      if (enquiry.followUps && Array.isArray(enquiry.followUps) && enquiry.followUps.length > 0) {
+        const sortedFollowUps = [...enquiry.followUps].sort((a: any, b: any) => {
+          const timeA = a.date && a.time ? new Date(`${a.date}T${a.time}`).getTime() : 0;
+          const timeB = b.date && b.time ? new Date(`${b.date}T${b.time}`).getTime() : 0;
+          return timeA - timeB;
+        });
 
-          const now = Date.now();
-          const pastFollowUps = sortedFollowUps.filter((f: any) => {
-            const t = f.date && f.time ? new Date(`${f.date}T${f.time}`).getTime() : 0;
-            return t > 0 && t <= now;
-          });
-          const futureFollowUps = sortedFollowUps.filter((f: any) => {
-            const t = f.date && f.time ? new Date(`${f.date}T${f.time}`).getTime() : 0;
-            return t > now;
-          });
+        const now = Date.now();
+        const pastFollowUps = sortedFollowUps.filter((f: any) => {
+          const t = f.date && f.time ? new Date(`${f.date}T${f.time}`).getTime() : 0;
+          return t > 0 && t <= now;
+        });
+        const futureFollowUps = sortedFollowUps.filter((f: any) => {
+          const t = f.date && f.time ? new Date(`${f.date}T${f.time}`).getTime() : 0;
+          return t > now;
+        });
 
-          lastFollowUp = pastFollowUps.length > 0 ? pastFollowUps[pastFollowUps.length - 1] : null;
-          nextFollowUp = futureFollowUps.length > 0 ? futureFollowUps[0] : null;
-        }
+        lastFollowUp = pastFollowUps.length > 0 ? pastFollowUps[pastFollowUps.length - 1] : null;
+        nextFollowUp = futureFollowUps.length > 0 ? futureFollowUps[0] : null;
+      }
 
-        return {
-          ...enquiry.toObject(),
-          lastFollowUp: lastFollowUp ? `${lastFollowUp.date} at ${lastFollowUp.time}` : "None",
-          nextFollowUp: nextFollowUp ? `${nextFollowUp.date} at ${nextFollowUp.time}` : "None",
-        };
-      });
+      return {
+        ...enquiry.toObject(),
+        lastFollowUp: lastFollowUp ? `${lastFollowUp.date} at ${lastFollowUp.time}` : "None",
+        nextFollowUp: nextFollowUp ? `${nextFollowUp.date} at ${nextFollowUp.time}` : "None",
+      };
+    });
 
-      return NextResponse.json({
-        stage: "ENQUIRY",
-        data: formattedResults,
-      });
+    const hasAdmissions = formattedAdmissions.length > 0;
+    const hasEnquiries = formattedEnquiries.length > 0;
+
+    let stage = "NOT_FOUND";
+    if (hasAdmissions && hasEnquiries) {
+      stage = "BOTH";
+    } else if (hasAdmissions) {
+      stage = "ADMISSION";
+    } else if (hasEnquiries) {
+      stage = "ENQUIRY";
     }
 
-    // 3. Not Found
-    return NextResponse.json({ stage: "NOT_FOUND", data: [] });
+    return NextResponse.json({
+      stage,
+      admissions: formattedAdmissions,
+      enquiries: formattedEnquiries,
+      data: hasAdmissions ? formattedAdmissions : formattedEnquiries,
+    });
 
   } catch (error: any) {
     console.error("Error searching admission database:", error);

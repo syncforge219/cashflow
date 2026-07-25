@@ -7,6 +7,7 @@ export interface IExpense extends Document {
   expenseDate: Date;
   paymentMode: string;
   brand?: string;
+  company?: string;
   recordedBy?: string;
   isRecurring: boolean;
   recurringFrequency: "Weekly" | "Monthly" | "Quarterly" | "Yearly";
@@ -29,6 +30,7 @@ const ExpenseSchema: Schema = new Schema(
     expenseDate: { type: Date, default: Date.now },
     paymentMode: { type: String, default: "UPI" },
     brand: { type: String, default: "All Brands" },
+    company: { type: String, default: "All Companies" },
     recordedBy: { type: String, default: "Admin" },
     isRecurring: { type: Boolean, default: false },
     recurringFrequency: { type: String, enum: ["Weekly", "Monthly", "Quarterly", "Yearly"], default: "Monthly" },

@@ -7,6 +7,8 @@ export async function GET(req: Request) {
     await dbConnect();
     const { searchParams } = new URL(req.url);
     const category = searchParams.get("category");
+    const brand = searchParams.get("brand");
+    const company = searchParams.get("company");
     const search = searchParams.get("search");
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
@@ -15,6 +17,14 @@ export async function GET(req: Request) {
 
     if (category && category !== "All") {
       query.category = category;
+    }
+
+    if (brand && brand !== "All" && brand !== "All Brands") {
+      query.brand = brand;
+    }
+
+    if (company && company !== "All" && company !== "All Companies") {
+      query.company = company;
     }
 
     if (startDate && endDate) {
@@ -30,6 +40,7 @@ export async function GET(req: Request) {
         { title: { $regex: search, $options: "i" } },
         { remarks: { $regex: search, $options: "i" } },
         { brand: { $regex: search, $options: "i" } },
+        { company: { $regex: search, $options: "i" } },
       ];
     }
 
@@ -56,6 +67,7 @@ export async function POST(req: Request) {
       expenseDate,
       paymentMode,
       brand,
+      company,
       recordedBy,
       isRecurring,
       recurringFrequency,
@@ -88,6 +100,7 @@ export async function POST(req: Request) {
       expenseDate: eDate,
       paymentMode: paymentMode || "UPI",
       brand: brand || "All Brands",
+      company: company || "All Companies",
       recordedBy: recordedBy || "Admin",
       isRecurring: Boolean(isRecurring),
       recurringFrequency: recurringFrequency || "Monthly",
