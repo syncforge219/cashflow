@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
 import Admission from "@/models/Admission";
 import Enquiry from "@/models/Enquiry";
@@ -104,9 +105,26 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Optionally update the original enquiry status if enquiryId is present
+    // Automatically update the original enquiry status to closed/admitted if enquiryId or matching details are present
     if (data.enquiryId) {
-      await Enquiry.findByIdAndUpdate(data.enquiryId, { status: "Admitted" });
+      if (mongoose.Types.ObjectId.isValid(data.enquiryId)) {
+        await Enquiry.findByIdAndUpdate(data.enquiryId, { status: "Admitted", isAdmitted: true });
+      } else {
+        await Enquiry.findOneAndUpdate(
+          { enquiryId: data.enquiryId },
+          { status: "Admitted", isAdmitted: true }
+        );
+      }
+    }
+    if (data.mobileNumber && data.course) {
+      await Enquiry.updateMany(
+        {
+          primaryPhoneMobile: data.mobileNumber,
+          targetCourse: data.course,
+          status: { $nin: ["Admitted", "Closed", "Lost", "Converted"] },
+        },
+        { status: "Admitted", isAdmitted: true }
+      );
     }
 
     // Automatically generate a Payment record for the initial payment collected during admission

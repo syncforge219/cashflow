@@ -6,7 +6,7 @@ import bcrypt from "bcryptjs";
 export async function GET() {
   try {
     await dbConnect();
-    const brandManagers = await User.find({ role: "brand manager" }).sort({ createdAt: -1 });
+    const brandManagers = await User.find({ role: { $in: ["brand manager", "centre head"] } }).sort({ createdAt: -1 });
     return NextResponse.json({ success: true, data: brandManagers });
   } catch (error: any) {
     console.error("Error fetching brand managers:", error);
@@ -36,12 +36,12 @@ export async function POST(req: Request) {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Create brand manager
+    // Create brand manager / centre head
     const newBrandManager = new User({
       name: `${firstName} ${lastName}`,
       email: cleanEmail,
       password: hashedPassword,
-      role: "brand manager",
+      role: "centre head",
       phone: phone || "",
       photoUrl: photoUrl || "",
       brandScope,
@@ -52,13 +52,8 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      message: "Brand Manager provisioned successfully",
-      data: {
-        id: newBrandManager._id,
-        name: newBrandManager.name,
-        email: newBrandManager.email,
-        brandScope: newBrandManager.brandScope
-      }
+      message: "Centre Head provisioned successfully",
+      data: newBrandManager,
     }, { status: 201 });
   } catch (error: any) {
     console.error("Error creating brand manager:", error);

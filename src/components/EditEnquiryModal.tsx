@@ -232,7 +232,7 @@ export default function EditEnquiryModal({ isOpen, onClose, onSuccess, lead }: E
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1.5">
-                CRM Advisor {lead?.targetBrand ? `(${filteredCounsellors.length} for ${lead.targetBrand})` : ""}
+                Sales Executive {lead?.targetBrand ? `(${filteredCounsellors.length} for ${lead.targetBrand})` : ""}
               </label>
               <select name="assignedCrmAdvisor" value={formData.assignedCrmAdvisor} onChange={handleChange} className="w-full text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
                 <option value="Rahul Sharma">Rahul Sharma</option>

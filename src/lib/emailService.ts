@@ -9,11 +9,11 @@ import Payment from "@/models/Payment";
 import Company from "@/models/Company";
 import Brand from "@/models/Brand";
 
-const SMTP_USER = process.env.SMTP_USER || "cashf9027@gmail.com";
-const SMTP_PASS = (process.env.SMTP_PASS || "odizzvusdnpzwdfm").replace(/\s+/g, "");
+const SMTP_USER = process.env.SMTP_USER || "sc@caddmantra.com";
+const SMTP_PASS = (process.env.SMTP_PASS || "uqpbmaxoashfpauk").replace(/\s+/g, "");
 const SMTP_HOST = process.env.SMTP_HOST || "smtp.gmail.com";
 const SMTP_PORT = Number(process.env.SMTP_PORT) || 465;
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "cashf9027@gmail.com";
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "sc@caddmantra.com";
 
 const transporter = nodemailer.createTransport({
   host: SMTP_HOST,

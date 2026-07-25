@@ -77,11 +77,11 @@ export async function POST(request: Request) {
   }
 }
 
-// GET: Fetch all users with role "counsellor" with live admission metrics calculation
+// GET: Fetch all users with role "counsellor" or "sales executive" with live admission metrics calculation
 export async function GET() {
   try {
     await dbConnect();
-    const counsellors = await User.find({ role: "counsellor" }).select("-password").sort({ createdAt: -1 });
+    const counsellors = await User.find({ role: { $in: ["counsellor", "sales executive", "sales-executive"] } }).select("-password").sort({ createdAt: -1 });
     const admissions = await Admission.find({});
 
     const counsellorsWithLiveStats = counsellors.map((c: any) => {

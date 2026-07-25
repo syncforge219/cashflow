@@ -107,7 +107,7 @@ export default function ManagerDashboard() {
   }, []);
 
   const displayName = user?.name || "Loading...";
-  const displayRole = user?.role || "Brand Manager";
+  const displayRole = user?.role === "brand manager" ? "Centre Head" : user?.role || "Centre Head";
   const initialLetter = user?.name
     ? user.name.split(" ").map((n: string) => n[0]).join("").substring(0, 2).toUpperCase()
     : "U";

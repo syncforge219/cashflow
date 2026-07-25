@@ -8,13 +8,23 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const month = searchParams.get("month");
     const search = searchParams.get("search");
+    const brand = searchParams.get("brand");
+    const company = searchParams.get("company");
 
     const query: any = {};
     if (month) query.month = month;
+    if (brand && brand !== "All" && brand !== "All Brands") {
+      query.brand = brand;
+    }
+    if (company && company !== "All" && company !== "All Companies") {
+      query.company = company;
+    }
     if (search) {
       query.$or = [
         { employeeName: { $regex: search, $options: "i" } },
         { employeeRole: { $regex: search, $options: "i" } },
+        { brand: { $regex: search, $options: "i" } },
+        { company: { $regex: search, $options: "i" } },
       ];
     }
 
@@ -44,6 +54,8 @@ export async function POST(req: Request) {
       paymentStatus,
       paymentDate,
       paymentMode,
+      brand,
+      company,
       isRecurring,
       recurringFrequency,
       remarks,
@@ -83,6 +95,8 @@ export async function POST(req: Request) {
       paymentStatus: paymentStatus || "Paid",
       paymentDate: pDate,
       paymentMode: paymentMode || "Bank Transfer",
+      brand: brand || "All Brands",
+      company: company || "All Companies",
       isRecurring: Boolean(isRecurring),
       recurringFrequency: recurringFrequency || "Monthly",
       nextRecurringDate: nextRecDate,

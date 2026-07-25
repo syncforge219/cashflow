@@ -59,9 +59,9 @@ export async function GET() {
 
       const counsellorsCount = Math.max(counsellorsFromModel, counsellorsFromUsers, 1);
 
-      // 4. Brand Managers Count
+      // 4. Centre Heads Count
       const brandManagersCount = await User.countDocuments({
-        role: { $in: ["brand manager", "brand-manager"] },
+        role: { $in: ["brand manager", "brand-manager", "centre head", "centre-head"] },
         $or: [{ brandScope: brandRegex }, { brand: brandRegex }]
       });
 

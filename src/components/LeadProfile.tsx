@@ -10,9 +10,10 @@ interface LeadProfileProps {
   onClose: () => void;
   onSuccess?: () => void;
   defaultOpenTaskModal?: boolean;
+  defaultOpenDemoModal?: boolean;
 }
 
-export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskModal = false }: LeadProfileProps) {
+export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskModal = false, defaultOpenDemoModal = false }: LeadProfileProps) {
   const [activeTab, setActiveTab] = useState("Overview");
   const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(defaultOpenTaskModal);
   const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
@@ -38,7 +39,7 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
   const [isCompletingTask, setIsCompletingTask] = useState(false);
 
   // Schedule Demo Modal states
-  const [isScheduleDemoModalOpen, setIsScheduleDemoModalOpen] = useState(false);
+  const [isScheduleDemoModalOpen, setIsScheduleDemoModalOpen] = useState(defaultOpenDemoModal);
   const [demoDate, setDemoDate] = useState("");
   const [demoTime, setDemoTime] = useState("");
   const [demoMode, setDemoMode] = useState("Online (Zoom/Google Meet)");

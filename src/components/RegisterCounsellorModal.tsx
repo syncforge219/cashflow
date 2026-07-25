@@ -133,7 +133,7 @@ export default function RegisterCounsellorModal({ isOpen, onClose, onSuccess }: 
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <h3 className="text-base font-extrabold text-slate-800 flex items-center gap-1.5 font-sans">
-            <span className="text-indigo-600 text-lg font-bold">+</span> Register Sales Counsellor
+            <span className="text-indigo-600 text-lg font-bold">+</span> Register Sales Executive
           </h3>
           <button
             type="button"

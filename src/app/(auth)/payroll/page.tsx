@@ -17,6 +17,8 @@ interface PayrollRecord {
   paymentStatus: "Pending" | "Paid";
   paymentDate: string;
   paymentMode: string;
+  brand?: string;
+  company?: string;
   isRecurring?: boolean;
   recurringFrequency?: string;
   nextRecurringDate?: string;
@@ -31,6 +33,12 @@ export default function PayrollPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMonth, setSelectedMonth] = useState("");
+  const [selectedBrand, setSelectedBrand] = useState("All Brands");
+  const [brands, setBrands] = useState<string[]>([]);
+  const [selectedCompany, setSelectedCompany] = useState("All Companies");
+  const [companies, setCompanies] = useState<string[]>([]);
+  const [rawBrands, setRawBrands] = useState<any[]>([]);
+  const [rawCompanies, setRawCompanies] = useState<any[]>([]);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -45,10 +53,91 @@ export default function PayrollPage() {
     paymentStatus: "Paid",
     paymentDate: new Date().toISOString().slice(0, 10),
     paymentMode: "Bank Transfer",
+    brand: "All Brands",
+    company: "All Companies",
     isRecurring: false,
     recurringFrequency: "Monthly",
     remarks: "",
   });
+
+  useEffect(() => {
+    fetch("/api/brands")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.brands)) {
+          setRawBrands(data.brands);
+          const names = data.brands.map((b: any) => b.name).filter(Boolean);
+          setBrands(names);
+        }
+      })
+      .catch((err) => console.error("Failed to fetch brands:", err));
+
+    fetch("/api/companies")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.companies)) {
+          setRawCompanies(data.companies);
+          const names = data.companies.map((c: any) => c.name).filter(Boolean);
+          setCompanies(names);
+        }
+      })
+      .catch((err) => console.error("Failed to fetch companies:", err));
+  }, []);
+
+  const getLinkedCompaniesForBrand = (targetBrand: string) => {
+    if (!targetBrand || targetBrand === "All Brands" || targetBrand === "All") {
+      return companies;
+    }
+
+    const brandObj = rawBrands.find(
+      (b) => b.name?.trim().toLowerCase() === targetBrand.trim().toLowerCase()
+    );
+
+    const linkedNames = new Set<string>();
+
+    rawCompanies.forEach((c: any) => {
+      const cName = c.name;
+      const cBrand = c.brand;
+      const cBrands = Array.isArray(c.brands) ? c.brands : [];
+
+      if (
+        cBrand?.trim().toLowerCase() === targetBrand.trim().toLowerCase() ||
+        cBrands.some((b: string) => b.trim().toLowerCase() === targetBrand.trim().toLowerCase())
+      ) {
+        if (cName) linkedNames.add(cName);
+      }
+    });
+
+    if (brandObj) {
+      if (Array.isArray(brandObj.companies)) {
+        brandObj.companies.forEach((cn: string) => {
+          if (cn) linkedNames.add(cn);
+        });
+      }
+      if (Array.isArray(brandObj.legalEntities)) {
+        brandObj.legalEntities.forEach((le: any) => {
+          const leName = typeof le === "string" ? le : le?.name;
+          if (leName) linkedNames.add(leName);
+        });
+      }
+    }
+
+    return Array.from(linkedNames);
+  };
+
+  const availableFilterCompanies = getLinkedCompaniesForBrand(selectedBrand);
+  const availableFormCompanies = getLinkedCompaniesForBrand(formData.brand);
+
+  const handleBrandChangeInForm = (newBrand: string) => {
+    const linked = getLinkedCompaniesForBrand(newBrand);
+    let newCompany = "All Companies";
+    if (linked.length === 1) {
+      newCompany = linked[0];
+    } else if (linked.length > 1) {
+      newCompany = linked.includes(formData.company) ? formData.company : linked[0];
+    }
+    setFormData((prev) => ({ ...prev, brand: newBrand, company: newCompany }));
+  };
 
   const fetchPayroll = async () => {
     setIsLoading(true);
@@ -56,6 +145,8 @@ export default function PayrollPage() {
       let url = "/api/payroll";
       const params = new URLSearchParams();
       if (selectedMonth) params.append("month", selectedMonth);
+      if (selectedBrand && selectedBrand !== "All Brands" && selectedBrand !== "All") params.append("brand", selectedBrand);
+      if (selectedCompany && selectedCompany !== "All Companies" && selectedCompany !== "All") params.append("company", selectedCompany);
       if (searchQuery) params.append("search", searchQuery);
       if (params.toString()) url += `?${params.toString()}`;
 
@@ -73,7 +164,7 @@ export default function PayrollPage() {
 
   useEffect(() => {
     fetchPayroll();
-  }, [selectedMonth]);
+  }, [selectedMonth, selectedBrand, selectedCompany]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,6 +198,8 @@ export default function PayrollPage() {
           paymentStatus: "Paid",
           paymentDate: new Date().toISOString().slice(0, 10),
           paymentMode: "Bank Transfer",
+          brand: "All Brands",
+          company: "All Companies",
           isRecurring: false,
           recurringFrequency: "Monthly",
           remarks: "",
@@ -219,22 +312,59 @@ export default function PayrollPage() {
             </button>
           </form>
 
-          <div className="flex items-center gap-3 w-full sm:w-auto">
-            <span className="text-xs font-bold text-slate-500">Filter Month:</span>
-            <input
-              type="month"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-700 font-medium"
-            />
-            {selectedMonth && (
-              <button
-                onClick={() => setSelectedMonth("")}
-                className="text-xs text-rose-500 font-bold hover:underline"
+          <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-xs font-bold text-slate-500">Brand:</span>
+              <select
+                value={selectedBrand}
+                onChange={(e) => {
+                  const nb = e.target.value;
+                  setSelectedBrand(nb);
+                  const linked = getLinkedCompaniesForBrand(nb);
+                  if (selectedCompany !== "All Companies" && !linked.includes(selectedCompany)) {
+                    setSelectedCompany("All Companies");
+                  }
+                }}
+                className="px-3 py-1.5 text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-700 cursor-pointer"
               >
-                Clear
-              </button>
-            )}
+                <option value="All Brands">All Brands</option>
+                {brands.map((b) => (
+                  <option key={b} value={b}>{b}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-xs font-bold text-slate-500">Company:</span>
+              <select
+                value={selectedCompany}
+                onChange={(e) => setSelectedCompany(e.target.value)}
+                className="px-3 py-1.5 text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-700 cursor-pointer"
+              >
+                <option value="All Companies">All Companies</option>
+                {availableFilterCompanies.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-500">Filter Month:</span>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-700 font-medium"
+              />
+              {selectedMonth && (
+                <button
+                  onClick={() => setSelectedMonth("")}
+                  className="text-xs text-rose-500 font-bold hover:underline"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -246,6 +376,8 @@ export default function PayrollPage() {
                 <tr className="border-b border-slate-100 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                   <th className="pb-3">Employee</th>
                   <th className="pb-3">Role</th>
+                  <th className="pb-3">Brand</th>
+                  <th className="pb-3">Company</th>
                   <th className="pb-3">Month</th>
                   <th className="pb-3 text-right">Base Salary</th>
                   <th className="pb-3 text-right">Bonus</th>
@@ -259,13 +391,13 @@ export default function PayrollPage() {
               <tbody className="divide-y divide-slate-100/60 font-semibold text-slate-600">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={10} className="py-8 text-center text-slate-400">
+                    <td colSpan={12} className="py-8 text-center text-slate-400">
                       Loading payroll records...
                     </td>
                   </tr>
                 ) : payrolls.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="py-8 text-center text-slate-400">
+                    <td colSpan={12} className="py-8 text-center text-slate-400">
                       No payroll records found. Click &quot;Record Salary Payout&quot; to add one.
                     </td>
                   </tr>
@@ -276,6 +408,16 @@ export default function PayrollPage() {
                       <td>
                         <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase">
                           {p.employeeRole}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md text-[10px] font-extrabold">
+                          {p.brand || "All Brands"}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md text-[10px] font-extrabold">
+                          {p.company || "All Companies"}
                         </span>
                       </td>
                       <td className="font-bold text-slate-700">{p.month}</td>
@@ -357,9 +499,9 @@ export default function PayrollPage() {
                       onChange={(e) => setFormData({ ...formData, employeeRole: e.target.value })}
                       className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                     >
-                      <option value="Counsellor">Counsellor</option>
+                      <option value="Sales Executive">Sales Executive</option>
                       <option value="Teacher">Teacher</option>
-                      <option value="Brand Manager">Brand Manager</option>
+                      <option value="Centre Head">Centre Head</option>
                       <option value="Admin">Admin</option>
                       <option value="Staff">Staff</option>
                     </select>
@@ -479,6 +621,34 @@ export default function PayrollPage() {
                       <option value="Cash">Cash</option>
                     </select>
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-slate-600 mb-1 font-semibold text-xs">Brand Tag</label>
+                  <select
+                    value={formData.brand}
+                    onChange={(e) => handleBrandChangeInForm(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 bg-white cursor-pointer"
+                  >
+                    <option value="All Brands">All Brands</option>
+                    {brands.map((b) => (
+                      <option key={b} value={b}>{b}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-600 mb-1 font-semibold text-xs">Company Tag</label>
+                  <select
+                    value={formData.company}
+                    onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 bg-white cursor-pointer"
+                  >
+                    <option value="All Companies">All Companies</option>
+                    {availableFormCompanies.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>

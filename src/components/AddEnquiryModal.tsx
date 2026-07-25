@@ -287,7 +287,7 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
               ) : (
                 <div>
                   <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">
-                    Assigned CRM Advisor * {selectedBrand ? `(${filteredCounsellors.length} for ${selectedBrand})` : ""}
+                    Assigned Sales Executive * {selectedBrand ? `(${filteredCounsellors.length} for ${selectedBrand})` : ""}
                   </label>
                   <select 
                     name="assignedCrmAdvisor" 

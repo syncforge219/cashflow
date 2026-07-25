@@ -29,7 +29,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
           const cls = cData?.success ? (cData.counsellors || cData.data || []) : [];
           
           // Map to a unified format
-          const mappedBms = bms.map((u: any) => ({ ...u, role: "Brand Manager" }));
+          const mappedBms = bms.map((u: any) => ({ ...u, role: "Centre Head" }));
           const mappedCls = cls.map((u: any) => ({ ...u, role: "Counsellor" }));
           
           setUsers([...mappedBms, ...mappedCls]);
@@ -50,7 +50,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
 
   // Determine the correct dashboard path based on role
   let rolePrefix = "admin";
-  if (currentUser?.role === "brand manager") {
+  if (currentUser?.role === "brand manager" || currentUser?.role === "centre head") {
     rolePrefix = "manager";
   } else if (currentUser?.role === "counsellor") {
     rolePrefix = "counsellor";

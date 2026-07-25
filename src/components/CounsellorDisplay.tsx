@@ -266,10 +266,10 @@ export default function CounsellorDisplay() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-800 font-sans">
-            Counsellors & Agents Registry
+            Sales Executives Directory
           </h1>
           <p className="text-xs text-slate-400 mt-0.5 max-w-xl font-sans">
-            Track counselor pipelines, sales goals, actual yearly collection values, and active registrations.
+            Track sales executive pipelines, sales goals, actual yearly collection values, and active registrations.
           </p>
         </div>
 
@@ -311,7 +311,7 @@ export default function CounsellorDisplay() {
             >
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
-            New Counsellor
+            New Sales Executive
           </button>
         </div>
       </div>

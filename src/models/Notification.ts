@@ -19,7 +19,7 @@ const NotificationSchema = new Schema(
     },
     targetRole: {
       type: String,
-      enum: ["teacher", "counsellor", "admin", "brand manager", "all"],
+      enum: ["teacher", "counsellor", "sales executive", "admin", "brand manager", "centre head", "all"],
       default: "all",
     },
     targetTeacherId: {

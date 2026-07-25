@@ -8,6 +8,7 @@ import { useUser } from "../app/component/context/user-context";
 import Sidebar from "@/components/Sidebar";
 import ManagerSidebar from "@/components/ManagerSidebar";
 import ProfileDisplay from "@/components/ProfileDisplay";
+import DailyBiDashboard from "@/components/DailyBiDashboard";
 
 interface ReportsPageContentProps {
   role: "admin" | "manager";
@@ -375,14 +376,14 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
   // ══════════════════════════════════════════════════════════
   const generateCounsellorExcel = async (master: any) => {
     const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet("Counsellor Performance");
+    const sheet = workbook.addWorksheet("Sales Executive Performance");
 
-    sheet.addRow(["COUNSELLOR PERFORMANCE & CONVERSION SCORECARD"]);
+    sheet.addRow(["SALES EXECUTIVE PERFORMANCE & CONVERSION SCORECARD"]);
     sheet.addRow([`Export Date: ${new Date().toLocaleString('en-IN')}`]);
     sheet.addRow([]);
 
     sheet.addRow([
-      "Counsellor Name", "Email", "Brand Scope", "Assigned Leads",
+      "Sales Executive Name", "Email", "Brand Scope", "Assigned Leads",
       "Demos Conducted", "Admissions Closed", "Conversion Rate %", "Total Revenue Collected (INR)"
     ]);
     sheet.getRow(4).font = { bold: true, color: { argb: "FFFFFFFF" } };
@@ -423,9 +424,9 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
   // ══════════════════════════════════════════════════════════
   const generateBrandManagerExcel = async (master: any) => {
     const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet("Brand Manager Scorecard");
+    const sheet = workbook.addWorksheet("Centre Head Scorecard");
 
-    sheet.addRow(["BRAND MANAGER & BRAND SCOPE PERFORMANCE SCORECARD"]);
+    sheet.addRow(["CENTRE HEAD & BRAND SCOPE PERFORMANCE SCORECARD"]);
     sheet.addRow([`Export Date: ${new Date().toLocaleString('en-IN')}`]);
     sheet.addRow([]);
 
@@ -497,10 +498,13 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
           </div>
         </header>
 
-        <div className="p-8 space-y-8 max-w-5xl mx-auto w-full">
-          <div>
-            <h2 className="text-3xl font-black text-[#1e293b] tracking-tight">Executive Data Exports & Analytics</h2>
-            <p className="text-slate-500 font-medium mt-1">Export comprehensive multi-sheet Excel workbooks, performance scorecards, and automated WhatsApp reports.</p>
+        <div className="p-8 space-y-8 max-w-6xl mx-auto w-full">
+          {/* Executive Daily Business Intelligence Dashboard */}
+          <DailyBiDashboard />
+
+          <div className="pt-6 border-t border-slate-200">
+            <h2 className="text-2xl font-black text-[#1e293b] tracking-tight">Excel Workbooks & WhatsApp Dispatch Center</h2>
+            <p className="text-slate-500 font-medium mt-1">Export multi-sheet Excel workbooks or trigger instant WhatsApp PDF reports.</p>
           </div>
 
           {/* Daily & Monthly WhatsApp Report Trigger Cards */}
@@ -570,8 +574,8 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
                 {[
                   { id: "super", label: "🌟 Super Master Report", desc: "Sheet 1: All Brands & Companies Summary + Separate sheets for each Brand & Company" },
                   { id: "leads", label: "📥 Leads & Enquiries", desc: "Full enquiry database register with contact, status & demo details" },
-                  { id: "counsellors", label: "🏆 Counsellor Performance", desc: "Per-counsellor leads, demos, admissions & fee collection scorecard" },
-                  { id: "brandManagers", label: "🏢 Brand Manager Analytics", desc: "Brand manager performance, active staff & revenue per brand" }
+                  { id: "counsellors", label: "🏆 Sales Executive Performance", desc: "Per-sales executive leads, demos, admissions & fee collection scorecard" },
+                  { id: "brandManagers", label: "🏢 Centre Head Analytics", desc: "Centre head performance, active staff & revenue per brand" }
                 ].map((tab) => (
                   <button
                     key={tab.id}

@@ -64,7 +64,7 @@ const BatchSchema = new Schema(
     },
     creatorRole: {
       type: String,
-      enum: ["super admin", "brand manager", "counsellor", "teacher", "system"],
+      enum: ["super admin", "brand manager", "centre head", "counsellor", "sales executive", "teacher", "system"],
       default: "super admin",
     },
     notes: {

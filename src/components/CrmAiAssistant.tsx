@@ -201,7 +201,7 @@ export default function CrmAiAssistant() {
                   <p className="text-[11px] text-indigo-200/80 font-medium mt-0.5 flex items-center gap-1.5">
                     <span className="text-indigo-400 font-mono text-[10px]">⠿ Drag anywhere</span>
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 inline-block animate-pulse"></span>
-                    {user?.role === "admin" ? "Full Access Scope" : user?.role === "brand manager" ? `Brand: ${user?.brandScope || "Assigned Brands"}` : `Assigned: ${user?.name || "Counsellor"}`}
+                    {user?.role === "admin" ? "Full Access Scope" : (user?.role === "brand manager" || user?.role === "centre head") ? `Brand: ${user?.brandScope || "Assigned Brands"}` : `Assigned: ${user?.name || "Counsellor"}`}
                   </p>
                 </div>
               </div>
