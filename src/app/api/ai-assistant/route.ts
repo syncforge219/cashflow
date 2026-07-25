@@ -5,6 +5,9 @@ import Admission from "@/models/Admission";
 import Payment from "@/models/Payment";
 import Payroll from "@/models/Payroll";
 import Expense from "@/models/Expense";
+import Course from "@/models/Course";
+import Batch from "@/models/Batch";
+import Attendance from "@/models/Attendance";
 
 // ============================================================
 // SYNCFORGE CRM ULTRA AI ENGINE v3.0
@@ -14,22 +17,22 @@ import Expense from "@/models/Expense";
 
 // ─── INTENT TAXONOMY ────────────────────────────────────────
 const INTENTS = {
-  FINANCIAL_DEEP:        ["profit", "revenue", "margin", "loss", "roi", "cac", "cost", "income", "cash flow", "cashflow", "earning", "earning", "payroll", "salary", "expense", "overhead", "outflow", "inflow", "burn", "break even"],
-  CONVERSION_FUNNEL:     ["conversion", "convert", "funnel", "drop", "dropout", "lost", "churned", "bottleneck", "stuck", "pipeline health", "stage", "closure", "closing", "win rate"],
-  FORECASTING:           ["forecast", "predict", "next month", "next week", "projection", "target", "goal", "estimate", "likely", "trend", "future", "expected", "by end of month"],
-  LEAD_HEALTH:           ["lead", "student", "enquiry", "enquiries", "prospect", "potential", "new", "uncontacted", "fresh", "contact", "all students"],
-  DEMO_INTELLIGENCE:     ["demo", "class", "session", "attend", "schedule", "booked", "today demo", "upcoming demo", "missed demo"],
-  FOLLOWUP_TASKS:        ["follow up", "followup", "follow-up", "task", "pending", "overdue", "due today", "reminder", "callback", "reschedule"],
-  HOT_LEADS:             ["hot", "urgent", "high priority", "priority", "vip", "critical", "fast close", "fire"],
-  ADMISSION_REVENUE:     ["admit", "admission", "enroll", "enrolled", "fee", "fees", "collected", "payment", "paid", "due", "balance", "receipt"],
-  PERFORMANCE_RANK:      ["performance", "leaderboard", "ranking", "rank", "top counsellor", "best", "who is best", "team", "compare", "vs", "score"],
-  COHORT_ANALYSIS:       ["cohort", "batch", "age", "source", "where", "channel", "referral", "organic", "google", "meta", "facebook", "instagram", "walk in", "walkin"],
-  STALE_LEADS:           ["stale", "cold", "inactive", "no response", "not responding", "dead", "ghost", "silent", "not picking", "not answering"],
-  RISK_ALERTS:           ["risk", "alert", "danger", "warning", "critical", "problem", "issue", "concern"],
-  SUMMARY_OVERVIEW:      ["summary", "overview", "stats", "statistics", "dashboard", "health", "pipeline", "all leads", "big picture", "status"],
-  SEARCH_STUDENT:        ["find", "search", "locate", "where is", "show me", "get", "fetch", "lookup", "who is"],
-  PLAYBOOK_STRATEGY:     ["strategy", "playbook", "how to", "improve", "increase", "grow", "boost", "hack", "tips", "advice", "recommend", "suggest", "what should", "action plan", "close more", "close faster"],
-  REASONING_LOGIC:       ["why", "reason", "explain", "because", "cause", "effect", "analyze", "analysis", "compare", "evaluate", "logic", "calculate", "math", "number", "what if", "scenario", "hypothesis"],
+  FINANCIAL_DEEP: ["profit", "revenue", "margin", "loss", "roi", "cac", "cost", "income", "cash flow", "cashflow", "earning", "earning", "payroll", "salary", "expense", "overhead", "outflow", "inflow", "burn", "break even"],
+  CONVERSION_FUNNEL: ["conversion", "convert", "funnel", "drop", "dropout", "lost", "churned", "bottleneck", "stuck", "pipeline health", "stage", "closure", "closing", "win rate"],
+  FORECASTING: ["forecast", "predict", "next month", "next week", "projection", "target", "goal", "estimate", "likely", "trend", "future", "expected", "by end of month"],
+  LEAD_HEALTH: ["lead", "student", "enquiry", "enquiries", "prospect", "potential", "new", "uncontacted", "fresh", "contact", "all students"],
+  DEMO_INTELLIGENCE: ["demo", "class", "session", "attend", "schedule", "booked", "today demo", "upcoming demo", "missed demo"],
+  FOLLOWUP_TASKS: ["follow up", "followup", "follow-up", "task", "pending", "overdue", "due today", "reminder", "callback", "reschedule"],
+  HOT_LEADS: ["hot", "urgent", "high priority", "priority", "vip", "critical", "fast close", "fire"],
+  ADMISSION_REVENUE: ["admit", "admission", "enroll", "enrolled", "fee", "fees", "collected", "payment", "paid", "due", "balance", "receipt"],
+  PERFORMANCE_RANK: ["performance", "leaderboard", "ranking", "rank", "top counsellor", "best", "who is best", "team", "compare", "vs", "score"],
+  COHORT_ANALYSIS: ["cohort", "batch", "age", "source", "where", "channel", "referral", "organic", "google", "meta", "facebook", "instagram", "walk in", "walkin"],
+  STALE_LEADS: ["stale", "cold", "inactive", "no response", "not responding", "dead", "ghost", "silent", "not picking", "not answering"],
+  RISK_ALERTS: ["risk", "alert", "danger", "warning", "critical", "problem", "issue", "concern"],
+  SUMMARY_OVERVIEW: ["summary", "overview", "stats", "statistics", "dashboard", "health", "pipeline", "all leads", "big picture", "status"],
+  SEARCH_STUDENT: ["find", "search", "locate", "where is", "show me", "get", "fetch", "lookup", "who is"],
+  PLAYBOOK_STRATEGY: ["strategy", "playbook", "how to", "improve", "increase", "grow", "boost", "hack", "tips", "advice", "recommend", "suggest", "what should", "action plan", "close more", "close faster"],
+  REASONING_LOGIC: ["why", "reason", "explain", "because", "cause", "effect", "analyze", "analysis", "compare", "evaluate", "logic", "calculate", "math", "number", "what if", "scenario", "hypothesis"],
 };
 
 function detectIntents(queryLower: string): Set<string> {
@@ -237,6 +240,12 @@ function getPlaybook(queryLower: string, metrics: ReturnType<typeof calcMetrics>
 
 // ─── KNOWLEDGE BASE (General Reasoning) ─────────────────────
 function knowledgeBaseAnswer(prompt: string, queryLower: string): string {
+  // Simple Greetings Handling
+  const cleanQ = queryLower.replace(/[^a-z0-9\s]/g, "").trim();
+  if (["hi", "hello", "hey", "hlo", "greetings", "good morning", "good afternoon", "good evening", "yo"].includes(cleanQ) || cleanQ.startsWith("hi ") || cleanQ.startsWith("hello ")) {
+    return `👋 **Hello! I am your CoachFlow AI Assistant.**\n\nI am ready to assist you with your institute's CRM operations:\n- 📥 **Student Enquiries & Pipeline**\n- 🎥 **Demo Sessions & Follow-up Tasks**\n- 🎓 **Admissions & Fee Management**\n- 📋 **Batch Attendance & Performance Analytics**\n\nHow can I help you today?`;
+  }
+
   // Math: detect arithmetic patterns
   const mathMatch = queryLower.match(/(\d+(?:\.\d+)?)\s*([+\-*\/×÷])\s*(\d+(?:\.\d+)?)/);
   if (mathMatch) {
@@ -244,7 +253,7 @@ function knowledgeBaseAnswer(prompt: string, queryLower: string): string {
     const op = mathMatch[2];
     const b = parseFloat(mathMatch[3]);
     let result: number;
-    if (op === "+" ) result = a + b;
+    if (op === "+") result = a + b;
     else if (op === "-") result = a - b;
     else if (op === "*" || op === "×") result = a * b;
     else result = a / b;
@@ -282,6 +291,56 @@ function knowledgeBaseAnswer(prompt: string, queryLower: string): string {
   );
 }
 
+// ─── GEMINI API CALLER WITH SCOPE & ROLE GUARDRAILS ─────────
+async function queryGemini(promptText: string, systemPrompt: string): Promise<string | null> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+
+  const endpoints = [
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`
+  ];
+
+  const payload = {
+    contents: [
+      {
+        role: "user",
+        parts: [
+          { text: `${systemPrompt}\n\nUser Question: "${promptText}"` }
+        ]
+      }
+    ],
+    generationConfig: {
+      temperature: 0.3,
+      maxOutputTokens: 1024
+    }
+  };
+
+  for (const endpoint of endpoints) {
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const parts = data.candidates?.[0]?.content?.parts;
+        if (Array.isArray(parts)) {
+          const textPart = parts.find((p: any) => p.text && !p.thought) || parts[parts.length - 1];
+          if (textPart && textPart.text && textPart.text.trim()) {
+            return textPart.text.trim();
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Gemini endpoint error:", endpoint, e);
+    }
+  }
+  return null;
+}
+
 // ─── MAIN ROUTE ──────────────────────────────────────────────
 export async function POST(req: Request) {
   try {
@@ -298,11 +357,14 @@ export async function POST(req: Request) {
     const queryLower = prompt.toLowerCase().trim();
 
     // ── Fetch all data in parallel ──────────────────────────
-    const [allEnquiries, allPayments, allPayrolls, allExpenses] = await Promise.all([
+    const [allEnquiries, allPayments, allPayrolls, allExpenses, allCourses, allBatches, allAttendance] = await Promise.all([
       Enquiry.find({}).sort({ createdAt: -1 }).lean(),
       Payment.find({}).lean(),
       Payroll.find({}).lean(),
       Expense.find({}).lean(),
+      Course.find({}).lean(),
+      Batch.find({}).lean(),
+      Attendance.find({}).lean(),
     ]);
 
     // ── RBAC Data Scoping ───────────────────────────────────
@@ -311,6 +373,9 @@ export async function POST(req: Request) {
     const emailLower = (userEmail || "").toLowerCase().trim();
 
     let enquiries: any[] = [];
+    let teacherCourses: any[] = [];
+    let teacherBatches: any[] = [];
+    let teacherAttendanceLogs: any[] = [];
     let roleNotice = "";
 
     if (role === "admin" || role === "superadmin") {
@@ -320,11 +385,37 @@ export async function POST(req: Request) {
       const allowedBrands = (userBrandScope || "").split(",").map((b: string) => b.trim().toLowerCase()).filter(Boolean);
       enquiries = allowedBrands.length > 0
         ? allEnquiries.filter((e: any) => {
-            const b = (e.targetBrand || e.brand || "").toLowerCase();
-            return allowedBrands.some((ab: string) => b.includes(ab) || ab.includes(b));
-          })
+          const b = (e.targetBrand || e.brand || "").toLowerCase();
+          return allowedBrands.some((ab: string) => b.includes(ab) || ab.includes(b));
+        })
         : allEnquiries;
       roleNotice = `Brand Manager · ${userBrandScope || "Assigned Brands"}`;
+    } else if (role === "teacher" || role === "faculty") {
+      roleNotice = `Teacher/Faculty · ${userName || "Faculty Scope"} (${userBrandScope || "All Brands"})`;
+      const scopeLower = (userBrandScope || "").toLowerCase().trim();
+
+      teacherCourses = allCourses.filter((c: any) => {
+        const bMatches = !scopeLower || scopeLower === "all" || scopeLower === "all brands" || (c.brand || "").toLowerCase().trim() === scopeLower;
+        return bMatches;
+      });
+
+      teacherBatches = allBatches.filter((b: any) => {
+        const nameMatch = nameLower && (b.teacherName || "").toLowerCase().includes(nameLower);
+        const brandMatch = !scopeLower || scopeLower === "all" || scopeLower === "all brands" || (b.brand || "").toLowerCase().trim() === scopeLower;
+        return nameMatch || brandMatch;
+      });
+
+      const batchNames = teacherBatches.map((b: any) => b.batchName);
+      teacherAttendanceLogs = allAttendance.filter((att: any) => {
+        return batchNames.includes(att.batchName) || (nameLower && (att.teacherName || "").toLowerCase().includes(nameLower));
+      });
+
+      enquiries = allEnquiries.filter((e: any) => {
+        const statusLower = (e.status || "").toLowerCase();
+        const brandMatch = !scopeLower || scopeLower === "all" || scopeLower === "all brands" || (e.targetBrand || "").toLowerCase().trim() === scopeLower;
+        const demoTeacherMatch = (e.demoTeacher || "").toLowerCase().includes(nameLower);
+        return (statusLower.includes("demo") || e.isDemoScheduled || demoTeacherMatch) && brandMatch;
+      });
     } else {
       enquiries = allEnquiries.filter((e: any) => {
         const advisor = (e.assignedCrmAdvisor || "").toLowerCase();
@@ -352,6 +443,122 @@ export async function POST(req: Request) {
           `💡 **Next Action**: Call your ${metrics.newLeads} uncontacted new leads first — they're the freshest opportunities.`,
         leads: enquiries.slice(0, 5),
         stats: { myLeads: metrics.total, myAdmissions: metrics.admitted, convRate: metrics.convRate }
+      });
+    }
+
+    // ── Build Role-Specific System Prompts ─────────────────────────
+    let roleSummaryPrompt = "";
+    if (role === "teacher" || role === "faculty") {
+      let totalPresent = 0;
+      let totalStudents = 0;
+      teacherAttendanceLogs.forEach((att: any) => {
+        totalPresent += att.totalPresent || 0;
+        totalStudents += att.totalStudents || 0;
+      });
+      const attendanceRatePct = totalStudents > 0 ? ((totalPresent / totalStudents) * 100).toFixed(1) + "%" : "0.0%";
+
+      roleSummaryPrompt = `
+USER ROLE: TEACHER / FACULTY
+User Name: ${userName || "Faculty"}
+Scope Notice: ${roleNotice}
+
+TEACHER AUTHORIZED ACADEMIC DATA SUMMARY:
+- Assigned Courses Count: ${teacherCourses.length}
+- Active Batches Count: ${teacherBatches.length}
+- Scheduled Demo Classes: ${enquiries.length}
+- Total Attendance Logs Recorded: ${teacherAttendanceLogs.length}
+- Student Attendance Rate: ${attendanceRatePct}
+
+STRICT TEACHER ROLE RULES & CONSTRAINTS:
+1. You MUST ONLY discuss Academic & Faculty responsibilities: Assigned Courses, Active Batches, Scheduled Demo Sessions, Student Class Rosters, and Student Attendance Rates.
+2. Do NOT report on sales CRM metrics like "Total Accessible Leads", "New Uncontacted Leads", "Sales Conversion Funnels", "Counsellor Performance", or "Company Financial P&L/Payroll". Those sales metrics belong to Counsellors and Admins, NOT Teachers.
+3. If the user asks for a monthly report, overview, or summary, generate a "Teacher Academic & Class Operational Report" covering Courses, Batches, Demos, and Student Attendance.
+`;
+    } else if (role === "counsellor") {
+      roleSummaryPrompt = `
+USER ROLE: COUNSELLOR
+User Name: ${userName || "Counsellor"}
+Scope Notice: ${roleNotice}
+
+COUNSELLOR AUTHORIZED CRM DATA SUMMARY:
+- Total Assigned Leads: ${metrics.total}
+- New (Uncontacted) Leads: ${metrics.newLeads}
+- Contacted Leads: ${metrics.contacted}
+- Demo Scheduled Sessions: ${metrics.demo}
+- Admissions Closed: ${metrics.admitted}
+- Lost/Dropped Leads: ${metrics.lost}
+- High Priority Leads: ${metrics.highPriority}
+- Pending Follow-up Tasks: ${metrics.pendingTasks}
+- Personal Conversion Rate: ${metrics.convRate}%
+
+STRICT COUNSELLOR ROLE RULES:
+1. You MUST ONLY discuss your assigned student leads, demo follow-ups, personal admission conversions, and follow-up tasks.
+2. Do NOT report on Company Financial P&L, Staff Payroll, Operational Overhead, or Global Team Leaderboards. If asked about overall company financials or other counsellors, state:
+   "As a Counsellor, your scope is focused on your assigned student pipeline, follow-ups, and admissions. Company financial P&L and global team leaderboards are restricted to Management."
+`;
+    } else if (role === "brand manager" || role === "manager") {
+      roleSummaryPrompt = `
+USER ROLE: BRAND MANAGER
+User Name: ${userName || "Manager"}
+Scope Notice: ${roleNotice}
+
+BRAND MANAGER AUTHORIZED DATA SUMMARY:
+- Total Brand Leads: ${metrics.total}
+- New Uncontacted Leads: ${metrics.newLeads}
+- Contacted Leads: ${metrics.contacted}
+- Demo Sessions: ${metrics.demo}
+- Brand Admissions: ${metrics.admitted}
+- Brand Conversion Rate: ${metrics.convRate}%
+- Brand Revenue Collected: ₹${metrics.totalRevenue.toLocaleString("en-IN")}
+- Brand Net Profit: ₹${metrics.netProfit.toLocaleString("en-IN")}
+- Pending Follow-up Tasks: ${metrics.pendingTasks}
+`;
+    } else {
+      roleSummaryPrompt = `
+USER ROLE: ADMIN / SUPERADMIN
+User Name: ${userName || "Admin"}
+Scope Notice: ${roleNotice}
+
+FULL APPLICATION AUTHORIZED DATA SUMMARY:
+- Total Leads: ${metrics.total}
+- New Leads: ${metrics.newLeads}
+- Contacted Leads: ${metrics.contacted}
+- Demo Sessions: ${metrics.demo}
+- Admitted Students: ${metrics.admitted}
+- Lost Leads: ${metrics.lost}
+- High Priority Leads: ${metrics.highPriority}
+- Pending Follow-up Tasks: ${metrics.pendingTasks}
+- Total Revenue Collected: ₹${metrics.totalRevenue.toLocaleString("en-IN")}
+- Staff Payroll Paid: ₹${metrics.totalPayroll.toLocaleString("en-IN")}
+- Operational Expenses: ₹${metrics.totalExpenses.toLocaleString("en-IN")}
+- Net Profit: ₹${metrics.netProfit.toLocaleString("en-IN")} (${metrics.profitMarginPct}%)
+`;
+    }
+
+    const systemPrompt = `You are the official AI Assistant embedded inside the CoachFlow application (Education Management & Sales CRM).
+
+CRITICAL SECURITY RULE (STRICT APPLICATION SCOPE GUARDRAIL):
+1. STRICT APPLICATION SCOPE: You MUST ONLY answer questions directly related to CoachFlow application features, student enquiries, admissions, demo classes, batches, courses, attendance, financial/revenue summaries, follow-up tasks, sales playbooks, and operational analytics.
+2. OUT-OF-SCOPE REJECTION: If the user asks ANY question NOT related to the CoachFlow application, CRM data, academic operations, or sales/class analytics (such as general programming, recipes, general trivia, weather, movie recommendations, sports, off-topic subjects), you MUST politely refuse by stating EXACTLY:
+   "I am the CoachFlow AI Assistant and can only answer questions related to the CoachFlow application, CRM data, student enquiries, admissions, batches, attendance, and operational analytics within your authorized role."
+
+ROLE CONTEXT & AUTHORIZED METRICS:
+${roleSummaryPrompt}
+`;
+
+    // ── Attempt Gemini AI Generation ─────────────────────────────
+    const geminiReply = await queryGemini(prompt, systemPrompt);
+
+    if (geminiReply) {
+      const matchingLeads = enquiries.filter(e => {
+        const text = `${e.studentFullName || ""} ${e.phone || ""} ${e.targetCourse || ""} ${e.status || ""} ${e.priorityLevel || ""}`.toLowerCase();
+        return queryLower.split(" ").some(w => w.length > 2 && text.includes(w));
+      });
+
+      return NextResponse.json({
+        answer: geminiReply,
+        leads: matchingLeads.length > 0 ? matchingLeads.slice(0, 6) : enquiries.slice(0, 5),
+        stats: { total: metrics.total, admitted: metrics.admitted, convRate: metrics.convRate }
       });
     }
 

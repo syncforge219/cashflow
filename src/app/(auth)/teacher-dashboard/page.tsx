@@ -123,13 +123,6 @@ export default function TeacherDashboard() {
       color: "text-indigo-600 bg-indigo-50 border-indigo-100",
     },
     {
-      name: "Conversion Rate",
-      value: teacherData?.conversionRatePct ?? "0.0%",
-      trend: "Demo to Enrollment",
-      isGreen: true,
-      color: "text-sky-600 bg-sky-50 border-sky-100",
-    },
-    {
       name: "Today's Classes",
       value: teacherData?.todaysClassesCount ?? 0,
       trend: "Scheduled Today",
@@ -147,13 +140,13 @@ export default function TeacherDashboard() {
 
   // Dynamic Weekly Activity Trend Data from MongoDB
   const rawTrendDays = teacherData?.weeklyTrendDays || [
-    { dayLabel: "Mon", demos: 1, classes: 3, conversions: 1 },
-    { dayLabel: "Tue", demos: 2, classes: 4, conversions: 2 },
-    { dayLabel: "Wed", demos: 1, classes: 2, conversions: 1 },
-    { dayLabel: "Thu", demos: 3, classes: 5, conversions: 2 },
-    { dayLabel: "Fri", demos: 1, classes: 3, conversions: 1 },
-    { dayLabel: "Sat", demos: 4, classes: 6, conversions: 3 },
-    { dayLabel: "Sun", demos: 1, classes: 2, conversions: 1 },
+    { dayLabel: "Mon", demos: 0, classes: 0, conversions: 0 },
+    { dayLabel: "Tue", demos: 0, classes: 0, conversions: 0 },
+    { dayLabel: "Wed", demos: 0, classes: 0, conversions: 0 },
+    { dayLabel: "Thu", demos: 0, classes: 0, conversions: 0 },
+    { dayLabel: "Fri", demos: 0, classes: 0, conversions: 0 },
+    { dayLabel: "Sat", demos: 0, classes: 0, conversions: 0 },
+    { dayLabel: "Sun", demos: 0, classes: 0, conversions: 0 },
   ];
 
   const processedTrendDays = React.useMemo(() => {
@@ -184,12 +177,7 @@ export default function TeacherDashboard() {
   };
 
   // Dynamic Donut chart subject breakdown sources from MongoDB
-  const subjectSources = teacherData?.subjectBreakdown || [
-    { name: "CAD & Civil", pctNum: 40, hex: "#6366f1" },
-    { name: "Web & Coding", pctNum: 30, hex: "#10b981" },
-    { name: "Design & VFX", pctNum: 20, hex: "#f59e0b" },
-    { name: "Structure", pctNum: 10, hex: "#ec4899" },
-  ];
+  const subjectSources = teacherData?.subjectBreakdown || [];
 
   let currentOffset = 0;
   const donutCircles = subjectSources.map((source: any, i: number) => {
@@ -279,52 +267,6 @@ export default function TeacherDashboard() {
           </div>
         </header>
 
-        {/* Teacher Quick Actions Bar */}
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-3 mb-6 shadow-xs flex items-center justify-between gap-3 overflow-x-auto shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-extrabold text-slate-800 uppercase tracking-wider px-2 select-none">Quick Actions:</span>
-            <button
-              onClick={() => setActiveTab("courses")}
-              className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
-                activeTab === "courses" ? "bg-indigo-600 text-white border-indigo-600 shadow-sm" : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200"
-              }`}
-            >
-              <span>📚 My Assigned Subjects ({teacherData?.myBrandCourses?.length || 0})</span>
-            </button>
-            <button
-              onClick={() => setActiveTab("demos")}
-              className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
-                activeTab === "demos" ? "bg-purple-600 text-white border-purple-600 shadow-sm" : "bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200"
-              }`}
-            >
-              <span>🗓️ Upcoming Demos ({teacherData?.extractedDemos?.length || 0})</span>
-            </button>
-            <a
-              href="/teacher-dashboard/calendar"
-              className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
-            >
-              <span>📅 Schedule Calendar</span>
-            </a>
-            <button
-              onClick={() => setActiveTab("students")}
-              className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
-                activeTab === "students" ? "bg-emerald-600 text-white border-emerald-600 shadow-sm" : "bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200"
-              }`}
-            >
-              <span>👥 Student Roster ({teacherData?.enrolledStudentsList?.length || 0})</span>
-            </button>
-            <button
-              onClick={() => setIsAttendanceModalOpen(true)}
-              className="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
-            >
-              <span>📋 Take Batch Attendance</span>
-            </button>
-          </div>
-          <div className="text-xs font-semibold text-slate-400 px-2 shrink-0">
-            Brand Scope: <strong className="text-slate-700">{user.brandScope || "All Brands"}</strong>
-          </div>
-        </div>
-
         {/* 8 KPI Metric Cards Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-3 mb-6">
           {metrics.map((metric, idx) => (
@@ -356,17 +298,15 @@ export default function TeacherDashboard() {
               <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl">
                 <button
                   onClick={() => setTrendMode("daily")}
-                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
-                    trendMode === "daily" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-500 hover:text-slate-700"
-                  }`}
+                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${trendMode === "daily" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-500 hover:text-slate-700"
+                    }`}
                 >
                   Daily
                 </button>
                 <button
                   onClick={() => setTrendMode("cumulative")}
-                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
-                    trendMode === "cumulative" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-500 hover:text-slate-700"
-                  }`}
+                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${trendMode === "cumulative" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-500 hover:text-slate-700"
+                    }`}
                 >
                   Cumulative
                 </button>
@@ -459,25 +399,22 @@ export default function TeacherDashboard() {
             <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl w-full sm:w-auto">
               <button
                 onClick={() => setActiveTab("courses")}
-                className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
-                  activeTab === "courses" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-500 hover:text-slate-700"
-                }`}
+                className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${activeTab === "courses" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-500 hover:text-slate-700"
+                  }`}
               >
                 My Assigned Courses ({teacherData?.myBrandCourses?.length || 0})
               </button>
               <button
                 onClick={() => setActiveTab("demos")}
-                className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
-                  activeTab === "demos" ? "bg-white text-purple-600 shadow-xs" : "text-slate-500 hover:text-slate-700"
-                }`}
+                className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${activeTab === "demos" ? "bg-white text-purple-600 shadow-xs" : "text-slate-500 hover:text-slate-700"
+                  }`}
               >
                 Upcoming Demos ({teacherData?.extractedDemos?.length || 0})
               </button>
               <button
                 onClick={() => setActiveTab("students")}
-                className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
-                  activeTab === "students" ? "bg-white text-emerald-600 shadow-xs" : "text-slate-500 hover:text-slate-700"
-                }`}
+                className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${activeTab === "students" ? "bg-white text-emerald-600 shadow-xs" : "text-slate-500 hover:text-slate-700"
+                  }`}
               >
                 Student Roster ({teacherData?.enrolledStudentsList?.length || 0})
               </button>
@@ -604,11 +541,10 @@ export default function TeacherDashboard() {
                           </td>
                           <td className="py-3.5 px-6">
                             <span
-                              className={`inline-block px-2.5 py-0.5 font-bold text-[10px] rounded-md border ${
-                                demo.status === "Completed" || demo.status === "Demo Attended"
+                              className={`inline-block px-2.5 py-0.5 font-bold text-[10px] rounded-md border ${demo.status === "Completed" || demo.status === "Demo Attended"
                                   ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                                   : "bg-purple-50 text-purple-700 border-purple-200"
-                              }`}
+                                }`}
                             >
                               {demo.status || "Scheduled"}
                             </span>

@@ -225,8 +225,8 @@ export async function GET(req: Request) {
 
     const conversionRatePct =
       totalDemosScheduled > 0
-        ? ((enrolledStudentsList.length / totalDemosScheduled) * 100).toFixed(1) + "%"
-        : enrolledStudentsList.length > 0
+        ? Math.min(100, Math.round((totalDemosCompleted / totalDemosScheduled) * 1000) / 10).toFixed(1) + "%"
+        : enrolledStudentsList.length > 0 && totalDemosCompleted > 0
         ? "100.0%"
         : "0.0%";
 
