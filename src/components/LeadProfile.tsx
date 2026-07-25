@@ -307,6 +307,23 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
 
       const data = await res.json();
       if (data.success || data.enquiry) {
+        // Dispatch MSG91 WhatsApp Demo Reminder to student
+        const studentMobile = localLead.primaryPhoneMobile || localLead.parentsPhoneNumber || "";
+        if (studentMobile) {
+          fetch("/api/enquiries/send-demo-whatsapp", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              studentName: localLead.studentFullName,
+              mobileNumber: studentMobile,
+              courseName: localLead.targetCourse,
+              demoDate,
+              demoTime,
+              demoMode,
+            }),
+          }).catch((whatsappErr) => console.error("WhatsApp Demo Reminder dispatch error:", whatsappErr));
+        }
+
         const updated = data.enquiry || data.data || {
           ...localLead,
           isDemoScheduled: true,
@@ -319,7 +336,7 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
         setLocalLead(updated);
         setIsScheduleDemoModalOpen(false);
         if (onSuccess) onSuccess();
-        alert("Demo Scheduled successfully!");
+        alert("Demo Scheduled successfully! WhatsApp reminder sent to student.");
       } else {
         alert("Failed to schedule demo: " + (data.message || data.error));
       }

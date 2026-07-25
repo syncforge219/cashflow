@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useUser } from "@/app/component/context/user-context";
+import SidebarBrandHeader from "@/components/SidebarBrandHeader";
 
 interface SidebarItem {
   name: string;
@@ -136,20 +137,8 @@ export default function ManagerSidebar() {
         }`}
     >
         {/* Brand / Logo Area */}
-        <div className="h-20 flex items-center px-6 border-b border-slate-100 shrink-0">
-          <div className="flex items-center gap-3 w-full">
-            <div className="h-10 w-10 shrink-0 bg-indigo-600 rounded-xl flex items-center justify-center shadow-md shadow-indigo-600/20">
-              <span className="text-white font-extrabold text-sm tracking-wider">CF</span>
-            </div>
-            {!isCollapsed && (
-              <div className="animate-in fade-in duration-200 truncate">
-                <h1 className="text-base font-extrabold text-slate-800 tracking-tight">CoachFlow</h1>
-                <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest leading-none mt-0.5">
-                  ERP
-                </p>
-              </div>
-            )}
-          </div>
+        <div className="py-4 px-4 border-b border-slate-100 shrink-0">
+          <SidebarBrandHeader isCollapsed={isCollapsed} subtitle="ERP" />
         </div>
 
         {/* Navigation Links */}

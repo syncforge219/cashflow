@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { usePathname } from "next/navigation";
 import { useUser } from "@/app/component/context/user-context";
+import SidebarBrandHeader from "@/components/SidebarBrandHeader";
 
 interface SidebarItem {
   name: string;
@@ -86,21 +87,7 @@ export default function CounsellorSidebar() {
         }`}
     >
       {/* Brand Header */}
-      <div className={`flex items-center ${isCollapsed ? "justify-center" : "gap-3"} mb-8 px-1`}>
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500 shadow-md shadow-emerald-500/20 shrink-0 select-none">
-          <span className="text-white font-extrabold text-base tracking-tight font-sans">CF</span>
-        </div>
-        {!isCollapsed && (
-          <div className="flex flex-col select-none">
-            <span className="text-sm font-extrabold tracking-tight text-slate-800 font-sans leading-none">
-              CoachFlow
-            </span>
-            <span className="text-[10px] font-bold text-emerald-500 tracking-widest font-sans uppercase mt-1">
-              ERP
-            </span>
-          </div>
-        )}
-      </div>
+      <SidebarBrandHeader isCollapsed={isCollapsed} subtitle="ERP" />
 
       {/* Navigation Groups */}
       <nav className="flex-1 space-y-6 overflow-y-auto pr-1">

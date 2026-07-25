@@ -104,6 +104,7 @@ export async function POST(request: Request) {
           email: user.email,
           name: user.name,
           role: user.role,
+          customAppName: (user as any).customAppName || "Coach",
         },
       },
       { status: 200, headers: { "Content-Type": "application/json" } }

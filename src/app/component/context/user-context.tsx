@@ -12,6 +12,7 @@ export interface User {
   phone?: string;
   photoUrl?: string;
   brandLogo?: string;
+  customAppName?: string;
   subjects?: string[];
   subject?: any;
 }

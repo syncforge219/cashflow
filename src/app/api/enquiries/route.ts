@@ -3,6 +3,7 @@ import dbConnect from "@/lib/db";
 import Enquiry from "@/models/Enquiry";
 import Task from "@/models/Task";
 import { getUserFromCookies } from "@/lib/helper";
+import { sendWhatsAppDemoReminder } from "@/lib/msg91";
 
 export async function POST(req: Request) {
   try {
@@ -59,6 +60,21 @@ export async function POST(req: Request) {
         ],
         autoTriggerSource: "Auto Event: Lead Registered"
       });
+
+      // AUTO WHATSAPP DEMO REMINDER: If demo scheduled on creation
+      if (body.isDemoScheduled && body.demoDate) {
+        const mobile = newEnquiry.primaryPhoneMobile || newEnquiry.parentsPhoneNumber || "";
+        if (mobile) {
+          sendWhatsAppDemoReminder({
+            studentName: newEnquiry.studentFullName,
+            mobileNumber: mobile,
+            courseName: newEnquiry.targetCourse,
+            demoDate: body.demoDate,
+            demoTime: body.demoTime || "11:00 AM",
+            demoMode: body.demoMode || "Online",
+          }).catch((waErr) => console.error("Auto WhatsApp demo reminder error on create:", waErr));
+        }
+      }
     } catch (taskErr) {
       console.error("Auto task trigger error on enquiry create:", taskErr);
     }

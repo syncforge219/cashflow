@@ -71,12 +71,12 @@ export default function CounsellorEnquiriesDisplay() {
             } else {
                 return false;
             }
-        } else {
+        } else if (dateOffset > 0) {
             if (lead.createdAt) {
                 const leadDate = new Date(lead.createdAt);
                 if (leadDate.toDateString() !== targetDateString) return false;
             } else {
-                if (dateOffset !== 0) return false;
+                return false;
             }
         }
 

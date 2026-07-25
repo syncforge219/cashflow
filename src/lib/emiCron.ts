@@ -2,10 +2,9 @@ import { checkAndSendOverdueEmiReminders } from "@/lib/emiReminderService";
 
 /**
  * Initialize automatic daily background worker for overdue EMI WhatsApp reminders.
- * Fires once every day at 16:00 IST (10:30 UTC).
- * Uses a per-minute time check with a date guard to prevent duplicate runs.
+ * Fires once every day at or after 16:00 IST (4:00 PM IST).
  *
- * Safe to call multiple times — clears any existing interval before creating a new one.
+ * Safe to call multiple times — checks if already scheduled/run today.
  */
 export function initEmiReminderCron() {
   // Clear any previously registered interval (survives hot-reload)
@@ -14,32 +13,47 @@ export function initEmiReminderCron() {
     (global as any).__emiCronIntervalId = null;
   }
 
-  console.log("⚡ [EMI CRON] Daily overdue EMI WhatsApp reminder scheduled at 16:00 IST every day.");
+  console.log("⚡ [EMI CRON] Daily overdue EMI WhatsApp reminder worker initialized (Scheduled for 16:00 IST daily).");
 
-  // Check every minute whether it is time to fire
-  const intervalId = setInterval(() => {
-    const now = new Date();
+  // Check function to run time evaluation
+  const checkTimeAndTrigger = () => {
+    try {
+      const now = new Date();
 
-    // Convert current UTC time to IST (UTC+5:30)
-    const istOffsetMs = (5 * 60 + 30) * 60 * 1000;
-    const ist = new Date(now.getTime() + istOffsetMs);
+      // Get current date and time in IST (Asia/Kolkata)
+      const options: Intl.DateTimeFormatOptions = { timeZone: "Asia/Kolkata" };
+      const istDateStr = now.toLocaleDateString("en-CA", options); // "YYYY-MM-DD"
+      
+      const timeString = now.toLocaleTimeString("en-US", {
+        ...options,
+        hour12: false,
+        hour: "2-digit",
+        minute: "2-digit",
+      }); // "16:14" or "09:05"
 
-    const istHour = ist.getUTCHours();   // IST hour (0-23)
-    const istMinute = ist.getUTCMinutes(); // IST minute (0-59)
-    const istDateStr = ist.toISOString().slice(0, 10); // "YYYY-MM-DD"
+      const [hourStr, minStr] = timeString.split(":");
+      const istHour = parseInt(hourStr, 10);
+      const istMinute = parseInt(minStr, 10);
 
-    // Fire only at 16:00 IST and only once per calendar day
-    if (istHour === 16 && istMinute === 0) {
+      // Target: At or after 16:00 IST (4:00 PM IST)
+      const isPastTargetTime = istHour > 16 || (istHour === 16 && istMinute >= 0);
       const lastFiredDate = (global as any).__emiCronLastFiredDate;
-      if (lastFiredDate === istDateStr) return; // already ran today
 
-      (global as any).__emiCronLastFiredDate = istDateStr;
-      console.log(`🕓 [EMI CRON] 16:00 IST triggered (${ist.toISOString()}) — running overdue EMI check...`);
-      runEmiCheckSilently();
+      if (isPastTargetTime && lastFiredDate !== istDateStr) {
+        (global as any).__emiCronLastFiredDate = istDateStr;
+        console.log(`🕓 [EMI CRON] Triggering daily 16:00 IST overdue EMI check (Date: ${istDateStr}, Time: ${timeString} IST)...`);
+        runEmiCheckSilently();
+      }
+    } catch (err) {
+      console.error("[EMI CRON] Time check error:", err);
     }
-  }, 60 * 1000);
+  };
 
-  // Store interval ID globally so it can be cleared on next hot-reload
+  // Run initial check immediately
+  checkTimeAndTrigger();
+
+  // Re-check every minute (60,000 ms)
+  const intervalId = setInterval(checkTimeAndTrigger, 60 * 1000);
   (global as any).__emiCronIntervalId = intervalId;
 }
 
@@ -50,15 +64,15 @@ async function runEmiCheckSilently() {
   isCronRunning = true;
   try {
     const res = await checkAndSendOverdueEmiReminders({ force: false });
-    console.log(`✅ [EMI CRON] Done. Reminders sent: ${res.remindersSent}, Errors: ${res.errors.length}`);
+    console.log(`✅ [EMI CRON] Completed check. Reminders sent: ${res.remindersSent}, Errors: ${res.errors.length}`);
     if (res.remindersSent > 0) {
-      console.log("[EMI CRON] Details:", res.details.map(d => `${d.student} → ${d.status}`).join(" | "));
+      console.log("[EMI CRON] Dispatched details:", res.details.map(d => `${d.student} → ${d.status}`).join(" | "));
     }
     if (res.errors.length > 0) {
-      console.warn("[EMI CRON] Errors:", res.errors);
+      console.warn("[EMI CRON] Errors/notices:", res.errors);
     }
   } catch (err) {
-    console.error("❌ [EMI CRON] Background error:", err);
+    console.error("❌ [EMI CRON] Background execution error:", err);
   } finally {
     isCronRunning = false;
   }

@@ -12,6 +12,8 @@ export default function EnquiriesDisplay() {
   const [selectedLead, setSelectedLead] = useState<any | null>(null);
 
   const [enquiries, setEnquiries] = useState<any[]>([]);
+  const [counsellorsList, setCounsellorsList] = useState<any[]>([]);
+  const [brandsList, setBrandsList] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [dateOffset, setDateOffset] = useState(0);
@@ -68,16 +70,16 @@ export default function EnquiriesDisplay() {
       } else {
         return false;
       }
-    } else {
-      // Default to daily pagination if no custom range is set
+    } else if (dateOffset > 0) {
+      // Show specific target day when user clicks Previous/Next day
       if (lead.createdAt) {
         const leadDate = new Date(lead.createdAt);
         if (leadDate.toDateString() !== targetDateString) return false;
       } else {
-        // If no createdAt (old data), only show on "Today" for fallback
-        if (dateOffset !== 0) return false; 
+        return false;
       }
     }
+    // Note: When dateOffset === 0 and no custom date filter is set, show all leads sorted by date descending
 
     // Text filtering
     if (!debouncedSearchQuery) return true;
@@ -107,14 +109,48 @@ export default function EnquiriesDisplay() {
 
   useEffect(() => {
     fetchEnquiries();
+
+    fetch("/api/counsellors")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) setCounsellorsList(data.counsellors || []);
+      })
+      .catch(console.error);
+
+    fetch("/api/brands")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) setBrandsList(data.brands || []);
+      })
+      .catch(console.error);
   }, []);
 
-  // Compute unique values for dropdowns based on actual database entries
-  const uniqueBrands = Array.from(new Set(enquiries.map(e => e.targetBrand).filter(Boolean)));
-  const uniqueAdvisors = Array.from(new Set(enquiries.map(e => e.assignedCrmAdvisor).filter(Boolean)));
-  const uniqueSources = Array.from(new Set(enquiries.map(e => e.leadSource).filter(Boolean)));
-  const uniquePriorities = Array.from(new Set(enquiries.map(e => e.priorityLevel).filter(Boolean)));
-  const uniqueStatuses = Array.from(new Set(enquiries.map(e => e.status).filter(Boolean)));
+  // Compute unique values for dropdowns based on database entries & API data
+  const uniqueBrands = Array.from(new Set([
+    ...brandsList.map(b => b.name),
+    ...enquiries.map(e => e.targetBrand)
+  ].filter(Boolean)));
+
+  const uniqueAdvisors = Array.from(new Set([
+    ...counsellorsList.map(c => c.name),
+    ...enquiries.map(e => e.assignedCrmAdvisor)
+  ].filter(Boolean)));
+
+  const uniqueSources = Array.from(new Set([
+    "Google Ads", "Meta Ads", "Website", "Seminar", "Hoarding", "Reference", "Paper Ads", "Internet Search", "Direct Walkin", "Call on Database",
+    ...enquiries.map(e => e.leadSource)
+  ].filter(Boolean)));
+
+  const uniquePriorities = Array.from(new Set([
+    "High", "Medium", "Low",
+    ...enquiries.map(e => e.priorityLevel)
+  ].filter(Boolean)));
+
+  const uniqueStatuses = Array.from(new Set([
+    "New", "Active", "In Progress", "Follow-up", "Hot Follow-up", "Cold Follow-up", "Admission", "Admitted", "Converted", "Enrolled", "Lost", "Closed",
+    ...enquiries.map(e => e.status)
+  ].filter(Boolean)));
+
   const isCustomDateRangeActive = startDateFilter !== "" || endDateFilter !== "";
 
   // Dynamic metric computations based on actual database entries
@@ -341,15 +377,27 @@ export default function EnquiriesDisplay() {
             
             const sourceColors: Record<string, string> = {
               "Google Ads": "#6366f1",
+              "Meta Ads": "#8b5cf6",
               "Google Search": "#06b6d4",
               "Website": "#f43f5e",
+              "Seminar": "#f59e0b",
+              "Hoarding": "#10b981",
+              "Reference": "#3b82f6",
+              "Direct Walkin": "#ec4899",
+              "Call on Database": "#14b8a6",
               "Other": "#94a3b8"
             };
 
             const tailwindColors: Record<string, string> = {
               "Google Ads": "bg-indigo-500",
+              "Meta Ads": "bg-purple-500",
               "Google Search": "bg-cyan-500",
               "Website": "bg-rose-500",
+              "Seminar": "bg-amber-500",
+              "Hoarding": "bg-emerald-500",
+              "Reference": "bg-blue-500",
+              "Direct Walkin": "bg-pink-500",
+              "Call on Database": "bg-teal-500",
               "Other": "bg-slate-400"
             };
 
@@ -405,7 +453,7 @@ export default function EnquiriesDisplay() {
         {/* Table Title bar */}
         <div className="flex items-center justify-between border-b border-slate-100 p-4 shrink-0 select-none">
           <h2 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Client Directory Leads ({filteredEnquiries.length})</h2>
-          <button className="text-slate-400 hover:text-slate-600 transition-colors">
+          <button onClick={fetchEnquiries} title="Refresh enquiries" className="text-slate-400 hover:text-slate-600 transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4.5 w-4.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
             </svg>
@@ -466,10 +514,32 @@ export default function EnquiriesDisplay() {
                     {/* Advisor dropdown */}
                     <td className="py-4 px-6">
                       <select
-                        defaultValue={lead.assignedCrmAdvisor}
-                        className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-slate-600 focus:outline-none"
+                        value={lead.assignedCrmAdvisor || ""}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={async (e) => {
+                          e.stopPropagation();
+                          const newAdvisor = e.target.value;
+                          try {
+                            const res = await fetch(`/api/enquiries/${lead._id}`, {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ assignedCrmAdvisor: newAdvisor }),
+                            });
+                            if (res.ok) {
+                              fetchEnquiries();
+                            }
+                          } catch (err) {
+                            console.error("Failed to update advisor:", err);
+                          }
+                        }}
+                        className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-slate-600 focus:outline-none hover:border-indigo-300 transition-colors"
                       >
-                        <option value={lead.assignedCrmAdvisor}>{lead.assignedCrmAdvisor}</option>
+                        <option value="">Unassigned</option>
+                        {uniqueAdvisors.map((adv: any) => (
+                          <option key={adv} value={adv}>
+                            {adv}
+                          </option>
+                        ))}
                       </select>
                     </td>
 
@@ -505,10 +575,10 @@ export default function EnquiriesDisplay() {
           
           <div className="flex flex-col items-center">
             <span className="text-xs font-bold text-slate-700">
-              {isCustomDateRangeActive ? "Custom Range Active" : dateOffset === 0 ? "Today's Leads" : dateOffset === 1 ? "Yesterday's Leads" : targetDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+              {isCustomDateRangeActive ? "Custom Range Active" : dateOffset === 0 ? "All Leads (Newest First)" : dateOffset === 1 ? "Yesterday's Leads" : targetDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
             </span>
             <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider mt-0.5">
-              {isCustomDateRangeActive ? "Clear dates to use pagination" : `Page ${dateOffset + 1}`}
+              {isCustomDateRangeActive ? "Clear dates to use pagination" : dateOffset === 0 ? "Showing active directory" : `Page ${dateOffset + 1}`}
             </span>
           </div>
 

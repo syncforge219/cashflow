@@ -29,6 +29,21 @@ export default function EditEnquiryModal({ isOpen, onClose, onSuccess, lead }: E
     return String(phone).replace(/^\+?91\s?/, "").replace(/\D/g, "").slice(0, 10);
   };
 
+  const [counsellors, setCounsellors] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetch("/api/counsellors")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && Array.from(data.counsellors).length > 0) {
+            setCounsellors(data.counsellors);
+          }
+        })
+        .catch(console.error);
+    }
+  }, [isOpen]);
+
   useEffect(() => {
     if (lead) {
       setFormData({
@@ -39,7 +54,7 @@ export default function EditEnquiryModal({ isOpen, onClose, onSuccess, lead }: E
         currentCity: lead.currentCity || "",
         status: lead.status || "New",
         priorityLevel: lead.priorityLevel || "Medium",
-        assignedCrmAdvisor: lead.assignedCrmAdvisor || "Rahul Sharma",
+        assignedCrmAdvisor: lead.assignedCrmAdvisor || "",
         leadSource: lead.leadSource || "Website",
         remarks: lead.remarks || "",
       });
@@ -206,9 +221,13 @@ export default function EditEnquiryModal({ isOpen, onClose, onSuccess, lead }: E
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1.5">CRM Advisor</label>
               <select name="assignedCrmAdvisor" value={formData.assignedCrmAdvisor} onChange={handleChange} className="w-full text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
-                <option value="Rahul Sharma">Rahul Sharma</option>
-                <option value="Chaitanya Singhal">Chaitanya Singhal</option>
-                <option value="Abhigyan Mishra">Abhigyan Mishra</option>
+                <option value="">Unassigned</option>
+                {counsellors.map((c) => (
+                  <option key={c._id || c.name} value={c.name}>{c.name}</option>
+                ))}
+                {formData.assignedCrmAdvisor && !counsellors.some((c) => c.name === formData.assignedCrmAdvisor) && (
+                  <option value={formData.assignedCrmAdvisor}>{formData.assignedCrmAdvisor}</option>
+                )}
               </select>
             </div>
           </div>

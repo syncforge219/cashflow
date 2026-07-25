@@ -15,7 +15,7 @@ export async function PATCH(req: Request) {
     const decoded = await verifyJWT(token);
     if (!decoded) return NextResponse.json({ error: "Invalid token" }, { status: 401 });
 
-    const { name, email, phone, photoUrl, brandLogo } = await req.json();
+    const { name, email, phone, photoUrl, brandLogo, customAppName } = await req.json();
 
     const updateFields: any = {};
     if (name) updateFields.name = name.trim();
@@ -23,6 +23,7 @@ export async function PATCH(req: Request) {
     if (phone !== undefined) updateFields.phone = phone.trim();
     if (photoUrl !== undefined) updateFields.photoUrl = photoUrl.trim();
     if (brandLogo !== undefined) updateFields.brandLogo = brandLogo.trim();
+    if (customAppName !== undefined) updateFields.customAppName = customAppName.trim();
 
     const updatedUser = await User.findByIdAndUpdate(
       decoded.id,
@@ -61,7 +62,8 @@ export async function PATCH(req: Request) {
         role: updatedUser.role,
         phone: (updatedUser as any).phone || "",
         photoUrl: (updatedUser as any).photoUrl || "",
-        brandLogo: (updatedUser as any).brandLogo || ""
+        brandLogo: (updatedUser as any).brandLogo || "",
+        customAppName: (updatedUser as any).customAppName || "Coach"
       }
     });
   } catch (error: any) {

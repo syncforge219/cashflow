@@ -50,6 +50,13 @@ async function dbConnect() {
     );
   }
 
+  // Auto-start / ensure background worker for overdue EMI WhatsApp reminders
+  try {
+    initEmiReminderCron();
+  } catch (err) {
+    console.error("Error initializing EMI cron:", err);
+  }
+
   if (cached.conn && mongoose.connection.readyState === 1) {
     return cached.conn;
   }
@@ -69,8 +76,6 @@ async function dbConnect() {
 
   try {
     cached.conn = await cached.promise;
-    // Auto-start background worker for overdue EMI WhatsApp reminders
-    initEmiReminderCron();
   } catch (e) {
     cached.promise = null;
     cached.conn = null;

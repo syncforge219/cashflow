@@ -66,6 +66,11 @@ const UserSchema = new Schema(
       type: Number,
       default: 0,
     },
+    customAppName: {
+      type: String,
+      default: "Coach",
+      trim: true,
+    },
   },
   {
     timestamps: true,

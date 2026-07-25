@@ -651,3 +651,140 @@ export async function sendWhatsAppCounsellorEmiReminder(params: CounsellorEmiRem
     return { success: false, error: error.message || "Network error during counsellor reminder." };
   }
 }
+
+export interface DemoReminderWhatsAppParams {
+  studentName?: string | null;
+  mobileNumber: string;
+  courseName?: string | null;
+  demoDate: string;
+  demoTime: string;
+  demoMode: string;
+}
+
+/**
+ * Format YYYY-MM-DD to DD-MM-YYYY if applicable
+ */
+export function formatDDMMYYYY(dateStr?: string | null): string {
+  if (!dateStr) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr.trim())) {
+    const [y, m, d] = dateStr.trim().split("-");
+    return `${d}-${m}-${y}`;
+  }
+  return dateStr.trim();
+}
+
+/**
+ * Dispatch MSG91 WhatsApp Outbound Template Message for Demo Class Reminder
+ * Template: "demoreminderforstudent"
+ * Components:
+ *   body_1: Student Name
+ *   body_2: Course Name
+ *   body_3: Demo Date
+ *   body_4: Demo Time
+ *   body_5: Demo Mode
+ */
+export async function sendWhatsAppDemoReminder(params: DemoReminderWhatsAppParams) {
+  try {
+    const authKey = process.env.MSG91_AUTHKEY || "478610A465a065I869fed7fdP1";
+    const integratedNumber = process.env.MSG91_INTEGRATED_NUMBER || "919335913286";
+
+    const formattedPhone = formatPhoneNumber(params.mobileNumber);
+    if (!formattedPhone) {
+      console.warn("MSG91 WhatsApp Warning: Missing or invalid phone number for demo reminder.");
+      return { success: false, error: "Invalid recipient phone number." };
+    }
+
+    const formattedDate = formatDDMMYYYY(params.demoDate);
+
+    const payload = {
+      integrated_number: integratedNumber,
+      content_type: "template",
+      payload: {
+        messaging_product: "whatsapp",
+        type: "template",
+        template: {
+          name: "demoreminderforstudent",
+          language: {
+            code: "en",
+            policy: "deterministic",
+          },
+          namespace: null,
+          to_and_components: [
+            {
+              to: [formattedPhone],
+              components: {
+                body_1: {
+                  type: "text",
+                  value: params.studentName || "Student",
+                },
+                body_2: {
+                  type: "text",
+                  value: params.courseName || "Course",
+                },
+                body_3: {
+                  type: "text",
+                  value: formattedDate || "Scheduled Date",
+                },
+                body_4: {
+                  type: "text",
+                  value: params.demoTime || "11:00 AM",
+                },
+                body_5: {
+                  type: "text",
+                  value: params.demoMode || "Online",
+                },
+              },
+            },
+          ],
+        },
+      },
+    };
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+
+    if (authKey) {
+      headers["authkey"] = authKey;
+    }
+
+    console.log(
+      `MSG91 WhatsApp Sending Demo Reminder (demoreminderforstudent) to ${formattedPhone} for ${params.studentName}...`
+    );
+
+    const response = await fetch(
+      "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/",
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload),
+      }
+    );
+
+    const resText = await response.text();
+    let resJson: any = null;
+    try {
+      resJson = JSON.parse(resText);
+    } catch (_) {}
+
+    console.log("MSG91 Demo Reminder Response:", resText);
+
+    if (response.ok) {
+      return {
+        success: true,
+        data: resJson || resText,
+      };
+    } else {
+      return {
+        success: false,
+        error: resJson?.message || resText || "Failed to send WhatsApp demo reminder message.",
+      };
+    }
+  } catch (error: any) {
+    console.error("MSG91 Demo Reminder Error:", error);
+    return {
+      success: false,
+      error: error.message || "Network error during MSG91 demo reminder dispatch.",
+    };
+  }
+}
