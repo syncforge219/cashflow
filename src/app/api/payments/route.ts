@@ -5,7 +5,7 @@ import Admission from "@/models/Admission";
 import Company from "@/models/Company";
 import Brand from "@/models/Brand";
 import { getUserFromCookies } from "@/lib/helper";
-import { sendWhatsAppFeeReceipt } from "@/lib/msg91";
+import { sendWhatsAppFeeReceipt, sendWhatsAppCompanyCapacityAlert } from "@/lib/msg91";
 import { sendFeePaymentReceiptEmail } from "@/lib/emailService";
 
 
@@ -98,12 +98,29 @@ export async function POST(req: Request) {
         }
       }
 
-      // Update Ledger (increment collectedRevenue)
+      // Update Ledger (increment collectedRevenue) & check 95% capacity threshold
       if (finalCompany && finalCompany !== "Cash" && finalCompany !== "Unallocated") {
-        await Company.updateOne(
+        const updatedComp = await Company.findOneAndUpdate(
           { name: finalCompany },
-          { $inc: { collectedRevenue: Number(amountReceived) } }
+          { $inc: { collectedRevenue: Number(amountReceived) } },
+          { new: true }
         );
+
+        if (updatedComp) {
+          const cap = updatedComp.annualCapacityCap || 1949999;
+          const collected = updatedComp.collectedRevenue || 0;
+          const pct = cap > 0 ? (collected / cap) * 100 : 0;
+
+          // Automatically send WhatsApp notification to Admin when capacity reaches 95%+
+          if (pct >= 95) {
+            sendWhatsAppCompanyCapacityAlert({
+              companyName: updatedComp.name,
+              collectedRevenue: collected,
+              annualCapacityCap: cap,
+              capacityPercentage: pct,
+            }).catch((err) => console.error("[Payment API] WhatsApp 95% Capacity Alert error:", err));
+          }
+        }
       }
       
       // Lock future payments

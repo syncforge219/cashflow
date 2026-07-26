@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Company from "@/models/Company";
+import { sendWhatsAppCompanyCapacityAlert } from "@/lib/msg91";
 
 export async function DELETE(
   req: Request,
@@ -41,6 +42,20 @@ export async function PUT(
     if (!updated) {
       return NextResponse.json({ error: "Company not found" }, { status: 404 });
     }
+
+    const cap = updated.annualCapacityCap || 1949999;
+    const collected = updated.collectedRevenue || 0;
+    const pct = cap > 0 ? (collected / cap) * 100 : 0;
+
+    if (pct >= 95) {
+      sendWhatsAppCompanyCapacityAlert({
+        companyName: updated.name,
+        collectedRevenue: collected,
+        annualCapacityCap: cap,
+        capacityPercentage: pct,
+      }).catch((err) => console.error("[Company PUT API] WhatsApp 95% Capacity Alert error:", err));
+    }
+
     return NextResponse.json({ success: true, company: updated });
   } catch (error: any) {
     console.error("Update Company Error:", error);
