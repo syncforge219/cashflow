@@ -14,7 +14,7 @@ interface TooltipItem {
   category?: string;
 }
 
-// Helper to format values nicely above vertical bars (e.g. ₹3.38L, ₹90k, ₹0)
+// Helper to format values nicely above vertical bars (e.g. ₹3.4L, ₹90k, ₹0)
 function formatCompactRupees(val: number) {
   if (!val || val === 0) return "₹0";
   if (val >= 100000) return `₹${(val / 100000).toFixed(1)}L`;
@@ -297,10 +297,10 @@ function SvgLineGraph({
   );
 }
 
-// 4. ELEGANT VERTICAL BAR GRAPH WITH COMPACT NUMBERS DISPLAYED DIRECTLY ON TOP OF EVERY BAR
+// 4. VERTICAL BAR GRAPH WITH SINGLE STRAIGHT BASELINE & FULL ANGLED UNTRUNCATED LABELS
 function SvgBarGraph({
   data,
-  height = 250,
+  height = 300,
   color1 = "#10b981",
   color2 = "#ef4444",
   label1 = "Money In",
@@ -323,7 +323,8 @@ function SvgBarGraph({
 
   return (
     <div className="w-full flex flex-col items-center">
-      <div className="flex items-center gap-4 text-xs font-bold mb-3">
+      {/* Legend */}
+      <div className="flex items-center gap-4 text-xs font-bold mb-4">
         <span className="flex items-center gap-1.5" style={{ color: color1 }}>
           <span className="w-3 h-3 rounded-md" style={{ backgroundColor: color1 }} /> {label1}
         </span>
@@ -334,62 +335,68 @@ function SvgBarGraph({
         )}
       </div>
 
-      <div className="w-full flex items-end justify-around gap-2 border-b border-slate-200/80 pt-8 pb-3 px-2 overflow-x-auto min-h-[240px] relative" style={{ height: `${height}px` }}>
-        {/* Background Subtle Grid Lines */}
-        <div className="absolute inset-x-2 top-8 bottom-8 flex flex-col justify-between pointer-events-none opacity-40">
-          <div className="border-b border-dashed border-slate-200 w-full" />
-          <div className="border-b border-dashed border-slate-200 w-full" />
-          <div className="border-b border-dashed border-slate-200 w-full" />
-        </div>
+      {/* Main Chart Section */}
+      <div className="w-full pt-6 pb-28 px-2 overflow-x-auto relative">
+        {/* Bars Container resting on a crisp straight baseline */}
+        <div className="w-full flex items-end justify-around gap-4 border-b-2 border-slate-300 relative min-h-[170px]" style={{ height: `${height - 110}px` }}>
+          {/* Subtle Grid lines */}
+          <div className="absolute inset-x-0 top-0 bottom-0 flex flex-col justify-between pointer-events-none opacity-30">
+            <div className="border-b border-dashed border-slate-200 w-full" />
+            <div className="border-b border-dashed border-slate-200 w-full" />
+            <div className="border-b border-dashed border-slate-200 w-full" />
+          </div>
 
-        {data.map((item, idx) => {
-          const h1 = Math.max(5, Math.round(((item.bar1 || 0) / maxVal) * 100));
-          const h2 = item.bar2 !== undefined ? Math.max(5, Math.round(((item.bar2 || 0) / maxVal) * 100)) : null;
+          {data.map((item, idx) => {
+            const h1 = Math.max(5, Math.round(((item.bar1 || 0) / maxVal) * 100));
+            const h2 = item.bar2 !== undefined ? Math.max(5, Math.round(((item.bar2 || 0) / maxVal) * 100)) : null;
 
-          const shortLabel = item.label.length > 18 ? item.label.substring(0, 16) + "..." : item.label;
-
-          return (
-            <div key={idx} className="flex-1 min-w-[70px] max-w-[130px] flex flex-col items-center justify-end h-full group relative z-10">
-              <div className="w-full flex items-end justify-center gap-1.5 h-full">
-                {/* Bar 1: Money In */}
-                <div className="w-1/2 flex flex-col items-center justify-end h-full">
-                  <span className="text-[9px] font-black text-emerald-600 mb-1 opacity-90 group-hover:opacity-100 transition-opacity">
-                    {formatCompactRupees(item.bar1)}
-                  </span>
-                  <div
-                    className="w-full rounded-t-lg transition-all duration-200 hover:opacity-80 cursor-pointer shadow-sm"
-                    style={{ height: `${h1}%`, backgroundColor: color1 }}
-                    onMouseEnter={(e) => onHover({ name: `${item.label} (${label1})`, value: item.bar1, category: "MONEY IN" }, e)}
-                    onMouseMove={(e) => onHover({ name: `${item.label} (${label1})`, value: item.bar1, category: "MONEY IN" }, e)}
-                    onMouseLeave={onLeave}
-                  />
-                </div>
-
-                {/* Bar 2: Money Out */}
-                {h2 !== null && (
+            return (
+              <div key={idx} className="flex-1 min-w-[70px] max-w-[120px] flex flex-col items-center justify-end h-full group relative z-10">
+                <div className="w-full flex items-end justify-center gap-1.5 h-full">
+                  {/* Bar 1: Money In */}
                   <div className="w-1/2 flex flex-col items-center justify-end h-full">
-                    <span className="text-[9px] font-black text-rose-600 mb-1 opacity-90 group-hover:opacity-100 transition-opacity">
-                      {formatCompactRupees(item.bar2 || 0)}
+                    <span className="text-[9px] font-black text-emerald-600 mb-1 opacity-90 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                      {formatCompactRupees(item.bar1)}
                     </span>
                     <div
                       className="w-full rounded-t-lg transition-all duration-200 hover:opacity-80 cursor-pointer shadow-sm"
-                      style={{ height: `${h2}%`, backgroundColor: color2 }}
-                      onMouseEnter={(e) => onHover({ name: `${item.label} (${label2})`, value: item.bar2 || 0, category: "MONEY OUT" }, e)}
-                      onMouseMove={(e) => onHover({ name: `${item.label} (${label2})`, value: item.bar2 || 0, category: "MONEY OUT" }, e)}
+                      style={{ height: `${h1}%`, backgroundColor: color1 }}
+                      onMouseEnter={(e) => onHover({ name: `${item.label} (${label1})`, value: item.bar1, category: "MONEY IN" }, e)}
+                      onMouseMove={(e) => onHover({ name: `${item.label} (${label1})`, value: item.bar1, category: "MONEY IN" }, e)}
                       onMouseLeave={onLeave}
                     />
                   </div>
-                )}
+
+                  {/* Bar 2: Money Out */}
+                  {h2 !== null && (
+                    <div className="w-1/2 flex flex-col items-center justify-end h-full">
+                      <span className="text-[9px] font-black text-rose-600 mb-1 opacity-90 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                        {formatCompactRupees(item.bar2 || 0)}
+                      </span>
+                      <div
+                        className="w-full rounded-t-lg transition-all duration-200 hover:opacity-80 cursor-pointer shadow-sm"
+                        style={{ height: `${h2}%`, backgroundColor: color2 }}
+                        onMouseEnter={(e) => onHover({ name: `${item.label} (${label2})`, value: item.bar2 || 0, category: "MONEY OUT" }, e)}
+                        onMouseMove={(e) => onHover({ name: `${item.label} (${label2})`, value: item.bar2 || 0, category: "MONEY OUT" }, e)}
+                        onMouseLeave={onLeave}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* FULL UNTRUNCATED COMPANY NAME ANGLED BELOW THE STRAIGHT BASELINE LINE */}
+                <div className="absolute top-full left-1/2 pt-3 transform -translate-x-1/2 pointer-events-none">
+                  <span
+                    className="block text-[10.5px] font-black text-slate-700 whitespace-nowrap transform -rotate-40 origin-top-left group-hover:text-indigo-600 transition-colors pointer-events-auto"
+                    title={item.label}
+                  >
+                    {item.label}
+                  </span>
+                </div>
               </div>
-              <span
-                className="text-[10px] font-bold text-slate-700 mt-2 text-center line-clamp-2 max-w-full px-0.5 leading-tight group-hover:text-indigo-600 transition-colors"
-                title={item.label}
-              >
-                {shortLabel}
-              </span>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -604,10 +611,10 @@ export default function CfoDashboardPage() {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="bg-indigo-50 text-indigo-700 border border-indigo-100 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                📊 PREMIUM BAR CHARTS & DATA TABLES
+                📊 PERFECT BASELINE & FULL COMPANY NAMES
               </span>
               <span className="text-slate-400 text-xs font-semibold">
-                Direct rupee value badges on all bars + exact numbers tables
+                Single straight baseline line + full angled company names
               </span>
             </div>
             <h1 className="text-2xl font-black tracking-tight text-slate-900 font-sans">
@@ -825,7 +832,7 @@ export default function CfoDashboardPage() {
 
             <SvgBarGraph
               data={quarterlyBarData}
-              height={230}
+              height={300}
               color1="#4f46e5"
               color2="#ef4444"
               label1="Money In"
@@ -909,14 +916,14 @@ export default function CfoDashboardPage() {
           </div>
         </div>
 
-        {/* 6 & 7. COMPANY & BRAND VERTICAL BAR GRAPHS WITH TOP RUPEE VALUE BADGES AND TABLES */}
+        {/* 6 & 7. COMPANY & BRAND VERTICAL BAR GRAPHS WITH STRAIGHT BASELINE & FULL UNTRUNCATED ANGLED NAMES */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* 6. COMPANY TAG VERTICAL BARS & TABLE */}
           <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-5">
             <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
               <div>
                 <h3 className="text-base font-extrabold text-slate-800">📊 6. Company-wise Income & Expense Bar Graph</h3>
-                <p className="text-xs text-slate-400 font-medium">Vertical bars with rupee value badges directly on top of each bar</p>
+                <p className="text-xs text-slate-400 font-medium">Single straight baseline origin line with full untruncated company names</p>
               </div>
               <Link href="/companies" className="text-xs font-bold text-indigo-600 hover:underline">Manage Companies →</Link>
             </div>
@@ -926,7 +933,7 @@ export default function CfoDashboardPage() {
             ) : (
               <SvgBarGraph
                 data={companyBarData}
-                height={250}
+                height={300}
                 color1="#10b981"
                 color2="#f43f5e"
                 label1="Money In"
@@ -973,7 +980,7 @@ export default function CfoDashboardPage() {
             <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
               <div>
                 <h3 className="text-base font-extrabold text-slate-800">📊 7. Brand-wise Income & Expense Bar Graph</h3>
-                <p className="text-xs text-slate-400 font-medium">Vertical bars with rupee value badges directly on top of each bar</p>
+                <p className="text-xs text-slate-400 font-medium">Single straight baseline origin line with full untruncated brand names</p>
               </div>
               <Link href="/admin-dashboard/brands" className="text-xs font-bold text-indigo-600 hover:underline">Manage Brands →</Link>
             </div>
@@ -983,7 +990,7 @@ export default function CfoDashboardPage() {
             ) : (
               <SvgBarGraph
                 data={brandBarData}
-                height={250}
+                height={300}
                 color1="#8b5cf6"
                 color2="#f59e0b"
                 label1="Money In"
