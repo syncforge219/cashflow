@@ -1,6 +1,6 @@
-"use client";
-
 import React, { useState, useEffect } from "react";
+import ExcelJS from "exceljs";
+import { saveAs } from "file-saver";
 import Sidebar from "@/components/Sidebar";
 import ProfileDisplay from "@/components/ProfileDisplay";
 import { useUser } from "@/app/component/context/user-context";
@@ -8,12 +8,14 @@ import { useUser } from "@/app/component/context/user-context";
 interface ExpenseRecord {
   _id: string;
   title: string;
-  category: "Rent" | "Marketing / Ads" | "Utilities" | "Software / Tools" | "Office Supplies" | "Travel" | "Misc";
+  category: string;
   amount: number;
   expenseDate: string;
   paymentMode: string;
   brand?: string;
   company?: string;
+  bank?: string;
+  expenseType?: "variable" | "fixed";
   recordedBy?: string;
   isRecurring?: boolean;
   recurringFrequency?: string;
@@ -47,10 +49,120 @@ export default function ExpensesPage() {
     paymentMode: "UPI",
     brand: "All Brands",
     company: "All Companies",
+    bank: "",
+    expenseType: "variable",
     isRecurring: false,
     recurringFrequency: "Monthly",
     remarks: "",
   });
+
+  // Excel Report Generator matching user screenshot format
+  const handleExportExcel = async () => {
+    if (!expenses || expenses.length === 0) {
+      alert("No expense records available to export.");
+      return;
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Expense Report");
+
+    // Header Row (Row 1) matching user screenshot styling (#b4d7a8 green fill)
+    const headerRow = sheet.addRow([
+      "s.no",
+      "Date",
+      "Category",
+      "Description",
+      "DEBIT AMOUNT",
+      "PAYMENT",
+      "Company",
+      "Brand",
+      "BANK",
+      "VARIABLE / FIXED",
+    ]);
+
+    headerRow.eachCell((cell) => {
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFB4D7A8" }, // Light green matching screenshot
+      };
+      cell.font = {
+        bold: true,
+        color: { argb: "FF000000" },
+        name: "Arial",
+        size: 10,
+      };
+      cell.alignment = { vertical: "middle", horizontal: "left" };
+      cell.border = {
+        top: { style: "thin", color: { argb: "FF000000" } },
+        left: { style: "thin", color: { argb: "FF000000" } },
+        bottom: { style: "thin", color: { argb: "FF000000" } },
+        right: { style: "thin", color: { argb: "FF000000" } },
+      };
+    });
+
+    // Populate Data Rows
+    expenses.forEach((exp, idx) => {
+      const formattedDate = exp.expenseDate
+        ? new Date(exp.expenseDate).toLocaleDateString("en-US", {
+            month: "numeric",
+            day: "numeric",
+            year: "numeric",
+          })
+        : "";
+
+      const companyVal = (exp.company && exp.company !== "All Companies") ? exp.company : "";
+      const brandVal = (exp.brand && exp.brand !== "All Brands") ? exp.brand : "";
+
+      const row = sheet.addRow([
+        idx + 1,
+        formattedDate,
+        exp.category || "Misc",
+        exp.title || "",
+        exp.amount || 0,
+        exp.paymentMode || "Cash",
+        companyVal,
+        brandVal,
+        exp.bank || "",
+        exp.expenseType || "variable",
+      ]);
+
+      row.eachCell((cell, colNumber) => {
+        cell.font = { name: "Arial", size: 10 };
+        cell.border = {
+          top: { style: "thin", color: { argb: "FF000000" } },
+          left: { style: "thin", color: { argb: "FF000000" } },
+          bottom: { style: "thin", color: { argb: "FF000000" } },
+          right: { style: "thin", color: { argb: "FF000000" } },
+        };
+
+        if (colNumber === 5) {
+          cell.numFmt = "#,##0";
+          cell.alignment = { horizontal: "right" };
+        }
+      });
+    });
+
+    // Set Column Widths
+    sheet.columns = [
+      { width: 8 },  // s.no
+      { width: 14 }, // Date
+      { width: 24 }, // Category
+      { width: 36 }, // Description
+      { width: 18 }, // DEBIT AMOUNT
+      { width: 14 }, // PAYMENT
+      { width: 18 }, // Company
+      { width: 16 }, // Brand
+      { width: 12 }, // BANK
+      { width: 18 }, // VARIABLE / FIXED
+    ];
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    saveAs(blob, `Expense_Report_${new Date().toISOString().split("T")[0]}.xlsx`);
+  };
 
   useEffect(() => {
     fetch("/api/brands")
@@ -188,6 +300,8 @@ export default function ExpensesPage() {
           paymentMode: "UPI",
           brand: "All Brands",
           company: "All Companies",
+          bank: "",
+          expenseType: "variable",
           isRecurring: false,
           recurringFrequency: "Monthly",
           remarks: "",
@@ -246,6 +360,15 @@ export default function ExpensesPage() {
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={handleExportExcel}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/20 transition-all flex items-center gap-2 cursor-pointer"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              <span>Export Expense Report (Excel)</span>
+            </button>
             <button
               onClick={() => setIsModalOpen(true)}
               className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-md shadow-rose-600/20 transition-all flex items-center gap-2 cursor-pointer"
@@ -364,8 +487,9 @@ export default function ExpensesPage() {
                   <th className="pb-3">Category</th>
                   <th className="pb-3">Brand Tag</th>
                   <th className="pb-3">Company Tag</th>
+                  <th className="pb-3">Bank</th>
+                  <th className="pb-3">Nature</th>
                   <th className="pb-3 text-right">Amount</th>
-                  <th className="pb-3 text-center">Recurring</th>
                   <th className="pb-3">Payment Mode</th>
                   <th className="pb-3">Date</th>
                   <th className="pb-3 text-right">Actions</th>
@@ -374,13 +498,13 @@ export default function ExpensesPage() {
               <tbody className="divide-y divide-slate-100/60 font-semibold text-slate-600">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={9} className="py-8 text-center text-slate-400">
+                    <td colSpan={10} className="py-8 text-center text-slate-400">
                       Loading expenses...
                     </td>
                   </tr>
                 ) : expenses.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-8 text-center text-slate-400">
+                    <td colSpan={10} className="py-8 text-center text-slate-400">
                       No expense records found. Click &quot;Record Expense&quot; to add one.
                     </td>
                   </tr>
@@ -393,18 +517,15 @@ export default function ExpensesPage() {
                           {e.category}
                         </span>
                       </td>
-                      <td className="text-slate-600">{e.brand || "All Brands"}</td>
-                      <td className="text-slate-600">{e.company || "All Companies"}</td>
-                      <td className="text-right font-black text-rose-600">₹{e.amount.toLocaleString("en-IN")}</td>
-                      <td className="text-center">
-                        {e.isRecurring ? (
-                          <span className="px-2 py-0.5 rounded-md text-[9px] font-extrabold bg-purple-50 text-purple-700 border border-purple-200">
-                            🔁 {e.recurringFrequency || "Monthly"}
-                          </span>
-                        ) : (
-                          <span className="text-[10px] text-slate-300 font-normal">One-time</span>
-                        )}
+                      <td className="text-slate-600">{e.brand || "-"}</td>
+                      <td className="text-slate-600">{e.company || "-"}</td>
+                      <td className="text-slate-600 font-bold">{e.bank || "-"}</td>
+                      <td>
+                        <span className={`px-2 py-0.5 rounded-md text-[9px] font-extrabold ${e.expenseType === "fixed" ? "bg-indigo-50 text-indigo-700 border border-indigo-200" : "bg-slate-100 text-slate-600"}`}>
+                          {e.expenseType || "variable"}
+                        </span>
                       </td>
+                      <td className="text-right font-black text-rose-600">₹{e.amount.toLocaleString("en-IN")}</td>
                       <td className="text-slate-500">{e.paymentMode}</td>
                       <td className="text-slate-500 text-[11px]">
                         {new Date(e.expenseDate).toLocaleDateString("en-IN", {
@@ -564,6 +685,30 @@ export default function ExpensesPage() {
                       <option key={c} value={c}>{c}</option>
                     ))}
                   </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-600 mb-1 font-semibold text-xs">Bank Name (Optional)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. BOI, ICICI, HDFC"
+                      value={formData.bank}
+                      onChange={(e) => setFormData({ ...formData, bank: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-xs font-semibold text-slate-800"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 mb-1 font-semibold text-xs">Expense Nature</label>
+                    <select
+                      value={formData.expenseType}
+                      onChange={(e) => setFormData({ ...formData, expenseType: e.target.value as "variable" | "fixed" })}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-xs font-semibold text-slate-800 bg-white cursor-pointer"
+                    >
+                      <option value="variable">variable</option>
+                      <option value="fixed">fixed</option>
+                    </select>
+                  </div>
                 </div>
 
                 <div>

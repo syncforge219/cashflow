@@ -21,7 +21,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
   // Filter States
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [activeReportTab, setActiveReportTab] = useState<"super" | "leads" | "counsellors" | "brandManagers">("super");
+  const [activeReportTab, setActiveReportTab] = useState<"super" | "leads" | "counsellors" | "brandManagers" | "expenses">("super");
 
   // Status & Loaders
   const [isGenerating, setIsGenerating] = useState(false);
@@ -133,6 +133,9 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
       } else if (activeReportTab === "brandManagers") {
         setMessage({ text: "Building Brand Manager Performance Excel...", type: "info" });
         await generateBrandManagerExcel(master);
+      } else if (activeReportTab === "expenses") {
+        setMessage({ text: "Building Operational Expense Report Excel...", type: "info" });
+        await generateExpenseExcel(master);
       }
 
       setMessage({ text: "Report downloaded successfully!", type: "success" });
@@ -474,6 +477,106 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
     saveAs(new Blob([buffer]), `BrandManager_Performance_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
+  // ══════════════════════════════════════════════════════════
+  // 5. OPERATIONAL EXPENSE REPORT GENERATOR (MATCHING USER EXCEL FORMAT)
+  // ══════════════════════════════════════════════════════════
+  const generateExpenseExcel = async (master: any) => {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Expense Report");
+
+    // Header Row (Row 1) matching user screenshot styling (#b4d7a8 green fill)
+    const headerRow = sheet.addRow([
+      "s.no",
+      "Date",
+      "Category",
+      "Description",
+      "DEBIT AMOUNT",
+      "PAYMENT",
+      "Company",
+      "Brand",
+      "BANK",
+      "VARIABLE / FIXED",
+    ]);
+
+    headerRow.eachCell((cell) => {
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFB4D7A8" }, // Light green matching screenshot
+      };
+      cell.font = {
+        bold: true,
+        color: { argb: "FF000000" },
+        name: "Arial",
+        size: 10,
+      };
+      cell.alignment = { vertical: "middle", horizontal: "left" };
+      cell.border = {
+        top: { style: "thin", color: { argb: "FF000000" } },
+        left: { style: "thin", color: { argb: "FF000000" } },
+        bottom: { style: "thin", color: { argb: "FF000000" } },
+        right: { style: "thin", color: { argb: "FF000000" } },
+      };
+    });
+
+    (master.expenses || []).forEach((exp: any, idx: number) => {
+      const formattedDate = exp.expenseDate
+        ? new Date(exp.expenseDate).toLocaleDateString("en-US", {
+            month: "numeric",
+            day: "numeric",
+            year: "numeric",
+          })
+        : "";
+
+      const companyVal = (exp.company && exp.company !== "All Companies") ? exp.company : "";
+      const brandVal = (exp.brand && exp.brand !== "All Brands") ? exp.brand : "";
+
+      const row = sheet.addRow([
+        idx + 1,
+        formattedDate,
+        exp.category || "Misc",
+        exp.title || "",
+        Number(exp.amount) || 0,
+        exp.paymentMode || "Cash",
+        companyVal,
+        brandVal,
+        exp.bank || "",
+        exp.expenseType || "variable",
+      ]);
+
+      row.eachCell((cell, colNumber) => {
+        cell.font = { name: "Arial", size: 10 };
+        cell.border = {
+          top: { style: "thin", color: { argb: "FF000000" } },
+          left: { style: "thin", color: { argb: "FF000000" } },
+          bottom: { style: "thin", color: { argb: "FF000000" } },
+          right: { style: "thin", color: { argb: "FF000000" } },
+        };
+
+        if (colNumber === 5) {
+          cell.numFmt = "#,##0";
+          cell.alignment = { horizontal: "right" };
+        }
+      });
+    });
+
+    sheet.columns = [
+      { width: 8 },  // s.no
+      { width: 14 }, // Date
+      { width: 24 }, // Category
+      { width: 36 }, // Description
+      { width: 18 }, // DEBIT AMOUNT
+      { width: 14 }, // PAYMENT
+      { width: 18 }, // Company
+      { width: 16 }, // Brand
+      { width: 12 }, // BANK
+      { width: 18 }, // VARIABLE / FIXED
+    ];
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    saveAs(new Blob([buffer]), `Operational_Expense_Report_${new Date().toISOString().split("T")[0]}.xlsx`);
+  };
+
   return (
     <div className="flex h-screen bg-[#f8faff] text-slate-800 font-sans overflow-hidden">
       {role === "admin" ? <Sidebar /> : <ManagerSidebar />}
@@ -570,12 +673,13 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
             <div className="p-6 space-y-6">
               
               {/* REPORT TYPE SELECTOR TABS */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                 {[
                   { id: "super", label: "🌟 Super Master Report", desc: "Sheet 1: All Brands & Companies Summary + Separate sheets for each Brand & Company" },
                   { id: "leads", label: "📥 Leads & Enquiries", desc: "Full enquiry database register with contact, status & demo details" },
                   { id: "counsellors", label: "🏆 Sales Executive Performance", desc: "Per-sales executive leads, demos, admissions & fee collection scorecard" },
-                  { id: "brandManagers", label: "🏢 Centre Head Analytics", desc: "Centre head performance, active staff & revenue per brand" }
+                  { id: "brandManagers", label: "🏢 Centre Head Analytics", desc: "Centre head performance, active staff & revenue per brand" },
+                  { id: "expenses", label: "📊 Operational Expenses", desc: "Category, description, debit amount, payment mode, company, brand, bank & nature" }
                 ].map((tab) => (
                   <button
                     key={tab.id}
