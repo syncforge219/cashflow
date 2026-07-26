@@ -3,21 +3,6 @@
 import React, { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
 import Link from "next/link";
-import {
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from "recharts";
 
 export default function CfoDashboardPage() {
   const [loading, setLoading] = useState(true);
@@ -70,7 +55,6 @@ export default function CfoDashboardPage() {
   const paymentModeDistribution = dashboardData?.paymentModeDistribution || [];
   const companyFinancials = dashboardData?.companyFinancials || [];
   const recentExpenses = dashboardData?.expenses || [];
-  const recentPayments = dashboardData?.payments || [];
 
   const COLORS = ["#4f46e5", "#10b981", "#8b5cf6", "#f59e0b", "#ef4444", "#06b6d4", "#ec4899"];
 
@@ -188,8 +172,8 @@ export default function CfoDashboardPage() {
                   ₹{summary.totalExpenses.toLocaleString("en-IN")}
                 </div>
                 <div className="text-[11px] font-bold text-slate-500 mt-1 flex items-center justify-between">
-                  <span>Variable: ₹{summary.variableExpenses.toLocaleString("en-IN")}</span>
-                  <span>Fixed: ₹{summary.fixedExpenses.toLocaleString("en-IN")}</span>
+                  <span>Var: ₹{summary.variableExpenses.toLocaleString("en-IN")}</span>
+                  <span>Fix: ₹{summary.fixedExpenses.toLocaleString("en-IN")}</span>
                 </div>
               </div>
             </div>
@@ -270,7 +254,7 @@ export default function CfoDashboardPage() {
 
           {/* Graphical Visual Analytics Section */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Chart 1: Revenue vs Expense Monthly Trend (2 Cols) */}
+            {/* Chart 1: Revenue vs Expense Monthly Trend */}
             <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm">
               <div className="flex items-center justify-between mb-6">
                 <div>
@@ -281,46 +265,46 @@ export default function CfoDashboardPage() {
                     Comparative timeline of collections vs. operating disbursements
                   </p>
                 </div>
-                <span className="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full border border-indigo-100">
-                  Last 6 Months
-                </span>
+                <div className="flex items-center gap-3 text-xs font-bold">
+                  <span className="flex items-center gap-1.5 text-emerald-600">
+                    <span className="w-3 h-3 rounded bg-emerald-500"></span> Fee Revenue
+                  </span>
+                  <span className="flex items-center gap-1.5 text-rose-500">
+                    <span className="w-3 h-3 rounded bg-rose-500"></span> Expenses
+                  </span>
+                </div>
               </div>
 
-              <div className="h-72 w-full">
-                {loading ? (
-                  <div className="h-full flex items-center justify-center text-xs font-bold text-slate-400 animate-pulse">
-                    Loading trend analytics...
-                  </div>
-                ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={monthlyTrends}>
-                      <defs>
-                        <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
-                          <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                        </linearGradient>
-                        <linearGradient id="colorExp" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#ef4444" stopOpacity={0.4} />
-                          <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                      <XAxis dataKey="month" tick={{ fontSize: 11, fontWeight: 600 }} />
-                      <YAxis tick={{ fontSize: 11 }} />
-                      <Tooltip
-                        formatter={(val: any) => [`₹${Number(val).toLocaleString("en-IN")}`, ""]}
-                        contentStyle={{ borderRadius: "12px", fontSize: "12px", fontWeight: "bold" }}
-                      />
-                      <Legend wrapperStyle={{ fontSize: "12px", fontWeight: "bold" }} />
-                      <Area type="monotone" dataKey="revenue" name="Fee Revenue" stroke="#10b981" fillOpacity={1} fill="url(#colorRev)" strokeWidth={2.5} />
-                      <Area type="monotone" dataKey="expense" name="Expenses" stroke="#ef4444" fillOpacity={1} fill="url(#colorExp)" strokeWidth={2.5} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                )}
+              <div className="h-64 w-full flex items-end gap-3 pt-8 pb-4 px-2 border-b border-slate-100">
+                {monthlyTrends.map((t: any) => {
+                  const maxVal = Math.max(...monthlyTrends.map((m: any) => Math.max(m.revenue, m.expense, 1)));
+                  const revH = (t.revenue / maxVal) * 100;
+                  const expH = (t.expense / maxVal) * 100;
+
+                  return (
+                    <div key={t.month} className="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
+                      <div className="w-full flex items-end justify-center gap-1.5 h-full">
+                        {/* Revenue Bar */}
+                        <div
+                          className="w-1/2 bg-emerald-500 rounded-t-lg transition-all hover:opacity-90 relative"
+                          style={{ height: `${Math.max(revH, 4)}%` }}
+                          title={`Revenue: ₹${t.revenue.toLocaleString("en-IN")}`}
+                        />
+                        {/* Expense Bar */}
+                        <div
+                          className="w-1/2 bg-rose-500 rounded-t-lg transition-all hover:opacity-90 relative"
+                          style={{ height: `${Math.max(expH, 4)}%` }}
+                          title={`Expenses: ₹${t.expense.toLocaleString("en-IN")}`}
+                        />
+                      </div>
+                      <span className="text-[11px] font-bold text-slate-600">{t.month}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Chart 2: Category Expense Allocation (1 Col) */}
+            {/* Chart 2: Category Expense Share */}
             <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col">
               <div className="mb-4">
                 <h3 className="text-base font-extrabold text-slate-800">
@@ -331,61 +315,46 @@ export default function CfoDashboardPage() {
                 </p>
               </div>
 
-              <div className="h-56 w-full flex items-center justify-center">
-                {loading ? (
-                  <div className="text-xs font-bold text-slate-400 animate-pulse">
-                    Loading categories...
+              {/* Visual Category List */}
+              <div className="space-y-3 flex-1 flex flex-col justify-center">
+                {categoryBreakdown.length === 0 ? (
+                  <div className="text-xs font-semibold text-slate-400 text-center py-8">
+                    No expense records recorded yet
                   </div>
-                ) : categoryBreakdown.length === 0 ? (
-                  <div className="text-xs font-semibold text-slate-400">No expense records</div>
                 ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={categoryBreakdown}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={50}
-                        outerRadius={80}
-                        paddingAngle={4}
-                        dataKey="value"
-                      >
-                        {categoryBreakdown.map((entry: any, index: number) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(val: any) => [`₹${Number(val).toLocaleString("en-IN")}`, "Amount"]} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
+                  categoryBreakdown.slice(0, 5).map((cat: any, idx: number) => {
+                    const totalExp = summary.totalExpenses || 1;
+                    const pct = Math.min(100, Math.round((cat.value / totalExp) * 100));
+                    const color = COLORS[idx % COLORS.length];
 
-              {/* Category Legend List */}
-              <div className="mt-2 space-y-1.5 max-h-36 overflow-y-auto pr-1">
-                {categoryBreakdown.slice(0, 5).map((cat: any, idx: number) => (
-                  <div key={cat.name} className="flex items-center justify-between text-xs font-semibold">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="w-2.5 h-2.5 rounded-full"
-                        style={{ backgroundColor: COLORS[idx % COLORS.length] }}
-                      />
-                      <span className="text-slate-700 truncate max-w-[120px]">{cat.name}</span>
-                    </div>
-                    <span className="font-bold text-slate-900">₹{cat.value.toLocaleString("en-IN")}</span>
-                  </div>
-                ))}
+                    return (
+                      <div key={cat.name} className="space-y-1">
+                        <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                          <span className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
+                            <span className="truncate max-w-[130px]">{cat.name}</span>
+                          </span>
+                          <span>₹{cat.value.toLocaleString("en-IN")} ({pct}%)</span>
+                        </div>
+                        <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
           </div>
 
-          {/* Company Financial Performance & Payment Mode Share */}
+          {/* Company Financial Performance & Payment Method Breakdown */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Chart 3: Company Tag Financial Matrix */}
             <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-base font-extrabold text-slate-800">
-                    🏢 Company Tag Financial Breakdown
+                    🏢 Company Tag Financial Matrix
                   </h3>
                   <p className="text-xs font-medium text-slate-400">
                     Revenue & Expenses segregated by registered corporate entity
@@ -399,23 +368,30 @@ export default function CfoDashboardPage() {
                 </Link>
               </div>
 
-              <div className="h-64 w-full">
-                {loading ? (
-                  <div className="h-full flex items-center justify-center text-xs font-bold text-slate-400 animate-pulse">
-                    Loading company metrics...
+              <div className="space-y-4">
+                {companyFinancials.length === 0 ? (
+                  <div className="text-center py-6 text-xs text-slate-400 font-semibold">
+                    No company tag data available
                   </div>
                 ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={companyFinancials}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                      <XAxis dataKey="name" tick={{ fontSize: 11, fontWeight: 600 }} />
-                      <YAxis tick={{ fontSize: 11 }} />
-                      <Tooltip formatter={(val: any) => [`₹${Number(val).toLocaleString("en-IN")}`, ""]} />
-                      <Legend wrapperStyle={{ fontSize: "12px", fontWeight: "bold" }} />
-                      <Bar dataKey="revenue" name="Revenue Billed" fill="#4f46e5" radius={[6, 6, 0, 0]} />
-                      <Bar dataKey="expense" name="Expenses Billed" fill="#f43f5e" radius={[6, 6, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  companyFinancials.map((comp: any) => (
+                    <div key={comp.name} className="p-3.5 bg-slate-50 border border-slate-200/60 rounded-xl space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-extrabold text-slate-800">{comp.name}</span>
+                        <span className={`text-xs font-black ${comp.net >= 0 ? "text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200" : "text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200"}`}>
+                          Net: ₹{comp.net.toLocaleString("en-IN")}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-[11px] font-bold text-slate-600">
+                        <div className="bg-white p-2 rounded-lg border border-slate-200/60">
+                          Revenue: <span className="text-emerald-600">₹{comp.revenue.toLocaleString("en-IN")}</span>
+                        </div>
+                        <div className="bg-white p-2 rounded-lg border border-slate-200/60">
+                          Expenses: <span className="text-rose-600">₹{comp.expense.toLocaleString("en-IN")}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))
                 )}
               </div>
             </div>
@@ -424,14 +400,14 @@ export default function CfoDashboardPage() {
             <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
               <div>
                 <h3 className="text-base font-extrabold text-slate-800 mb-1">
-                  💳 Payment Method Distribution
+                  💳 Payment Method Share
                 </h3>
                 <p className="text-xs font-medium text-slate-400 mb-4">
-                  Payment modes utilized for operational expenditures
+                  Disbursement distribution by mode of payment
                 </p>
 
                 <div className="space-y-3">
-                  {paymentModeDistribution.map((m: any, idx: number) => {
+                  {paymentModeDistribution.map((m: any) => {
                     const total = summary.totalExpenses || 1;
                     const pct = ((m.value / total) * 100).toFixed(1);
                     return (
