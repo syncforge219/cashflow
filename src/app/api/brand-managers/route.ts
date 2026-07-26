@@ -58,7 +58,10 @@ export async function POST(req: Request) {
       data: newBrandManager,
     }, { status: 201 });
   } catch (error: any) {
-    console.error("Error creating brand manager:", error);
-    return NextResponse.json({ error: "Internal server error", message: error.message }, { status: 500 });
+    console.error("Error creating brand manager / CFO:", error);
+    return NextResponse.json(
+      { error: error.message || "Failed to provision user. Please try again." },
+      { status: 500 }
+    );
   }
 }

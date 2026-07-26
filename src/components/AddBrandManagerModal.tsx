@@ -101,7 +101,7 @@ export default function AddBrandManagerModal({ isOpen, onClose, onSuccess }: Add
           password: "",
         });
       } else {
-        alert(data.error || "Failed to provision Centre Head");
+        alert(data.error || data.message || "Failed to provision user. Please try again.");
       }
     } catch (error) {
       console.error("Submission error:", error);

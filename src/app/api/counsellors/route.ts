@@ -63,7 +63,7 @@ export async function POST(request: Request) {
 
     // Return user without password
     const userObj = newUser.toObject();
-    delete userObj.password;
+    delete (userObj as any).password;
 
     return NextResponse.json(
       { success: true, counsellor: userObj },
