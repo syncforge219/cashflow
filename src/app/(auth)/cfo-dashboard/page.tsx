@@ -14,7 +14,7 @@ interface TooltipItem {
   category?: string;
 }
 
-// --- CUSTOM ZERO-DEPENDENCY SVG GRAPH RENDERERS ---
+// --- CUSTOM ZERO-DEPENDENCY VECTOR GRAPH RENDERERS ---
 
 // 1. SVG PIE CHART COMPONENT
 function SvgPieChart({
@@ -59,13 +59,13 @@ function SvgPieChart({
 
   return (
     <div className="flex flex-col items-center gap-4">
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="drop-shadow-sm">
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="drop-shadow-md">
         {slices.map((slice, idx) => (
           <path
             key={idx}
             d={slice.pathData}
             fill={slice.color}
-            className="transition-all duration-200 hover:opacity-75 hover:scale-105 transform origin-center cursor-pointer"
+            className="transition-all duration-200 hover:opacity-80 hover:scale-105 transform origin-center cursor-pointer"
             onMouseEnter={(e) => onHover({ name: slice.name, value: slice.value, pct: slice.pct, category: "SHARE" }, e)}
             onMouseMove={(e) => onHover({ name: slice.name, value: slice.value, pct: slice.pct, category: "SHARE" }, e)}
             onMouseLeave={onLeave}
@@ -129,13 +129,13 @@ function SvgDonutChart({
   return (
     <div className="flex flex-col items-center gap-4">
       <div className="relative flex items-center justify-center">
-        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="drop-shadow-sm">
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="drop-shadow-md">
           {slices.map((slice, idx) => (
             <path
               key={idx}
               d={slice.pathData}
               fill={slice.color}
-              className="transition-all duration-200 hover:opacity-75 hover:scale-105 transform origin-center cursor-pointer"
+              className="transition-all duration-200 hover:opacity-80 hover:scale-105 transform origin-center cursor-pointer"
               onMouseEnter={(e) => onHover({ name: slice.name, value: slice.value, pct: slice.pct, category: "ALLOCATION" }, e)}
               onMouseMove={(e) => onHover({ name: slice.name, value: slice.value, pct: slice.pct, category: "ALLOCATION" }, e)}
               onMouseLeave={onLeave}
@@ -143,7 +143,8 @@ function SvgDonutChart({
           ))}
         </svg>
         <div className="absolute flex flex-col items-center justify-center pointer-events-none text-center">
-          <span className="text-xs font-black text-slate-800 uppercase tracking-widest">SUMMARY</span>
+          <span className="text-xs font-black text-slate-800 uppercase tracking-widest">CFO</span>
+          <span className="text-[10px] font-extrabold text-indigo-600">ANALYTICS</span>
         </div>
       </div>
     </div>
@@ -234,7 +235,6 @@ function SvgLineGraph({
           <path d={path2} fill="none" stroke={color2} strokeWidth="3.5" strokeLinecap="round" strokeDasharray="6 3" />
         )}
 
-        {/* Data points */}
         {points1.map((p, i) => (
           <circle
             key={`p1-${i}`}
@@ -347,8 +347,8 @@ function SvgBarGraph({
   );
 }
 
-// 5. NEW ELEGANT HORIZONTAL BAR GRAPH (PERFECT FOR COMPANIES & BRANDS WITHOUT ANY LABEL CUTOFF!)
-function SvgHorizontalBarGraph({
+// 5. WORLD-CLASS DUAL HORIZONTAL PROGRESS BAR GRAPH (HIGH INFORMATION DENSITY & ZERO OVERFLOW)
+function SvgHorizontalGroupedBarGraph({
   data,
   color1 = "#10b981",
   color2 = "#f43f5e",
@@ -371,59 +371,70 @@ function SvgHorizontalBarGraph({
 
   return (
     <div className="w-full space-y-4">
-      <div className="flex items-center gap-4 text-xs font-bold mb-2">
-        <span className="flex items-center gap-1.5" style={{ color: color1 }}>
-          <span className="w-3 h-3 rounded-md" style={{ backgroundColor: color1 }} /> {label1}
-        </span>
-        {label2 && (
+      {/* Legend */}
+      <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+        <div className="flex items-center gap-4 text-xs font-bold">
+          <span className="flex items-center gap-1.5" style={{ color: color1 }}>
+            <span className="w-3 h-3 rounded-md" style={{ backgroundColor: color1 }} /> {label1}
+          </span>
           <span className="flex items-center gap-1.5" style={{ color: color2 }}>
             <span className="w-3 h-3 rounded-md" style={{ backgroundColor: color2 }} /> {label2}
           </span>
-        )}
+        </div>
+        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+          Dual Horizontal Comparison Matrix
+        </span>
       </div>
 
-      <div className="space-y-3.5">
+      {/* Rows */}
+      <div className="space-y-3.5 pt-1">
         {data.map((item, idx) => {
-          const w1 = Math.max(2, Math.round(((item.bar1 || 0) / maxVal) * 100));
-          const w2 = item.bar2 !== undefined ? Math.max(2, Math.round(((item.bar2 || 0) / maxVal) * 100)) : null;
+          const w1 = Math.max(1, Math.round(((item.bar1 || 0) / maxVal) * 100));
+          const w2 = item.bar2 !== undefined ? Math.max(1, Math.round(((item.bar2 || 0) / maxVal) * 100)) : null;
           const net = (item.bar1 || 0) - (item.bar2 || 0);
 
           return (
-            <div key={idx} className="p-3 bg-slate-50 border border-slate-200/60 rounded-xl space-y-2">
+            <div key={idx} className="p-3 bg-slate-50 border border-slate-200/60 rounded-xl space-y-2 hover:bg-slate-100/50 transition-colors">
               <div className="flex items-center justify-between text-xs font-extrabold gap-2">
                 <span className="text-slate-800 font-extrabold truncate" title={item.label}>
                   {item.label}
                 </span>
-                <span className={`px-2 py-0.5 rounded text-[11px] font-black shrink-0 ${net >= 0 ? "text-emerald-700 bg-emerald-50 border border-emerald-200" : "text-rose-700 bg-rose-50 border border-rose-200"}`}>
+                <span className={`px-2.5 py-0.5 rounded text-[11px] font-black shrink-0 ${net >= 0 ? "text-emerald-700 bg-emerald-50 border border-emerald-200" : "text-rose-700 bg-rose-50 border border-rose-200"}`}>
                   Net: ₹{net.toLocaleString("en-IN")}
                 </span>
               </div>
 
               {/* Bar 1: Money In */}
-              <div className="space-y-1">
-                <div className="w-full bg-slate-200/70 h-3 rounded-full overflow-hidden flex items-center">
+              <div className="flex items-center gap-3">
+                <div className="flex-1 bg-slate-200/70 h-3.5 rounded-r-full overflow-hidden flex items-center">
                   <div
-                    className="h-full rounded-full transition-all duration-300 hover:opacity-80 cursor-pointer"
+                    className="h-full rounded-r-full transition-all duration-300 hover:opacity-80 cursor-pointer"
                     style={{ width: `${w1}%`, backgroundColor: color1 }}
                     onMouseEnter={(e) => onHover({ name: `${item.label} (${label1})`, value: item.bar1, category: "MONEY IN" }, e)}
                     onMouseMove={(e) => onHover({ name: `${item.label} (${label1})`, value: item.bar1, category: "MONEY IN" }, e)}
                     onMouseLeave={onLeave}
                   />
                 </div>
+                <span className="text-[11px] font-extrabold text-emerald-600 w-24 text-right shrink-0">
+                  ₹{item.bar1.toLocaleString("en-IN")}
+                </span>
               </div>
 
               {/* Bar 2: Money Out */}
               {w2 !== null && (
-                <div className="space-y-1">
-                  <div className="w-full bg-slate-200/70 h-3 rounded-full overflow-hidden flex items-center">
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 bg-slate-200/70 h-3.5 rounded-r-full overflow-hidden flex items-center">
                     <div
-                      className="h-full rounded-full transition-all duration-300 hover:opacity-80 cursor-pointer"
+                      className="h-full rounded-r-full transition-all duration-300 hover:opacity-80 cursor-pointer"
                       style={{ width: `${w2}%`, backgroundColor: color2 }}
                       onMouseEnter={(e) => onHover({ name: `${item.label} (${label2})`, value: item.bar2 || 0, category: "MONEY OUT" }, e)}
                       onMouseMove={(e) => onHover({ name: `${item.label} (${label2})`, value: item.bar2 || 0, category: "MONEY OUT" }, e)}
                       onMouseLeave={onLeave}
                     />
                   </div>
+                  <span className="text-[11px] font-extrabold text-rose-600 w-24 text-right shrink-0">
+                    ₹{(item.bar2 || 0).toLocaleString("en-IN")}
+                  </span>
                 </div>
               )}
             </div>
@@ -643,10 +654,10 @@ export default function CfoDashboardPage() {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                📊 Simple Visual Dashboard
+                📊 Dual Horizontal Progress Matrix
               </span>
               <span className="text-slate-400 text-xs font-semibold">
-                Hover over graphs to see numbers & view exact data tables below
+                Side-by-side Money In & Money Out bars with exact rupee labels
               </span>
             </div>
             <h1 className="text-2xl font-black tracking-tight text-slate-900 font-sans">
@@ -942,14 +953,14 @@ export default function CfoDashboardPage() {
           </div>
         </div>
 
-        {/* 6 & 7. COMPANY & BRAND HORIZONTAL BAR GRAPHS WITH TABLES */}
+        {/* 6 & 7. COMPANY & BRAND DUAL HORIZONTAL BARS WITH TABLES */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* 6. COMPANY TAG HORIZONTAL BARS & TABLE */}
+          {/* 6. COMPANY TAG DUAL HORIZONTAL BARS & TABLE */}
           <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-4">
             <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
               <div>
                 <h3 className="text-base font-extrabold text-slate-800">🏢 6. Company-wise Income & Expense</h3>
-                <p className="text-xs text-slate-400 font-medium">Horizontal visual bars showing Money In vs Money Out per company tag</p>
+                <p className="text-xs text-slate-400 font-medium">Side-by-side Money In & Money Out progress bars per company tag</p>
               </div>
               <Link href="/companies" className="text-xs font-bold text-indigo-600 hover:underline">Manage Companies →</Link>
             </div>
@@ -957,7 +968,7 @@ export default function CfoDashboardPage() {
             {companyBarData.length === 0 ? (
               <div className="py-12 text-xs font-semibold text-slate-400 text-center">No company data</div>
             ) : (
-              <SvgHorizontalBarGraph
+              <SvgHorizontalGroupedBarGraph
                 data={companyBarData}
                 color1="#10b981"
                 color2="#f43f5e"
@@ -997,12 +1008,12 @@ export default function CfoDashboardPage() {
             </div>
           </div>
 
-          {/* 7. BRAND HORIZONTAL BARS & TABLE */}
+          {/* 7. BRAND DUAL HORIZONTAL BARS & TABLE */}
           <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-4">
             <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
               <div>
                 <h3 className="text-base font-extrabold text-slate-800">🏷️ 7. Brand-wise Income & Expense</h3>
-                <p className="text-xs text-slate-400 font-medium">Horizontal visual bars showing Money In vs Money Out per brand entity</p>
+                <p className="text-xs text-slate-400 font-medium">Side-by-side Money In & Money Out progress bars per brand entity</p>
               </div>
               <Link href="/admin-dashboard/brands" className="text-xs font-bold text-indigo-600 hover:underline">Manage Brands →</Link>
             </div>
@@ -1010,7 +1021,7 @@ export default function CfoDashboardPage() {
             {brandBarData.length === 0 ? (
               <div className="py-12 text-xs font-semibold text-slate-400 text-center">No brand data</div>
             ) : (
-              <SvgHorizontalBarGraph
+              <SvgHorizontalGroupedBarGraph
                 data={brandBarData}
                 color1="#8b5cf6"
                 color2="#f59e0b"
