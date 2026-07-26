@@ -687,6 +687,33 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
 
     autofitSheetColumns(leadsSheet);
 
+    // Embed Canvas Visual Charts into Sheet 2 (All Leads Register)
+    try {
+      const statusMap: Record<string, number> = {};
+      const brandLeadsMap: Record<string, number> = {};
+      const sourceMap: Record<string, number> = {};
+
+      enquiries.forEach((e: any) => {
+        const st = e.status || "New";
+        const br = e.targetBrand || e.brand || "N/A";
+        const src = e.leadSource || "Direct";
+        statusMap[st] = (statusMap[st] || 0) + 1;
+        brandLeadsMap[br] = (brandLeadsMap[br] || 0) + 1;
+        sourceMap[src] = (sourceMap[src] || 0) + 1;
+      });
+
+      const lStatusChart = drawDonutChartCanvas("LEAD STATUS DISTRIBUTION", Object.keys(statusMap), Object.values(statusMap), ["#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#ef4444"]);
+      if (lStatusChart) leadsSheet.addImage(workbook.addImage({ base64: lStatusChart, extension: "png" }), { tl: { col: 14, row: 3 }, ext: { width: 520, height: 260 } });
+
+      const lBrandChart = drawBarChartCanvas("BRAND-WISE LEADS DISTRIBUTION", Object.keys(brandLeadsMap), Object.values(brandLeadsMap), ["#4f46e5", "#059669", "#7c3aed", "#2563eb"]);
+      if (lBrandChart) leadsSheet.addImage(workbook.addImage({ base64: lBrandChart, extension: "png" }), { tl: { col: 14, row: 18 }, ext: { width: 560, height: 280 } });
+
+      const lSourceChart = drawHorizontalBarChartCanvas("LEAD ACQUISITION CHANNELS", Object.keys(sourceMap), Object.values(sourceMap), ["#06b6d4", "#ec4899", "#14b8a6", "#f97316"], (v) => v.toString() + " Leads");
+      if (lSourceChart) leadsSheet.addImage(workbook.addImage({ base64: lSourceChart, extension: "png" }), { tl: { col: 14, row: 33 }, ext: { width: 560, height: 280 } });
+    } catch (chartErr) {
+      console.error("Failed adding charts to All Leads Register:", chartErr);
+    }
+
     // ── SHEET 3: ADMITTED STUDENTS REGISTER (DEDICATED ADMISSION SHEET) ────────
     const admissionSheet = workbook.addWorksheet("Admitted Students Register");
 
@@ -755,6 +782,35 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
     });
 
     autofitSheetColumns(admissionSheet);
+
+    // Embed Canvas Visual Charts into Sheet 3 (Admitted Students Register)
+    try {
+      const admBrandRevMap: Record<string, number> = {};
+      const admCompCountMap: Record<string, number> = {};
+      const admCourseMap: Record<string, number> = {};
+
+      admittedEnquiries.forEach((e: any) => {
+        const br = e.targetBrand || e.brand || "N/A";
+        const cp = e.companyAssigned || e.company || "N/A";
+        const crs = e.targetCourse || e.course || "General";
+        const fee = parseFloat(String(e.feesCollected || "0").replace(/[^0-9.]/g, "")) || 0;
+
+        admBrandRevMap[br] = (admBrandRevMap[br] || 0) + fee;
+        admCompCountMap[cp] = (admCompCountMap[cp] || 0) + 1;
+        admCourseMap[crs] = (admCourseMap[crs] || 0) + 1;
+      });
+
+      const aBrandChart = drawBarChartCanvas("ADMISSION REVENUE BY BRAND (INR)", Object.keys(admBrandRevMap), Object.values(admBrandRevMap), ["#7c3aed", "#059669", "#4f46e5", "#2563eb"]);
+      if (aBrandChart) admissionSheet.addImage(workbook.addImage({ base64: aBrandChart, extension: "png" }), { tl: { col: 12, row: 3 }, ext: { width: 560, height: 280 } });
+
+      const aCompChart = drawDonutChartCanvas("COMPANY ADMISSIONS SHARE", Object.keys(admCompCountMap), Object.values(admCompCountMap), ["#059669", "#3b82f6", "#8b5cf6", "#f59e0b"]);
+      if (aCompChart) admissionSheet.addImage(workbook.addImage({ base64: aCompChart, extension: "png" }), { tl: { col: 12, row: 18 }, ext: { width: 520, height: 260 } });
+
+      const aCourseChart = drawHorizontalBarChartCanvas("TOP ENROLLED COURSES", Object.keys(admCourseMap).slice(0, 6), Object.values(admCourseMap).slice(0, 6), ["#10b981", "#06b6d4", "#ec4899", "#f97316"], (v) => v.toString() + " Admissions");
+      if (aCourseChart) admissionSheet.addImage(workbook.addImage({ base64: aCourseChart, extension: "png" }), { tl: { col: 12, row: 33 }, ext: { width: 560, height: 280 } });
+    } catch (chartErr) {
+      console.error("Failed adding charts to Admitted Students Register:", chartErr);
+    }
 
     // ── SHEETS FOR EACH BRAND (WITH BRAND & COMPANY HIGHLIGHTS ON TOP) ─────────
     brands.forEach((b: any) => {
@@ -835,6 +891,38 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
       });
 
       autofitSheetColumns(sheet);
+
+      // Embed Canvas Charts into Brand Dedicated Sheet
+      try {
+        const compRevList: { name: string; rev: number }[] = [];
+        companies.forEach((comp: any) => {
+          const cNameLower = (comp.name || "").toLowerCase().trim();
+          const compPayments = payments.filter((p: any) => {
+            const admission = p.admissionId || {};
+            const pBrand = (admission.brand || p.brand || "").toLowerCase().trim();
+            const pComp = (admission.companyAssigned || p.company || "").toLowerCase().trim();
+            return pBrand === bNameLower && (pComp.includes(cNameLower) || cNameLower.includes(pComp));
+          });
+          const compRev = compPayments.reduce((sum: number, p: any) => sum + Number(p.amountReceived || 0), 0);
+          if (compRev > 0 || compPayments.length > 0) {
+            compRevList.push({ name: comp.name, rev: compRev });
+          }
+        });
+
+        const bStatusMap: Record<string, number> = {};
+        bEnquiries.forEach((e: any) => {
+          const st = e.status || "New";
+          bStatusMap[st] = (bStatusMap[st] || 0) + 1;
+        });
+
+        const bCompChart = drawDonutChartCanvas(`COMPANY COLLECTIONS: ${b.name}`, compRevList.map(c => c.name), compRevList.map(c => c.rev), ["#4f46e5", "#059669", "#7c3aed", "#2563eb"]);
+        if (bCompChart) sheet.addImage(workbook.addImage({ base64: bCompChart, extension: "png" }), { tl: { col: 11, row: 3 }, ext: { width: 520, height: 260 } });
+
+        const bStChart = drawBarChartCanvas(`STATUS BREAKDOWN: ${b.name}`, Object.keys(bStatusMap), Object.values(bStatusMap), ["#10b981", "#3b82f6", "#8b5cf6", "#f59e0b"], (v) => v.toString());
+        if (bStChart) sheet.addImage(workbook.addImage({ base64: bStChart, extension: "png" }), { tl: { col: 11, row: 18 }, ext: { width: 560, height: 280 } });
+      } catch (chartErr) {
+        console.error(`Failed adding charts to Brand sheet ${b.name}:`, chartErr);
+      }
     });
 
     // ── SHEETS FOR EACH COMPANY (WITH COMPANY & BRAND HIGHLIGHTS ON TOP) ───────
@@ -848,9 +936,9 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
       const compRev = compPayments.reduce((sum: number, p: any) => sum + Number(p.amountReceived || 0), 0);
       const bankInfo = comp.bankAccount || comp.bankName || comp.bank || comp.bankDetails || "Primary Bank";
 
-      let safeSheetName = `Comp - ${comp.name}`.replace(/[?*/\left]/g, '').substring(0, 31);
+      let safeSheetName = `Comp - ${comp.name}`.replace(/[?*/\\[\]]/g, '').substring(0, 31);
       if (workbook.getWorksheet(safeSheetName)) {
-        safeSheetName = `Company - ${comp.name}`.replace(/[?*/\left]/g, '').substring(0, 31);
+        safeSheetName = `Company - ${comp.name}`.replace(/[?*/\\[\]]/g, '').substring(0, 31);
       }
 
       const sheet = workbook.addWorksheet(safeSheetName);
@@ -919,6 +1007,37 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
       });
 
       autofitSheetColumns(sheet);
+
+      // Embed Canvas Charts into Company Dedicated Sheet
+      try {
+        const bRevList: { name: string; rev: number }[] = [];
+        brands.forEach((b: any) => {
+          const bNameLower = (b.name || "").toLowerCase().trim();
+          const bCompPayments = compPayments.filter((p: any) => {
+            const admission = p.admissionId || {};
+            const pBrand = (admission.brand || p.brand || "").toLowerCase().trim();
+            return pBrand === bNameLower;
+          });
+          const bCompRev = bCompPayments.reduce((sum: number, p: any) => sum + Number(p.amountReceived || 0), 0);
+          if (bCompRev > 0 || bCompPayments.length > 0) {
+            bRevList.push({ name: b.name, rev: bCompRev });
+          }
+        });
+
+        const payModeMap: Record<string, number> = {};
+        compPayments.forEach((p: any) => {
+          const mode = p.paymentMode || "Cash";
+          payModeMap[mode] = (payModeMap[mode] || 0) + Number(p.amountReceived || 0);
+        });
+
+        const cBrandChart = drawDonutChartCanvas(`BRAND REVENUE SHARE: ${comp.name}`, bRevList.map(b => b.name), bRevList.map(b => b.rev), ["#059669", "#3b82f6", "#8b5cf6", "#f59e0b"]);
+        if (cBrandChart) sheet.addImage(workbook.addImage({ base64: cBrandChart, extension: "png" }), { tl: { col: 11, row: 3 }, ext: { width: 520, height: 260 } });
+
+        const cModeChart = drawBarChartCanvas(`PAYMENT MODE SHARE: ${comp.name}`, Object.keys(payModeMap), Object.values(payModeMap), ["#10b981", "#6366f1", "#ec4899", "#f59e0b"]);
+        if (cModeChart) sheet.addImage(workbook.addImage({ base64: cModeChart, extension: "png" }), { tl: { col: 11, row: 18 }, ext: { width: 560, height: 280 } });
+      } catch (chartErr) {
+        console.error(`Failed adding charts to Company sheet ${comp.name}:`, chartErr);
+      }
     });
 
     // Download Workbook
