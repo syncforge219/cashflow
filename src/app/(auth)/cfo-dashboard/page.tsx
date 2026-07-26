@@ -70,18 +70,20 @@ export default function CfoDashboardPage() {
 
   if (!user) return null;
 
+  const totalFinancialVolume = (summary.totalRevenue || 0) + (summary.totalExpenses || 0) + (summary.outstandingFees || 0) || 1;
+
   return (
     <div className="flex h-screen bg-[#f8faff] text-slate-800 overflow-hidden font-sans transition-colors duration-200">
       <Sidebar />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto px-6 py-6 space-y-6">
-        {/* Header matching Admin Dashboard */}
+        {/* Header */}
         <header className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-200/80 pb-4 shrink-0">
           <div>
             <div className="text-xs font-semibold text-slate-400 flex items-center gap-1 select-none">
               <span>CoachFlow</span>
               <span>/</span>
-              <span className="text-slate-600 font-bold">CFO Financial Command Center (Live)</span>
+              <span className="text-slate-600 font-bold">CFO Visual Financial Intelligence Center</span>
             </div>
           </div>
 
@@ -94,7 +96,7 @@ export default function CfoDashboardPage() {
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4 mr-2 group-hover:text-indigo-500 transition-colors">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.637 10.637z" />
                 </svg>
-                Search anything...
+                Search financials...
               </div>
               <span className="flex items-center pointer-events-none text-[9px] font-bold text-slate-400/80 uppercase">
                 CTRL+K
@@ -122,17 +124,17 @@ export default function CfoDashboardPage() {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="bg-indigo-50 text-indigo-700 border border-indigo-100 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                💼 CFO Executive Scope
+                📊 Visual Financial Analytics Mode
               </span>
               <span className="text-slate-400 text-xs font-semibold">
-                Live MongoDB Sync
+                100% Graph-Based Visualizations
               </span>
             </div>
             <h1 className="text-2xl font-black tracking-tight text-slate-900 font-sans">
-              Financial Master Dashboard
+              Executive CFO Financial Command Center
             </h1>
             <p className="text-slate-500 text-xs font-medium mt-0.5">
-              Operating Cash Flow, Collections, Disbursements & Treasury Metrics across All Brands & Companies.
+              Comprehensive visual graphs depicting Operating Revenue, Expenses, Cash Flow, Treasury Reserves & Company Tags.
             </p>
           </div>
 
@@ -180,154 +182,229 @@ export default function CfoDashboardPage() {
           </div>
         </div>
 
-        {/* Metric Cards Grid matching Admin Dashboard style */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Card 1: Total Collections */}
-          <div className="bg-white border border-slate-200/80 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                Total Collections
-              </span>
-              <span className="px-2.5 py-1 rounded-xl text-xs font-extrabold bg-emerald-50 text-emerald-600 border border-emerald-100">
-                Inflow
-              </span>
+        {/* SECTION 1: VISUAL KPI BAR GAUGES */}
+        <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <h3 className="text-base font-extrabold text-slate-800">
+                📊 Graph 1: Executive KPI Visual Proportion Gauges
+              </h3>
+              <p className="text-xs text-slate-400 font-medium">
+                Relative visual share of Gross Collections, Operating Outlays, Net Cash Flow & Receivables
+              </p>
             </div>
-            <div className="mt-3">
+            <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-full">
+              Volume: ₹{totalFinancialVolume.toLocaleString("en-IN")}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
+            {/* Visual KPI 1: Collections */}
+            <div className="p-4 bg-slate-50 border border-slate-200/60 rounded-xl space-y-3">
+              <div className="flex items-center justify-between text-xs font-bold">
+                <span className="text-slate-500 uppercase tracking-wider text-[10px]">Total Collections</span>
+                <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                  {Math.round(((summary.totalRevenue || 0) / totalFinancialVolume) * 100)}% Share
+                </span>
+              </div>
               <div className="text-2xl font-black text-slate-900">
                 ₹{summary.totalRevenue.toLocaleString("en-IN")}
               </div>
-              <div className="text-[11px] font-bold text-emerald-600 mt-1">
-                ▲ Billed Course & Fee Collections
+              <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-emerald-500 rounded-full transition-all"
+                  style={{ width: `${Math.min(100, ((summary.totalRevenue || 0) / totalFinancialVolume) * 100)}%` }}
+                />
               </div>
             </div>
-          </div>
 
-          {/* Card 2: Total Expenses */}
-          <div className="bg-white border border-slate-200/80 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                Total Expenses
-              </span>
-              <span className="px-2.5 py-1 rounded-xl text-xs font-extrabold bg-rose-50 text-rose-600 border border-rose-100">
-                Outlay
-              </span>
-            </div>
-            <div className="mt-3">
+            {/* Visual KPI 2: Expenses */}
+            <div className="p-4 bg-slate-50 border border-slate-200/60 rounded-xl space-y-3">
+              <div className="flex items-center justify-between text-xs font-bold">
+                <span className="text-slate-500 uppercase tracking-wider text-[10px]">Total Expenses</span>
+                <span className="text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                  {Math.round(((summary.totalExpenses || 0) / totalFinancialVolume) * 100)}% Share
+                </span>
+              </div>
               <div className="text-2xl font-black text-slate-900">
                 ₹{summary.totalExpenses.toLocaleString("en-IN")}
               </div>
-              <div className="text-[11px] font-bold text-slate-500 mt-1 flex items-center justify-between">
-                <span>Var: ₹{summary.variableExpenses.toLocaleString("en-IN")}</span>
-                <span>Fix: ₹{summary.fixedExpenses.toLocaleString("en-IN")}</span>
+              <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-rose-500 rounded-full transition-all"
+                  style={{ width: `${Math.min(100, ((summary.totalExpenses || 0) / totalFinancialVolume) * 100)}%` }}
+                />
               </div>
             </div>
-          </div>
 
-          {/* Card 3: Net Cash Flow */}
-          <div className="bg-white border border-slate-200/80 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                Net Operating Cash Flow
-              </span>
-              <span className="px-2.5 py-1 rounded-xl text-xs font-extrabold bg-indigo-50 text-indigo-600 border border-indigo-100">
-                Margin {summary.operatingMarginPct.toFixed(1)}%
-              </span>
-            </div>
-            <div className="mt-3">
+            {/* Visual KPI 3: Net Cash Flow */}
+            <div className="p-4 bg-slate-50 border border-slate-200/60 rounded-xl space-y-3">
+              <div className="flex items-center justify-between text-xs font-bold">
+                <span className="text-slate-500 uppercase tracking-wider text-[10px]">Net Cash Flow</span>
+                <span className="text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
+                  {summary.operatingMarginPct.toFixed(1)}% Margin
+                </span>
+              </div>
               <div className={`text-2xl font-black ${summary.netCashFlow >= 0 ? "text-indigo-900" : "text-rose-600"}`}>
                 ₹{summary.netCashFlow.toLocaleString("en-IN")}
               </div>
-              <div className="text-[11px] font-bold text-indigo-600 mt-1">
-                Net Margin Ratio
+              <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-indigo-600 rounded-full transition-all"
+                  style={{ width: `${Math.min(100, Math.max(0, summary.operatingMarginPct))}%` }}
+                />
               </div>
             </div>
-          </div>
 
-          {/* Card 4: Fee Receivables */}
-          <div className="bg-white border border-slate-200/80 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                Fee Receivables
-              </span>
-              <span className="px-2.5 py-1 rounded-xl text-xs font-extrabold bg-amber-50 text-amber-600 border border-amber-100">
-                Pending Dues
-              </span>
-            </div>
-            <div className="mt-3">
+            {/* Visual KPI 4: Receivables */}
+            <div className="p-4 bg-slate-50 border border-slate-200/60 rounded-xl space-y-3">
+              <div className="flex items-center justify-between text-xs font-bold">
+                <span className="text-slate-500 uppercase tracking-wider text-[10px]">Fee Receivables</span>
+                <span className="text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                  Pending Dues
+                </span>
+              </div>
               <div className="text-2xl font-black text-amber-900">
                 ₹{summary.outstandingFees.toLocaleString("en-IN")}
               </div>
-              <div className="text-[11px] font-bold text-amber-600 mt-1">
-                Outstanding Student Fees
+              <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-amber-500 rounded-full transition-all"
+                  style={{ width: `${Math.min(100, ((summary.outstandingFees || 0) / (summary.totalRevenue || 1)) * 100)}%` }}
+                />
               </div>
             </div>
           </div>
         </div>
 
-        {/* Treasury Reserve & Health Rating Banner */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white border border-emerald-200 p-5 rounded-2xl shadow-sm flex items-center justify-between">
+        {/* SECTION 2: TREASURY & HEALTH VISUAL GAUGES */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Graph 2: Bank vs Cash Treasury Distribution Chart */}
+          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm flex flex-col justify-between">
             <div>
-              <span className="text-[10px] font-extrabold text-emerald-700 uppercase tracking-widest">
-                🏦 BANK ACCOUNT NET RESERVES
-              </span>
-              <div className="text-2xl font-black text-slate-900 mt-1">
-                ₹{summary.bankReserves.toLocaleString("en-IN")}
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base font-extrabold text-slate-800">
+                  🏦 Graph 2: Treasury Vault Split
+                </h3>
+                <span className="text-xs font-bold text-emerald-600">Reserves Bar</span>
               </div>
-              <p className="text-xs text-slate-500 mt-0.5">Digital & Bank Transfer Collections Net of Bank Expenses</p>
+              <div className="space-y-4">
+                {/* Bank Reserve Bar */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-xs font-bold">
+                    <span className="text-slate-700">Bank Account Reserves</span>
+                    <span className="text-emerald-700">₹{summary.bankReserves.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-emerald-600 rounded-full"
+                      style={{ width: `${Math.min(100, Math.max(0, (summary.bankReserves / (summary.netCashFlow || 1)) * 100))}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Cash Reserve Bar */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-xs font-bold">
+                    <span className="text-slate-700">Physical Cash Vault</span>
+                    <span className="text-amber-700">₹{summary.cashReserves.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-amber-500 rounded-full"
+                      style={{ width: `${Math.min(100, Math.max(0, (summary.cashReserves / (summary.netCashFlow || 1)) * 100))}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="h-12 w-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl font-bold border border-emerald-100">
-              🏦
-            </div>
+            <p className="text-xs text-slate-400 font-medium mt-4 pt-2 border-t border-slate-100">
+              Real-time liquid capital allocation across banking and physical vault.
+            </p>
           </div>
 
-          <div className="bg-white border border-amber-200 p-5 rounded-2xl shadow-sm flex items-center justify-between">
+          {/* Graph 3: Financial Health Index Gauge Chart */}
+          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm flex flex-col justify-between">
             <div>
-              <span className="text-[10px] font-extrabold text-amber-700 uppercase tracking-widest">
-                💵 PHYSICAL CASH VAULT BALANCE
-              </span>
-              <div className="text-2xl font-black text-slate-900 mt-1">
-                ₹{summary.cashReserves.toLocaleString("en-IN")}
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base font-extrabold text-slate-800">
+                  🎯 Graph 3: Stability Score Meter
+                </h3>
+                <span className="text-xs font-bold text-violet-600">Gauge Index</span>
               </div>
-              <p className="text-xs text-slate-500 mt-0.5">On-Hand Cash Collections Net of Cash Operating Expenses</p>
-            </div>
-            <div className="h-12 w-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl font-bold border border-amber-100">
-              💵
-            </div>
-          </div>
-
-          <div className="bg-white border border-violet-200 p-5 rounded-2xl shadow-sm flex items-center justify-between">
-            <div>
-              <span className="text-[10px] font-extrabold text-violet-700 uppercase tracking-widest">
-                ⚡ FINANCIAL STABILITY RATING
-              </span>
-              <div className="text-2xl font-black text-slate-900 mt-1 flex items-center gap-2">
-                <span>{summary.healthScore}/100</span>
-                <span className="text-xs font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded">
-                  EXCELLENT
+              <div className="flex flex-col items-center justify-center py-2 space-y-2">
+                <div className="w-32 h-32 rounded-full border-8 border-violet-100 border-t-violet-600 flex items-center justify-center shadow-inner">
+                  <div className="text-center">
+                    <span className="text-3xl font-black text-slate-900">{summary.healthScore}</span>
+                    <span className="text-[10px] block font-bold text-slate-400 uppercase">/ 100</span>
+                  </div>
+                </div>
+                <span className="text-xs font-extrabold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
+                  ● EXCELLENT SOLVENCY
                 </span>
               </div>
-              <p className="text-xs text-slate-500 mt-0.5">Automated Liquidity & Operating Health Index</p>
             </div>
-            <div className="h-12 w-12 rounded-2xl bg-violet-50 text-violet-600 flex items-center justify-center text-xl font-bold border border-violet-100">
-              🎯
+            <p className="text-xs text-slate-400 font-medium mt-2 pt-2 border-t border-slate-100 text-center">
+              Automated corporate financial health & liquidity score.
+            </p>
+          </div>
+
+          {/* Graph 4: Fixed vs Variable Cost Allocation Gauge */}
+          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base font-extrabold text-slate-800">
+                  ⚡ Graph 4: Fixed vs Variable Cost Gauge
+                </h3>
+                <span className="text-xs font-bold text-rose-600">Outlay Breakdown</span>
+              </div>
+              <div className="space-y-4">
+                {/* Variable Expenses */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-xs font-bold">
+                    <span className="text-slate-700">Variable Costs</span>
+                    <span className="text-rose-600">₹{summary.variableExpenses.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-sky-500 rounded-full"
+                      style={{ width: `${Math.min(100, ((summary.variableExpenses || 0) / (summary.totalExpenses || 1)) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Fixed Expenses */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-xs font-bold">
+                    <span className="text-slate-700">Fixed Overhead</span>
+                    <span className="text-teal-600">₹{summary.fixedExpenses.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-teal-500 rounded-full"
+                      style={{ width: `${Math.min(100, ((summary.fixedExpenses || 0) / (summary.totalExpenses || 1)) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
+            <p className="text-xs text-slate-400 font-medium mt-4 pt-2 border-t border-slate-100">
+              Proportionate operational cost elasticity vs. fixed commitments.
+            </p>
           </div>
         </div>
 
-        {/* 6 VISUAL FINANCIAL GRAPHS */}
-
-        {/* GRAPH ROW 1: Monthly Timeline & Quarterly Comparison */}
+        {/* SECTION 3: MONTHLY & QUARTERLY GRAPH TIMELINES */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* GRAPH 1: Monthly Timeline (2 Cols) */}
+          {/* Graph 5: Monthly Inflow vs Outlay Timeline Chart (2 Cols) */}
           <div className="lg:col-span-2 bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h3 className="text-base font-extrabold text-slate-800">
-                  📊 Graph 1: Monthly Fee Inflow vs. Operating Outlay Timeline
+                  📈 Graph 5: Monthly Collections vs. Outlay Timeline Bar Chart
                 </h3>
                 <p className="text-xs font-medium text-slate-400">
-                  Comparative timeline of collections vs. operating disbursements
+                  Historical 6-month timeline comparing collections vs. disbursements
                 </p>
               </div>
               <div className="flex items-center gap-4 text-xs font-bold">
@@ -369,11 +446,11 @@ export default function CfoDashboardPage() {
             </div>
           </div>
 
-          {/* GRAPH 2: Quarterly Comparison (1 Col) */}
+          {/* Graph 6: Quarterly Run-rate Performance Chart (1 Col) */}
           <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm flex flex-col justify-between">
             <div>
               <h3 className="text-base font-extrabold text-slate-800 mb-1">
-                📅 Graph 2: Quarterly Run-rate Comparison
+                📅 Graph 6: Quarterly Financial Run-Rate Chart
               </h3>
               <p className="text-xs font-medium text-slate-400 mb-6">
                 Q1 to Q4 cumulative revenue vs expense performance
@@ -409,13 +486,13 @@ export default function CfoDashboardPage() {
           </div>
         </div>
 
-        {/* GRAPH ROW 2: Category Donut Share & Payment Mode Distribution */}
+        {/* SECTION 4: CATEGORY ALLOCATION & PAYMENT METHOD CHARTS */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* GRAPH 3: Category Allocation */}
+          {/* Graph 7: Expense Category Allocation Donut Chart */}
           <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm">
             <div className="mb-4">
               <h3 className="text-base font-extrabold text-slate-800">
-                🍩 Graph 3: Expense Category Share Ring
+                🍩 Graph 7: Expense Category Allocation Ring Chart
               </h3>
               <p className="text-xs font-medium text-slate-400">
                 Percentage distribution of operating costs by category
@@ -452,11 +529,11 @@ export default function CfoDashboardPage() {
             </div>
           </div>
 
-          {/* GRAPH 4: Payment Method Distribution */}
+          {/* Graph 8: Payment Channel Share Chart */}
           <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm flex flex-col justify-between">
             <div>
               <h3 className="text-base font-extrabold text-slate-800 mb-1">
-                💳 Graph 4: Payment Channel Distribution
+                💳 Graph 8: Payment Method Channel Graph
               </h3>
               <p className="text-xs font-medium text-slate-400 mb-4">
                 Disbursement distribution across payment channels
@@ -491,14 +568,14 @@ export default function CfoDashboardPage() {
           </div>
         </div>
 
-        {/* GRAPH ROW 3: Company Tag Matrix & Brand Tag Matrix */}
+        {/* SECTION 5: COMPANY TAG & BRAND PERFORMANCE MATRIX CHARTS */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* GRAPH 5: Company Tag Matrix */}
+          {/* Graph 9: Company Tag Financial Matrix */}
           <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-base font-extrabold text-slate-800">
-                  🏢 Graph 5: Corporate Tag Financial Matrix
+                  🏢 Graph 9: Corporate Tag Financial Matrix Bar Chart
                 </h3>
                 <p className="text-xs font-medium text-slate-400">
                   Revenue & Expenses segregated by registered company tag
@@ -537,12 +614,12 @@ export default function CfoDashboardPage() {
             </div>
           </div>
 
-          {/* GRAPH 6: Brand Tag Matrix */}
+          {/* Graph 10: Brand Performance Matrix */}
           <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-base font-extrabold text-slate-800">
-                  🏷️ Graph 6: Brand Performance Matrix
+                  🏷️ Graph 10: Brand Performance Financial Bar Chart
                 </h3>
                 <p className="text-xs font-medium text-slate-400">
                   Revenue & Expenses segregated by brand entity
@@ -582,15 +659,15 @@ export default function CfoDashboardPage() {
           </div>
         </div>
 
-        {/* Live Financial Ledger Audit Stream matching Admin Dashboard Table */}
-        <div className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-sm">
-          <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        {/* SECTION 6: GRAPH 11 - VISUAL DISBURSEMENT TIMELINE GRAPH STREAM */}
+        <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div>
-              <h3 className="text-sm font-extrabold text-slate-800">
-                📋 Live Financial Ledger Audit Stream
+              <h3 className="text-base font-extrabold text-slate-800">
+                📋 Graph 11: Recent Financial Disbursements Visual Activity Timeline
               </h3>
               <p className="text-xs font-medium text-slate-400">
-                Latest verified disbursements and collections recorded in MongoDB
+                Visual dot-stream & category bars of verified disbursements recorded in MongoDB
               </p>
             </div>
             <Link href="/expenses" className="text-xs font-bold text-indigo-600 hover:text-indigo-800 underline">
@@ -598,49 +675,45 @@ export default function CfoDashboardPage() {
             </Link>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs font-semibold">
-              <thead className="bg-slate-100/70 text-slate-600 uppercase text-[10px] tracking-wider">
-                <tr>
-                  <th className="py-3.5 px-4">Date</th>
-                  <th className="py-3.5 px-4">Category</th>
-                  <th className="py-3.5 px-4">Particulars</th>
-                  <th className="py-3.5 px-4">Company Tag</th>
-                  <th className="py-3.5 px-4">Mode</th>
-                  <th className="py-3.5 px-4">Bank</th>
-                  <th className="py-3.5 px-4 text-right">Amount (INR)</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700">
-                {recentExpenses.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="text-center py-6 text-slate-400 font-semibold">
-                      No financial records found.
-                    </td>
-                  </tr>
-                ) : (
-                  recentExpenses.map((exp: any) => (
-                    <tr key={exp._id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3 px-4 font-mono text-slate-500">
-                        {exp.expenseDate ? new Date(exp.expenseDate).toLocaleDateString("en-IN") : "-"}
-                      </td>
-                      <td className="py-3 px-4 font-bold text-slate-800">{exp.category}</td>
-                      <td className="py-3 px-4">{exp.title}</td>
-                      <td className="py-3 px-4">
-                        <span className="bg-slate-100 px-2 py-0.5 rounded text-[11px] font-bold text-slate-700">
+          <div className="space-y-3">
+            {recentExpenses.length === 0 ? (
+              <div className="text-center py-6 text-xs text-slate-400 font-semibold">
+                No financial records found.
+              </div>
+            ) : (
+              recentExpenses.map((exp: any, idx: number) => {
+                const maxAmt = Math.max(...recentExpenses.map((e: any) => Number(e.amount) || 1));
+                const amtPct = Math.min(100, Math.round(((Number(exp.amount) || 0) / maxAmt) * 100));
+                const dotColor = COLORS[idx % COLORS.length];
+
+                return (
+                  <div key={exp._id} className="p-3.5 bg-slate-50 border border-slate-200/60 rounded-xl space-y-2 hover:bg-slate-100/60 transition-colors">
+                    <div className="flex items-center justify-between text-xs font-bold">
+                      <div className="flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full" style={{ backgroundColor: dotColor }} />
+                        <span className="text-slate-900 font-extrabold">{exp.title}</span>
+                        <span className="text-[10px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded">
+                          {exp.category}
+                        </span>
+                        <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded">
                           {exp.company || "Unallocated"}
                         </span>
-                      </td>
-                      <td className="py-3 px-4 font-bold text-indigo-600">{exp.paymentMode}</td>
-                      <td className="py-3 px-4 text-slate-500">{exp.bank || "-"}</td>
-                      <td className="py-3 px-4 text-right font-bold text-rose-600">
-                        ₹{Number(exp.amount).toLocaleString("en-IN")}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-rose-600 font-black">₹{Number(exp.amount).toLocaleString("en-IN")}</span>
+                        <span className="text-[10px] text-slate-400 block font-mono">
+                          {exp.expenseDate ? new Date(exp.expenseDate).toLocaleDateString("en-IN") : "-"} ({exp.paymentMode})
+                        </span>
+                      </div>
+                    </div>
+                    {/* Visual Bar Gauge for Transaction Size */}
+                    <div className="w-full h-1.5 bg-slate-200/70 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full transition-all" style={{ width: `${amtPct}%`, backgroundColor: dotColor }} />
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       </div>
