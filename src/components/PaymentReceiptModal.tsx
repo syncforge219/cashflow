@@ -243,8 +243,39 @@ export default function PaymentReceiptModal({
     }
   }, [isOpen, student, receipt]);
 
-  const handlePrint = () => {
-    window.print();
+  const triggerCleanPrint = () => {
+    const printWin = window.open("", "_blank", "width=850,height=950");
+    if (!printWin) {
+      window.print();
+      return;
+    }
+
+    const receiptHtml = document.getElementById("printable-receipt-content")?.innerHTML;
+    printWin.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Receipt - ${receiptNo}</title>
+          <script src="https://cdn.tailwindcss.com"></script>
+          <style>
+            @page { size: A4 portrait; margin: 10mm; }
+            body { font-family: system-ui, -apple-system, sans-serif; padding: 15px; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          </style>
+        </head>
+        <body>
+          <div style="max-width: 750px; margin: 0 auto;">
+            ${receiptHtml}
+          </div>
+          <script>
+            setTimeout(() => {
+              window.print();
+              window.close();
+            }, 600);
+          </script>
+        </body>
+      </html>
+    `);
+    printWin.document.close();
   };
 
   const [isSendingWhatsApp, setIsSendingWhatsApp] = React.useState(false);
@@ -281,40 +312,12 @@ export default function PaymentReceiptModal({
     }
   };
 
-  const handleDownloadPDF = () => {
-    // Generate clean print view in popup window for high quality PDF saving
-    const printWin = window.open("", "_blank", "width=850,height=900");
-    if (!printWin) {
-      window.print();
-      return;
-    }
+  const handlePrint = () => {
+    triggerCleanPrint();
+  };
 
-    const receiptHtml = document.getElementById("printable-receipt-content")?.innerHTML;
-    printWin.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Receipt - ${receiptNo}</title>
-          <script src="https://cdn.tailwindcss.com"></script>
-          <style>
-            body { font-family: system-ui, -apple-system, sans-serif; padding: 20px; background: #fff; }
-            @page { size: A4; margin: 15mm; }
-          </style>
-        </head>
-        <body>
-          <div style="max-width: 750px; margin: 0 auto;">
-            ${receiptHtml}
-          </div>
-          <script>
-            setTimeout(() => {
-              window.print();
-              window.close();
-            }, 500);
-          </script>
-        </body>
-      </html>
-    `);
-    printWin.document.close();
+  const handleDownloadPDF = () => {
+    triggerCleanPrint();
   };
 
   return (
@@ -459,7 +462,7 @@ export default function PaymentReceiptModal({
                       <td className="p-2 font-semibold text-slate-900">{student.course}</td>
                       <td className="p-2">Course Fees</td>
                       <td className="p-2">{paymentDateFormatted}</td>
-                      <td className="p-2 text-right">{Number(receipt.amountReceived || 0).toLocaleString("en-IN")}</td>
+                      <td className="p-2 text-right">{finalFee.toLocaleString("en-IN")}</td>
                       <td className="p-2 text-right font-bold text-emerald-700">{Number(receipt.amountReceived || 0).toLocaleString("en-IN")}</td>
                     </tr>
                   </tbody>

@@ -71,7 +71,7 @@ export default function BrandManagerDisplay() {
     }, 0);
 
     const totalRev = Math.max(realRevenue, b.stats?.revenue || 0);
-    const convRate = brandTotalLeads > 0 ? ((brandAdmissions / brandTotalLeads) * 100).toFixed(1) : (b.stats?.conversionRate || "0.0%");
+    const convRate = brandTotalLeads > 0 ? Math.min(100, Number(((brandAdmissions / brandTotalLeads) * 100).toFixed(1))) + "%" : (b.stats?.conversionRate || "0.0%");
 
     return {
       id: b.brandId,

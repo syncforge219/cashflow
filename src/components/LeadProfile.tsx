@@ -77,6 +77,118 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
     }
   }, [lead, defaultOpenTaskModal]);
 
+  const timelineEvents = React.useMemo(() => {
+    if (!localLead) return [];
+    const events: any[] = [];
+
+    // 1. Initial Creation
+    if (localLead.createdAt) {
+      const createdDate = new Date(localLead.createdAt);
+      events.push({
+        id: "created",
+        title: "Enquiry Created",
+        badge: localLead.status || "New",
+        badgeColor: "bg-blue-50 text-blue-600 border-blue-100",
+        icon: "🌱",
+        description: `Enquiry registered with initial status: ${localLead.status || "New"}`,
+        loggedBy: "System",
+        timestamp: createdDate.getTime(),
+        dateStr: `${createdDate.toLocaleDateString("en-IN")} • ${createdDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+      });
+    }
+
+    // 2. Assignment
+    if (localLead.assignedCrmAdvisor || localLead.createdAt) {
+      const createdDate = localLead.createdAt ? new Date(localLead.createdAt) : new Date();
+      events.push({
+        id: "assigned",
+        title: "Lead Assigned",
+        badge: "Assigned",
+        badgeColor: "bg-indigo-50 text-indigo-600 border-indigo-100",
+        icon: "👤",
+        description: `Lead assigned directly to counselor: ${localLead.assignedCrmAdvisor || "Staff"}`,
+        loggedBy: localLead.assignedCrmAdvisor || "System",
+        timestamp: createdDate.getTime() + 1000,
+        dateStr: `${createdDate.toLocaleDateString("en-IN")} • ${createdDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+      });
+    }
+
+    // 3. Follow-up Tasks (excluding Demo sessions so Demos count as Demo only)
+    if (Array.isArray(localLead.followUps) && localLead.followUps.length > 0) {
+      localLead.followUps.forEach((task: any, index: number) => {
+        const contactType = (task.typeOfContact || "").toLowerCase();
+        const remarksText = (task.remarks || "").toLowerCase();
+        if (contactType.includes("demo") || remarksText.startsWith("demo scheduled") || remarksText.startsWith("demo attended")) {
+          return; // Skip demo tasks here, rendered under Demo Session below
+        }
+
+        const isComp = task.isCompleted || task.status === "Completed";
+        let taskTime = Date.now();
+        if (task.date) {
+          const parsed = new Date(`${task.date}T${task.time || "12:00"}`).getTime();
+          if (!isNaN(parsed)) taskTime = parsed;
+        }
+
+        events.push({
+          id: `followup-${task._id || index}`,
+          title: `Follow-up Task [${task.typeOfContact || "Phone Call"}]`,
+          badge: isComp ? "Completed" : (task.status || "Pending"),
+          badgeColor: isComp ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-amber-50 text-amber-600 border-amber-100",
+          icon: "📞",
+          description: task.remarks || "Follow-up task logged.",
+          outcome: task.completionRemarks ? `Remarks: ${task.completionRemarks}` : undefined,
+          loggedBy: task.plannedBy || localLead.assignedCrmAdvisor || "Counselor",
+          timestamp: taskTime,
+          dateStr: `${task.date || "Scheduled"} ${task.time ? `• ${task.time}` : ""}`,
+        });
+      });
+    }
+
+    // 4. Demos
+    const activeDemos = localLead.demos || (localLead.demoDate ? [{ date: localLead.demoDate, time: localLead.demoTime, mode: localLead.demoMode, teacherName: localLead.demoTeacherName, status: localLead.demoStatus, notes: localLead.demoNotes }] : []);
+    if (Array.isArray(activeDemos) && activeDemos.length > 0) {
+      activeDemos.forEach((demo: any, index: number) => {
+        const isAtt = demo.status === "Attended" || demo.status === "Completed";
+        let demoTime = Date.now();
+        if (demo.date) {
+          const parsed = new Date(`${demo.date}T${demo.time || "12:00"}`).getTime();
+          if (!isNaN(parsed)) demoTime = parsed;
+        }
+
+        events.push({
+          id: `demo-${demo._id || index}`,
+          title: `Demo Session [${demo.mode || "Demo"}]`,
+          badge: demo.status || "Scheduled",
+          badgeColor: isAtt ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-purple-50 text-purple-600 border-purple-100",
+          icon: "💻",
+          description: `Faculty: ${demo.teacherName || "Assigned Faculty"}${demo.notes ? ` • ${demo.notes}` : ""}`,
+          outcome: demo.attendanceRemarks ? `Attendance Feedback: ${demo.attendanceRemarks}` : undefined,
+          loggedBy: localLead.assignedCrmAdvisor || "Counselor",
+          timestamp: demoTime,
+          dateStr: `${demo.date || "Scheduled"} ${demo.time ? `• ${demo.time}` : ""}`,
+        });
+      });
+    }
+
+    // 5. Admission / Conversion
+    if (localLead.status === "Admitted" || localLead.isAdmitted) {
+      events.push({
+        id: "admission",
+        title: "Converted to Admission",
+        badge: "Admitted",
+        badgeColor: "bg-emerald-50 text-emerald-700 border-emerald-200",
+        icon: "🎓",
+        description: `Student successfully admitted into course: ${localLead.targetCourse || "Course"}`,
+        loggedBy: localLead.assignedCrmAdvisor || "Counselor",
+        timestamp: Date.now() + 10000,
+        dateStr: "Admission Confirmed",
+      });
+    }
+
+    // Sort timeline chronologically (latest event first)
+    return events.sort((a, b) => b.timestamp - a.timestamp);
+  }, [localLead]);
+
   const handleAddSubmit = async () => {
     if (!taskDate || !taskTime || !taskRemarks) {
       return alert("Please fill all required fields.");
@@ -669,70 +781,63 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
                 </div>
               ) : activeTab === "Timeline History" ? (
                 <div className="flex flex-col">
-                  <h2 className="text-sm font-extrabold text-slate-800 tracking-tight mb-8">CRM Interaction History</h2>
-                  
-                  <div className="relative border-l border-slate-100 ml-2.5 space-y-8 pb-4">
-                    
-                    {/* Event 1 */}
-                    <div className="relative pl-6 group">
-                      <div className="absolute -left-2.5 top-0 w-5 h-5 bg-white border border-indigo-200 rounded-full flex items-center justify-center text-indigo-500 shadow-[0_0_0_4px_white]">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-4 -mt-1">
-                        <div>
-                          <h4 className="text-xs font-bold text-slate-800">Enquiry Created</h4>
-                          <p className="text-xs text-slate-500 mt-1 font-semibold">Enquiry registered with initial status: {localLead.status}</p>
-                          <p className="text-[10px] text-slate-400 font-medium font-mono mt-2">Logged by: System</p>
-                        </div>
-                        <span className="text-[10px] font-bold text-slate-400 shrink-0 font-mono tracking-tighter">
-                          {localLead.createdAt ? new Date(localLead.createdAt).toLocaleDateString() : "7/13/2026"} • {localLead.createdAt ? new Date(localLead.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "04:04 PM"}
-                        </span>
-                      </div>
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h2 className="text-sm font-extrabold text-slate-800 tracking-tight">
+                        CRM Interaction & Activity History
+                      </h2>
+                      <p className="text-xs text-slate-500 font-medium mt-0.5">
+                        Complete chronological record of enquiry creation, follow-ups, calls, and demo sessions for {localLead.studentFullName}.
+                      </p>
                     </div>
-
-                    {/* Event 2 */}
-                    <div className="relative pl-6 group">
-                      <div className="absolute -left-2.5 top-0 w-5 h-5 bg-white border border-indigo-200 rounded-full flex items-center justify-center text-indigo-500 shadow-[0_0_0_4px_white]">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-4 -mt-1">
-                        <div>
-                          <h4 className="text-xs font-bold text-slate-800">Assigned</h4>
-                          <p className="text-xs text-slate-500 mt-1 font-semibold">Lead assigned directly to counselor</p>
-                          <p className="text-[10px] text-slate-400 font-medium font-mono mt-2">Logged by: {localLead.assignedCrmAdvisor || "System"}</p>
-                        </div>
-                        <span className="text-[10px] font-bold text-slate-400 shrink-0 font-mono tracking-tighter">
-                          {localLead.createdAt ? new Date(localLead.createdAt).toLocaleDateString() : "7/13/2026"} • {localLead.createdAt ? new Date(localLead.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "04:04 PM"}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Event 3 (Conditional Mock) */}
-                    {localLead.followUpDate && (
-                      <div className="relative pl-6 group">
-                        <div className="absolute -left-2.5 top-0 w-5 h-5 bg-white border border-indigo-200 rounded-full flex items-center justify-center text-indigo-500 shadow-[0_0_0_4px_white]">
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                        </div>
-                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-4 -mt-1">
-                          <div>
-                            <h4 className="text-xs font-bold text-slate-800">Follow-up</h4>
-                            <p className="text-xs text-slate-500 mt-1 font-semibold">Follow-up planned: [{localLead.followUpType || "WhatsApp"}] scheduled on {new Date(localLead.followUpDate).toISOString().split('T')[0]} at {localLead.followUpTime || "12:00"}</p>
-                            <p className="text-[10px] text-slate-400 font-medium font-mono mt-2">Logged by: {localLead.assignedCrmAdvisor || "System"}</p>
-                          </div>
-                          <span className="text-[10px] font-bold text-slate-400 shrink-0 font-mono tracking-tighter">
-                            {new Date().toLocaleDateString()} • {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-
+                    <span className="bg-indigo-50 text-indigo-600 text-xs px-2.5 py-1 rounded-lg font-bold border border-indigo-100 shrink-0">
+                      {timelineEvents.length} Events Logged
+                    </span>
                   </div>
+
+                  {timelineEvents.length > 0 ? (
+                    <div className="relative border-l border-slate-200 ml-3 space-y-6 pb-4">
+                      {timelineEvents.map((evt) => (
+                        <div key={evt.id} className="relative pl-6 group">
+                          <div className="absolute -left-3 top-0 w-6 h-6 bg-white border border-slate-200 rounded-full flex items-center justify-center text-xs shadow-xs select-none">
+                            {evt.icon}
+                          </div>
+
+                          <div className="bg-white border border-slate-100 rounded-xl p-3.5 shadow-xs hover:border-slate-200 transition-all space-y-1.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h4 className="text-xs font-bold text-slate-800">{evt.title}</h4>
+                                <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md border uppercase tracking-wider ${evt.badgeColor}`}>
+                                  {evt.badge}
+                                </span>
+                              </div>
+                              <span className="text-[10px] font-bold text-slate-400 font-mono tracking-tighter shrink-0">
+                                {evt.dateStr}
+                              </span>
+                            </div>
+
+                            <p className="text-xs text-slate-600 font-semibold leading-relaxed">
+                              {evt.description}
+                            </p>
+
+                            {evt.outcome && (
+                              <div className="text-[11px] font-bold text-emerald-700 bg-emerald-50/80 border border-emerald-100 p-2 rounded-lg mt-1">
+                                {evt.outcome}
+                              </div>
+                            )}
+
+                            <div className="text-[10px] text-slate-400 font-medium font-mono pt-1 border-t border-slate-50 flex items-center justify-between">
+                              <span>Logged by: <strong className="text-slate-600">{evt.loggedBy}</strong></span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 text-slate-400 font-bold text-xs">
+                      No interaction history recorded yet.
+                    </div>
+                  )}
                 </div>
               ) : activeTab === "Follow-ups Tasker" ? (
                 <div className="flex flex-col h-full">
@@ -747,8 +852,15 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
                   </div>
                   
                   <div className="flex flex-col gap-4">
-                    {localLead.followUps && localLead.followUps.length > 0 ? (
-                      localLead.followUps.slice().reverse().map((task: any, idx: number) => (
+                    {(() => {
+                      const nonDemoFollowUps = (localLead.followUps || []).filter((task: any) => {
+                        const contactType = (task.typeOfContact || "").toLowerCase();
+                        const remarksText = (task.remarks || "").toLowerCase();
+                        return !contactType.includes("demo") && !remarksText.startsWith("demo scheduled") && !remarksText.startsWith("demo attended");
+                      });
+
+                      return nonDemoFollowUps.length > 0 ? (
+                        nonDemoFollowUps.slice().reverse().map((task: any, idx: number) => (
                         <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50 border border-slate-100 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
                           <div className="flex flex-col">
                             <div className="flex items-center gap-2 mb-1">
@@ -788,7 +900,8 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
                       <div className="text-center py-10">
                         <p className="text-slate-400 text-sm font-semibold">No follow-up tasks scheduled yet.</p>
                       </div>
-                    )}
+                    );
+                  })()}
                   </div>
                 </div>
               ) : activeTab === "Demo History" ? (

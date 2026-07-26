@@ -469,9 +469,16 @@ export default function CounsellorFeeCollectionPage() {
                                         onClick={() => selectStudent(student)}
                                         className="p-3 border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors"
                                     >
-                                        <p className="text-xs font-bold text-slate-800">{student.fullName}</p>
+                                        <div className="flex items-center justify-between gap-2">
+                                            <p className="text-xs font-bold text-slate-800">{student.fullName}</p>
+                                            {student.course && (
+                                                <span className="text-[9px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-md px-2 py-0.5 shrink-0">
+                                                    {student.course}
+                                                </span>
+                                            )}
+                                        </div>
                                         <div className="flex items-center justify-between mt-1 text-[9px] text-slate-400 font-bold">
-                                            <span>{student.admissionId}</span>
+                                            <span>{student.admissionId}{student.brand ? ` • ${student.brand}` : ""}</span>
                                             <span>{student.mobileNumber}</span>
                                         </div>
                                     </div>

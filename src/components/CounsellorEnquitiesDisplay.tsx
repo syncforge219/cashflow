@@ -145,7 +145,7 @@ export default function CounsellorEnquiriesDisplay() {
         (e) => e.status === "Lost"
     ).length;
 
-    const conversionRate = totalPeriodCount > 0 ? Math.round((admissionsConvertedCount / totalPeriodCount) * 100) : 0;
+    const conversionRate = totalPeriodCount > 0 ? Math.min(100, Math.round((admissionsConvertedCount / totalPeriodCount) * 100)) : 0;
 
     const firstCardTitleMap: Record<string, string> = {
         today: "Today's Enquiries",

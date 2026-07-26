@@ -63,7 +63,7 @@ const PUBLIC_PRODUCTION_URL = "https://cashflow-git-734957305541.asia-south2.run
 
 export function getPublicPdfBaseUrl(): string {
   const envUrl = process.env.PUBLIC_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "";
-  if (envUrl && !envUrl.includes("localhost") && !envUrl.includes("127.0.0.1") && !envUrl.includes("ngrok")) {
+  if (envUrl && !envUrl.includes("localhost") && !envUrl.includes("127.0.0.1")) {
     return envUrl.replace(/\/$/, "");
   }
   return process.env.MSG91_DEFAULT_PDF_HOST || PUBLIC_PRODUCTION_URL;

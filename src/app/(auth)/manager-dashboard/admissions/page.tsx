@@ -4,6 +4,8 @@ import React, { useState, useEffect } from "react";
 import LeadProfile from "@/components/LeadProfile";
 import AdmissionModal from "@/components/AdmissionModal";
 import AddEnquiryModal from "@/components/AddEnquiryModal";
+import AdmissionDetailModal from "@/components/AdmissionDetailModal";
+import PaymentReceiptModal from "@/components/PaymentReceiptModal";
 import ManagerSidebar from "@/components/ManagerSidebar";
 import { useUser } from "@/app/component/context/user-context";
 
@@ -21,6 +23,13 @@ export default function BrandManagerAdmissionHub() {
     const [isAdmissionModalOpen, setIsAdmissionModalOpen] = useState(false);
     const [leadForAdmission, setLeadForAdmission] = useState<any | null>(null);
     const [isAddEnquiryOpen, setIsAddEnquiryOpen] = useState(false);
+    const [selectedAdmissionDetail, setSelectedAdmissionDetail] = useState<any | null>(null);
+
+    // Receipt Modal States
+    const [selectedStudentForReceipt, setSelectedStudentForReceipt] = useState<any | null>(null);
+    const [selectedReceipt, setSelectedReceipt] = useState<any | null>(null);
+    const [paymentsHistory, setPaymentsHistory] = useState<any[]>([]);
+    const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
 
     // Admissions Data
     const [admissions, setAdmissions] = useState<any[]>([]);
@@ -89,47 +98,38 @@ export default function BrandManagerAdmissionHub() {
         }
     };
 
-    const handlePrintSlip = (adm: any) => {
-        const printWindow = window.open("", "_blank", "width=800,height=600");
-        if (!printWindow) return;
-        printWindow.document.write(`
-            <html>
-                <head>
-                    <title>Admission Slip - ${adm.fullName || "Student"}</title>
-                    <style>
-                        body { font-family: sans-serif; padding: 30px; line-height: 1.6; color: #1e293b; }
-                        .header { text-align: center; border-bottom: 2px solid #6366f1; padding-bottom: 15px; margin-bottom: 20px; }
-                        .header h1 { margin: 0; color: #4338ca; font-size: 24px; }
-                        .header p { margin: 5px 0 0; font-size: 12px; color: #64748b; font-weight: bold; }
-                        .field { margin-bottom: 12px; font-size: 14px; }
-                        .label { font-weight: bold; color: #475569; display: inline-block; width: 160px; }
-                        .footer { margin-top: 40px; border-top: 1px solid #e2e8f0; pt: 20px; font-size: 11px; text-align: center; color: #94a3b8; }
-                        .badge { background: #e0e7ff; color: #3730a3; padding: 4px 8px; border-radius: 6px; font-weight: bold; font-size: 12px; }
-                    </style>
-                </head>
-                <body>
-                    <div class="header">
-                        <h1>CoachFlow ERP - Official Admission Slip</h1>
-                        <p>AUTHENTICATED ENROLLMENT RECEIPT</p>
-                    </div>
-                    <div class="field"><span class="label">Admission ID:</span> <span class="badge">${adm.admissionId || "N/A"}</span></div>
-                    <div class="field"><span class="label">Student Name:</span> <strong>${adm.fullName || "N/A"}</strong></div>
-                    <div class="field"><span class="label">Course Enrolled:</span> ${adm.course || "N/A"}</div>
-                    <div class="field"><span class="label">Brand:</span> ${adm.brand || "N/A"}</div>
-                    <div class="field"><span class="label">Counselor:</span> ${adm.counsellor || "N/A"}</div>
-                    <div class="field"><span class="label">Total Fee:</span> ₹${adm.finalFee || "0"}</div>
-                    <div class="field"><span class="label">Remaining Balance:</span> ₹${adm.remainingBalance || "0"}</div>
-                    <div class="field"><span class="label">Admission Date:</span> ${new Date(adm.createdAt || Date.now()).toLocaleDateString("en-IN")}</div>
-                    <div class="footer">
-                        <p>This is a computer-generated document. No signature required.</p>
-                        <p>CoachFlow Enterprise v1.2</p>
-                    </div>
-                </body>
-            </html>
-        `);
-        printWindow.document.close();
-        printWindow.focus();
-        printWindow.print();
+    const handlePrintSlip = async (adm: any, e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
+        setSelectedStudentForReceipt(adm);
+        let fetchedReceipt = null;
+        let fetchedHistory: any[] = [];
+        try {
+            const res = await fetch(`/api/payments?admissionId=${adm._id}`);
+            const json = await res.json();
+            if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+                fetchedHistory = json.data;
+                fetchedReceipt = json.data[0];
+            }
+        } catch (e) {
+            console.error("Failed to fetch payments:", e);
+        }
+
+        if (!fetchedReceipt) {
+            const numId = adm.admissionId ? adm.admissionId.replace(/[^0-9]/g, "") : "1001";
+            fetchedReceipt = {
+                receiptNo: `REC-${numId}`,
+                amountReceived: (Number(adm.finalFee || 0) - Number(adm.remainingBalance || 0)) || Number(adm.amountReceivedToday || 0),
+                paymentMode: adm.paymentMode || "Cash",
+                referenceNo: adm.transactionNo || "N/A",
+                company: adm.companyAssigned || "Design Gateway Pvt Ltd",
+                paymentDate: adm.admissionDate || adm.createdAt || new Date().toISOString(),
+                particulars: { courseFeeDue: Number(adm.finalFee || 0) },
+            };
+        }
+
+        setSelectedReceipt(fetchedReceipt);
+        setPaymentsHistory(fetchedHistory);
+        setIsReceiptModalOpen(true);
     };
 
     // Derived lists for dropdown filters
@@ -865,7 +865,7 @@ export default function BrandManagerAdmissionHub() {
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
                                         {filteredAdmissions.map((adm: any, i: number) => (
-                                            <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                                            <tr key={i} className="hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => setSelectedAdmissionDetail(adm)}>
                                                 <td className="px-6 py-4">
                                                     <div className="flex items-center gap-3">
                                                         <div className="h-8 w-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-xs">
@@ -905,7 +905,7 @@ export default function BrandManagerAdmissionHub() {
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
                                                     <button
-                                                        onClick={() => handlePrintSlip(adm)}
+                                                        onClick={(e) => handlePrintSlip(adm, e)}
                                                         className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors border border-indigo-100"
                                                     >
                                                         Print Slip
@@ -938,26 +938,6 @@ export default function BrandManagerAdmissionHub() {
                     </div>
                 </div>
 
-                {/* FAB (+) Button for Direct Admission */}
-                <button
-                    onClick={() => {
-                        setLeadForAdmission(null);
-                        setIsAdmissionModalOpen(true);
-                    }}
-                    title="Create New Admission"
-                    className="fixed bottom-16 right-8 w-14 h-14 bg-indigo-600 hover:bg-indigo-700 rounded-full shadow-lg shadow-indigo-600/30 flex items-center justify-center text-white transition-transform hover:scale-105 active:scale-95 z-20"
-                >
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={3}
-                        stroke="currentColor"
-                        className="w-6 h-6"
-                    >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                    </svg>
-                </button>
             </div>
 
             {/* Modals */}
@@ -1002,6 +982,54 @@ export default function BrandManagerAdmissionHub() {
                         setIsAddEnquiryOpen(false);
                         handleSearch();
                     }}
+                />
+            )}
+
+            {selectedAdmissionDetail && (
+                <AdmissionDetailModal
+                    isOpen={!!selectedAdmissionDetail}
+                    onClose={() => setSelectedAdmissionDetail(null)}
+                    admission={selectedAdmissionDetail}
+                    onUpgradeCourse={(adm, targetCourse, targetCourseFee) => {
+                        setLeadForAdmission({
+                            fullName: adm.fullName,
+                            studentFullName: adm.fullName,
+                            mobileNumber: adm.mobileNumber,
+                            primaryPhoneMobile: adm.mobileNumber,
+                            email: adm.email,
+                            emailAddress: adm.email,
+                            address: adm.address,
+                            city: adm.city,
+                            currentCity: adm.city,
+                            state: adm.state,
+                            pincode: adm.pincode,
+                            dob: adm.dob,
+                            gender: adm.gender,
+                            counsellor: adm.counsellor,
+                            assignedCrmAdvisor: adm.counsellor,
+                            brand: adm.brand,
+                            targetBrand: adm.brand,
+                            course: targetCourse,
+                            targetCourse: targetCourse,
+                            expectedCourseFee: targetCourseFee ? String(targetCourseFee) : "0",
+                        });
+                        setSelectedAdmissionDetail(null);
+                        setIsAdmissionModalOpen(true);
+                    }}
+                />
+            )}
+
+            {isReceiptModalOpen && selectedStudentForReceipt && selectedReceipt && (
+                <PaymentReceiptModal
+                    isOpen={isReceiptModalOpen}
+                    onClose={() => {
+                        setIsReceiptModalOpen(false);
+                        setSelectedStudentForReceipt(null);
+                        setSelectedReceipt(null);
+                    }}
+                    receipt={selectedReceipt}
+                    student={selectedStudentForReceipt}
+                    paymentsHistory={paymentsHistory}
                 />
             )}
         </div>

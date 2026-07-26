@@ -61,6 +61,7 @@ export async function GET(req: Request) {
     // Parallel execution of all primary data queries using MongoDB Aggregations
     const [
       totalLeads, 
+      convertedLeadsCount,
       newLeadsToday, 
       followUpsToday, 
       walkinsToday,
@@ -96,6 +97,7 @@ export async function GET(req: Request) {
       allExpenses
     ] = await Promise.all([
       Enquiry.countDocuments(globalFilter),
+      Enquiry.countDocuments({ ...globalFilter, $or: [{ isAdmitted: true }, { status: { $in: ["Admitted", "Admission", "Converted"] } }] }),
       Enquiry.countDocuments({ createdAt: dateRangeFilter, status: "New" }),
       Enquiry.countDocuments({ "followUps.date": stringDateFilter }),
       Enquiry.countDocuments({ createdAt: dateRangeFilter, leadSource: "Direct Walkin" }),
@@ -247,11 +249,34 @@ export async function GET(req: Request) {
       categoryExpenseMap[cat] = (categoryExpenseMap[cat] || 0) + amt;
     });
 
+    // Calculate unlinked course upgrades so totalLeads includes incoming leads + course upgrades
+    const periodAdmissions = await Admission.find(globalFilter).select("mobileNumber course createdAt isUpgrade").lean();
+    let unlinkedUpgradesCount = 0;
+    for (const adm of periodAdmissions) {
+      const isUpg = adm.isUpgrade || (await Admission.exists({
+        mobileNumber: adm.mobileNumber,
+        _id: { $ne: adm._id },
+        createdAt: { $lt: adm.createdAt }
+      }));
+      if (isUpg) {
+        const hasEnquiry = await Enquiry.exists({
+          primaryPhoneMobile: adm.mobileNumber,
+          targetCourse: adm.course
+        });
+        if (!hasEnquiry) {
+          unlinkedUpgradesCount++;
+        }
+      }
+    }
+
     const totalOutflow = totalPayrollSum + totalExpensesSum;
     const netProfitNum = totalCollection - totalOutflow;
     const profitMarginPct = totalCollection > 0 ? ((netProfitNum / totalCollection) * 100).toFixed(1) + "%" : "0%";
 
-    const conversionRate = totalLeads > 0 ? ((admissionsTotal / totalLeads) * 100).toFixed(1) + "%" : "0%";
+    const totalLeadsCalculated = totalLeads + unlinkedUpgradesCount;
+    const totalConvertedCalculated = convertedLeadsCount + unlinkedUpgradesCount;
+
+    const conversionRate = totalLeadsCalculated > 0 ? ((totalConvertedCalculated / totalLeadsCalculated) * 100).toFixed(1) + "%" : "0%";
 
     const formatLakhsOrRupees = (amt: number) => {
       if (Math.abs(amt) >= 100000) return `₹${(amt / 100000).toFixed(2)} L`;
@@ -259,7 +284,7 @@ export async function GET(req: Request) {
     };
 
     const kpis = {
-      totalLeads,
+      totalLeads: totalLeadsCalculated,
       newLeadsToday,
       followUpsToday,
       walkinsToday,

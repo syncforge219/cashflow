@@ -56,6 +56,7 @@ export async function GET(req: Request) {
 
     // 1. KPI Calculations
     const totalLeads = await Enquiry.countDocuments(enquiryQuery);
+    const convertedLeads = await Enquiry.countDocuments({ ...enquiryQuery, $or: [{ isAdmitted: true }, { status: { $in: ["Admitted", "Admission", "Converted"] } }] });
     const newLeads = await Enquiry.countDocuments({ ...enquiryQuery, status: "New" });
 
     // Today's date format (YYYY-MM-DD and start/end of day)
@@ -274,16 +275,39 @@ export async function GET(req: Request) {
       });
     });
 
+    // Calculate unlinked course upgrades so totalLeads includes incoming leads + course upgrades
+    let unlinkedUpgradesCount = 0;
+    for (const adm of admissionsList) {
+      const isUpg = (adm as any).isUpgrade || (await Admission.exists({
+        mobileNumber: (adm as any).mobileNumber,
+        _id: { $ne: (adm as any)._id },
+        createdAt: { $lt: (adm as any).createdAt }
+      }));
+      if (isUpg) {
+        const hasEnquiry = await Enquiry.exists({
+          primaryPhoneMobile: (adm as any).mobileNumber,
+          targetCourse: (adm as any).course
+        });
+        if (!hasEnquiry) {
+          unlinkedUpgradesCount++;
+        }
+      }
+    }
+
+    const totalLeadsCalculated = totalLeads + unlinkedUpgradesCount;
+    const totalConvertedCalculated = convertedLeads + unlinkedUpgradesCount;
+
     return NextResponse.json({
       success: true,
       data: {
         selectedBrand: selectedBrand || "All Brands",
         availableBrands,
         kpis: {
-          totalLeads,
+          totalLeads: totalLeadsCalculated,
           newLeads,
           followUpsToday,
           admissions: admissionsCount,
+          conversionRate: totalLeadsCalculated > 0 ? ((totalConvertedCalculated / totalLeadsCalculated) * 100).toFixed(1) + "%" : "0.0%",
           revenue: `₹${(totalRevenue / 100000).toFixed(2)} L`,
           collection: `₹${(totalCollection / 100000).toFixed(2)} L`,
           pendingFees: `₹${(totalPendingFees / 100000).toFixed(2)} L`,

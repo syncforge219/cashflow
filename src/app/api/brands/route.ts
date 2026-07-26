@@ -74,8 +74,9 @@ export async function GET() {
       const demosConducted = enquiries.filter((e: any) => 
         e.isDemoScheduled || (e.demos && e.demos.length > 0) || e.status === "Demo Scheduled" || e.status === "Demo Attended"
       ).length;
-      const admissionsCount = Math.max(admissions.length, admittedEnquiries.length);
-      const conversionRate = totalEnquiries > 0 ? ((admissionsCount / totalEnquiries) * 100).toFixed(1) : "0.0";
+      const convertedEnquiriesCount = enquiries.filter((e: any) => e.isAdmitted || e.status === "Admitted" || e.status === "Admission" || e.status === "Converted").length;
+      const admissionsCount = Math.max(admissions.length, convertedEnquiriesCount);
+      const conversionRate = totalEnquiries > 0 ? ((convertedEnquiriesCount / totalEnquiries) * 100).toFixed(1) : "0.0";
 
       return {
         ...brand,

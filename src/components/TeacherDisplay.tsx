@@ -405,16 +405,7 @@ export default function TeacherDisplay() {
         </div>
       </div>
 
-      {/* Floating Action Button */}
-      <button
-        onClick={() => setIsAddModalOpen(true)}
-        className="fixed bottom-6 right-6 h-12 w-12 rounded-full bg-indigo-600 text-white shadow-xl shadow-indigo-600/30 flex items-center justify-center hover:bg-indigo-700 transition-all z-40 transform hover:scale-105 active:scale-95"
-        title="Add New Teacher"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-6 h-6">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-        </svg>
-      </button>
+
 
       {/* Add Teacher Modal */}
       <AddTeacherModal

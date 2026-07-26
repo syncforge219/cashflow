@@ -153,38 +153,52 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
 
   useEffect(() => {
     if (isOpen && lead) {
-      setFullName(lead.studentFullName || "");
-      setMobileNumber(lead.primaryPhoneMobile || "");
-      setEmail(lead.emailAddress || "");
-      setCounsellor(lead.assignedCrmAdvisor || "");
-      setBrand(lead.targetBrand || "");
-      setCourse(lead.targetCourse || "");
-      setCourseFee(Math.floor(Number(lead.expectedCourseFee?.replace(/[^0-9.]/g, ''))) || 0);
-      
-      setParentName("");
-      setAddress("");
-      setCity(lead.currentCity || "");
-      setState("");
-      setPincode("");
-      setDob("");
-      setGender("");
+      setFullName(lead.studentFullName || lead.fullName || "");
+      setMobileNumber(lead.primaryPhoneMobile || lead.mobileNumber || "");
+      setEmail(lead.emailAddress || lead.email || "");
+      setCounsellor(lead.assignedCrmAdvisor || lead.counsellor || "");
+      setBrand(lead.targetBrand || lead.brand || "");
+      setCourse(lead.targetCourse || lead.course || "");
+      const feeVal = lead.expectedCourseFee || lead.courseFee || "0";
+      setCourseFee(
+        typeof feeVal === "number"
+          ? feeVal
+          : Math.floor(Number(String(feeVal).replace(/[^0-9.]/g, ""))) || 0
+      );
+
+      setParentName(lead.parentName || "");
+      setAddress(lead.address || "");
+      setCity(lead.currentCity || lead.city || "");
+      setState(lead.state || "");
+      setPincode(lead.pincode || "");
+      setDob(lead.dob || "");
+      setGender(lead.gender || "");
       setBatch("");
 
-      const targetCourseName = lead.targetCourse || "";
-      const foundCourseObj = courses.find(c => c.name?.trim().toLowerCase() === targetCourseName.trim().toLowerCase());
+      const targetCourseName = lead.targetCourse || lead.course || "";
+      const foundCourseObj = courses.find(
+        (c) => c.name?.trim().toLowerCase() === targetCourseName.trim().toLowerCase()
+      );
       if (foundCourseObj && foundCourseObj.duration) {
         setDuration(foundCourseObj.duration);
+        if (foundCourseObj.fee) {
+          const numFee = Math.floor(Number(String(foundCourseObj.fee).replace(/[^0-9.]/g, ""))) || 0;
+          if (numFee > 0) setCourseFee(numFee);
+        }
       } else if (targetCourseName) {
         const nameUpper = targetCourseName.toUpperCase();
-        if (nameUpper.includes("BVOC") || nameUpper.includes("DEGREE") || nameUpper.includes("BSC") || nameUpper.includes("BACHELOR")) {
+        if (
+          nameUpper.includes("BVOC") ||
+          nameUpper.includes("DEGREE") ||
+          nameUpper.includes("BSC") ||
+          nameUpper.includes("BACHELOR")
+        ) {
           setDuration("36 Months");
         } else if (nameUpper.includes("ADVANCE") || nameUpper.includes("DIPLOMA")) {
           setDuration("12 Months");
         } else {
           setDuration("6 Months");
         }
-      } else {
-        setDuration("6 Months");
       }
 
       setStartDate(new Date().toISOString().split("T")[0]);
@@ -204,6 +218,26 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
       setFirstDueDate("");
     }
   }, [lead, isOpen]);
+
+  // Auto-sync course fee & duration whenever course or fetched courses list updates
+  useEffect(() => {
+    if (isOpen && course && courses.length > 0) {
+      const foundCourseObj = courses.find(
+        (c) => c.name?.trim().toLowerCase() === course.trim().toLowerCase()
+      );
+      if (foundCourseObj) {
+        if (foundCourseObj.fee) {
+          const numFee = Math.floor(Number(String(foundCourseObj.fee).replace(/[^0-9.]/g, ""))) || 0;
+          if (numFee > 0) {
+            setCourseFee(numFee);
+          }
+        }
+        if (foundCourseObj.duration) {
+          setDuration(foundCourseObj.duration);
+        }
+      }
+    }
+  }, [isOpen, course, courses]);
 
   const handleGenerateAdmission = async (generateReceipt = false) => {
     if (!fullName || !mobileNumber || !city || !state || !pincode || !counsellor || 

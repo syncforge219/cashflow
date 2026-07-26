@@ -7,6 +7,7 @@ import { useUser } from "../../component/context/user-context";
 import ProfileDisplay from "@/components/ProfileDisplay";
 import CommandPalette from "@/components/CommandPalette";
 import AddBatchModal from "@/components/AddBatchModal";
+import AdmissionBreakdownModal from "@/components/AdmissionBreakdownModal";
 
 interface DashboardStats {
   selectedBrand: string;
@@ -64,6 +65,7 @@ export default function ManagerDashboard() {
   const [loading, setLoading] = useState<boolean>(true);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
+  const [isAdmissionBreakdownOpen, setIsAdmissionBreakdownOpen] = useState(false);
 
   useEffect(() => {
     if (user?.role === "counsellor") {
@@ -274,17 +276,25 @@ export default function ManagerDashboard() {
               <p className="text-[10px] font-bold text-amber-600">Scheduled</p>
             </div>
 
-            <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+            <div
+              onClick={() => setIsAdmissionBreakdownOpen(true)}
+              className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm cursor-pointer hover:border-purple-300 hover:shadow-md transition-all ring-2 ring-purple-500/10"
+            >
               <div className="flex justify-between items-start mb-2">
                 <div>
-                  <h3 className="text-xs font-bold text-slate-500 mb-1">Admissions</h3>
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="text-xs font-bold text-slate-500">Admissions</h3>
+                    <span className="text-[8px] font-black text-purple-600 bg-purple-50 px-1 py-0.5 rounded uppercase">
+                      Details
+                    </span>
+                  </div>
                   <p className="text-xl font-extrabold text-slate-800">{loading ? "..." : (stats?.kpis?.admissions ?? 0)}</p>
                 </div>
                 <div className="h-8 w-8 bg-purple-50 text-purple-600 rounded-lg flex items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342M6.75 15a.75.75 0 100-1.5.75.75 0 000 1.5zm0 0v-3.675A55.378 55.378 0 0112 8.443m-7.007 11.55A5.981 5.981 0 006.75 15.75v-1.5" /></svg>
                 </div>
               </div>
-              <p className="text-[10px] font-bold text-purple-600">Total Enrolled</p>
+              <p className="text-[10px] font-bold text-purple-600">Total Enrolled • Click for Breakdown</p>
             </div>
 
             <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
@@ -574,6 +584,12 @@ export default function ManagerDashboard() {
           window.location.reload();
         }}
         initialBrandScope={user?.brandScope}
+      />
+      <AdmissionBreakdownModal
+        isOpen={isAdmissionBreakdownOpen}
+        onClose={() => setIsAdmissionBreakdownOpen(false)}
+        brandScope={selectedBrand}
+        filterLabel={selectedBrand !== "all" ? selectedBrand : "Overall Scope"}
       />
     </div>
   );

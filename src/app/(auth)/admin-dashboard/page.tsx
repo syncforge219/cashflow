@@ -10,6 +10,7 @@ import DashboardFilter from "@/components/DashboardFilter";
 import DeleteConfirmModal from "@/components/DeleteConfirmModal";
 import StudentSearchCenter from "@/components/StudentSearchCenter";
 import AddBatchModal from "@/components/AddBatchModal";
+import AdmissionBreakdownModal from "@/components/AdmissionBreakdownModal";
 
 export default function AdminDashboard() {
   const { user, logout } = useUser();
@@ -17,6 +18,7 @@ export default function AdminDashboard() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
+  const [isAdmissionBreakdownOpen, setIsAdmissionBreakdownOpen] = useState(false);
 
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -466,21 +468,61 @@ export default function AdminDashboard() {
                 </div>
               ))
             ) : (
-              metrics.map((card, i) => (
-                <div key={i} className="bg-white border border-slate-200/80 rounded-2xl p-3.5 shadow-xs flex flex-col justify-between hover:border-slate-300 transition-all">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider select-none leading-snug">{card.name}</span>
-                  <div className="my-2 flex items-baseline gap-1">
-                    <span className="text-xl lg:text-2xl font-black text-slate-800 tracking-tight">{card.value}</span>
+              metrics.map((card, i) => {
+                const isAdmCard = card.name.toLowerCase().includes("admission");
+                return (
+                  <div
+                    key={i}
+                    onClick={() => {
+                      if (isAdmCard) {
+                        setIsAdmissionBreakdownOpen(true);
+                      }
+                    }}
+                    className={`bg-white border border-slate-200/80 rounded-2xl p-3.5 shadow-xs flex flex-col justify-between transition-all ${
+                      isAdmCard
+                        ? "cursor-pointer hover:border-indigo-400 hover:shadow-md ring-2 ring-indigo-500/10"
+                        : "hover:border-slate-300"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider select-none leading-snug">
+                        {card.name}
+                      </span>
+                      {isAdmCard && (
+                        <span className="text-[9px] font-black text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded uppercase">
+                          Click for Details
+                        </span>
+                      )}
+                    </div>
+                    <div className="my-2 flex items-baseline gap-1">
+                      <span className="text-xl lg:text-2xl font-black text-slate-800 tracking-tight">
+                        {card.value}
+                      </span>
+                    </div>
+                    <span
+                      className={`text-[10px] font-extrabold rounded-lg px-2 py-0.5 w-fit ${
+                        card.simpleText
+                          ? "text-slate-600 bg-slate-100 border border-slate-200"
+                          : card.isGreen
+                          ? "text-emerald-700 bg-emerald-50 border border-emerald-200/60"
+                          : "text-rose-700 bg-rose-50 border border-rose-200/60"
+                      }`}
+                    >
+                      {card.trend}
+                    </span>
                   </div>
-                  <span className={`text-[10px] font-extrabold rounded-lg px-2 py-0.5 w-fit ${card.simpleText ? "text-slate-600 bg-slate-100 border border-slate-200" :
-                      card.isGreen ? "text-emerald-700 bg-emerald-50 border border-emerald-200/60" : "text-rose-700 bg-rose-50 border border-rose-200/60"
-                    }`}>
-                    {card.trend}
-                  </span>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
+
+          <AdmissionBreakdownModal
+            isOpen={isAdmissionBreakdownOpen}
+            onClose={() => setIsAdmissionBreakdownOpen(false)}
+            filterLabel={filterLabel}
+            startDate={startDate}
+            endDate={endDate}
+          />
 
           {/* Financial Profit & Loss Breakdown Section */}
           <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs">

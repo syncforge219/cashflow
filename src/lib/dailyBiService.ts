@@ -409,7 +409,7 @@ export async function getDailyBiReportData(targetDate?: Date): Promise<DailyBiRe
 
   const leadSourceAnalysis = Object.keys(sourceMap).map((src) => {
     const item = sourceMap[src];
-    const conversionRate = item.leads > 0 ? Number(((item.admissions / item.leads) * 100).toFixed(1)) : 0;
+    const conversionRate = item.leads > 0 ? Number(Math.min(100, (item.admissions / item.leads) * 100).toFixed(1)) : 0;
     return {
       source: src,
       leadsGenerated: item.leads,

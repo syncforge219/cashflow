@@ -81,6 +81,14 @@ export async function POST(req: NextRequest) {
 
     data.companyAssigned = finalCompany;
 
+    // Detect if this is an upgrade admission
+    if (!data.isUpgrade && data.mobileNumber) {
+      const existingAdmCount = await Admission.countDocuments({ mobileNumber: data.mobileNumber });
+      if (existingAdmCount > 0) {
+        data.isUpgrade = true;
+      }
+    }
+
     const admission = new Admission(data);
     await admission.save();
 
@@ -105,26 +113,43 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Automatically update the original enquiry status to closed/admitted if enquiryId or matching details are present
-    if (data.enquiryId) {
-      if (mongoose.Types.ObjectId.isValid(data.enquiryId)) {
-        await Enquiry.findByIdAndUpdate(data.enquiryId, { status: "Admitted", isAdmitted: true });
-      } else {
-        await Enquiry.findOneAndUpdate(
-          { enquiryId: data.enquiryId },
+    // Automatically update or create Enquiry (Lead) record for this course
+    if (data.mobileNumber && data.course) {
+      const existingEnquiry = await Enquiry.findOne({
+        primaryPhoneMobile: data.mobileNumber,
+        targetCourse: data.course,
+      });
+
+      if (existingEnquiry) {
+        await Enquiry.updateOne(
+          { _id: existingEnquiry._id },
           { status: "Admitted", isAdmitted: true }
         );
+      } else {
+        // Create an Enquiry (Lead) record for this upgraded course so lead count increases
+        try {
+          const newEnquiry = new Enquiry({
+            studentName: data.fullName,
+            primaryPhoneMobile: data.mobileNumber,
+            emailAddress: data.email || "",
+            city: data.city || "",
+            state: data.state || "",
+            pincode: data.pincode || "",
+            assignedCrmAdvisor: data.counsellor || "Staff",
+            targetBrand: data.brand || "General Brand",
+            targetCourse: data.course,
+            status: "Admitted",
+            isAdmitted: true,
+            leadSource: data.isUpgrade ? "Course Upgrade" : "Direct Admission",
+            createdAt: data.admissionDate ? new Date(data.admissionDate) : new Date(),
+          });
+          await newEnquiry.save();
+          admission.enquiryId = newEnquiry._id;
+          await admission.save();
+        } catch (enqCreateErr) {
+          console.error("Failed to auto-create Enquiry for course upgrade:", enqCreateErr);
+        }
       }
-    }
-    if (data.mobileNumber && data.course) {
-      await Enquiry.updateMany(
-        {
-          primaryPhoneMobile: data.mobileNumber,
-          targetCourse: data.course,
-          status: { $nin: ["Admitted", "Closed", "Lost", "Converted"] },
-        },
-        { status: "Admitted", isAdmitted: true }
-      );
     }
 
     // Automatically generate a Payment record for the initial payment collected during admission
@@ -283,6 +308,9 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const q = searchParams.get("q");
     let brand = searchParams.get("brand");
+    const startDateParam = searchParams.get("startDate");
+    const endDateParam = searchParams.get("endDate");
+    const filterParam = searchParams.get("filter");
 
     if (user && user.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All") {
       brand = user.brandScope;
@@ -302,12 +330,31 @@ export async function GET(req: Request) {
       ];
     }
 
-    if (brand && brand !== "all") {
+    if (brand && brand !== "all" && brand !== "All") {
       query.brand = brand;
     }
 
+    if (startDateParam && endDateParam) {
+      const sDate = new Date(startDateParam);
+      sDate.setHours(0, 0, 0, 0);
+      const eDate = new Date(endDateParam);
+      eDate.setHours(23, 59, 59, 999);
+      query.createdAt = { $gte: sDate, $lte: eDate };
+    } else if (filterParam === "today") {
+      const sDate = new Date();
+      sDate.setHours(0, 0, 0, 0);
+      const eDate = new Date();
+      eDate.setHours(23, 59, 59, 999);
+      query.createdAt = { $gte: sDate, $lte: eDate };
+    } else if (filterParam === "thisMonth") {
+      const now = new Date();
+      const sDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      const eDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      query.createdAt = { $gte: sDate, $lte: eDate };
+    }
+
     const enquiryQuery: any = {};
-    if (brand && brand !== "all") {
+    if (brand && brand !== "all" && brand !== "All") {
       enquiryQuery.targetBrand = brand;
     }
     const totalEnquiries = await Enquiry.countDocuments(enquiryQuery);

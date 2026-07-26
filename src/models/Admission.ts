@@ -22,6 +22,7 @@ const AdmissionSchema = new Schema(
     gender: { type: String },
     counsellor: { type: String, required: true },
     brand: { type: String },
+    isUpgrade: { type: Boolean, default: false },
 
     // 2. Course Details
     course: { type: String, required: true },

@@ -169,7 +169,7 @@ export default function EnquiriesDisplay() {
     (e) => e.status === "Lost" || e.status === "Closed"
   ).length;
 
-  const conversionRateStr = totalPeriodEnquiries > 0 ? `${Math.round((admissionsConvertedCount / totalPeriodEnquiries) * 100)}%` : "0%";
+  const conversionRateStr = totalPeriodEnquiries > 0 ? `${Math.min(100, Math.round((admissionsConvertedCount / totalPeriodEnquiries) * 100))}%` : "0%";
 
   const firstCardTitleMap: Record<string, string> = {
     today: "Today's Enquiries",

@@ -118,8 +118,8 @@ export default function CounsellorDashboardPage() {
         // Pending Admissions (Negotiation / Hot Leads)
         const pendingAdmCount = myEnquiries.filter((e: any) => e.status === "Negotiation" || e.priorityLevel === "High").length;
 
-        // Conversion Rate
-        const convRate = myEnquiries.length > 0 ? ((myAdmissions.length / myEnquiries.length) * 100).toFixed(1) + "%" : "0%";
+        const rawConvRate = myEnquiries.length > 0 ? (myAdmissions.length / myEnquiries.length) * 100 : 0;
+        const convRate = Math.min(100, Number(rawConvRate.toFixed(1))) + "%";
 
         // Monthly Target Progress
         const monthlyAchievedSum = myAdmissions.reduce((sum: number, a: any) => sum + Number(a.amountReceivedToday || a.finalFee || 0), 0);
