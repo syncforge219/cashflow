@@ -22,7 +22,6 @@ const UserSchema = new Schema(
     },
     role: {
       type: String,
-      enum: ["super admin", "brand manager", "centre head", "counsellor", "sales executive", "teacher"],
       default: "super admin",
     },
     subjects: [
@@ -81,6 +80,10 @@ const UserSchema = new Schema(
 UserSchema.index({ role: 1 });
 UserSchema.index({ brandScope: 1 });
 
-const User = mongoose.models.User || mongoose.model("User", UserSchema);
+if (mongoose.models && mongoose.models.User) {
+  delete (mongoose.models as any).User;
+}
+
+const User = mongoose.model("User", UserSchema);
 
 export default User;

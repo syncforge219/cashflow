@@ -87,7 +87,7 @@ export async function sendWhatsAppFeeReceipt(params: FeeReceiptWhatsAppParams) {
 
     const rNo = params.receiptNo || "GEN-001";
     const receiptDocUrl =
-      params.receiptUrl || `${getPublicPdfBaseUrl()}/api/receipts/${rNo}/pdf`;
+      params.receiptUrl || `${getPublicPdfBaseUrl()}/api/receipts/${rNo}/pdf?v=${Date.now()}`;
     const filename = `Fee_Receipt_${rNo}.pdf`;
     const formattedAmount = `₹${Number(params.amountPaid || 0).toLocaleString(
       "en-IN",
@@ -213,7 +213,7 @@ export async function sendWhatsAppDailyReport(params: DailyReportWhatsAppParams)
     }
 
     const reportPdfUrl =
-      params.pdfUrl || `${getPublicPdfBaseUrl()}/api/reports/daily/pdf`;
+      params.pdfUrl || `${getPublicPdfBaseUrl()}/api/reports/daily/pdf?v=${Date.now()}`;
 
     const safeDate = params.reportData.dateStr.replace(/[^a-zA-Z0-9]/g, "_");
     const filename = `Daily_Report_${safeDate}.pdf`;
@@ -298,7 +298,7 @@ export async function sendWhatsAppDailyReport(params: DailyReportWhatsAppParams)
       resJson = JSON.parse(resText);
     } catch (_) {}
 
-    console.log("MSG91 Daily Report Response:", resText);
+    console.log("MSG91 Daily Report Primary Response:", resText);
 
     if (response.ok) {
       return {
@@ -306,9 +306,59 @@ export async function sendWhatsAppDailyReport(params: DailyReportWhatsAppParams)
         data: resJson || resText,
       };
     } else {
+      console.warn("Primary 'dailyreport' MSG91 template failed, retrying with approved 'fee' template fallback...");
+      // Fallback with approved document template "fee"
+      const fallbackPayload = {
+        integrated_number: integratedNumber,
+        content_type: "template",
+        payload: {
+          messaging_product: "whatsapp",
+          type: "template",
+          template: {
+            name: "fee",
+            language: { code: "en", policy: "deterministic" },
+            namespace: null,
+            to_and_components: [
+              {
+                to: [formattedPhone],
+                components: {
+                  header_1: {
+                    filename: filename,
+                    type: "document",
+                    value: reportPdfUrl,
+                  },
+                  body_1: { type: "text", value: "Executive Daily Report" },
+                  body_2: { type: "text", value: `Date: ${params.reportData.dateStr}` },
+                  body_3: { type: "text", value: `₹${todaysCollection.toLocaleString('en-IN')}` },
+                  body_4: { type: "text", value: params.reportData.dateStr },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      const fallbackRes = await fetch(
+        "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/",
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify(fallbackPayload),
+        }
+      );
+
+      const fallbackText = await fallbackRes.text();
+      console.log("MSG91 Daily Report Fallback 'fee' Response:", fallbackText);
+      let fallbackJson: any = null;
+      try { fallbackJson = JSON.parse(fallbackText); } catch (_) {}
+
+      if (fallbackRes.ok) {
+        return { success: true, data: fallbackJson || fallbackText };
+      }
+
       return {
         success: false,
-        error: resJson?.message || resText || "Failed to send WhatsApp daily report.",
+        error: resJson?.message || fallbackJson?.message || resText || "Failed to send WhatsApp daily report.",
       };
     }
   } catch (error: any) {
@@ -334,7 +384,7 @@ export async function sendWhatsAppMonthlyReport(params: {
     if (!formattedPhone) {
       return { success: false, error: "Invalid admin mobile number." };
     }
-    const reportPdfUrl = `${getPublicPdfBaseUrl()}/api/reports/monthly/pdf`;
+    const reportPdfUrl = `${getPublicPdfBaseUrl()}/api/reports/monthly/pdf?v=${Date.now()}`;
     const filename = `Monthly_Report_${params.reportData.dateStr.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
 
     const totalLeads = params.reportData.executiveSummary?.totalLeads?.value ?? 0;
@@ -421,9 +471,58 @@ export async function sendWhatsAppMonthlyReport(params: {
         data: resJson || resText,
       };
     } else {
+      console.warn("Primary 'dailyreport' MSG91 template failed for monthly report, retrying with approved 'fee' template...");
+      const fallbackPayload = {
+        integrated_number: integratedNumber,
+        content_type: "template",
+        payload: {
+          messaging_product: "whatsapp",
+          type: "template",
+          template: {
+            name: "fee",
+            language: { code: "en", policy: "deterministic" },
+            namespace: null,
+            to_and_components: [
+              {
+                to: [formattedPhone],
+                components: {
+                  header_1: {
+                    filename: filename,
+                    type: "document",
+                    value: reportPdfUrl,
+                  },
+                  body_1: { type: "text", value: "Executive Monthly MTD Report" },
+                  body_2: { type: "text", value: `Month: ${params.reportData.dateStr}` },
+                  body_3: { type: "text", value: `₹${monthlyCollection.toLocaleString('en-IN')}` },
+                  body_4: { type: "text", value: params.reportData.dateStr },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      const fallbackRes = await fetch(
+        "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/",
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify(fallbackPayload),
+        }
+      );
+
+      const fallbackText = await fallbackRes.text();
+      console.log("MSG91 Monthly Report Fallback 'fee' Response:", fallbackText);
+      let fallbackJson: any = null;
+      try { fallbackJson = JSON.parse(fallbackText); } catch (_) {}
+
+      if (fallbackRes.ok) {
+        return { success: true, data: fallbackJson || fallbackText };
+      }
+
       return {
         success: false,
-        error: resJson?.message || resText || "Failed to send WhatsApp monthly report.",
+        error: resJson?.message || fallbackJson?.message || resText || "Failed to send WhatsApp monthly report.",
       };
     }
   } catch (error: any) {
@@ -792,3 +891,119 @@ export async function sendWhatsAppDemoReminder(params: DemoReminderWhatsAppParam
     };
   }
 }
+
+export interface CompanyCapacityAlertParams {
+  companyName: string;
+  collectedRevenue: number;
+  annualCapacityCap: number;
+  capacityPercentage: number;
+  adminMobileNumber?: string;
+}
+
+/**
+ * Dispatch MSG91 WhatsApp Outbound Alert to Admin when a Legal Company hits 95%+ of its Capacity Cap
+ */
+export async function sendWhatsAppCompanyCapacityAlert(params: CompanyCapacityAlertParams) {
+  try {
+    const authKey = process.env.MSG91_AUTHKEY || "478610A465a065I869fed7fdP1";
+    const integratedNumber = process.env.MSG91_INTEGRATED_NUMBER || "919335913286";
+    const adminPhone = formatPhoneNumber(params.adminMobileNumber || process.env.ADMIN_WHATSAPP_NUMBER || "919335913286");
+
+    if (!adminPhone) {
+      console.warn("MSG91 Company Capacity Alert Warning: Missing admin phone number.");
+      return { success: false, error: "Invalid admin phone number." };
+    }
+
+    const formattedCollected = `₹${Number(params.collectedRevenue).toLocaleString("en-IN")}`;
+    const formattedCap = `₹${Number(params.annualCapacityCap).toLocaleString("en-IN")}`;
+    const pctStr = `${params.capacityPercentage.toFixed(1)}%`;
+
+    const payload = {
+      integrated_number: integratedNumber,
+      content_type: "template",
+      payload: {
+        messaging_product: "whatsapp",
+        type: "template",
+        template: {
+          name: "companycapacityalert",
+          language: {
+            code: "en",
+            policy: "deterministic",
+          },
+          namespace: null,
+          to_and_components: [
+            {
+              to: [adminPhone],
+              components: {
+                body_1: {
+                  type: "text",
+                  value: params.companyName,
+                },
+                body_2: {
+                  type: "text",
+                  value: pctStr,
+                },
+                body_3: {
+                  type: "text",
+                  value: formattedCollected,
+                },
+                body_4: {
+                  type: "text",
+                  value: formattedCap,
+                },
+              },
+            },
+          ],
+        },
+      },
+    };
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+
+    if (authKey) {
+      headers["authkey"] = authKey;
+    }
+
+    console.log(
+      `[MSG91 WhatsApp] Company Capacity 95%+ Alert triggered for ${params.companyName} (${pctStr} reached: ${formattedCollected}/${formattedCap}) to Admin ${adminPhone}...`
+    );
+
+    const response = await fetch(
+      "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/",
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload),
+      }
+    );
+
+    const resText = await response.text();
+    let resJson: any = null;
+    try {
+      resJson = JSON.parse(resText);
+    } catch (_) {}
+
+    console.log("MSG91 Company Capacity Alert Response:", resText);
+
+    if (response.ok) {
+      return {
+        success: true,
+        data: resJson || resText,
+      };
+    } else {
+      return {
+        success: false,
+        error: resJson?.message || resText || "Failed to send WhatsApp company capacity alert.",
+      };
+    }
+  } catch (error: any) {
+    console.error("MSG91 Company Capacity Alert Error:", error);
+    return {
+      success: false,
+      error: error.message || "Network error during MSG91 capacity alert dispatch.",
+    };
+  }
+}
+

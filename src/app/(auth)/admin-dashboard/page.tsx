@@ -157,25 +157,118 @@ export default function AdminDashboard() {
 
   const initialLetter = user.name ? user.name.charAt(0).toUpperCase() : "A";
 
-
-
-  // Data for Metric Cards
+  // Data for Metric Cards with Hover Color Gradients
   const metrics = [
-    { name: "Total Leads", value: data?.kpis?.totalLeads || 0, trend: filterLabel === "Overall" ? "Overall" : `Filtered: ${filterLabel}`, isGreen: true, color: "text-blue-600 bg-blue-50 border-blue-100" },
-    { name: "Today's Admissions", value: data?.kpis?.admissionsToday || 0, trend: "Today", isGreen: true, color: "text-teal-600 bg-teal-50 border-teal-100" },
-    { name: "Today's Collection", value: data?.kpis?.todayCollection || "₹0", trend: "Today", isGreen: true, color: "text-emerald-600 bg-emerald-50 border-emerald-100" },
-    { name: "Monthly Collection", value: data?.kpis?.monthlyCollection || "₹0 L", trend: "Current Month", isGreen: true, color: "text-purple-600 bg-purple-50 border-purple-100" },
-    { name: "Total Revenue", value: data?.kpis?.revenue || "₹0 L", trend: "Total Collections", isGreen: true, color: "text-indigo-600 bg-indigo-50 border-indigo-100" },
-    { name: "Total Payroll", value: data?.kpis?.totalPayroll || "₹0 L", trend: "Paid Staff Salaries", isGreen: false, color: "text-rose-600 bg-rose-50 border-rose-100" },
-    { name: "Total Expenses", value: data?.kpis?.totalExpenses || "₹0 L", trend: "Operational Overhead", isGreen: false, color: "text-amber-600 bg-amber-50 border-amber-100" },
-    { name: "Net Profit", value: data?.kpis?.netProfit || "₹0 L", trend: `Margin: ${data?.kpis?.profitMargin || "0%"}`, isGreen: data?.kpis?.isProfitable ?? true, color: data?.kpis?.isProfitable ?? true ? "text-emerald-600 bg-emerald-50 border-emerald-100" : "text-rose-600 bg-rose-50 border-rose-100" },
-    { name: "Conversion Rate", value: data?.kpis?.conversionRate || "0%", trend: filterLabel === "Overall" ? "Overall" : filterLabel, isGreen: true, color: "text-sky-600 bg-sky-50 border-sky-100" },
-    { name: "Pending Approvals", value: data?.kpis?.pendingApprovals || 0, trend: "Needs Action", isGreen: false, color: "text-amber-600 bg-amber-50 border-amber-100" },
-    { name: "EMI Overdue Summary", value: data?.kpis?.emiOverdueAmount || "₹0 L", trend: `${data?.kpis?.emiOverdueCount || 0} Overdue Students`, isGreen: false, color: "text-rose-600 bg-rose-50 border-rose-100" },
-    { name: "Hot Negotiation Leads", value: data?.kpis?.hotLeads || 0, trend: "High Priority", isGreen: true, color: "text-red-600 bg-red-50 border-red-100", simpleText: true }
+    {
+      name: "Total Leads",
+      value: data?.kpis?.totalLeads || 0,
+      trend: filterLabel === "Overall" ? "Overall" : `Filtered: ${filterLabel}`,
+      isGreen: true,
+      borderAccent: "border-l-4 border-blue-500",
+      hoverGradient: "hover:bg-gradient-to-br hover:from-blue-50/90 hover:via-indigo-50/50 hover:to-white hover:border-blue-300",
+      pillClass: "text-blue-700 bg-blue-50 border-blue-200/60"
+    },
+    {
+      name: "Today's Admissions",
+      value: data?.kpis?.admissionsToday || 0,
+      trend: "Today",
+      isGreen: true,
+      borderAccent: "border-l-4 border-teal-500",
+      hoverGradient: "hover:bg-gradient-to-br hover:from-teal-50/90 hover:via-emerald-50/50 hover:to-white hover:border-teal-300",
+      pillClass: "text-teal-700 bg-teal-50 border-teal-200/60"
+    },
+    {
+      name: "Today's Collection",
+      value: data?.kpis?.todayCollection || "₹0",
+      trend: "Today",
+      isGreen: true,
+      borderAccent: "border-l-4 border-emerald-500",
+      hoverGradient: "hover:bg-gradient-to-br hover:from-emerald-50/90 hover:via-green-50/50 hover:to-white hover:border-emerald-300",
+      pillClass: "text-emerald-700 bg-emerald-50 border-emerald-200/60"
+    },
+    {
+      name: "Monthly Collection",
+      value: data?.kpis?.monthlyCollection || "₹0 L",
+      trend: "Current Month",
+      isGreen: true,
+      borderAccent: "border-l-4 border-purple-500",
+      hoverGradient: "hover:bg-gradient-to-br hover:from-purple-50/90 hover:via-indigo-50/50 hover:to-white hover:border-purple-300",
+      pillClass: "text-purple-700 bg-purple-50 border-purple-200/60"
+    },
+    {
+      name: "Total Revenue",
+      value: data?.kpis?.revenue || "₹0 L",
+      trend: "Total Collections",
+      isGreen: true,
+      borderAccent: "border-l-4 border-indigo-500",
+      hoverGradient: "hover:bg-gradient-to-br hover:from-indigo-50/90 hover:via-blue-50/50 hover:to-white hover:border-indigo-300",
+      pillClass: "text-indigo-700 bg-indigo-50 border-indigo-200/60"
+    },
+    {
+      name: "Total Payroll",
+      value: data?.kpis?.totalPayroll || "₹0 L",
+      trend: "Paid Staff Salaries",
+      isGreen: false,
+      borderAccent: "border-l-4 border-rose-500",
+      hoverGradient: "hover:bg-gradient-to-br hover:from-rose-50/90 hover:via-pink-50/50 hover:to-white hover:border-rose-300",
+      pillClass: "text-rose-700 bg-rose-50 border-rose-200/60"
+    },
+    {
+      name: "Total Expenses",
+      value: data?.kpis?.totalExpenses || "₹0 L",
+      trend: "Operational Overhead",
+      isGreen: false,
+      borderAccent: "border-l-4 border-amber-500",
+      hoverGradient: "hover:bg-gradient-to-br hover:from-amber-50/90 hover:via-orange-50/50 hover:to-white hover:border-amber-300",
+      pillClass: "text-amber-800 bg-amber-50 border-amber-200/60"
+    },
+    {
+      name: "Net Profit",
+      value: data?.kpis?.netProfit || "₹0 L",
+      trend: `Margin: ${data?.kpis?.profitMargin || "0%"}`,
+      isGreen: data?.kpis?.isProfitable ?? true,
+      borderAccent: data?.kpis?.isProfitable ?? true ? "border-l-4 border-emerald-500" : "border-l-4 border-rose-500",
+      hoverGradient: data?.kpis?.isProfitable ?? true ? "hover:bg-gradient-to-br hover:from-emerald-50/90 hover:via-teal-50/50 hover:to-white hover:border-emerald-300" : "hover:bg-gradient-to-br hover:from-rose-50/90 hover:via-red-50/50 hover:to-white hover:border-rose-300",
+      pillClass: data?.kpis?.isProfitable ?? true ? "text-emerald-700 bg-emerald-50 border-emerald-200/60" : "text-rose-700 bg-rose-50 border-rose-200/60"
+    },
+    {
+      name: "Conversion Rate",
+      value: data?.kpis?.conversionRate || "0%",
+      trend: filterLabel === "Overall" ? "Overall" : filterLabel,
+      isGreen: true,
+      borderAccent: "border-l-4 border-cyan-500",
+      hoverGradient: "hover:bg-gradient-to-br hover:from-cyan-50/90 hover:via-blue-50/50 hover:to-white hover:border-cyan-300",
+      pillClass: "text-cyan-700 bg-cyan-50 border-cyan-200/60"
+    },
+    {
+      name: "Pending Approvals",
+      value: data?.kpis?.pendingApprovals || 0,
+      trend: "Needs Action",
+      isGreen: false,
+      borderAccent: "border-l-4 border-orange-500",
+      hoverGradient: "hover:bg-gradient-to-br hover:from-orange-50/90 hover:via-amber-50/50 hover:to-white hover:border-orange-300",
+      pillClass: "text-orange-800 bg-orange-50 border-orange-200/60"
+    },
+    {
+      name: "EMI Overdue Summary",
+      value: data?.kpis?.emiOverdueAmount || "₹0 L",
+      trend: `${data?.kpis?.emiOverdueCount || 0} Overdue Students`,
+      isGreen: false,
+      borderAccent: "border-l-4 border-red-500",
+      hoverGradient: "hover:bg-gradient-to-br hover:from-red-50/90 hover:via-rose-50/50 hover:to-white hover:border-red-300",
+      pillClass: "text-red-700 bg-red-50 border-red-200/60"
+    },
+    {
+      name: "Hot Negotiation Leads",
+      value: data?.kpis?.hotLeads || 0,
+      trend: "High Priority",
+      isGreen: true,
+      borderAccent: "border-l-4 border-rose-500",
+      hoverGradient: "hover:bg-gradient-to-br hover:from-rose-50/90 hover:via-orange-50/50 hover:to-white hover:border-rose-300",
+      pillClass: "text-rose-700 bg-rose-50 border-rose-200/60",
+      simpleText: true
+    }
   ];
-
-  const pipeline = data?.pipeline || [];
 
   const processedTrendDays = React.useMemo(() => {
     if (!data?.trendDays) return [];
@@ -266,43 +359,43 @@ export default function AdminDashboard() {
     <div className="flex h-screen bg-[#f8faff] text-slate-800 overflow-hidden font-sans transition-colors duration-200">
       <Sidebar />
 
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto px-6 py-6">
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto px-6 py-6 space-y-6">
 
-        <header className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-200/80 pb-4 mb-6 shrink-0 transition-colors duration-200">
+        {/* ELEGANT HEADER */}
+        <header className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-200/80 pb-4 shrink-0">
           <div>
-            <div className="text-xs font-semibold text-slate-400 flex items-center gap-1 select-none">
+            <div className="text-xs font-semibold text-slate-400 flex items-center gap-1.5 select-none">
               <span>CoachFlow</span>
-              <span>/</span>
-              <span className="text-slate-600 font-bold">Enquiries Command Center (Live)</span>
+              <span className="text-slate-300">/</span>
+              <span className="text-slate-800 font-bold tracking-tight">Executive Dashboard</span>
             </div>
           </div>
 
           <div className="flex items-center gap-4 w-full sm:w-auto">
             <button
               onClick={() => setIsCommandPaletteOpen(true)}
-              className="relative w-full sm:w-64 flex items-center justify-between pl-3 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors text-slate-400 group"
+              className="relative w-full sm:w-64 flex items-center justify-between pl-3.5 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-xl hover:bg-gradient-to-r hover:from-indigo-50/50 hover:to-blue-50/50 hover:border-indigo-300 transition-all text-slate-400 group shadow-xs"
             >
               <div className="flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4 mr-2 group-hover:text-indigo-500 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4 mr-2 group-hover:text-indigo-600 transition-colors">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.637 10.637z" />
                 </svg>
-                Search anything...
+                Search financials & leads...
               </div>
-              <span className="flex items-center pointer-events-none text-[9px] font-bold text-slate-400/80 uppercase">
+              <span className="flex items-center pointer-events-none text-[9px] font-bold text-slate-400/80 uppercase tracking-wider bg-slate-100 px-1.5 py-0.5 rounded">
                 CTRL+K
               </span>
             </button>
             <ProfileDisplay isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} user={user} logout={logout} />
 
-
-            <div className="flex items-center gap-2 border-l border-slate-200 pl-4">
+            <div className="flex items-center gap-2.5 border-l border-slate-200 pl-4">
               <div className="text-right hidden sm:block">
-                <div className="text-xs font-bold text-slate-700">{user.name}</div>
-                <div className="text-[9px] font-bold text-indigo-600 uppercase tracking-wide">{user.role}</div>
+                <div className="text-xs font-bold text-slate-900">{user.name}</div>
+                <div className="text-[9px] font-bold text-indigo-600 uppercase tracking-wider">{user.role}</div>
               </div>
               <button
                 onClick={() => setIsProfileOpen(true)}
-                className="h-8 w-8 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center justify-center border border-indigo-500 shadow-md hover:bg-indigo-500 transition-colors overflow-hidden shrink-0"
+                className="h-9 w-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-700 text-white font-bold text-xs flex items-center justify-center border border-indigo-500 shadow-xs hover:from-indigo-700 hover:to-indigo-800 transition-all cursor-pointer overflow-hidden shrink-0"
                 title="View Profile Details"
               >
                 {user.photoUrl ? (
@@ -311,34 +404,33 @@ export default function AdminDashboard() {
                 <span className={user.photoUrl ? "hidden" : "block"}>{initialLetter}</span>
               </button>
             </div>
-
           </div>
         </header>
 
         {/* ADMIN PENDING DISCOUNT APPROVAL NOTIFICATIONS BANNER */}
         {notifications.length > 0 && (
-          <div className="mb-6 space-y-3 shrink-0">
+          <div className="space-y-3 shrink-0">
             {notifications.map((notif: any) => (
               <div
                 key={notif._id}
-                className="bg-amber-50/90 border border-amber-200 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fade-in"
+                className="bg-amber-50/80 border border-amber-200 rounded-2xl p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fade-in"
               >
                 <div className="flex items-start gap-3">
-                  <div className="p-2 bg-amber-100 text-amber-800 rounded-xl text-lg shrink-0">
+                  <div className="p-2 bg-amber-100 text-amber-900 rounded-xl text-lg shrink-0">
                     🚨
                   </div>
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">{notif.title}</h4>
-                      <span className="text-[9px] font-extrabold bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full uppercase">
-                        Requires Admin Approval
+                      <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">{notif.title}</h4>
+                      <span className="text-[9px] font-bold bg-amber-200/80 text-amber-900 px-2.5 py-0.5 rounded-full uppercase border border-amber-300">
+                        Requires Approval
                       </span>
                     </div>
-                    <p className="text-xs text-slate-600 font-semibold mt-1">{notif.message}</p>
+                    <p className="text-xs text-slate-600 font-medium mt-1">{notif.message}</p>
                     <div className="flex items-center gap-3 text-[10px] font-bold text-slate-500 mt-1">
                       <span>Requested Discount: <strong className="text-rose-600">₹{Number(notif.requestedDiscount || 0).toLocaleString('en-IN')}</strong></span>
                       <span>•</span>
-                      <span>Course Cap: <strong className="text-slate-700">₹{Number(notif.maxAllowedDiscount || 5000).toLocaleString('en-IN')}</strong></span>
+                      <span>Course Cap: <strong className="text-slate-800">₹{Number(notif.maxAllowedDiscount || 5000).toLocaleString('en-IN')}</strong></span>
                     </div>
                   </div>
                 </div>
@@ -346,15 +438,15 @@ export default function AdminDashboard() {
                 <div className="flex items-center gap-2 shrink-0">
                   <button
                     onClick={() => handleApproveRejectDiscount(notif._id, "Approved")}
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1"
+                    className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer"
                   >
-                    <span>✓ Approve Discount</span>
+                    Approve Discount
                   </button>
                   <button
                     onClick={() => handleApproveRejectDiscount(notif._id, "Rejected")}
-                    className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1"
+                    className="px-4 py-2 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer"
                   >
-                    <span>✕ Reject</span>
+                    Reject
                   </button>
                 </div>
               </div>
@@ -362,66 +454,66 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* Super Admin Quick Actions Bar */}
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-3 mb-6 shadow-xs flex items-center gap-3 overflow-hidden shrink-0">
-          <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider px-2 select-none shrink-0 border-r border-slate-200 pr-3">
+        {/* ELEGANT QUICK ACTIONS BAR WITH GRADIENT HOVER BUTTONS */}
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-3 shadow-xs flex items-center gap-3 overflow-hidden shrink-0">
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-2 select-none shrink-0 border-r border-slate-200 pr-3">
             Quick Actions:
           </span>
           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth py-0.5 w-full">
             <button
               onClick={() => router.push("/payroll")}
-              className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-xl border border-emerald-200 transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+              className="px-3.5 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-emerald-500 hover:to-teal-600 hover:text-white hover:border-emerald-500 cursor-pointer shrink-0 shadow-xs"
             >
-              <span>💳 Manage Payroll</span>
+              Payroll
             </button>
             <button
               onClick={() => router.push("/expenses")}
-              className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl border border-rose-200 transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+              className="px-3.5 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-rose-500 hover:to-pink-600 hover:text-white hover:border-rose-500 cursor-pointer shrink-0 shadow-xs"
             >
-              <span>💸 Track Expenses</span>
+              Expenses
             </button>
             <button
               onClick={() => router.push("/admin-dashboard/brands")}
-              className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-xl border border-blue-200 transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+              className="px-3.5 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-blue-500 hover:to-indigo-600 hover:text-white hover:border-blue-500 cursor-pointer shrink-0 shadow-xs"
             >
-              <span>🏢 Add Brand</span>
+              Brands
             </button>
             <button
               onClick={() => router.push("/companies")}
-              className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold rounded-xl border border-purple-200 transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+              className="px-3.5 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-purple-500 hover:to-indigo-600 hover:text-white hover:border-purple-500 cursor-pointer shrink-0 shadow-xs"
             >
-              <span>🏛️ Add Company</span>
+              Companies
             </button>
             <button
               onClick={() => router.push("/counsellors")}
-              className="px-3 py-1.5 bg-teal-50 hover:bg-teal-100 text-teal-700 text-xs font-bold rounded-xl border border-teal-200 transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+              className="px-3.5 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-teal-500 hover:to-cyan-600 hover:text-white hover:border-teal-500 cursor-pointer shrink-0 shadow-xs"
             >
-              <span>👤 Add User</span>
+              Users
             </button>
             <button
               onClick={() => router.push("/admin-dashboard/reports")}
-              className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-bold rounded-xl border border-amber-200 transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+              className="px-3.5 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-amber-500 hover:to-orange-600 hover:text-white hover:border-amber-500 cursor-pointer shrink-0 shadow-xs"
             >
-              <span>📊 View Reports</span>
+              Reports
             </button>
             <button
               onClick={() => setIsBatchModalOpen(true)}
-              className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl border border-indigo-200 transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+              className="px-3.5 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-indigo-500 hover:to-purple-600 hover:text-white hover:border-indigo-500 cursor-pointer shrink-0 shadow-xs"
             >
-              <span>📚 Create Faculty Batch</span>
+              Create Batch
             </button>
             <button
               onClick={handleSendWeeklyReport}
               disabled={isSendingWeeklyReport}
-              className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold rounded-xl border border-purple-200 transition-all flex items-center gap-1.5 cursor-pointer shrink-0 disabled:opacity-50"
+              className="px-3.5 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-purple-500 hover:to-pink-600 hover:text-white hover:border-purple-500 cursor-pointer shrink-0 shadow-xs disabled:opacity-50"
             >
-              <span>📧 {isSendingWeeklyReport ? "Sending..." : "Weekly Excel Report"}</span>
+              {isSendingWeeklyReport ? "Sending..." : "Weekly Report"}
             </button>
             <button
               onClick={handleCheckOverdueEmis}
-              className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl border border-rose-200 transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+              className="px-3.5 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-rose-500 hover:to-red-600 hover:text-white hover:border-rose-500 cursor-pointer shrink-0 shadow-xs"
             >
-              <span>⏰ Overdue EMIs</span>
+              Overdue EMIs
             </button>
             <button
               onClick={() => {
@@ -437,7 +529,7 @@ export default function AdminDashboard() {
               }}
               className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shrink-0 shadow-xs ml-auto"
             >
-              <span>📥 Export CSV</span>
+              <span>Export CSV</span>
             </button>
           </div>
         </div>
@@ -457,7 +549,7 @@ export default function AdminDashboard() {
             }}
           />
 
-          {/* 12 KPI Metric Cards Grid in 2 Balanced 6-Column Rows */}
+          {/* 12 ELEGANT KPI METRIC CARDS WITH COLORFUL HOVER GRADIENTS */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-6 gap-3.5">
             {isLoading && !data ? (
               Array.from({ length: 12 }).map((_, i) => (
@@ -478,14 +570,14 @@ export default function AdminDashboard() {
                         setIsAdmissionBreakdownOpen(true);
                       }
                     }}
-                    className={`bg-white border border-slate-200/80 rounded-2xl p-3.5 shadow-xs flex flex-col justify-between transition-all ${
+                    className={`bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs flex flex-col justify-between transition-all duration-300 hover:shadow-lg hover:-translate-y-1 group ${card.borderAccent || ""} ${card.hoverGradient || ""} ${
                       isAdmCard
-                        ? "cursor-pointer hover:border-indigo-400 hover:shadow-md ring-2 ring-indigo-500/10"
-                        : "hover:border-slate-300"
+                        ? "cursor-pointer ring-2 ring-indigo-500/10 hover:border-indigo-400"
+                        : ""
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider select-none leading-snug">
+                      <span className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider select-none leading-snug group-hover:text-slate-700 transition-colors">
                         {card.name}
                       </span>
                       {isAdmCard && (
@@ -494,18 +586,22 @@ export default function AdminDashboard() {
                         </span>
                       )}
                     </div>
+
                     <div className="my-2 flex items-baseline gap-1">
-                      <span className="text-xl lg:text-2xl font-black text-slate-800 tracking-tight">
+                      <span className="text-xl lg:text-2xl font-bold text-slate-900 tracking-tight">
                         {card.value}
                       </span>
                     </div>
+
                     <span
-                      className={`text-[10px] font-extrabold rounded-lg px-2 py-0.5 w-fit ${
-                        card.simpleText
-                          ? "text-slate-600 bg-slate-100 border border-slate-200"
+                      className={`text-[9.5px] font-bold rounded-md px-2 py-0.5 w-fit border ${
+                        card.pillClass
+                          ? card.pillClass
+                          : card.simpleText
+                          ? "text-slate-600 bg-slate-100 border-slate-200"
                           : card.isGreen
-                          ? "text-emerald-700 bg-emerald-50 border border-emerald-200/60"
-                          : "text-rose-700 bg-rose-50 border border-rose-200/60"
+                          ? "text-emerald-700 bg-emerald-50 border-emerald-200/60"
+                          : "text-rose-700 bg-rose-50 border-rose-200/60"
                       }`}
                     >
                       {card.trend}
@@ -524,122 +620,104 @@ export default function AdminDashboard() {
             endDate={endDate}
           />
 
-          {/* Financial Profit & Loss Breakdown Section */}
-          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4 mb-4">
+          {/* FINANCIAL PROFIT & LOSS COMMAND CENTER WITH GRADIENT HOVER CARDS */}
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-sm font-extrabold text-slate-900 tracking-tight">Financial Profit & Loss Command Center</h2>
+                  <h2 className="text-sm font-bold text-slate-900 tracking-tight">Financial Profit & Loss Command Center</h2>
                   <span
-                    className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                       (data?.financialSummary?.netProfit || 0) >= 0
-                        ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
-                        : "bg-rose-50 text-rose-600 border border-rose-200"
+                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                        : "bg-rose-50 text-rose-700 border border-rose-200"
                     }`}
                   >
-                    Profit Margin: {data?.financialSummary?.profitMargin || "0%"}
+                    Margin: {data?.financialSummary?.profitMargin || "0%"}
                   </span>
                 </div>
                 <p className="text-[11px] font-medium text-slate-500 mt-0.5">
-                  Calculated from Total Fee Revenue vs Staff Payroll and Operational Expenses
+                  Calculated from Total Billed Fee Revenue vs Staff Payroll and Operational Expenses
                 </p>
               </div>
 
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => router.push("/payroll")}
-                  className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                  className="px-3.5 py-1.5 bg-slate-50 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-blue-50 text-slate-700 hover:text-indigo-700 text-xs font-semibold rounded-xl border border-slate-200 hover:border-indigo-200 transition-all cursor-pointer"
                 >
-                  💳 Manage Payroll
+                  Manage Payroll
                 </button>
                 <button
                   onClick={() => router.push("/expenses")}
-                  className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                  className="px-3.5 py-1.5 bg-slate-50 hover:bg-gradient-to-r hover:from-rose-50 hover:to-pink-50 text-slate-700 hover:text-rose-700 text-xs font-semibold rounded-xl border border-slate-200 hover:border-rose-200 transition-all cursor-pointer"
                 >
-                  💸 Track Expenses
+                  Track Expenses
                 </button>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-5">
-              <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-3.5">
-                <span className="text-[10px] font-bold text-indigo-500 uppercase">Total Revenue (Billed)</span>
-                <div className="text-xl font-black text-indigo-900 mt-0.5">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="bg-white border-l-4 border-indigo-500 border border-slate-200/80 rounded-xl p-4 space-y-1 shadow-xs transition-all duration-300 hover:bg-gradient-to-br hover:from-indigo-50/80 hover:to-blue-50/40 hover:border-indigo-300 hover:shadow-md">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Revenue (Billed)</span>
+                <div className="text-2xl font-bold text-slate-900">
                   {(data?.financialSummary?.revenue || 0) >= 100000
                     ? `₹${(data.financialSummary.revenue / 100000).toFixed(2)} L`
                     : `₹${(data?.financialSummary?.revenue || 0).toLocaleString("en-IN")}`}
                 </div>
-                <span className="text-[10px] text-indigo-600 font-semibold">
+                <span className="text-[10px] text-indigo-600 font-semibold block pt-1 border-t border-slate-100">
                   Collections: ₹{(data?.financialSummary?.collections || data?.financialSummary?.revenue || 0).toLocaleString("en-IN")}
                 </span>
               </div>
 
-              <div className="bg-purple-50/50 border border-purple-100 rounded-xl p-3.5">
-                <span className="text-[10px] font-bold text-purple-500 uppercase">Total Staff Payroll</span>
-                <div className="text-xl font-black text-purple-900 mt-0.5">
+              <div className="bg-white border-l-4 border-purple-500 border border-slate-200/80 rounded-xl p-4 space-y-1 shadow-xs transition-all duration-300 hover:bg-gradient-to-br hover:from-purple-50/80 hover:to-indigo-50/40 hover:border-purple-300 hover:shadow-md">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Staff Payroll</span>
+                <div className="text-2xl font-bold text-slate-900">
                   {(data?.financialSummary?.payroll || 0) >= 100000
                     ? `₹${(data.financialSummary.payroll / 100000).toFixed(2)} L`
                     : `₹${(data?.financialSummary?.payroll || 0).toLocaleString("en-IN")}`}
                 </div>
-                <span className="text-[10px] text-purple-600 font-semibold">
-                  ₹{(data?.financialSummary?.payroll || 0).toLocaleString("en-IN")} total
+                <span className="text-[10px] text-purple-600 font-semibold block pt-1 border-t border-slate-100">
+                  ₹{(data?.financialSummary?.payroll || 0).toLocaleString("en-IN")} paid
                 </span>
               </div>
 
-              <div className="bg-amber-50/50 border border-amber-100 rounded-xl p-3.5">
-                <span className="text-[10px] font-bold text-amber-600 uppercase">Operational Expenses</span>
-                <div className="text-xl font-black text-amber-900 mt-0.5">
+              <div className="bg-white border-l-4 border-amber-500 border border-slate-200/80 rounded-xl p-4 space-y-1 shadow-xs transition-all duration-300 hover:bg-gradient-to-br hover:from-amber-50/80 hover:to-orange-50/40 hover:border-amber-300 hover:shadow-md">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Operational Expenses</span>
+                <div className="text-2xl font-bold text-slate-900">
                   {(data?.financialSummary?.expenses || 0) >= 100000
                     ? `₹${(data.financialSummary.expenses / 100000).toFixed(2)} L`
                     : `₹${(data?.financialSummary?.expenses || 0).toLocaleString("en-IN")}`}
                 </div>
-                <span className="text-[10px] text-amber-700 font-semibold">
-                  ₹{(data?.financialSummary?.expenses || 0).toLocaleString("en-IN")} total
+                <span className="text-[10px] text-amber-700 font-semibold block pt-1 border-t border-slate-100">
+                  ₹{(data?.financialSummary?.expenses || 0).toLocaleString("en-IN")} spent
                 </span>
               </div>
 
-              <div
-                className={`border rounded-xl p-3.5 ${
-                  (data?.financialSummary?.netProfit || 0) >= 0
-                    ? "bg-emerald-50/50 border-emerald-100"
-                    : "bg-rose-50/50 border-rose-100"
-                }`}
-              >
-                <span
-                  className={`text-[10px] font-bold uppercase ${
-                    (data?.financialSummary?.netProfit || 0) >= 0 ? "text-emerald-600" : "text-rose-600"
-                  }`}
-                >
+              <div className={`bg-white ${ (data?.financialSummary?.netProfit || 0) >= 0 ? "border-l-4 border-emerald-500 hover:bg-gradient-to-br hover:from-emerald-50/80 hover:to-teal-50/40 hover:border-emerald-300" : "border-l-4 border-rose-500 hover:bg-gradient-to-br hover:from-rose-50/80 hover:to-red-50/40 hover:border-rose-300" } border border-slate-200/80 rounded-xl p-4 space-y-1 shadow-xs transition-all duration-300 hover:shadow-md`}>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                   Net Profit (Bottom Line)
                 </span>
-                <div
-                  className={`text-xl font-black mt-0.5 ${
-                    (data?.financialSummary?.netProfit || 0) >= 0 ? "text-emerald-900" : "text-rose-900"
-                  }`}
-                >
+                <div className={`text-2xl font-bold ${ (data?.financialSummary?.netProfit || 0) >= 0 ? "text-emerald-600" : "text-rose-600" }`}>
                   {Math.abs(data?.financialSummary?.netProfit || 0) >= 100000
                     ? `₹${((data?.financialSummary?.netProfit || 0) / 100000).toFixed(2)} L`
                     : `₹${(data?.financialSummary?.netProfit || 0).toLocaleString("en-IN")}`}
                 </div>
-                <span
-                  className={`text-[10px] font-bold ${
-                    (data?.financialSummary?.netProfit || 0) >= 0 ? "text-emerald-700" : "text-rose-700"
-                  }`}
-                >
+                <span className={`text-[10px] font-semibold block pt-1 border-t border-slate-100 ${ (data?.financialSummary?.netProfit || 0) >= 0 ? "text-emerald-600" : "text-rose-600" }`}>
                   ₹{(data?.financialSummary?.netProfit || 0).toLocaleString("en-IN")} net
                 </span>
               </div>
             </div>
 
-            {/* Income vs Outflow Bar Visualization */}
-            <div className="space-y-2">
+            {/* Segmented Progress Bar */}
+            <div className="space-y-2 pt-1">
               <div className="flex justify-between text-xs font-bold text-slate-700 select-none">
-                <span>Revenue vs Expenses & Payroll Allocation</span>
-                <span className="text-slate-500 font-semibold text-[11px]">
+                <span>Revenue vs Outflow Allocation</span>
+                <span className="text-slate-400 font-medium text-[11px]">
                   Total Outflow: ₹{(data?.financialSummary?.outflow || 0).toLocaleString("en-IN")}
                 </span>
               </div>
-              <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden flex p-0.5 gap-0.5">
+              <div className="h-3.5 w-full bg-slate-100 rounded-full overflow-hidden flex p-0.5 gap-0.5 border border-slate-200/70">
                 <div
                   style={{
                     width: `${
@@ -684,7 +762,7 @@ export default function AdminDashboard() {
                 ></div>
               </div>
 
-              <div className="flex items-center gap-4 text-[10px] font-bold text-slate-500 pt-1">
+              <div className="flex items-center gap-5 text-[10.5px] font-semibold text-slate-500 pt-1 flex-wrap">
                 <span className="flex items-center gap-1.5">
                   <span className="h-2.5 w-2.5 rounded-full bg-purple-500"></span> Payroll (
                   {data?.financialSummary?.revenue > 0
@@ -693,7 +771,7 @@ export default function AdminDashboard() {
                   %)
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-amber-500"></span> Expenses (
+                  <span className="h-2.5 w-2.5 rounded-full bg-amber-500"></span> Operational Expenses (
                   {data?.financialSummary?.revenue > 0
                     ? ((data.financialSummary.expenses / data.financialSummary.revenue) * 100).toFixed(1)
                     : 0}
@@ -707,10 +785,11 @@ export default function AdminDashboard() {
             </div>
           </div>
 
+          {/* TREND CHART & MARKETING SOURCE DONUT GRID */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-            <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs lg:col-span-2">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs lg:col-span-2 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-3">
                   <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider select-none">
                     Lead Trend ({filterLabel === "Overall" ? "Last 30 Days" : filterLabel})
@@ -719,30 +798,30 @@ export default function AdminDashboard() {
                     <button
                       type="button"
                       onClick={() => setTrendMode("daily")}
-                      className={`px-2 py-0.5 rounded-md transition-all ${trendMode === "daily" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-500 hover:text-slate-700"}`}
+                      className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${trendMode === "daily" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-500 hover:text-slate-800"}`}
                     >
                       Daily
                     </button>
                     <button
                       type="button"
                       onClick={() => setTrendMode("cumulative")}
-                      className={`px-2 py-0.5 rounded-md transition-all ${trendMode === "cumulative" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-500 hover:text-slate-700"}`}
+                      className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${trendMode === "cumulative" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-500 hover:text-slate-800"}`}
                     >
                       Cumulative
                     </button>
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <span className="text-[10px] text-slate-400 flex items-center gap-1 select-none">
+                <div className="flex flex-wrap gap-3">
+                  <span className="text-[10px] text-slate-500 font-semibold flex items-center gap-1.5 select-none">
                     <span className="h-2 w-2 rounded-full bg-blue-500"></span> Total Leads
                   </span>
-                  <span className="text-[10px] text-slate-400 flex items-center gap-1 select-none">
+                  <span className="text-[10px] text-slate-500 font-semibold flex items-center gap-1.5 select-none">
                     <span className="h-2 w-2 rounded-full bg-emerald-500"></span> Admissions
                   </span>
-                  <span className="text-[10px] text-slate-400 flex items-center gap-1 select-none">
+                  <span className="text-[10px] text-slate-500 font-semibold flex items-center gap-1.5 select-none">
                     <span className="h-2 w-2 rounded-full bg-rose-500"></span> Lost Leads
                   </span>
-                  <span className="text-[10px] text-slate-400 flex items-center gap-1 select-none">
+                  <span className="text-[10px] text-slate-500 font-semibold flex items-center gap-1.5 select-none">
                     <span className="h-2 w-2 rounded-full bg-amber-500"></span> Follow-ups
                   </span>
                 </div>
@@ -755,10 +834,10 @@ export default function AdminDashboard() {
                   <line x1="0" y1="110" x2="600" y2="110" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
                   <line x1="0" y1="150" x2="600" y2="150" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
 
-                  <path d={generatePath('newLeads')} fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d={generatePath('admissions')} fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d={generatePath('lostLeads')} fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d={generatePath('followUps')} fill="none" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d={generatePath('newLeads')} fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d={generatePath('admissions')} fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d={generatePath('lostLeads')} fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d={generatePath('followUps')} fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
 
                   {/* Vertical Guide Line on Hover */}
                   {hoveredTrendIndex !== null && processedTrendDays && (
@@ -773,7 +852,7 @@ export default function AdminDashboard() {
                     />
                   )}
 
-                  {/* Invisible Hover Rectangles for each date point */}
+                  {/* Invisible Hover Rectangles */}
                   {processedTrendDays?.map((d: any, i: number) => {
                     const step = 600 / Math.max(1, processedTrendDays.length - 1);
                     const cx = i * step;
@@ -802,7 +881,7 @@ export default function AdminDashboard() {
                 {/* Interactive Tooltip Popover */}
                 {hoveredTrendDay && hoveredTrendIndex !== null && processedTrendDays && (
                   <div
-                    className="absolute top-2 pointer-events-none bg-slate-900/90 backdrop-blur-md text-white text-xs p-3 rounded-xl shadow-xl z-30 border border-slate-700/80 transition-all"
+                    className="absolute top-2 pointer-events-none bg-slate-900/95 backdrop-blur-md text-white text-xs p-3 rounded-xl shadow-xl z-30 border border-slate-700 transition-all"
                     style={{
                       left: `${Math.min(82, Math.max(8, (hoveredTrendIndex / Math.max(1, processedTrendDays.length - 1)) * 100))}%`,
                       transform: 'translateX(-50%)'
@@ -844,7 +923,7 @@ export default function AdminDashboard() {
               <div>
                 <div className="flex items-center justify-between">
                   <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider select-none">Lead Source Channels</h2>
-                  <span className="text-[10px] font-extrabold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100 select-none">
+                  <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100 select-none">
                     Live Mix
                   </span>
                 </div>
@@ -853,12 +932,12 @@ export default function AdminDashboard() {
 
               <div className="my-auto py-3 flex flex-col items-center justify-center">
                 <div className="h-32 w-32 relative flex items-center justify-center">
-                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                    <circle cx="18" cy="18" r="15.915" fill="transparent" stroke="#f1f5f9" strokeWidth="3.5" />
+                  <svg className="w-full h-full transform -rotate-90 drop-shadow-xs" viewBox="0 0 36 36">
+                    <circle cx="18" cy="18" r="15.915" fill="transparent" stroke="#f1f5f9" strokeWidth="3" />
                     {donutCircles}
                   </svg>
                   <div className="absolute flex flex-col items-center justify-center text-center pointer-events-none">
-                    <span className="text-xl font-black text-slate-800 tracking-tight">
+                    <span className="text-2xl font-bold text-slate-900 tracking-tight">
                       {data?.kpis?.totalLeads ?? 0}
                     </span>
                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider select-none">
@@ -877,11 +956,11 @@ export default function AdminDashboard() {
                         <span className="font-semibold text-slate-700">{src.label}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="font-extrabold text-slate-800">{src.pct}</span>
+                        <span className="font-bold text-slate-900">{src.pct}</span>
                         <span className="text-[10px] font-semibold text-slate-400">({src.count || 0})</span>
                       </div>
                     </div>
-                    <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                    <div className="w-full bg-slate-100 h-1 rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all ${src.color || "bg-indigo-500"}`}
                         style={{ width: src.pct || "0%" }}
@@ -893,10 +972,11 @@ export default function AdminDashboard() {
             </div>
           </div>
 
+          {/* COUNSELLOR, BRAND, AND COMPANY PERFORMANCE TABLES GRID */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
 
             <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2.5">
                 <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider select-none">Counsellor Performance</h2>
               </div>
               <div className="overflow-x-auto">
@@ -910,14 +990,14 @@ export default function AdminDashboard() {
                       <th className="py-2.5 px-2 text-right whitespace-nowrap select-none">Conv %</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100/80 font-semibold text-slate-600">
+                  <tbody className="divide-y divide-slate-100/80 font-semibold text-slate-700">
                     {data?.counsellorPerformance?.map((c: any, i: number) => (
-                      <tr key={i} className="hover:bg-slate-50/60 transition-colors">
-                        <td className="py-2.5 px-2 text-slate-800 font-bold capitalize whitespace-nowrap">{c.name}</td>
+                      <tr key={i} className="hover:bg-gradient-to-r hover:from-teal-50/40 hover:to-slate-50 transition-colors">
+                        <td className="py-2.5 px-2 text-slate-900 font-bold capitalize whitespace-nowrap">{c.name}</td>
                         <td className="py-2.5 px-2 text-right font-medium">{c.assigned}</td>
                         <td className="py-2.5 px-2 text-right font-medium">{c.followups}</td>
-                        <td className="py-2.5 px-2 text-right font-extrabold text-emerald-600">{c.admissions}</td>
-                        <td className="py-2.5 px-2 text-right font-bold text-slate-700">{c.conversion}</td>
+                        <td className="py-2.5 px-2 text-right font-bold text-emerald-600">{c.admissions}</td>
+                        <td className="py-2.5 px-2 text-right font-bold text-slate-800">{c.conversion}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -926,7 +1006,7 @@ export default function AdminDashboard() {
             </div>
 
             <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2.5">
                 <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider select-none">Brand Performance</h2>
               </div>
               <div className="overflow-x-auto">
@@ -940,10 +1020,10 @@ export default function AdminDashboard() {
                       <th className="py-2.5 px-2 text-right whitespace-nowrap select-none">Conv %</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100/80 font-semibold text-slate-600">
+                  <tbody className="divide-y divide-slate-100/80 font-semibold text-slate-700">
                     {data?.brandPerformance?.map((b: any, i: number) => (
-                      <tr key={i} className="hover:bg-slate-50/60 transition-colors">
-                        <td className="py-2.5 px-2 text-slate-800 font-bold whitespace-nowrap">{b.name}</td>
+                      <tr key={i} className="hover:bg-gradient-to-r hover:from-indigo-50/40 hover:to-slate-50 transition-colors">
+                        <td className="py-2.5 px-2 text-slate-900 font-bold whitespace-nowrap">{b.name}</td>
                         <td className="py-2.5 px-2 text-right font-medium">{b.leads}</td>
                         <td className="py-2.5 px-2 text-right font-medium">{b.admissions}</td>
                         <td className="py-2.5 px-2 text-right font-bold text-indigo-600">{b.revenue}</td>
@@ -956,7 +1036,7 @@ export default function AdminDashboard() {
             </div>
 
             <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2.5">
                 <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider select-none">Company Limit & Utilization</h2>
               </div>
               <div className="overflow-x-auto">
@@ -969,10 +1049,10 @@ export default function AdminDashboard() {
                       <th className="py-2.5 px-2 text-right whitespace-nowrap select-none">Remaining</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100/80 font-semibold text-slate-600">
+                  <tbody className="divide-y divide-slate-100/80 font-semibold text-slate-700">
                     {data?.companyUtilization?.map((c: any, i: number) => (
-                      <tr key={i} className="hover:bg-slate-50/60 transition-colors">
-                        <td className="py-2.5 px-2 text-slate-800 font-bold whitespace-nowrap">{c.name}</td>
+                      <tr key={i} className="hover:bg-gradient-to-r hover:from-purple-50/40 hover:to-slate-50 transition-colors">
+                        <td className="py-2.5 px-2 text-slate-900 font-bold whitespace-nowrap">{c.name}</td>
                         <td className="py-2.5 px-2 text-right font-medium">{c.collection}</td>
                         <td className="py-2.5 px-2 text-right font-bold text-emerald-600">{c.usedPct}</td>
                         <td className="py-2.5 px-2 text-right font-medium">{c.remaining}</td>
@@ -988,38 +1068,43 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
 
             <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs">
-              <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider select-none mb-4">System Work Queue</h2>
+              <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider select-none mb-4 flex items-center justify-between border-b border-slate-100 pb-2.5">
+                <span>System Work Queue</span>
+              </h2>
               <div className="space-y-3 font-semibold text-xs">
-                <div className="flex justify-between items-center bg-slate-50 border border-slate-100 p-2.5 rounded-xl"><span className="text-slate-600">Follow-ups Due Today</span><span className="text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded-md">{data?.workQueue?.followUpsDue || 0}</span></div>
-                <div className="flex justify-between items-center bg-slate-50 border border-slate-100 p-2.5 rounded-xl"><span className="text-slate-600">Missed / Overdue</span><span className="text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded-md">{data?.workQueue?.missedCalls || 0}</span></div>
-                <div className="flex justify-between items-center bg-slate-50 border border-slate-100 p-2.5 rounded-xl"><span className="text-slate-600">Counselling Scheduled</span><span className="text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded-md">{data?.workQueue?.counsellingScheduled || 0}</span></div>
-                <div className="flex justify-between items-center bg-slate-50 border border-slate-100 p-2.5 rounded-xl"><span className="text-slate-600">Negotiation Phase</span><span className="text-teal-600 font-bold bg-teal-50 px-2 py-0.5 rounded-md">{data?.workQueue?.admissionsWaiting || 0}</span></div>
-                <div className="flex justify-between items-center bg-slate-50 border border-slate-100 p-2.5 rounded-xl"><span className="text-slate-600">Students w/ Fee Pending</span><span className="text-purple-600 font-bold bg-purple-50 px-2 py-0.5 rounded-md">{data?.workQueue?.feePending || 0}</span></div>
+                <div className="flex justify-between items-center bg-slate-50 border border-slate-100 p-2.5 rounded-xl transition-all hover:bg-gradient-to-r hover:from-indigo-50/80 hover:to-blue-50/40 hover:border-indigo-200"><span className="text-slate-600">Follow-ups Due Today</span><span className="text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded-md">{data?.workQueue?.followUpsDue || 0}</span></div>
+                <div className="flex justify-between items-center bg-slate-50 border border-slate-100 p-2.5 rounded-xl transition-all hover:bg-gradient-to-r hover:from-rose-50/80 hover:to-pink-50/40 hover:border-rose-200"><span className="text-slate-600">Missed / Overdue</span><span className="text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded-md">{data?.workQueue?.missedCalls || 0}</span></div>
+                <div className="flex justify-between items-center bg-slate-50 border border-slate-100 p-2.5 rounded-xl transition-all hover:bg-gradient-to-r hover:from-amber-50/80 hover:to-orange-50/40 hover:border-amber-200"><span className="text-slate-600">Counselling Scheduled</span><span className="text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded-md">{data?.workQueue?.counsellingScheduled || 0}</span></div>
+                <div className="flex justify-between items-center bg-slate-50 border border-slate-100 p-2.5 rounded-xl transition-all hover:bg-gradient-to-r hover:from-teal-50/80 hover:to-emerald-50/40 hover:border-teal-200"><span className="text-slate-600">Negotiation Phase</span><span className="text-teal-600 font-bold bg-teal-50 px-2 py-0.5 rounded-md">{data?.workQueue?.admissionsWaiting || 0}</span></div>
+                <div className="flex justify-between items-center bg-slate-50 border border-slate-100 p-2.5 rounded-xl transition-all hover:bg-gradient-to-r hover:from-purple-50/80 hover:to-indigo-50/40 hover:border-purple-200"><span className="text-slate-600">Students w/ Fee Pending</span><span className="text-purple-600 font-bold bg-purple-50 px-2 py-0.5 rounded-md">{data?.workQueue?.feePending || 0}</span></div>
               </div>
             </div>
 
             <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs">
-              <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider select-none mb-4">Recent Activity</h2>
+              <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider select-none mb-4 flex items-center justify-between border-b border-slate-100 pb-2.5">
+                <span>Recent Activity</span>
+              </h2>
               <div className="space-y-4 relative pl-4 border-l border-slate-100">
                 {data?.recentActivity?.map((act: any, i: number) => (
                   <div key={i} className="relative">
                     <span className={`absolute -left-[21px] top-1.5 h-2 w-2 rounded-full ${act.color}`}></span>
                     <span className="text-[10px] text-slate-400 font-bold">{act.time}</span>
-                    <p className="text-xs text-slate-600 font-semibold mt-0.5">{act.text}</p>
+                    <p className="text-xs text-slate-600 font-semibold mt-0.5 leading-snug">{act.text}</p>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs lg:col-span-2">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-4">
-                <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider select-none">Recent Enquiries</h2>
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs lg:col-span-2 space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider select-none">Recent Enquiries List</h2>
+                <span className="text-[10px] font-semibold text-slate-400">{data?.enquiriesList?.length || 0} Records</span>
               </div>
 
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto rounded-xl border border-slate-200/70 shadow-xs">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className="border-b border-slate-200/80 text-[10px] text-slate-400 font-bold uppercase tracking-wider bg-slate-50/50">
+                    <tr className="border-b border-slate-200 text-[10px] text-slate-400 font-bold uppercase tracking-wider bg-slate-50/50">
                       <th className="py-2.5 px-2.5 w-10 text-center select-none">Lost</th>
                       <th className="py-2.5 px-3 whitespace-nowrap select-none">Enquiry No</th>
                       <th className="py-2.5 px-3 whitespace-nowrap select-none">Student</th>
@@ -1029,7 +1114,7 @@ export default function AdminDashboard() {
                       <th className="py-2.5 px-3 whitespace-nowrap text-right select-none">Priority</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100/80 font-semibold text-slate-600">
+                  <tbody className="divide-y divide-slate-100/80 font-semibold text-slate-600 bg-white">
                     {data?.enquiriesList?.map((e: any, i: number) => {
                       const isAdmittedStudent =
                         (e.stage || "").toUpperCase().includes("ADMIT") ||
@@ -1037,11 +1122,11 @@ export default function AdminDashboard() {
                         e.isAdmitted === true;
 
                       return (
-                        <tr key={i} className="hover:bg-slate-50/60 transition-colors">
+                        <tr key={i} className="hover:bg-gradient-to-r hover:from-indigo-50/40 hover:to-slate-50 transition-colors">
                           <td className="py-3 px-2.5 text-center">
                             {isAdmittedStudent ? (
                               <span
-                                className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60 select-none cursor-not-allowed inline-block whitespace-nowrap"
+                                className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200/60 select-none cursor-not-allowed inline-block whitespace-nowrap"
                                 title="Enrolled/Admitted student cannot be marked as Lost Lead"
                               >
                                 ✓ Enrolled
@@ -1065,7 +1150,7 @@ export default function AdminDashboard() {
                               />
                             )}
                           </td>
-                        <td className="py-3 px-3 text-indigo-600 font-extrabold whitespace-nowrap">{e.id}</td>
+                        <td className="py-3 px-3 text-indigo-600 font-bold whitespace-nowrap">{e.id}</td>
                         <td className="py-3 px-3 text-slate-800 font-bold whitespace-nowrap">{e.student}</td>
                         <td className="py-3 px-3 text-slate-600 min-w-[180px] max-w-[240px] truncate">{e.course}</td>
                         <td className="py-3 px-3 text-slate-700 whitespace-nowrap">{e.counsellor}</td>

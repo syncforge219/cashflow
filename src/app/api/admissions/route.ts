@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     if (data.paymentMode && data.paymentMode !== "Cash") {
       const brandDoc = await Brand.findOne({ name: data.brand }).lean();
       const brandCompanies = brandDoc?.companies || [];
-      
+
       const availableCompanies = await Company.find({
         $or: [
           { brand: data.brand },
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
           const capB = (b.annualCapacityCap || 1949999) - (b.collectedRevenue || 0);
           return capB - capA;
         });
-        
+
         finalCompany = availableCompanies[0].name;
       } else {
         finalCompany = "Unallocated";
@@ -113,43 +113,82 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Automatically update or create Enquiry (Lead) record for this course
-    if (data.mobileNumber && data.course) {
-      const existingEnquiry = await Enquiry.findOne({
-        primaryPhoneMobile: data.mobileNumber,
-        targetCourse: data.course,
-      });
+    // Helper to cancel uncompleted follow-ups
+    const cancelUncompletedFollowUps = (enquiryDoc: any) => {
+      enquiryDoc.status = "Admitted";
+      enquiryDoc.isAdmitted = true;
 
-      if (existingEnquiry) {
-        await Enquiry.updateOne(
-          { _id: existingEnquiry._id },
-          { status: "Admitted", isAdmitted: true }
-        );
-      } else {
-        // Create an Enquiry (Lead) record for this upgraded course so lead count increases
-        try {
-          const newEnquiry = new Enquiry({
-            studentName: data.fullName,
-            primaryPhoneMobile: data.mobileNumber,
-            emailAddress: data.email || "",
-            city: data.city || "",
-            state: data.state || "",
-            pincode: data.pincode || "",
-            assignedCrmAdvisor: data.counsellor || "Staff",
-            targetBrand: data.brand || "General Brand",
-            targetCourse: data.course,
-            status: "Admitted",
-            isAdmitted: true,
-            leadSource: data.isUpgrade ? "Course Upgrade" : "Direct Admission",
-            createdAt: data.admissionDate ? new Date(data.admissionDate) : new Date(),
-          });
-          await newEnquiry.save();
-          admission.enquiryId = newEnquiry._id;
-          await admission.save();
-        } catch (enqCreateErr) {
-          console.error("Failed to auto-create Enquiry for course upgrade:", enqCreateErr);
+      if (enquiryDoc.followUps && Array.isArray(enquiryDoc.followUps)) {
+        enquiryDoc.followUps.forEach((f: any) => {
+          const currentStatus = (f.status || "").toLowerCase();
+          if (!f.isCompleted && currentStatus !== "completed" && currentStatus !== "cancelled") {
+            f.status = "Cancelled";
+            f.isCompleted = true;
+            f.remarks = f.remarks
+              ? `${f.remarks} [Auto-cancelled: Admission created]`
+              : "Auto-cancelled: Admission created";
+          }
+        });
+      }
+    };
+
+    const matchedEnquiryIds: string[] = [];
+
+    // Automatically update original enquiry status to Admitted & cancel all pending follow-ups
+    if (data.enquiryId) {
+      const enqFilter = mongoose.Types.ObjectId.isValid(data.enquiryId)
+        ? { _id: data.enquiryId }
+        : { enquiryId: data.enquiryId };
+
+      const enqs = await Enquiry.find(enqFilter);
+      for (const enq of enqs) {
+        cancelUncompletedFollowUps(enq);
+        await enq.save();
+        matchedEnquiryIds.push(enq._id.toString());
+      }
+    }
+
+    if (data.mobileNumber) {
+      const cleanDigits = String(data.mobileNumber).replace(/\D/g, "").slice(-10);
+      if (cleanDigits.length === 10) {
+        const queryFilter: any = {
+          primaryPhoneMobile: { $regex: cleanDigits },
+          status: { $nin: ["Admitted", "Closed", "Lost", "Converted"] },
+        };
+        if (data.course) {
+          queryFilter.targetCourse = data.course;
+        }
+
+        const matchingEnquiries = await Enquiry.find(queryFilter);
+        for (const enq of matchingEnquiries) {
+          cancelUncompletedFollowUps(enq);
+          await enq.save();
+          if (!matchedEnquiryIds.includes(enq._id.toString())) {
+            matchedEnquiryIds.push(enq._id.toString());
+          }
         }
       }
+    }
+
+    // Cancel/close any pending lead call tasks for this student/enquiry
+    if (matchedEnquiryIds.length > 0 || admission.fullName) {
+      await Task.updateMany(
+        {
+          $or: [
+            { linkedEnquiryId: { $in: matchedEnquiryIds } },
+            { linkedStudentId: admission._id.toString() },
+            { linkedStudentName: admission.fullName }
+          ],
+          taskType: { $in: ["Lead Call", "Demo", "General"] },
+          status: { $in: ["Pending", "In Progress"] }
+        },
+        {
+          $set: {
+            status: "Completed",
+            completedAt: new Date()
+          }
+        }
+      );
     }
 
     // Automatically generate a Payment record for the initial payment collected during admission

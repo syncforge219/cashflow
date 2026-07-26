@@ -315,15 +315,30 @@ export async function getDailyBiReportData(targetDate?: Date): Promise<DailyBiRe
     lostOpportunityPct
   };
 
-  // 5. Brand Performance Breakdown
-  const knownBrandNames = allBrands.map((b: any) => b.name);
-  if (!knownBrandNames.includes("CADDesk")) knownBrandNames.push("CADDesk");
-  if (!knownBrandNames.includes("CADD Mantra")) knownBrandNames.push("CADD Mantra");
+  // 5. Brand Performance Breakdown (Using actual registered brands from DB & deduplicating case variations)
+  const registeredBrandMap = new Map<string, string>(); // lowercase -> canonical brand name
+  allBrands.forEach((b: any) => {
+    const name = (b.name || "").trim();
+    if (name) {
+      registeredBrandMap.set(name.toLowerCase(), name);
+    }
+  });
 
-  const brandPerformance = knownBrandNames.map((bName) => {
-    const bLeads = todayLeads.filter((e: any) => (e.targetBrand || "").toLowerCase() === bName.toLowerCase());
-    const bAdmissions = todayAdmissions.filter((a: any) => (a.brand || "").toLowerCase() === bName.toLowerCase());
-    const bPayments = todayPayments.filter((p: any) => (p.brand || "").toLowerCase() === bName.toLowerCase());
+  // If no brands registered in DB yet, gather unique active brand names from today's admissions/payments/leads
+  if (registeredBrandMap.size === 0) {
+    [...todayAdmissions, ...todayPayments, ...todayLeads].forEach((item: any) => {
+      const bName = (item.brand || item.targetBrand || "").trim();
+      if (bName && !registeredBrandMap.has(bName.toLowerCase())) {
+        registeredBrandMap.set(bName.toLowerCase(), bName);
+      }
+    });
+  }
+
+  const brandPerformance = Array.from(registeredBrandMap.values()).map((bName) => {
+    const bNameLower = bName.toLowerCase();
+    const bLeads = todayLeads.filter((e: any) => (e.targetBrand || e.brand || "").trim().toLowerCase() === bNameLower);
+    const bAdmissions = todayAdmissions.filter((a: any) => (a.brand || "").trim().toLowerCase() === bNameLower);
+    const bPayments = todayPayments.filter((p: any) => (p.brand || "").trim().toLowerCase() === bNameLower);
 
     const bLeadsCount = bLeads.length;
     const bAdmCount = bAdmissions.length;

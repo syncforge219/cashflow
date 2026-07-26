@@ -15,7 +15,8 @@ export default function AddBrandManagerModal({ isOpen, onClose, onSuccess }: Add
     email: "",
     phone: "+91 ",
     photoUrl: "",
-    brandScope: "Cadd Mantra",
+    brandScope: "All Brands",
+    role: "cfo",
     password: "",
   });
 
@@ -30,9 +31,6 @@ export default function AddBrandManagerModal({ isOpen, onClose, onSuccess }: Add
         const data = await res.json();
         if (res.ok && data.success && Array.isArray(data.brands)) {
           setDbBrands(data.brands);
-          if (data.brands.length > 0 && !formData.brandScope) {
-            setFormData(prev => ({ ...prev, brandScope: data.brands[0].name }));
-          }
         }
       } catch (err) {
         console.error("Failed fetching brands:", err);
@@ -49,11 +47,12 @@ export default function AddBrandManagerModal({ isOpen, onClose, onSuccess }: Add
         email: "",
         phone: "+91 ",
         photoUrl: "",
-        brandScope: dbBrands[0]?.name || "Cadd Mantra",
+        brandScope: "All Brands",
+        role: "cfo",
         password: "",
       });
     }
-  }, [isOpen, dbBrands]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -97,11 +96,12 @@ export default function AddBrandManagerModal({ isOpen, onClose, onSuccess }: Add
           email: "",
           phone: "+91 ",
           photoUrl: "",
-          brandScope: "Cadd Mantra",
+          brandScope: "All Brands",
+          role: "cfo",
           password: "",
         });
       } else {
-        alert(data.error || "Failed to provision Centre Head");
+        alert(data.error || data.message || "Failed to provision user. Please try again.");
       }
     } catch (error) {
       console.error("Submission error:", error);
@@ -204,6 +204,30 @@ export default function AddBrandManagerModal({ isOpen, onClose, onSuccess }: Add
               />
             </div>
 
+            {/* Executive Role / Designation */}
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">
+                Executive Role <span className="text-rose-500">*</span>
+              </label>
+              <select
+                name="role"
+                value={formData.role}
+                onChange={(e) => {
+                  const newRole = e.target.value;
+                  setFormData((prev) => ({
+                    ...prev,
+                    role: newRole,
+                    brandScope: newRole === "cfo" ? "All Brands" : (dbBrands[0]?.name || "Cadd Mantra"),
+                  }));
+                }}
+                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-indigo-950 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all appearance-none cursor-pointer"
+                required
+              >
+                <option value="cfo">💼 Chief Financial Officer (CFO / Finance Manager)</option>
+                <option value="centre head">🏢 Centre Head / Brand Manager</option>
+              </select>
+            </div>
+
             {/* Corporate Brand Scope */}
             <div>
               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">
@@ -212,10 +236,12 @@ export default function AddBrandManagerModal({ isOpen, onClose, onSuccess }: Add
               <select
                 name="brandScope"
                 value={formData.brandScope}
+                disabled={formData.role === "cfo"}
                 onChange={handleChange}
-                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all appearance-none cursor-pointer"
+                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all appearance-none cursor-pointer disabled:bg-slate-100 disabled:opacity-75"
                 required
               >
+                <option value="All Brands">All Brands & Companies (Full Finance Authority)</option>
                 {dbBrands.length > 0 ? (
                   dbBrands.map((b, idx) => (
                     <option key={idx} value={b.name}>{b.name}</option>

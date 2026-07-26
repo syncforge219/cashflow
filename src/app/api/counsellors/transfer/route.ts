@@ -49,8 +49,8 @@ export async function POST(request: Request) {
       return scopeStr.split(/[,/|]/).map((s) => s.trim().toLowerCase()).filter(Boolean);
     };
 
-    const sourceBrands = parseBrands(sourceUser.brandScope);
-    const targetBrands = parseBrands(targetUser.brandScope);
+    const sourceBrands = parseBrands(sourceUser.brandScope || "");
+    const targetBrands = parseBrands(targetUser.brandScope || "");
 
     const isGlobal = (brands: string[]) =>
       brands.some((b) => ["all", "all brands", "global", "*"].includes(b));

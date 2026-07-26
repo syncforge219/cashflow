@@ -2,7 +2,7 @@ import mongoose, { Schema, Document } from "mongoose";
 
 export interface IExpense extends Document {
   title: string;
-  category: "Rent" | "Marketing / Ads" | "Utilities" | "Software / Tools" | "Office Supplies" | "Travel" | "Misc";
+  category: string;
   amount: number;
   expenseDate: Date;
   paymentMode: string;
@@ -12,6 +12,8 @@ export interface IExpense extends Document {
   isRecurring: boolean;
   recurringFrequency: "Weekly" | "Monthly" | "Quarterly" | "Yearly";
   nextRecurringDate?: Date;
+  bank?: string;
+  expenseType?: "variable" | "fixed";
   remarks?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -23,7 +25,6 @@ const ExpenseSchema: Schema = new Schema(
     category: {
       type: String,
       required: true,
-      enum: ["Rent", "Marketing / Ads", "Utilities", "Software / Tools", "Office Supplies", "Travel", "Misc"],
       default: "Misc",
     },
     amount: { type: Number, required: true, min: 0 },
@@ -31,6 +32,8 @@ const ExpenseSchema: Schema = new Schema(
     paymentMode: { type: String, default: "UPI" },
     brand: { type: String, default: "All Brands" },
     company: { type: String, default: "All Companies" },
+    bank: { type: String, default: "" },
+    expenseType: { type: String, enum: ["variable", "fixed"], default: "variable" },
     recordedBy: { type: String, default: "Admin" },
     isRecurring: { type: Boolean, default: false },
     recurringFrequency: { type: String, enum: ["Weekly", "Monthly", "Quarterly", "Yearly"], default: "Monthly" },

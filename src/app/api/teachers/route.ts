@@ -86,7 +86,7 @@ export async function POST(request: Request) {
     });
 
     const userObj = newTeacher.toObject();
-    delete userObj.password;
+    delete (userObj as any).password;
 
     return NextResponse.json(
       { success: true, teacher: userObj, data: userObj, message: "Teacher added successfully" },
