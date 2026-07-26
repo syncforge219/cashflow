@@ -19,7 +19,7 @@ const drawBarChartCanvas = (
   title: string,
   labels: string[],
   values: number[],
-  colors = ["#4f46e5", "#059669", "#7c3aed", "#2563eb", "#d97706", "#dc2626", "#06b6d4"],
+  colors = ["#4f46e5", "#059669", "#7c3aed", "#2563eb", "#d97706", "#dc2626", "#06b6d4", "#ec4899", "#f97316"],
   valueFormatter: (v: number) => string = (v) => v >= 100000 ? `₹${(v/100000).toFixed(1)}L` : `₹${v.toLocaleString('en-IN')}`,
   width = 720,
   height = 360
@@ -120,7 +120,7 @@ const drawDonutChartCanvas = (
   title: string,
   labels: string[],
   values: number[],
-  colors = ["#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#ef4444", "#06b6d4"],
+  colors = ["#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#ef4444", "#06b6d4", "#ec4899", "#f97316"],
   width = 640,
   height = 360
 ): string | null => {
@@ -203,6 +203,71 @@ const drawDonutChartCanvas = (
     ctx.fillText(`${lbl}: ${val} (${pct})`, 364, legendY + 12);
 
     legendY += 28;
+  });
+
+  return canvas.toDataURL("image/png");
+};
+
+const drawHorizontalBarChartCanvas = (
+  title: string,
+  labels: string[],
+  values: number[],
+  colors = ["#4f46e5", "#059669", "#7c3aed", "#2563eb", "#d97706", "#dc2626", "#06b6d4"],
+  valueFormatter: (v: number) => string = (v) => v.toString(),
+  width = 720,
+  height = 360
+): string | null => {
+  if (typeof window === "undefined" || !document) return null;
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.strokeStyle = "#e2e8f0";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(1, 1, width - 2, height - 2);
+
+  ctx.fillStyle = "#f8fafc";
+  ctx.fillRect(2, 2, width - 4, 44);
+
+  ctx.fillStyle = "#0f172a";
+  ctx.font = "bold 15px Arial, sans-serif";
+  ctx.fillText(title.toUpperCase(), 20, 28);
+
+  const maxVal = Math.max(...values, 1);
+  const startY = 70;
+  const barH = 26;
+  const gap = 12;
+
+  labels.forEach((lbl, idx) => {
+    const y = startY + idx * (barH + gap);
+    const val = values[idx] || 0;
+    const barW = Math.max((val / maxVal) * 440, 10);
+    const color = colors[idx % colors.length];
+
+    ctx.fillStyle = "#334155";
+    ctx.font = "bold 12px Arial, sans-serif";
+    ctx.textAlign = "left";
+    const trunc = lbl.length > 20 ? lbl.substring(0, 18) + ".." : lbl;
+    ctx.fillText(trunc, 25, y + 18);
+
+    ctx.fillStyle = color;
+    if ((ctx as any).roundRect) {
+      ctx.beginPath();
+      (ctx as any).roundRect(170, y, barW, barH, 6);
+      ctx.fill();
+    } else {
+      ctx.fillRect(170, y, barW, barH);
+    }
+
+    ctx.fillStyle = "#0f172a";
+    ctx.font = "bold 12px Arial, sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText(valueFormatter(val), 180 + barW, y + 18);
   });
 
   return canvas.toDataURL("image/png");
@@ -463,7 +528,14 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
         return compPayments.reduce((sum: number, p: any) => sum + Number(p.amountReceived || 0), 0);
       });
 
-      const brandChartBase64 = drawBarChartCanvas("BRAND BILLED REVENUE (INR)", brandNames, brandRevenues);
+      const courseCounts: Record<string, number> = {};
+      enquiries.forEach((e: any) => {
+        const crs = e.targetCourse || "General";
+        courseCounts[crs] = (courseCounts[crs] || 0) + 1;
+      });
+      const sortedCourses = Object.entries(courseCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
+
+      const brandChartBase64 = drawBarChartCanvas("BRAND BILLED REVENUE (INR)", brandNames, brandRevenues, ["#4f46e5", "#059669", "#7c3aed", "#2563eb", "#d97706"]);
       if (brandChartBase64) {
         const img1 = workbook.addImage({ base64: brandChartBase64, extension: "png" });
         summarySheet.addImage(img1, {
@@ -472,11 +544,20 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
         });
       }
 
-      const compChartBase64 = drawDonutChartCanvas("COMPANY COLLECTIONS SHARE", compNames, compRevenues);
+      const compChartBase64 = drawDonutChartCanvas("COMPANY COLLECTIONS SHARE", compNames, compRevenues, ["#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#ef4444"]);
       if (compChartBase64) {
         const img2 = workbook.addImage({ base64: compChartBase64, extension: "png" });
         summarySheet.addImage(img2, {
           tl: { col: 8, row: 18 },
+          ext: { width: 560, height: 280 }
+        });
+      }
+
+      const courseChartBase64 = drawHorizontalBarChartCanvas("TOP DEMANDED COURSES", sortedCourses.map(c => c[0]), sortedCourses.map(c => c[1]), ["#06b6d4", "#ec4899", "#14b8a6", "#f97316", "#6366f1"], (v) => v.toString() + " Leads");
+      if (courseChartBase64) {
+        const img3 = workbook.addImage({ base64: courseChartBase64, extension: "png" });
+        summarySheet.addImage(img3, {
+          tl: { col: 8, row: 33 },
           ext: { width: 560, height: 280 }
         });
       }
@@ -498,14 +579,17 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
       sheet.addRow([`BRAND REGISTER: ${b.name.toUpperCase()} (${b.brandId || ''})`]);
       sheet.addRow([]);
 
-      sheet.addRow([
+      const headerRow = sheet.addRow([
         "Enquiry ID", "Student Name", "Mobile", "Email", "Target Course",
         "Assigned Counsellor", "Lead Source", "Priority", "Status", "Fees Collected (INR)"
       ]);
-      sheet.getRow(3).font = { bold: true };
+      headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+      headerRow.eachCell(cell => {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4F46E5" } };
+      });
 
-      bEnquiries.forEach((e: any) => {
-        sheet.addRow([
+      bEnquiries.forEach((e: any, idx: number) => {
+        const row = sheet.addRow([
           e.enquiryId || "N/A",
           e.studentFullName || "Student",
           e.primaryPhoneMobile || e.phone || "N/A",
@@ -517,6 +601,11 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
           e.status || "New",
           parseFloat(String(e.feesCollected || "0").replace(/[^0-9.]/g, "")) || 0
         ]);
+        if (idx % 2 === 1) {
+          row.eachCell(cell => {
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF8FAFC" } };
+          });
+        }
       });
 
       sheet.columns.forEach(col => col.width = 20);
@@ -540,15 +629,18 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
       sheet.addRow([`CORPORATE FINANCIAL REGISTER: ${comp.name.toUpperCase()} (GST: ${comp.gst || 'N/A'})`]);
       sheet.addRow([]);
 
-      sheet.addRow([
+      const headerRow = sheet.addRow([
         "Receipt No", "Student Name", "Mobile", "Course Billed", "Brand",
         "Payment Date", "Payment Mode", "Reference No", "Amount Received (INR)"
       ]);
-      sheet.getRow(3).font = { bold: true };
+      headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+      headerRow.eachCell(cell => {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF059669" } };
+      });
 
-      compPayments.forEach((p: any) => {
+      compPayments.forEach((p: any, idx: number) => {
         const admission = p.admissionId || {};
-        sheet.addRow([
+        const row = sheet.addRow([
           p.receiptNo || "N/A",
           admission.fullName || p.studentName || "N/A",
           admission.mobileNumber || "N/A",
@@ -559,6 +651,11 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
           p.referenceNo || "-",
           Number(p.amountReceived || 0)
         ]);
+        if (idx % 2 === 1) {
+          row.eachCell(cell => {
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF0FDF4" } };
+          });
+        }
       });
 
       sheet.columns.forEach(col => col.width = 20);
@@ -589,8 +686,8 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
     sheet.getRow(4).font = { bold: true, color: { argb: "FFFFFFFF" } };
     sheet.getRow(4).eachCell(c => c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4F46E5" } });
 
-    (master.enquiries || []).forEach((e: any) => {
-      sheet.addRow([
+    (master.enquiries || []).forEach((e: any, idx: number) => {
+      const row = sheet.addRow([
         e.enquiryId || "N/A",
         e.studentFullName || "Student",
         e.primaryPhoneMobile || e.phone || "N/A",
@@ -604,6 +701,9 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
         e.isDemoScheduled ? "Yes" : "No",
         e.createdAt ? new Date(e.createdAt).toLocaleDateString("en-IN") : "N/A"
       ]);
+      if (idx % 2 === 1) {
+        row.eachCell(c => c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF8FAFC" } });
+      }
     });
 
     sheet.columns.forEach(col => col.width = 20);
@@ -613,15 +713,23 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
       const enquiries = master.enquiries || [];
       const statusMap: Record<string, number> = {};
       const sourceMap: Record<string, number> = {};
+      const priorityMap: Record<string, number> = {};
+      const courseMap: Record<string, number> = {};
 
       enquiries.forEach((e: any) => {
         const st = e.status || "New";
         const src = e.leadSource || "Direct";
+        const pri = e.priorityLevel || e.priority || "Medium";
+        const crs = e.targetCourse || "General";
         statusMap[st] = (statusMap[st] || 0) + 1;
         sourceMap[src] = (sourceMap[src] || 0) + 1;
+        priorityMap[pri] = (priorityMap[pri] || 0) + 1;
+        courseMap[crs] = (courseMap[crs] || 0) + 1;
       });
 
-      const statusChart = drawDonutChartCanvas("ENQUIRY STATUS BREAKDOWN", Object.keys(statusMap), Object.values(statusMap));
+      const sortedCourses = Object.entries(courseMap).sort((a, b) => b[1] - a[1]).slice(0, 6);
+
+      const statusChart = drawDonutChartCanvas("ENQUIRY STATUS BREAKDOWN", Object.keys(statusMap), Object.values(statusMap), ["#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#ef4444"]);
       if (statusChart) {
         const img1 = workbook.addImage({ base64: statusChart, extension: "png" });
         sheet.addImage(img1, {
@@ -630,11 +738,29 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
         });
       }
 
-      const sourceChart = drawBarChartCanvas("LEAD ACQUISITION CHANNELS", Object.keys(sourceMap), Object.values(sourceMap), ["#3b82f6", "#10b981", "#7c3aed", "#d97706"], (v) => v.toString());
+      const sourceChart = drawBarChartCanvas("LEAD ACQUISITION CHANNELS", Object.keys(sourceMap), Object.values(sourceMap), ["#3b82f6", "#10b981", "#7c3aed", "#d97706", "#ec4899"], (v) => v.toString());
       if (sourceChart) {
         const img2 = workbook.addImage({ base64: sourceChart, extension: "png" });
         sheet.addImage(img2, {
           tl: { col: 13, row: 18 },
+          ext: { width: 560, height: 280 }
+        });
+      }
+
+      const priorityChart = drawDonutChartCanvas("PRIORITY LEVEL BREAKDOWN", Object.keys(priorityMap), Object.values(priorityMap), ["#ef4444", "#f59e0b", "#3b82f6"]);
+      if (priorityChart) {
+        const img3 = workbook.addImage({ base64: priorityChart, extension: "png" });
+        sheet.addImage(img3, {
+          tl: { col: 13, row: 33 },
+          ext: { width: 520, height: 260 }
+        });
+      }
+
+      const courseChart = drawHorizontalBarChartCanvas("TOP DEMANDED COURSES", sortedCourses.map(c => c[0]), sortedCourses.map(c => c[1]), ["#06b6d4", "#ec4899", "#14b8a6", "#f97316", "#6366f1"], (v) => v.toString() + " Leads");
+      if (courseChart) {
+        const img4 = workbook.addImage({ base64: courseChart, extension: "png" });
+        sheet.addImage(img4, {
+          tl: { col: 13, row: 48 },
           ext: { width: 560, height: 280 }
         });
       }
@@ -683,9 +809,12 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
       }
     });
 
-    Object.values(statsMap).forEach((c: any) => {
+    Object.values(statsMap).forEach((c: any, idx: number) => {
       const conv = c.leads > 0 ? ((c.admissions / c.leads) * 100).toFixed(1) + "%" : "0.0%";
-      sheet.addRow([c.name, "-", "-", c.leads, c.demos, c.admissions, conv, c.revenue]);
+      const row = sheet.addRow([c.name, "-", "-", c.leads, c.demos, c.admissions, conv, c.revenue]);
+      if (idx % 2 === 1) {
+        row.eachCell(cell => cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFAF5FF" } });
+      }
     });
 
     sheet.columns.forEach(col => col.width = 22);
@@ -696,8 +825,9 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
       const names = cList.map((c: any) => c.name);
       const admissions = cList.map((c: any) => c.admissions);
       const revenues = cList.map((c: any) => c.revenue);
+      const convPcts = cList.map((c: any) => c.leads > 0 ? parseFloat(((c.admissions / c.leads) * 100).toFixed(1)) : 0);
 
-      const admChart = drawBarChartCanvas("SALES EXECUTIVE ADMISSIONS SCORECARD", names, admissions, ["#10b981", "#3b82f6", "#8b5cf6"], (v) => v.toString());
+      const admChart = drawBarChartCanvas("SALES EXECUTIVE ADMISSIONS SCORECARD", names, admissions, ["#10b981", "#3b82f6", "#8b5cf6", "#f59e0b"], (v) => v.toString());
       if (admChart) {
         const img1 = workbook.addImage({ base64: admChart, extension: "png" });
         sheet.addImage(img1, {
@@ -706,11 +836,20 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
         });
       }
 
-      const revChart = drawBarChartCanvas("SALES EXECUTIVE REVENUE COLLECTED (INR)", names, revenues, ["#4f46e5", "#059669", "#7c3aed"]);
+      const revChart = drawBarChartCanvas("SALES EXECUTIVE REVENUE COLLECTED (INR)", names, revenues, ["#4f46e5", "#059669", "#7c3aed", "#d97706"]);
       if (revChart) {
         const img2 = workbook.addImage({ base64: revChart, extension: "png" });
         sheet.addImage(img2, {
           tl: { col: 9, row: 18 },
+          ext: { width: 560, height: 280 }
+        });
+      }
+
+      const convChart = drawHorizontalBarChartCanvas("CONVERSION RATE SCORECARD %", names, convPcts, ["#06b6d4", "#ec4899", "#14b8a6", "#f97316"], (v) => v.toString() + "%");
+      if (convChart) {
+        const img3 = workbook.addImage({ base64: convChart, extension: "png" });
+        sheet.addImage(img3, {
+          tl: { col: 9, row: 33 },
           ext: { width: 560, height: 280 }
         });
       }
@@ -740,7 +879,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
     sheet.getRow(4).font = { bold: true, color: { argb: "FFFFFFFF" } };
     sheet.getRow(4).eachCell(c => c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2563EB" } }); // Blue
 
-    (master.brands || []).forEach((b: any) => {
+    (master.brands || []).forEach((b: any, idx: number) => {
       const bNameLower = (b.name || "").toLowerCase().trim();
       const bEnquiries = (master.enquiries || []).filter((e: any) =>
         (e.targetBrand || "").toLowerCase().trim() === bNameLower ||
@@ -758,7 +897,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
 
       const conv = bEnquiries.length > 0 ? ((bAdmitted / bEnquiries.length) * 100).toFixed(1) + "%" : "0.0%";
 
-      sheet.addRow([
+      const row = sheet.addRow([
         b.name,
         b.brandId || "N/A",
         (b.companies || []).length,
@@ -769,6 +908,10 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
         conv,
         bRev
       ]);
+
+      if (idx % 2 === 1) {
+        row.eachCell(cell => cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEFF6FF" } });
+      }
     });
 
     sheet.columns.forEach(col => col.width = 22);
@@ -777,24 +920,50 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
     try {
       const bNames: string[] = [];
       const bRevenues: number[] = [];
+      const bAdmissions: number[] = [];
 
       (master.brands || []).forEach((b: any) => {
         const bNameLower = (b.name || "").toLowerCase().trim();
+        const bEnquiries = (master.enquiries || []).filter((e: any) =>
+          (e.targetBrand || "").toLowerCase().trim() === bNameLower ||
+          (e.brand || "").toLowerCase().trim() === bNameLower
+        );
+        const bAdmitted = bEnquiries.filter((e: any) => (e.status || "").toLowerCase() === "admitted").length;
         const bRev = (master.payments || []).reduce((sum: number, p: any) => {
           const admission = p.admissionId || {};
           const pBrand = (admission.brand || p.brand || "").toLowerCase().trim();
           return pBrand === bNameLower ? sum + Number(p.amountReceived || 0) : sum;
         }, 0);
+
         bNames.push(b.name);
         bRevenues.push(bRev);
+        bAdmissions.push(bAdmitted);
       });
 
-      const brandChart = drawBarChartCanvas("BRAND REVENUE PERFORMANCE", bNames, bRevenues);
+      const brandChart = drawBarChartCanvas("BRAND REVENUE PERFORMANCE (INR)", bNames, bRevenues, ["#2563eb", "#10b981", "#7c3aed", "#f59e0b"]);
       if (brandChart) {
         const img1 = workbook.addImage({ base64: brandChart, extension: "png" });
         sheet.addImage(img1, {
           tl: { col: 10, row: 3 },
           ext: { width: 560, height: 280 }
+        });
+      }
+
+      const admChart = drawBarChartCanvas("BRAND ADMISSIONS CLOSED", bNames, bAdmissions, ["#10b981", "#3b82f6", "#8b5cf6"], (v) => v.toString());
+      if (admChart) {
+        const img2 = workbook.addImage({ base64: admChart, extension: "png" });
+        sheet.addImage(img2, {
+          tl: { col: 10, row: 18 },
+          ext: { width: 560, height: 280 }
+        });
+      }
+
+      const compDonut = drawDonutChartCanvas("BRAND REVENUE SHARE DISTRIBUTION", bNames, bRevenues, ["#2563eb", "#10b981", "#7c3aed", "#f59e0b"]);
+      if (compDonut) {
+        const img3 = workbook.addImage({ base64: compDonut, extension: "png" });
+        sheet.addImage(img3, {
+          tl: { col: 10, row: 33 },
+          ext: { width: 520, height: 260 }
         });
       }
     } catch (chartErr) {
