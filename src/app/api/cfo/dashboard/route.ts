@@ -46,17 +46,12 @@ export async function GET(req: Request) {
       return matchBrand && matchCompany;
     });
 
-    // Helper to extract numerical payment amount from payment doc
     const getPaymentAmt = (p: any) => Number(p.amountReceived) || Number(p.amount) || 0;
-
-    // Helper to extract expense amount
     const getExpenseAmt = (e: any) => Number(e.amount) || 0;
 
     // 1. Core Financial Aggregations
-    // Primary Revenue from Payment receipts + Admission initial payments (deduped if payment doc exists)
     let totalRevenue = filteredPayments.reduce((sum: number, p: any) => sum + getPaymentAmt(p), 0);
 
-    // If payments list is smaller, complement with admissions amountReceivedToday
     if (totalRevenue === 0 && filteredAdmissions.length > 0) {
       totalRevenue = filteredAdmissions.reduce((sum: number, a: any) => sum + (Number(a.amountReceivedToday) || Number(a.paidAmount) || 0), 0);
     }
@@ -149,7 +144,34 @@ export async function GET(req: Request) {
       netProfit: data.revenue - data.expense,
     }));
 
-    // 5. Company Financial Performance
+    // 5. Quarterly Performance Trends
+    const quarterMap: Record<string, { revenue: number; expense: number }> = {
+      Q1: { revenue: 0, expense: 0 },
+      Q2: { revenue: 0, expense: 0 },
+      Q3: { revenue: 0, expense: 0 },
+      Q4: { revenue: 0, expense: 0 },
+    };
+
+    filteredPayments.forEach((p: any) => {
+      const dt = new Date(p.paymentDate || p.createdAt || p.date);
+      const q = `Q${Math.floor(dt.getMonth() / 3) + 1}`;
+      if (quarterMap[q]) quarterMap[q].revenue += getPaymentAmt(p);
+    });
+
+    filteredExpenses.forEach((e: any) => {
+      const dt = new Date(e.expenseDate || e.createdAt);
+      const q = `Q${Math.floor(dt.getMonth() / 3) + 1}`;
+      if (quarterMap[q]) quarterMap[q].expense += getExpenseAmt(e);
+    });
+
+    const quarterlyTrends = Object.entries(quarterMap).map(([quarter, data]) => ({
+      quarter,
+      revenue: data.revenue,
+      expense: data.expense,
+      netProfit: data.revenue - data.expense,
+    }));
+
+    // 6. Company Financial Performance
     const compMap: Record<string, { revenue: number; expense: number }> = {};
     companies.forEach((c: any) => {
       if (c.name) compMap[c.name] = { revenue: 0, expense: 0 };
@@ -178,6 +200,41 @@ export async function GET(req: Request) {
       }))
       .sort((a, b) => b.revenue - a.revenue);
 
+    // 7. Brand Financial Performance
+    const brandMap: Record<string, { revenue: number; expense: number }> = {};
+    brands.forEach((b: any) => {
+      if (b.name) brandMap[b.name] = { revenue: 0, expense: 0 };
+    });
+
+    filteredPayments.forEach((p: any) => {
+      const bName = p.brand || p.brandName;
+      if (bName && brandMap[bName]) {
+        brandMap[bName].revenue += getPaymentAmt(p);
+      }
+    });
+
+    filteredExpenses.forEach((e: any) => {
+      const bName = e.brand;
+      if (bName && brandMap[bName]) {
+        brandMap[bName].expense += getExpenseAmt(e);
+      }
+    });
+
+    const brandFinancials = Object.entries(brandMap)
+      .map(([name, data]) => ({
+        name,
+        revenue: data.revenue,
+        expense: data.expense,
+        net: data.revenue - data.expense,
+      }))
+      .sort((a, b) => b.revenue - a.revenue);
+
+    // Calculate Financial Stability Index Score (0-100)
+    let healthScore = 75;
+    if (operatingMarginPct > 70) healthScore += 15;
+    else if (operatingMarginPct > 40) healthScore += 10;
+    if (outstandingFees < totalRevenue * 0.2) healthScore += 10;
+
     return NextResponse.json({
       success: true,
       data: {
@@ -191,6 +248,7 @@ export async function GET(req: Request) {
           bankReserves,
           variableExpenses,
           fixedExpenses,
+          healthScore: Math.min(100, healthScore),
         },
         expenses: filteredExpenses.slice(0, 15),
         payments: filteredPayments.slice(0, 15),
@@ -198,9 +256,11 @@ export async function GET(req: Request) {
         companies,
         brands,
         monthlyTrends,
+        quarterlyTrends,
         categoryBreakdown,
         paymentModeDistribution,
         companyFinancials,
+        brandFinancials,
       },
     });
   } catch (error: any) {
