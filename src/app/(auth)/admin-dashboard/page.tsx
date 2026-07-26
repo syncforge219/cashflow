@@ -155,7 +155,7 @@ export default function AdminDashboard() {
 
   const initialLetter = user.name ? user.name.charAt(0).toUpperCase() : "A";
 
-  // Data for High-End Ultra-Elegant Metric Cards
+  // Data for Metric Cards with Hover Color Gradients
   const metrics = [
     {
       name: "Total Leads",
@@ -163,6 +163,7 @@ export default function AdminDashboard() {
       trend: filterLabel === "Overall" ? "Overall" : `Filtered: ${filterLabel}`,
       isGreen: true,
       borderAccent: "border-l-4 border-blue-500",
+      hoverGradient: "hover:bg-gradient-to-br hover:from-blue-50/90 hover:via-indigo-50/50 hover:to-white hover:border-blue-300",
       pillClass: "text-blue-700 bg-blue-50 border-blue-200/60"
     },
     {
@@ -171,6 +172,7 @@ export default function AdminDashboard() {
       trend: "Today",
       isGreen: true,
       borderAccent: "border-l-4 border-teal-500",
+      hoverGradient: "hover:bg-gradient-to-br hover:from-teal-50/90 hover:via-emerald-50/50 hover:to-white hover:border-teal-300",
       pillClass: "text-teal-700 bg-teal-50 border-teal-200/60"
     },
     {
@@ -179,6 +181,7 @@ export default function AdminDashboard() {
       trend: "Today",
       isGreen: true,
       borderAccent: "border-l-4 border-emerald-500",
+      hoverGradient: "hover:bg-gradient-to-br hover:from-emerald-50/90 hover:via-green-50/50 hover:to-white hover:border-emerald-300",
       pillClass: "text-emerald-700 bg-emerald-50 border-emerald-200/60"
     },
     {
@@ -187,6 +190,7 @@ export default function AdminDashboard() {
       trend: "Current Month",
       isGreen: true,
       borderAccent: "border-l-4 border-purple-500",
+      hoverGradient: "hover:bg-gradient-to-br hover:from-purple-50/90 hover:via-indigo-50/50 hover:to-white hover:border-purple-300",
       pillClass: "text-purple-700 bg-purple-50 border-purple-200/60"
     },
     {
@@ -195,6 +199,7 @@ export default function AdminDashboard() {
       trend: "Total Collections",
       isGreen: true,
       borderAccent: "border-l-4 border-indigo-500",
+      hoverGradient: "hover:bg-gradient-to-br hover:from-indigo-50/90 hover:via-blue-50/50 hover:to-white hover:border-indigo-300",
       pillClass: "text-indigo-700 bg-indigo-50 border-indigo-200/60"
     },
     {
@@ -203,6 +208,7 @@ export default function AdminDashboard() {
       trend: "Paid Staff Salaries",
       isGreen: false,
       borderAccent: "border-l-4 border-rose-500",
+      hoverGradient: "hover:bg-gradient-to-br hover:from-rose-50/90 hover:via-pink-50/50 hover:to-white hover:border-rose-300",
       pillClass: "text-rose-700 bg-rose-50 border-rose-200/60"
     },
     {
@@ -211,6 +217,7 @@ export default function AdminDashboard() {
       trend: "Operational Overhead",
       isGreen: false,
       borderAccent: "border-l-4 border-amber-500",
+      hoverGradient: "hover:bg-gradient-to-br hover:from-amber-50/90 hover:via-orange-50/50 hover:to-white hover:border-amber-300",
       pillClass: "text-amber-800 bg-amber-50 border-amber-200/60"
     },
     {
@@ -219,6 +226,7 @@ export default function AdminDashboard() {
       trend: `Margin: ${data?.kpis?.profitMargin || "0%"}`,
       isGreen: data?.kpis?.isProfitable ?? true,
       borderAccent: data?.kpis?.isProfitable ?? true ? "border-l-4 border-emerald-500" : "border-l-4 border-rose-500",
+      hoverGradient: data?.kpis?.isProfitable ?? true ? "hover:bg-gradient-to-br hover:from-emerald-50/90 hover:via-teal-50/50 hover:to-white hover:border-emerald-300" : "hover:bg-gradient-to-br hover:from-rose-50/90 hover:via-red-50/50 hover:to-white hover:border-rose-300",
       pillClass: data?.kpis?.isProfitable ?? true ? "text-emerald-700 bg-emerald-50 border-emerald-200/60" : "text-rose-700 bg-rose-50 border-rose-200/60"
     },
     {
@@ -227,6 +235,7 @@ export default function AdminDashboard() {
       trend: filterLabel === "Overall" ? "Overall" : filterLabel,
       isGreen: true,
       borderAccent: "border-l-4 border-cyan-500",
+      hoverGradient: "hover:bg-gradient-to-br hover:from-cyan-50/90 hover:via-blue-50/50 hover:to-white hover:border-cyan-300",
       pillClass: "text-cyan-700 bg-cyan-50 border-cyan-200/60"
     },
     {
@@ -235,6 +244,7 @@ export default function AdminDashboard() {
       trend: "Needs Action",
       isGreen: false,
       borderAccent: "border-l-4 border-orange-500",
+      hoverGradient: "hover:bg-gradient-to-br hover:from-orange-50/90 hover:via-amber-50/50 hover:to-white hover:border-orange-300",
       pillClass: "text-orange-800 bg-orange-50 border-orange-200/60"
     },
     {
@@ -243,6 +253,7 @@ export default function AdminDashboard() {
       trend: `${data?.kpis?.emiOverdueCount || 0} Overdue Students`,
       isGreen: false,
       borderAccent: "border-l-4 border-red-500",
+      hoverGradient: "hover:bg-gradient-to-br hover:from-red-50/90 hover:via-rose-50/50 hover:to-white hover:border-red-300",
       pillClass: "text-red-700 bg-red-50 border-red-200/60"
     },
     {
@@ -251,6 +262,7 @@ export default function AdminDashboard() {
       trend: "High Priority",
       isGreen: true,
       borderAccent: "border-l-4 border-rose-500",
+      hoverGradient: "hover:bg-gradient-to-br hover:from-rose-50/90 hover:via-orange-50/50 hover:to-white hover:border-rose-300",
       pillClass: "text-rose-700 bg-rose-50 border-rose-200/60",
       simpleText: true
     }
@@ -347,7 +359,7 @@ export default function AdminDashboard() {
 
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto px-6 py-6 space-y-6">
 
-        {/* ULTRA-ELEGANT HEADER */}
+        {/* ELEGANT HEADER */}
         <header className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-200/80 pb-4 shrink-0">
           <div>
             <div className="text-xs font-semibold text-slate-400 flex items-center gap-1.5 select-none">
@@ -360,7 +372,7 @@ export default function AdminDashboard() {
           <div className="flex items-center gap-4 w-full sm:w-auto">
             <button
               onClick={() => setIsCommandPaletteOpen(true)}
-              className="relative w-full sm:w-64 flex items-center justify-between pl-3.5 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors text-slate-400 group shadow-xs"
+              className="relative w-full sm:w-64 flex items-center justify-between pl-3.5 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-xl hover:bg-gradient-to-r hover:from-indigo-50/50 hover:to-blue-50/50 hover:border-indigo-300 transition-all text-slate-400 group shadow-xs"
             >
               <div className="flex items-center">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4 mr-2 group-hover:text-indigo-600 transition-colors">
@@ -381,7 +393,7 @@ export default function AdminDashboard() {
               </div>
               <button
                 onClick={() => setIsProfileOpen(true)}
-                className="h-9 w-9 rounded-xl bg-indigo-600 text-white font-bold text-xs flex items-center justify-center border border-indigo-500 shadow-xs hover:bg-indigo-700 transition-all cursor-pointer overflow-hidden shrink-0"
+                className="h-9 w-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-700 text-white font-bold text-xs flex items-center justify-center border border-indigo-500 shadow-xs hover:from-indigo-700 hover:to-indigo-800 transition-all cursor-pointer overflow-hidden shrink-0"
                 title="View Profile Details"
               >
                 {user.photoUrl ? (
@@ -424,13 +436,13 @@ export default function AdminDashboard() {
                 <div className="flex items-center gap-2 shrink-0">
                   <button
                     onClick={() => handleApproveRejectDiscount(notif._id, "Approved")}
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer"
+                    className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer"
                   >
                     Approve Discount
                   </button>
                   <button
                     onClick={() => handleApproveRejectDiscount(notif._id, "Rejected")}
-                    className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer"
+                    className="px-4 py-2 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer"
                   >
                     Reject
                   </button>
@@ -440,7 +452,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* ULTRA-ELEGANT QUICK ACTIONS BAR */}
+        {/* ELEGANT QUICK ACTIONS BAR WITH GRADIENT HOVER BUTTONS */}
         <div className="bg-white border border-slate-200/80 rounded-2xl p-3 shadow-xs flex items-center gap-3 overflow-hidden shrink-0">
           <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-2 select-none shrink-0 border-r border-slate-200 pr-3">
             Quick Actions:
@@ -448,56 +460,56 @@ export default function AdminDashboard() {
           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth py-0.5 w-full">
             <button
               onClick={() => router.push("/payroll")}
-              className="px-3.5 py-1.5 bg-white border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50 text-slate-700 text-xs font-semibold rounded-xl transition-all cursor-pointer shrink-0 shadow-xs"
+              className="px-3.5 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-emerald-500 hover:to-teal-600 hover:text-white hover:border-emerald-500 cursor-pointer shrink-0 shadow-xs"
             >
               Payroll
             </button>
             <button
               onClick={() => router.push("/expenses")}
-              className="px-3.5 py-1.5 bg-white border border-slate-200 hover:border-rose-300 hover:bg-rose-50/50 text-slate-700 text-xs font-semibold rounded-xl transition-all cursor-pointer shrink-0 shadow-xs"
+              className="px-3.5 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-rose-500 hover:to-pink-600 hover:text-white hover:border-rose-500 cursor-pointer shrink-0 shadow-xs"
             >
               Expenses
             </button>
             <button
               onClick={() => router.push("/admin-dashboard/brands")}
-              className="px-3.5 py-1.5 bg-white border border-slate-200 hover:border-blue-300 hover:bg-blue-50/50 text-slate-700 text-xs font-semibold rounded-xl transition-all cursor-pointer shrink-0 shadow-xs"
+              className="px-3.5 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-blue-500 hover:to-indigo-600 hover:text-white hover:border-blue-500 cursor-pointer shrink-0 shadow-xs"
             >
               Brands
             </button>
             <button
               onClick={() => router.push("/companies")}
-              className="px-3.5 py-1.5 bg-white border border-slate-200 hover:border-purple-300 hover:bg-purple-50/50 text-slate-700 text-xs font-semibold rounded-xl transition-all cursor-pointer shrink-0 shadow-xs"
+              className="px-3.5 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-purple-500 hover:to-indigo-600 hover:text-white hover:border-purple-500 cursor-pointer shrink-0 shadow-xs"
             >
               Companies
             </button>
             <button
               onClick={() => router.push("/counsellors")}
-              className="px-3.5 py-1.5 bg-white border border-slate-200 hover:border-teal-300 hover:bg-teal-50/50 text-slate-700 text-xs font-semibold rounded-xl transition-all cursor-pointer shrink-0 shadow-xs"
+              className="px-3.5 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-teal-500 hover:to-cyan-600 hover:text-white hover:border-teal-500 cursor-pointer shrink-0 shadow-xs"
             >
               Users
             </button>
             <button
               onClick={() => router.push("/admin-dashboard/reports")}
-              className="px-3.5 py-1.5 bg-white border border-slate-200 hover:border-amber-300 hover:bg-amber-50/50 text-slate-700 text-xs font-semibold rounded-xl transition-all cursor-pointer shrink-0 shadow-xs"
+              className="px-3.5 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-amber-500 hover:to-orange-600 hover:text-white hover:border-amber-500 cursor-pointer shrink-0 shadow-xs"
             >
               Reports
             </button>
             <button
               onClick={() => setIsBatchModalOpen(true)}
-              className="px-3.5 py-1.5 bg-white border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/50 text-slate-700 text-xs font-semibold rounded-xl transition-all cursor-pointer shrink-0 shadow-xs"
+              className="px-3.5 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-indigo-500 hover:to-purple-600 hover:text-white hover:border-indigo-500 cursor-pointer shrink-0 shadow-xs"
             >
               Create Batch
             </button>
             <button
               onClick={handleSendWeeklyReport}
               disabled={isSendingWeeklyReport}
-              className="px-3.5 py-1.5 bg-white border border-slate-200 hover:border-purple-300 hover:bg-purple-50/50 text-slate-700 text-xs font-semibold rounded-xl transition-all cursor-pointer shrink-0 shadow-xs disabled:opacity-50"
+              className="px-3.5 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-purple-500 hover:to-pink-600 hover:text-white hover:border-purple-500 cursor-pointer shrink-0 shadow-xs disabled:opacity-50"
             >
               {isSendingWeeklyReport ? "Sending..." : "Weekly Report"}
             </button>
             <button
               onClick={handleCheckOverdueEmis}
-              className="px-3.5 py-1.5 bg-white border border-slate-200 hover:border-rose-300 hover:bg-rose-50/50 text-slate-700 text-xs font-semibold rounded-xl transition-all cursor-pointer shrink-0 shadow-xs"
+              className="px-3.5 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-rose-500 hover:to-red-600 hover:text-white hover:border-rose-500 cursor-pointer shrink-0 shadow-xs"
             >
               Overdue EMIs
             </button>
@@ -535,7 +547,7 @@ export default function AdminDashboard() {
             }}
           />
 
-          {/* 12 ULTRA-ELEGANT METRIC CARDS */}
+          {/* 12 ELEGANT KPI METRIC CARDS WITH COLORFUL HOVER GRADIENTS */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-6 gap-3.5">
             {isLoading && !data ? (
               Array.from({ length: 12 }).map((_, i) => (
@@ -549,10 +561,10 @@ export default function AdminDashboard() {
               metrics.map((card, i) => (
                 <div
                   key={i}
-                  className={`bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs flex flex-col justify-between transition-all duration-300 hover:shadow-md hover:border-slate-300 hover:-translate-y-0.5 cursor-pointer group ${card.borderAccent}`}
+                  className={`bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs flex flex-col justify-between transition-all duration-300 hover:shadow-lg hover:-translate-y-1 cursor-pointer group ${card.borderAccent} ${card.hoverGradient}`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider select-none leading-snug">
+                    <span className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider select-none leading-snug group-hover:text-slate-700 transition-colors">
                       {card.name}
                     </span>
                   </div>
@@ -571,7 +583,7 @@ export default function AdminDashboard() {
             )}
           </div>
 
-          {/* FINANCIAL PROFIT & LOSS COMMAND CENTER */}
+          {/* FINANCIAL PROFIT & LOSS COMMAND CENTER WITH GRADIENT HOVER CARDS */}
           <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
               <div>
@@ -595,13 +607,13 @@ export default function AdminDashboard() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => router.push("/payroll")}
-                  className="px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-xl border border-slate-200 transition-colors cursor-pointer"
+                  className="px-3.5 py-1.5 bg-slate-50 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-blue-50 text-slate-700 hover:text-indigo-700 text-xs font-semibold rounded-xl border border-slate-200 hover:border-indigo-200 transition-all cursor-pointer"
                 >
                   Manage Payroll
                 </button>
                 <button
                   onClick={() => router.push("/expenses")}
-                  className="px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-xl border border-slate-200 transition-colors cursor-pointer"
+                  className="px-3.5 py-1.5 bg-slate-50 hover:bg-gradient-to-r hover:from-rose-50 hover:to-pink-50 text-slate-700 hover:text-rose-700 text-xs font-semibold rounded-xl border border-slate-200 hover:border-rose-200 transition-all cursor-pointer"
                 >
                   Track Expenses
                 </button>
@@ -609,7 +621,7 @@ export default function AdminDashboard() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-white border-l-4 border-indigo-500 border border-slate-200/80 rounded-xl p-4 space-y-1 shadow-xs">
+              <div className="bg-white border-l-4 border-indigo-500 border border-slate-200/80 rounded-xl p-4 space-y-1 shadow-xs transition-all duration-300 hover:bg-gradient-to-br hover:from-indigo-50/80 hover:to-blue-50/40 hover:border-indigo-300 hover:shadow-md">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Revenue (Billed)</span>
                 <div className="text-2xl font-bold text-slate-900">
                   {(data?.financialSummary?.revenue || 0) >= 100000
@@ -621,7 +633,7 @@ export default function AdminDashboard() {
                 </span>
               </div>
 
-              <div className="bg-white border-l-4 border-purple-500 border border-slate-200/80 rounded-xl p-4 space-y-1 shadow-xs">
+              <div className="bg-white border-l-4 border-purple-500 border border-slate-200/80 rounded-xl p-4 space-y-1 shadow-xs transition-all duration-300 hover:bg-gradient-to-br hover:from-purple-50/80 hover:to-indigo-50/40 hover:border-purple-300 hover:shadow-md">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Staff Payroll</span>
                 <div className="text-2xl font-bold text-slate-900">
                   {(data?.financialSummary?.payroll || 0) >= 100000
@@ -633,7 +645,7 @@ export default function AdminDashboard() {
                 </span>
               </div>
 
-              <div className="bg-white border-l-4 border-amber-500 border border-slate-200/80 rounded-xl p-4 space-y-1 shadow-xs">
+              <div className="bg-white border-l-4 border-amber-500 border border-slate-200/80 rounded-xl p-4 space-y-1 shadow-xs transition-all duration-300 hover:bg-gradient-to-br hover:from-amber-50/80 hover:to-orange-50/40 hover:border-amber-300 hover:shadow-md">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Operational Expenses</span>
                 <div className="text-2xl font-bold text-slate-900">
                   {(data?.financialSummary?.expenses || 0) >= 100000
@@ -645,7 +657,7 @@ export default function AdminDashboard() {
                 </span>
               </div>
 
-              <div className={`bg-white ${ (data?.financialSummary?.netProfit || 0) >= 0 ? "border-l-4 border-emerald-500" : "border-l-4 border-rose-500" } border border-slate-200/80 rounded-xl p-4 space-y-1 shadow-xs`}>
+              <div className={`bg-white ${ (data?.financialSummary?.netProfit || 0) >= 0 ? "border-l-4 border-emerald-500 hover:bg-gradient-to-br hover:from-emerald-50/80 hover:to-teal-50/40 hover:border-emerald-300" : "border-l-4 border-rose-500 hover:bg-gradient-to-br hover:from-rose-50/80 hover:to-red-50/40 hover:border-rose-300" } border border-slate-200/80 rounded-xl p-4 space-y-1 shadow-xs transition-all duration-300 hover:shadow-md`}>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                   Net Profit (Bottom Line)
                 </span>
@@ -943,7 +955,7 @@ export default function AdminDashboard() {
                   </thead>
                   <tbody className="divide-y divide-slate-100/80 font-semibold text-slate-700">
                     {data?.counsellorPerformance?.map((c: any, i: number) => (
-                      <tr key={i} className="hover:bg-slate-50/60 transition-colors">
+                      <tr key={i} className="hover:bg-gradient-to-r hover:from-teal-50/40 hover:to-slate-50 transition-colors">
                         <td className="py-2.5 px-2 text-slate-900 font-bold capitalize whitespace-nowrap">{c.name}</td>
                         <td className="py-2.5 px-2 text-right font-medium">{c.assigned}</td>
                         <td className="py-2.5 px-2 text-right font-medium">{c.followups}</td>
@@ -973,7 +985,7 @@ export default function AdminDashboard() {
                   </thead>
                   <tbody className="divide-y divide-slate-100/80 font-semibold text-slate-700">
                     {data?.brandPerformance?.map((b: any, i: number) => (
-                      <tr key={i} className="hover:bg-slate-50/60 transition-colors">
+                      <tr key={i} className="hover:bg-gradient-to-r hover:from-indigo-50/40 hover:to-slate-50 transition-colors">
                         <td className="py-2.5 px-2 text-slate-900 font-bold whitespace-nowrap">{b.name}</td>
                         <td className="py-2.5 px-2 text-right font-medium">{b.leads}</td>
                         <td className="py-2.5 px-2 text-right font-medium">{b.admissions}</td>
@@ -1002,7 +1014,7 @@ export default function AdminDashboard() {
                   </thead>
                   <tbody className="divide-y divide-slate-100/80 font-semibold text-slate-700">
                     {data?.companyUtilization?.map((c: any, i: number) => (
-                      <tr key={i} className="hover:bg-slate-50/60 transition-colors">
+                      <tr key={i} className="hover:bg-gradient-to-r hover:from-purple-50/40 hover:to-slate-50 transition-colors">
                         <td className="py-2.5 px-2 text-slate-900 font-bold whitespace-nowrap">{c.name}</td>
                         <td className="py-2.5 px-2 text-right font-medium">{c.collection}</td>
                         <td className="py-2.5 px-2 text-right font-bold text-emerald-600">{c.usedPct}</td>
@@ -1023,11 +1035,11 @@ export default function AdminDashboard() {
                 <span>System Work Queue</span>
               </h2>
               <div className="space-y-3 font-semibold text-xs">
-                <div className="flex justify-between items-center bg-slate-50 border border-slate-100 p-2.5 rounded-xl"><span className="text-slate-600">Follow-ups Due Today</span><span className="text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded-md">{data?.workQueue?.followUpsDue || 0}</span></div>
-                <div className="flex justify-between items-center bg-slate-50 border border-slate-100 p-2.5 rounded-xl"><span className="text-slate-600">Missed / Overdue</span><span className="text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded-md">{data?.workQueue?.missedCalls || 0}</span></div>
-                <div className="flex justify-between items-center bg-slate-50 border border-slate-100 p-2.5 rounded-xl"><span className="text-slate-600">Counselling Scheduled</span><span className="text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded-md">{data?.workQueue?.counsellingScheduled || 0}</span></div>
-                <div className="flex justify-between items-center bg-slate-50 border border-slate-100 p-2.5 rounded-xl"><span className="text-slate-600">Negotiation Phase</span><span className="text-teal-600 font-bold bg-teal-50 px-2 py-0.5 rounded-md">{data?.workQueue?.admissionsWaiting || 0}</span></div>
-                <div className="flex justify-between items-center bg-slate-50 border border-slate-100 p-2.5 rounded-xl"><span className="text-slate-600">Students w/ Fee Pending</span><span className="text-purple-600 font-bold bg-purple-50 px-2 py-0.5 rounded-md">{data?.workQueue?.feePending || 0}</span></div>
+                <div className="flex justify-between items-center bg-slate-50 border border-slate-100 p-2.5 rounded-xl transition-all hover:bg-gradient-to-r hover:from-indigo-50/80 hover:to-blue-50/40 hover:border-indigo-200"><span className="text-slate-600">Follow-ups Due Today</span><span className="text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded-md">{data?.workQueue?.followUpsDue || 0}</span></div>
+                <div className="flex justify-between items-center bg-slate-50 border border-slate-100 p-2.5 rounded-xl transition-all hover:bg-gradient-to-r hover:from-rose-50/80 hover:to-pink-50/40 hover:border-rose-200"><span className="text-slate-600">Missed / Overdue</span><span className="text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded-md">{data?.workQueue?.missedCalls || 0}</span></div>
+                <div className="flex justify-between items-center bg-slate-50 border border-slate-100 p-2.5 rounded-xl transition-all hover:bg-gradient-to-r hover:from-amber-50/80 hover:to-orange-50/40 hover:border-amber-200"><span className="text-slate-600">Counselling Scheduled</span><span className="text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded-md">{data?.workQueue?.counsellingScheduled || 0}</span></div>
+                <div className="flex justify-between items-center bg-slate-50 border border-slate-100 p-2.5 rounded-xl transition-all hover:bg-gradient-to-r hover:from-teal-50/80 hover:to-emerald-50/40 hover:border-teal-200"><span className="text-slate-600">Negotiation Phase</span><span className="text-teal-600 font-bold bg-teal-50 px-2 py-0.5 rounded-md">{data?.workQueue?.admissionsWaiting || 0}</span></div>
+                <div className="flex justify-between items-center bg-slate-50 border border-slate-100 p-2.5 rounded-xl transition-all hover:bg-gradient-to-r hover:from-purple-50/80 hover:to-indigo-50/40 hover:border-purple-200"><span className="text-slate-600">Students w/ Fee Pending</span><span className="text-purple-600 font-bold bg-purple-50 px-2 py-0.5 rounded-md">{data?.workQueue?.feePending || 0}</span></div>
               </div>
             </div>
 
@@ -1073,7 +1085,7 @@ export default function AdminDashboard() {
                         e.isAdmitted === true;
 
                       return (
-                        <tr key={i} className="hover:bg-slate-50/60 transition-colors">
+                        <tr key={i} className="hover:bg-gradient-to-r hover:from-indigo-50/40 hover:to-slate-50 transition-colors">
                           <td className="py-3 px-2.5 text-center">
                             {isAdmittedStudent ? (
                               <span
