@@ -406,6 +406,37 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
     }
   };
 
+  // Dynamic column width autofitter and text alignment helper
+  const autofitSheetColumns = (sheet: ExcelJS.Worksheet) => {
+    sheet.columns.forEach((column) => {
+      let maxLen = 14;
+      column.eachCell?.({ includeEmpty: false }, (cell) => {
+        const rawVal = cell.value;
+        if (rawVal !== null && rawVal !== undefined) {
+          let valStr = "";
+          if (typeof rawVal === "object") {
+            valStr = (rawVal as any).text || (rawVal as any).result || JSON.stringify(rawVal);
+          } else {
+            valStr = String(rawVal);
+          }
+          // Exclude section title headers from blowing up column width
+          const isBanner = valStr.startsWith("1.") || valStr.startsWith("2.") || valStr.startsWith("3.") || valStr.includes("REGISTER:") || valStr.includes("REPORT");
+          if (!isBanner && valStr.length < 60) {
+            if (valStr.length > maxLen) {
+              maxLen = valStr.length;
+            }
+          }
+        }
+        cell.alignment = {
+          vertical: "middle",
+          wrapText: true,
+          horizontal: cell.alignment?.horizontal || (typeof cell.value === "number" ? "right" : "left"),
+        };
+      });
+      column.width = Math.min(Math.max(maxLen + 6, 20), 55);
+    });
+  };
+
   // ══════════════════════════════════════════════════════════
   // 1. SUPER MASTER MULTI-SHEET REPORT GENERATOR
   // ══════════════════════════════════════════════════════════
@@ -425,6 +456,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
         (e.brand || "").toLowerCase().trim() === bNameLower
       );
       const bAdmissions = bEnquiries.filter((e: any) => (e.status || "").toLowerCase() === "admitted").length;
+
       const bRev = payments.reduce((sum: number, p: any) => {
         const admission = p.admissionId || {};
         const pBrand = (admission.brand || p.brand || "").toLowerCase().trim();
@@ -555,7 +587,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
       summarySheet.addRow([src, count, pctShare]);
     });
 
-    summarySheet.columns.forEach(col => col.width = 24);
+    autofitSheetColumns(summarySheet);
 
     // Canvas charts on summary sheet
     try {
@@ -653,7 +685,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
       }
     });
 
-    leadsSheet.columns.forEach(col => col.width = 22);
+    autofitSheetColumns(leadsSheet);
 
     // ── SHEET 3: ADMITTED STUDENTS REGISTER (DEDICATED ADMISSION SHEET) ────────
     const admissionSheet = workbook.addWorksheet("Admitted Students Register");
@@ -722,7 +754,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
       }
     });
 
-    admissionSheet.columns.forEach(col => col.width = 22);
+    autofitSheetColumns(admissionSheet);
 
     // ── SHEETS FOR EACH BRAND (WITH BRAND & COMPANY HIGHLIGHTS ON TOP) ─────────
     brands.forEach((b: any) => {
@@ -802,7 +834,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
         }
       });
 
-      sheet.columns.forEach(col => col.width = 20);
+      autofitSheetColumns(sheet);
     });
 
     // ── SHEETS FOR EACH COMPANY (WITH COMPANY & BRAND HIGHLIGHTS ON TOP) ───────
@@ -816,9 +848,9 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
       const compRev = compPayments.reduce((sum: number, p: any) => sum + Number(p.amountReceived || 0), 0);
       const bankInfo = comp.bankAccount || comp.bankName || comp.bank || comp.bankDetails || "Primary Bank";
 
-      let safeSheetName = `Comp - ${comp.name}`.replace(/[?*/\\[\]]/g, '').substring(0, 31);
+      let safeSheetName = `Comp - ${comp.name}`.replace(/[?*/\left]/g, '').substring(0, 31);
       if (workbook.getWorksheet(safeSheetName)) {
-        safeSheetName = `Company - ${comp.name}`.replace(/[?*/\\[\]]/g, '').substring(0, 31);
+        safeSheetName = `Company - ${comp.name}`.replace(/[?*/\left]/g, '').substring(0, 31);
       }
 
       const sheet = workbook.addWorksheet(safeSheetName);
@@ -886,7 +918,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
         }
       });
 
-      sheet.columns.forEach(col => col.width = 20);
+      autofitSheetColumns(sheet);
     });
 
     // Download Workbook
@@ -934,7 +966,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
       }
     });
 
-    sheet.columns.forEach(col => col.width = 20);
+    autofitSheetColumns(sheet);
 
     // Embed Visual Chart Graphics into Leads Register
     try {
@@ -1045,7 +1077,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
       }
     });
 
-    sheet.columns.forEach(col => col.width = 22);
+    autofitSheetColumns(sheet);
 
     // Embed Visual Chart Graphics into Counsellor Performance
     try {
@@ -1142,7 +1174,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
       }
     });
 
-    sheet.columns.forEach(col => col.width = 22);
+    autofitSheetColumns(sheet);
 
     // Embed Visual Chart Graphics into Brand Performance
     try {
