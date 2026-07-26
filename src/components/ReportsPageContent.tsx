@@ -528,8 +528,10 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
           })
         : "";
 
-      const companyVal = (exp.company && exp.company !== "All Companies") ? exp.company : "";
+      const isCash = (exp.paymentMode || "").trim().toLowerCase() === "cash";
+      const companyVal = (!isCash && exp.company && exp.company !== "All Companies") ? exp.company : "";
       const brandVal = (exp.brand && exp.brand !== "All Brands") ? exp.brand : "";
+      const bankVal = !isCash ? (exp.bank || "") : "";
 
       const row = sheet.addRow([
         idx + 1,
@@ -540,7 +542,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
         exp.paymentMode || "Cash",
         companyVal,
         brandVal,
-        exp.bank || "",
+        bankVal,
         exp.expenseType || "variable",
       ]);
 

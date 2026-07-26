@@ -162,8 +162,10 @@ export default function ExpensesPage() {
           })
         : "";
 
-      const companyVal = (exp.company && exp.company !== "All Companies") ? exp.company : "";
+      const isCash = (exp.paymentMode || "").trim().toLowerCase() === "cash";
+      const companyVal = (!isCash && exp.company && exp.company !== "All Companies") ? exp.company : "";
       const brandVal = (exp.brand && exp.brand !== "All Brands") ? exp.brand : "";
+      const bankVal = !isCash ? (exp.bank || "") : "";
 
       const row = sheet.addRow([
         idx + 1,
@@ -174,7 +176,7 @@ export default function ExpensesPage() {
         exp.paymentMode || "Cash",
         companyVal,
         brandVal,
-        exp.bank || "",
+        bankVal,
         exp.expenseType || "variable",
       ]);
 
@@ -299,7 +301,35 @@ export default function ExpensesPage() {
     )
   );
 
+  const handlePaymentModeChangeInForm = (newMode: string) => {
+    if (newMode === "Cash") {
+      setFormData((prev) => ({
+        ...prev,
+        paymentMode: newMode,
+        company: "All Companies",
+        bank: "",
+      }));
+    } else {
+      setFormData((prev) => {
+        const compBank = getBankForCompany(prev.company);
+        return {
+          ...prev,
+          paymentMode: newMode,
+          bank: compBank || prev.bank,
+        };
+      });
+    }
+  };
+
   const handleCompanyChangeInForm = (newCompany: string) => {
+    if (formData.paymentMode === "Cash") {
+      setFormData((prev) => ({
+        ...prev,
+        company: "All Companies",
+        bank: "",
+      }));
+      return;
+    }
     const compBank = getBankForCompany(newCompany);
     setFormData((prev) => ({
       ...prev,
@@ -316,6 +346,17 @@ export default function ExpensesPage() {
     } else if (linked.length > 1) {
       newCompany = linked.includes(formData.company) ? formData.company : linked[0];
     }
+
+    if (formData.paymentMode === "Cash") {
+      setFormData((prev) => ({
+        ...prev,
+        brand: newBrand,
+        company: "All Companies",
+        bank: "",
+      }));
+      return;
+    }
+
     const compBank = getBankForCompany(newCompany);
     setFormData((prev) => ({
       ...prev,
@@ -326,13 +367,17 @@ export default function ExpensesPage() {
   };
 
   useEffect(() => {
-    if (formData.company && formData.company !== "All Companies" && rawCompanies.length > 0) {
+    if (formData.paymentMode === "Cash") {
+      if (formData.company !== "All Companies" || formData.bank !== "") {
+        setFormData((prev) => ({ ...prev, company: "All Companies", bank: "" }));
+      }
+    } else if (formData.company && formData.company !== "All Companies" && rawCompanies.length > 0) {
       const compBank = getBankForCompany(formData.company);
-      if (compBank) {
+      if (compBank && formData.bank !== compBank) {
         setFormData((prev) => ({ ...prev, bank: compBank }));
       }
     }
-  }, [formData.company, rawCompanies]);
+  }, [formData.paymentMode, formData.company, rawCompanies]);
 
   const fetchExpenses = async () => {
     setIsLoading(true);
@@ -735,12 +780,13 @@ export default function ExpensesPage() {
                     <label className="block text-slate-600 mb-1">Payment Mode</label>
                     <select
                       value={formData.paymentMode}
-                      onChange={(e) => setFormData({ ...formData, paymentMode: e.target.value })}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20"
+                      onChange={(e) => handlePaymentModeChangeInForm(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-xs font-semibold text-slate-800 bg-white cursor-pointer"
                     >
                       <option value="UPI">UPI</option>
                       <option value="Bank Transfer">Bank Transfer</option>
                       <option value="Credit Card">Credit Card</option>
+                      <option value="NEFT">NEFT</option>
                       <option value="Cash">Cash</option>
                     </select>
                   </div>
@@ -761,13 +807,21 @@ export default function ExpensesPage() {
                 </div>
 
                 <div>
-                  <label className="block text-slate-600 mb-1 font-semibold text-xs">Company Tag</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-slate-600 font-semibold text-xs">Company Tag</label>
+                    {formData.paymentMode === "Cash" && (
+                      <span className="text-[10px] font-extrabold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                        N/A for Cash Payment
+                      </span>
+                    )}
+                  </div>
                   <select
                     value={formData.company}
+                    disabled={formData.paymentMode === "Cash"}
                     onChange={(e) => handleCompanyChangeInForm(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-xs font-semibold text-slate-800 bg-white cursor-pointer"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-xs font-semibold text-slate-800 bg-white cursor-pointer disabled:opacity-50 disabled:bg-slate-100"
                   >
-                    <option value="All Companies">All Companies</option>
+                    <option value="All Companies">None / Unallocated</option>
                     {availableFormCompanies.map((c) => (
                       <option key={c} value={c}>{c}</option>
                     ))}
@@ -778,18 +832,23 @@ export default function ExpensesPage() {
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <label className="block text-slate-600 font-semibold text-xs">Bank Name</label>
-                      {formData.company && formData.company !== "All Companies" && getBankForCompany(formData.company) && (
+                      {formData.paymentMode === "Cash" ? (
+                        <span className="text-[10px] font-extrabold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                          N/A for Cash
+                        </span>
+                      ) : formData.company && formData.company !== "All Companies" && getBankForCompany(formData.company) ? (
                         <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
                           ✓ Auto-selected from {formData.company}
                         </span>
-                      )}
+                      ) : null}
                     </div>
                     <select
                       value={formData.bank}
+                      disabled={formData.paymentMode === "Cash"}
                       onChange={(e) => setFormData({ ...formData, bank: e.target.value })}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-xs font-semibold text-slate-800 bg-white cursor-pointer"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-xs font-semibold text-slate-800 bg-white cursor-pointer disabled:opacity-50 disabled:bg-slate-100"
                     >
-                      <option value="">-- Select Bank --</option>
+                      <option value="">-- No Bank (Cash / N/A) --</option>
                       {availableCompanyBanks.map((b) => (
                         <option key={b} value={b}>{b}</option>
                       ))}
