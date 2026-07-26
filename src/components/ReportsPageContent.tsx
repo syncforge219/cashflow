@@ -440,7 +440,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
       };
     });
 
-    const companyCollectionMap: Record<string, { name: string; gst: string; count: number; collection: number }> = {};
+    const companyCollectionMap: Record<string, { name: string; bank: string; count: number; collection: number }> = {};
     companies.forEach((comp: any) => {
       const cNameLower = (comp.name || "").toLowerCase().trim();
       const compPayments = payments.filter((p: any) => {
@@ -449,10 +449,11 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
         return pComp.includes(cNameLower) || cNameLower.includes(pComp);
       });
       const compRev = compPayments.reduce((sum: number, p: any) => sum + Number(p.amountReceived || 0), 0);
+      const bankInfo = comp.bankAccount || comp.bankName || comp.bank || comp.bankDetails || "Primary Bank";
 
       companyCollectionMap[cNameLower] = {
         name: comp.name,
-        gst: comp.gst || "Registered",
+        bank: bankInfo,
         count: compPayments.length,
         collection: compRev,
       };
@@ -506,7 +507,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
     summarySheet.addRow([]);
 
     summarySheet.addRow(["2. ALL LEGAL COMPANIES FINANCIAL SUMMARY"]);
-    const companyHeaders = ["Company Name", "GST Number", "Receipts Issued", "Total Billed Collections (INR)"];
+    const companyHeaders = ["Company Name", "Bank / Account Details", "Receipts Issued", "Total Billed Collections (INR)"];
     const companyHeaderRow = summarySheet.addRow(companyHeaders);
     companyHeaderRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
     companyHeaderRow.eachCell(cell => {
@@ -518,11 +519,12 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
 
     companies.forEach((comp: any) => {
       const cNameLower = (comp.name || "").toLowerCase().trim();
-      const compData = companyCollectionMap[cNameLower] || { count: 0, collection: 0 };
+      const compData = companyCollectionMap[cNameLower] || { count: 0, collection: 0, bank: "Primary Bank" };
       globalCompanyTotalRevenue += compData.collection;
       globalReceiptsCount += compData.count;
 
-      summarySheet.addRow([comp.name, comp.gst || "Registered", compData.count, compData.collection]);
+      const bankInfo = comp.bankAccount || comp.bankName || comp.bank || comp.bankDetails || compData.bank || "Primary Bank";
+      summarySheet.addRow([comp.name, bankInfo, compData.count, compData.collection]);
     });
 
     const compTotalRow = summarySheet.addRow(["TOTAL ALL COMPANIES", "-", globalReceiptsCount, globalCompanyTotalRevenue]);
@@ -576,12 +578,12 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
 
     // COMPANY-WISE COLLECTION BOX ON TOP
     leadsSheet.addRow(["2. COMPANY-WISE FINANCIAL COLLECTIONS OVERVIEW"]);
-    const lCompH = leadsSheet.addRow(["Company Name", "GST Number", "Billed Receipts Count", "Total Billed Collections (INR)"]);
+    const lCompH = leadsSheet.addRow(["Company Name", "Bank / Account Details", "Billed Receipts Count", "Total Billed Collections (INR)"]);
     lCompH.font = { bold: true, color: { argb: "FFFFFFFF" } };
     lCompH.eachCell(c => c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF059669" } });
 
     Object.values(companyCollectionMap).forEach(c => {
-      leadsSheet.addRow([c.name, c.gst, c.count, c.collection]);
+      leadsSheet.addRow([c.name, c.bank, c.count, c.collection]);
     });
     leadsSheet.addRow([]);
 
@@ -647,12 +649,12 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
 
     // COMPANY-WISE ADMISSION COLLECTION BOX ON TOP
     admissionSheet.addRow(["2. COMPANY-WISE ADMISSION COLLECTIONS HIGHLIGHTS"]);
-    const aCompH = admissionSheet.addRow(["Company Name", "GST Number", "Total Receipts Issued", "Total Billed Revenue (INR)"]);
+    const aCompH = admissionSheet.addRow(["Company Name", "Bank / Account Details", "Total Receipts Issued", "Total Billed Revenue (INR)"]);
     aCompH.font = { bold: true, color: { argb: "FFFFFFFF" } };
     aCompH.eachCell(c => c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF059669" } });
 
     Object.values(companyCollectionMap).forEach(c => {
-      admissionSheet.addRow([c.name, c.gst, c.count, c.collection]);
+      admissionSheet.addRow([c.name, c.bank, c.count, c.collection]);
     });
     admissionSheet.addRow([]);
 
@@ -784,6 +786,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
         return pComp.includes(cNameLower) || cNameLower.includes(pComp);
       });
       const compRev = compPayments.reduce((sum: number, p: any) => sum + Number(p.amountReceived || 0), 0);
+      const bankInfo = comp.bankAccount || comp.bankName || comp.bank || comp.bankDetails || "Primary Bank";
 
       let safeSheetName = `Comp - ${comp.name}`.replace(/[?*/\\[\]]/g, '').substring(0, 31);
       if (workbook.getWorksheet(safeSheetName)) {
@@ -791,15 +794,15 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
       }
 
       const sheet = workbook.addWorksheet(safeSheetName);
-      sheet.addRow([`CORPORATE FINANCIAL REGISTER: ${comp.name.toUpperCase()} (GST: ${comp.gst || 'N/A'})`]);
+      sheet.addRow([`CORPORATE FINANCIAL REGISTER: ${comp.name.toUpperCase()} (Bank: ${bankInfo})`]);
       sheet.addRow([]);
 
       // COMPANY HIGHLIGHTS ON TOP
       sheet.addRow(["1. COMPANY FINANCIAL HIGHLIGHTS ON TOP"]);
-      const cTopH = sheet.addRow(["Company Name", "GST Number", "Receipts Issued Count", "Total Billed Collections (INR)"]);
+      const cTopH = sheet.addRow(["Company Name", "Bank / Account Details", "Receipts Issued Count", "Total Billed Collections (INR)"]);
       cTopH.font = { bold: true, color: { argb: "FFFFFFFF" } };
       cTopH.eachCell(c => c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF059669" } });
-      sheet.addRow([comp.name, comp.gst || "Registered", compPayments.length, compRev]);
+      sheet.addRow([comp.name, bankInfo, compPayments.length, compRev]);
       sheet.addRow([]);
 
       // BRAND HIGHLIGHTS UNDER THIS COMPANY ON TOP
