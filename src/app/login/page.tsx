@@ -73,6 +73,8 @@ export default function LoginPage() {
           window.location.href = "/manager-dashboard";
         } else if (data.user?.role === "teacher") {
           window.location.href = "/teacher-dashboard";
+        } else if (data.user?.role === "finance manager" || data.user?.role === "finance executive") {
+          window.location.href = "/expenses";
         } else {
           window.location.href = "/admin-dashboard";
         }

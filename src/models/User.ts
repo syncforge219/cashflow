@@ -22,7 +22,7 @@ const UserSchema = new Schema(
     },
     role: {
       type: String,
-      enum: ["super admin", "brand manager", "centre head", "counsellor", "sales executive", "teacher"],
+      enum: ["super admin", "brand manager", "centre head", "counsellor", "sales executive", "teacher", "finance manager", "finance executive"],
       default: "super admin",
     },
     subjects: [

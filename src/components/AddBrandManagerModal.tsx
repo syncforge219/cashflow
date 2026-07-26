@@ -216,6 +216,7 @@ export default function AddBrandManagerModal({ isOpen, onClose, onSuccess }: Add
                 className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all appearance-none cursor-pointer"
                 required
               >
+                <option value="All Brands">All Brands & Companies (Finance Manager)</option>
                 {dbBrands.length > 0 ? (
                   dbBrands.map((b, idx) => (
                     <option key={idx} value={b.name}>{b.name}</option>
