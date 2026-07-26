@@ -73,11 +73,11 @@ export function generateReceiptPdfBuffer(data: ReceiptPdfData): Buffer {
     `460 742 3 25 re f`, `470 742 2 25 re f`, `480 742 5 25 re f`,
 
     // Top Divider Line
-    `0.85 0.85 0.85 rg 50 730 495 1 re f`,
+    fillRoundedRect("0.85 0.85 0.85", 50, 730, 495, 1, 4),
 
     // Left Column Meta Box
-    `0.96 0.96 0.96 rg 50 625 240 95 re f`,
-    `0.85 0.85 0.85 RG 50 625 240 95 re s`,
+    fillRoundedRect("0.96 0.96 0.96", 50, 625, 240, 95, 4),
+    strokeRoundedRect("0.85 0.85 0.85", 50, 625, 240, 95, 4),
     `BT /F1 8.5 Tf 0.3 0.3 0.3 rg 55 707 Td (Receipt #) Tj ET`,
     `BT /F2 8.5 Tf 0.1 0.1 0.1 rg 140 707 Td (${receiptNo}) Tj ET`,
     `BT /F1 8.5 Tf 0.3 0.3 0.3 rg 55 688 Td (Receipt Date) Tj ET`,
@@ -90,19 +90,19 @@ export function generateReceiptPdfBuffer(data: ReceiptPdfData): Buffer {
     `BT /F2 8.5 Tf 0.1 0.1 0.1 rg 140 631 Td (${amountStr}) Tj ET`,
 
     // Right Column Received From & Green Pill
-    `0.85 0.85 0.85 rg 305 700 240 20 re f`,
+    fillRoundedRect("0.85 0.85 0.85", 305, 700, 240, 20, 4),
     `BT /F2 9 Tf 0.2 0.2 0.2 rg 310 706 Td (Received From :) Tj ET`,
     `BT /F2 10 Tf 0.1 0.1 0.1 rg 305 684 Td (${student}) Tj ET`,
     `BT /F1 8.5 Tf 0.3 0.3 0.3 rg 305 669 Td (Admission Batch : Lucknow) Tj ET`,
     `BT /F1 8.5 Tf 0.3 0.3 0.3 rg 305 654 Td (Lucknow) Tj ET`,
 
     // Solid Green Amount Pill
-    `0.15 0.68 0.32 rg 305 625 240 22 re f`,
+    fillRoundedRect("0.15 0.68 0.32", 305, 625, 240, 22, 4),
     `BT /F2 12 Tf 1 1 1 rg 400 632 Td (INR ${amountStr}) Tj ET`,
 
     // Invoice Details Section
     `BT /F2 10 Tf 0.1 0.1 0.1 rg 50 605 Td (Invoice Details) Tj ET`,
-    `0.82 0.82 0.82 rg 50 585 495 18 re f`,
+    fillRoundedRect("0.82 0.82 0.82", 50, 585, 495, 18, 4),
     `BT /F2 8 Tf 0.2 0.2 0.2 rg 55 590 Td (Received against Invoice #) Tj ET`,
     `BT /F2 8 Tf 0.2 0.2 0.2 rg 160 590 Td (Package Details) Tj ET`,
     `BT /F2 8 Tf 0.2 0.2 0.2 rg 300 590 Td (Fees Details) Tj ET`,
@@ -119,7 +119,7 @@ export function generateReceiptPdfBuffer(data: ReceiptPdfData): Buffer {
 
     // Installment Payments Section
     `BT /F2 10 Tf 0.1 0.1 0.1 rg 50 545 Td (Installment Payments) Tj ET`,
-    `0.82 0.82 0.82 rg 50 525 495 18 re f`,
+    fillRoundedRect("0.82 0.82 0.82", 50, 525, 495, 18, 4),
     `BT /F2 8 Tf 0.2 0.2 0.2 rg 55 530 Td (Due Date) Tj ET`,
     `BT /F2 8 Tf 0.2 0.2 0.2 rg 120 530 Td (Invoice) Tj ET`,
     `BT /F2 8 Tf 0.2 0.2 0.2 rg 170 530 Td (Due Fee) Tj ET`,
@@ -135,7 +135,7 @@ export function generateReceiptPdfBuffer(data: ReceiptPdfData): Buffer {
     `BT /F1 7.5 Tf 0.4 0.4 0.4 rg 390 510 Td (${receiptNo} ${payDate} ${amountVal} ${mode}) Tj ET`,
 
     // Totals Bar
-    `0.88 0.88 0.88 rg 50 490 495 16 re f`,
+    fillRoundedRect("0.88 0.88 0.88", 50, 490, 495, 16, 4),
     `BT /F2 8 Tf 0.1 0.1 0.1 rg 170 494 Td (${finalFeeVal}) Tj ET`,
     `BT /F2 8 Tf 0.1 0.5 0.2 rg 230 494 Td (${totalPaidVal}) Tj ET`,
     `BT /F2 8 Tf 0.7 0.1 0.1 rg 300 494 Td (${remainingVal}) Tj ET`,
@@ -173,7 +173,7 @@ export function generateReceiptPdfBuffer(data: ReceiptPdfData): Buffer {
     `BT /F1 7.5 Tf 0.2 0.2 0.2 rg 50 750 Td (11. Fee if paid in installment, all payments must be made per schedule discussed at admission.) Tj ET`,
 
     // Signature Line
-    `0.5 0.5 0.5 rg 380 620 150 1 re f`,
+    fillRoundedRect("0.5 0.5 0.5", 380, 620, 150, 1, 4),
     `BT /F2 9 Tf 0.2 0.2 0.2 rg 405 605 Td (Authorised Signatory) Tj ET`,
 
     // Page Number
@@ -223,6 +223,31 @@ export function generateDailyReportPdfBuffer(data: DailyBiReportData): Buffer {
 
 export function generateMonthlyReportPdfBuffer(data: DailyBiReportData): Buffer {
   return buildEnhancedBiReportPdfBuffer(data);
+}
+
+
+function drawRoundedRectPath(x: number, y: number, w: number, h: number, r: number = 4): string {
+  const k = 0.552 * r;
+  const x0 = x, x1 = x + r, x2 = x + w - r, x3 = x + w;
+  const y0 = y, y1 = y + r, y2 = y + h - r, y3 = y + h;
+
+  return `${x1} ${y0} m ` +
+    `${x2} ${y0} l ` +
+    `${x2 + k} ${y0} ${x3} ${y1 - k} ${x3} ${y1} c ` +
+    `${x3} ${y2} l ` +
+    `${x3} ${y2 + k} ${x2 + k} ${y3} ${x2} ${y3} c ` +
+    `${x1} ${y3} l ` +
+    `${x1 - k} ${y3} ${x0} ${y2 + k} ${x0} ${y2} c ` +
+    `${x0} ${y1} l ` +
+    `${x0} ${y1 - k} ${x1 - k} ${y0} ${x1} ${y0} c`;
+}
+
+function fillRoundedRect(col: string, x: number, y: number, w: number, h: number, r: number = 4): string {
+  return `${col} rg ${drawRoundedRectPath(x, y, w, h, r)} f`;
+}
+
+function strokeRoundedRect(col: string, x: number, y: number, w: number, h: number, r: number = 4): string {
+  return `${col} RG ${drawRoundedRectPath(x, y, w, h, r)} s`;
 }
 
 function buildEnhancedBiReportPdfBuffer(data: DailyBiReportData): Buffer {
@@ -276,7 +301,7 @@ function buildEnhancedBiReportPdfBuffer(data: DailyBiReportData): Buffer {
   // ==========================================
   const page1Lines: string[] = [
     // Header Banner Box (Slate Navy)
-    `0.08 0.12 0.25 rg 30 772 535 52 re f`,
+    fillRoundedRect("0.08 0.12 0.25", 30, 772, 535, 52, 4),
     `BT /F2 13.5 Tf 1 1 1 rg 45 802 Td (COACHFLOW ERP - EXECUTIVE BUSINESS INTELLIGENCE REPORT) Tj ET`,
     `BT /F1 8 Tf 0.85 0.9 0.98 rg 45 786 Td (Report Date: ${dateStr}    |    Generated at: ${genAtStr}) Tj ET`,
 
@@ -287,70 +312,70 @@ function buildEnhancedBiReportPdfBuffer(data: DailyBiReportData): Buffer {
   // Helper for Card Construction
   // Row 1 (Y = 688..742)
   // Card 1: Total Revenue
-  page1Lines.push(`0.96 0.97 0.99 rg 40 688 120 54 re f`);
-  page1Lines.push(`0.85 0.88 0.92 RG 40 688 120 54 re s`);
-  page1Lines.push(`0.02 0.59 0.41 rg 40 739 120 3 re f`);
+  page1Lines.push(fillRoundedRect("0.96 0.97 0.99", 40, 688, 120, 54, 4));
+  page1Lines.push(strokeRoundedRect("0.85 0.88 0.92", 40, 688, 120, 54, 4));
+  page1Lines.push(fillRoundedRect("0.02 0.59 0.41", 40, 739, 120, 3, 4));
   page1Lines.push(`BT /F2 7 Tf 0.4 0.45 0.55 rg 48 726 Td (TOTAL REVENUE) Tj ET`);
   page1Lines.push(`BT /F2 10 Tf 0.08 0.12 0.25 rg 48 710 Td (Rs. ${Math.round(ex.totalRevenue?.value || 0).toLocaleString("en-IN")}) Tj ET`);
-  page1Lines.push(`0.02 0.59 0.41 rg 48 695 62 11 re f`);
+  page1Lines.push(fillRoundedRect("0.02 0.59 0.41", 48, 695, 62, 11, 4));
   page1Lines.push(`BT /F2 6.5 Tf 1 1 1 rg 52 698 Td (${formatChange(ex.totalRevenue?.changePct || 0)} vs yest) Tj ET`);
 
   // Card 2: Total Collections
-  page1Lines.push(`0.96 0.97 0.99 rg 171 688 120 54 re f`);
-  page1Lines.push(`0.85 0.88 0.92 RG 171 688 120 54 re s`);
-  page1Lines.push(`0.14 0.38 0.92 rg 171 739 120 3 re f`);
+  page1Lines.push(fillRoundedRect("0.96 0.97 0.99", 171, 688, 120, 54, 4));
+  page1Lines.push(strokeRoundedRect("0.85 0.88 0.92", 171, 688, 120, 54, 4));
+  page1Lines.push(fillRoundedRect("0.14 0.38 0.92", 171, 739, 120, 3, 4));
   page1Lines.push(`BT /F2 7 Tf 0.4 0.45 0.55 rg 179 726 Td (TOTAL COLLECTIONS) Tj ET`);
   page1Lines.push(`BT /F2 10 Tf 0.08 0.12 0.25 rg 179 710 Td (Rs. ${Math.round(ex.totalCollections?.value || 0).toLocaleString("en-IN")}) Tj ET`);
-  page1Lines.push(`0.14 0.38 0.92 rg 179 695 62 11 re f`);
+  page1Lines.push(fillRoundedRect("0.14 0.38 0.92", 179, 695, 62, 11, 4));
   page1Lines.push(`BT /F2 6.5 Tf 1 1 1 rg 183 698 Td (${formatChange(ex.totalCollections?.changePct || 0)} vs yest) Tj ET`);
 
   // Card 3: Total Leads
-  page1Lines.push(`0.96 0.97 0.99 rg 302 688 120 54 re f`);
-  page1Lines.push(`0.85 0.88 0.92 RG 302 688 120 54 re s`);
-  page1Lines.push(`0.48 0.22 0.93 rg 302 739 120 3 re f`);
+  page1Lines.push(fillRoundedRect("0.96 0.97 0.99", 302, 688, 120, 54, 4));
+  page1Lines.push(strokeRoundedRect("0.85 0.88 0.92", 302, 688, 120, 54, 4));
+  page1Lines.push(fillRoundedRect("0.48 0.22 0.93", 302, 739, 120, 3, 4));
   page1Lines.push(`BT /F2 7 Tf 0.4 0.45 0.55 rg 310 726 Td (TOTAL LEADS) Tj ET`);
   page1Lines.push(`BT /F2 10 Tf 0.08 0.12 0.25 rg 310 710 Td (${ex.totalLeads?.value || 0} Enquiries) Tj ET`);
-  page1Lines.push(`0.48 0.22 0.93 rg 310 695 62 11 re f`);
+  page1Lines.push(fillRoundedRect("0.48 0.22 0.93", 310, 695, 62, 11, 4));
   page1Lines.push(`BT /F2 6.5 Tf 1 1 1 rg 314 698 Td (${formatChange(ex.totalLeads?.changePct || 0)} vs yest) Tj ET`);
 
   // Card 4: Admissions
-  page1Lines.push(`0.96 0.97 0.99 rg 433 688 122 54 re f`);
-  page1Lines.push(`0.85 0.88 0.92 RG 433 688 122 54 re s`);
-  page1Lines.push(`0.02 0.52 0.78 rg 433 739 122 3 re f`);
+  page1Lines.push(fillRoundedRect("0.96 0.97 0.99", 433, 688, 122, 54, 4));
+  page1Lines.push(strokeRoundedRect("0.85 0.88 0.92", 433, 688, 122, 54, 4));
+  page1Lines.push(fillRoundedRect("0.02 0.52 0.78", 433, 739, 122, 3, 4));
   page1Lines.push(`BT /F2 7 Tf 0.4 0.45 0.55 rg 441 726 Td (ADMISSIONS) Tj ET`);
   page1Lines.push(`BT /F2 10 Tf 0.08 0.12 0.25 rg 441 710 Td (${ex.admissions?.value || 0} Confirmed) Tj ET`);
-  page1Lines.push(`0.02 0.52 0.78 rg 441 695 62 11 re f`);
+  page1Lines.push(fillRoundedRect("0.02 0.52 0.78", 441, 695, 62, 11, 4));
   page1Lines.push(`BT /F2 6.5 Tf 1 1 1 rg 445 698 Td (${formatChange(ex.admissions?.changePct || 0)} vs yest) Tj ET`);
 
   // Row 2 (Y = 626..680)
   // Card 5: Conversion Rate
-  page1Lines.push(`0.96 0.97 0.99 rg 40 626 120 54 re f`);
-  page1Lines.push(`0.85 0.88 0.92 RG 40 626 120 54 re s`);
-  page1Lines.push(`0.85 0.45 0.05 rg 40 677 120 3 re f`);
+  page1Lines.push(fillRoundedRect("0.96 0.97 0.99", 40, 626, 120, 54, 4));
+  page1Lines.push(strokeRoundedRect("0.85 0.88 0.92", 40, 626, 120, 54, 4));
+  page1Lines.push(fillRoundedRect("0.85 0.45 0.05", 40, 677, 120, 3, 4));
   page1Lines.push(`BT /F2 7 Tf 0.4 0.45 0.55 rg 48 664 Td (CONVERSION RATE) Tj ET`);
   page1Lines.push(`BT /F2 10 Tf 0.08 0.12 0.25 rg 48 648 Td (${ex.conversionRate?.value || 0}%) Tj ET`);
   page1Lines.push(`BT /F1 7 Tf 0.5 0.3 0.1 rg 48 634 Td (Target: >15%) Tj ET`);
 
   // Card 6: Outstanding Fees
-  page1Lines.push(`0.96 0.97 0.99 rg 171 626 120 54 re f`);
-  page1Lines.push(`0.85 0.88 0.92 RG 171 626 120 54 re s`);
-  page1Lines.push(`0.3 0.35 0.45 rg 171 677 120 3 re f`);
+  page1Lines.push(fillRoundedRect("0.96 0.97 0.99", 171, 626, 120, 54, 4));
+  page1Lines.push(strokeRoundedRect("0.85 0.88 0.92", 171, 626, 120, 54, 4));
+  page1Lines.push(fillRoundedRect("0.3 0.35 0.45", 171, 677, 120, 3, 4));
   page1Lines.push(`BT /F2 7 Tf 0.4 0.45 0.55 rg 179 664 Td (OUTSTANDING FEES) Tj ET`);
   page1Lines.push(`BT /F2 10 Tf 0.08 0.12 0.25 rg 179 648 Td (Rs. ${Math.round(ex.outstandingFees?.value || 0).toLocaleString("en-IN")}) Tj ET`);
   page1Lines.push(`BT /F1 7 Tf 0.4 0.4 0.5 rg 179 634 Td (Pending Recovery) Tj ET`);
 
   // Card 7: Estimated Loss
-  page1Lines.push(`0.96 0.97 0.99 rg 302 626 120 54 re f`);
-  page1Lines.push(`0.85 0.88 0.92 RG 302 626 120 54 re s`);
-  page1Lines.push(`0.82 0.15 0.15 rg 302 677 120 3 re f`);
+  page1Lines.push(fillRoundedRect("0.96 0.97 0.99", 302, 626, 120, 54, 4));
+  page1Lines.push(strokeRoundedRect("0.85 0.88 0.92", 302, 626, 120, 54, 4));
+  page1Lines.push(fillRoundedRect("0.82 0.15 0.15", 302, 677, 120, 3, 4));
   page1Lines.push(`BT /F2 7 Tf 0.4 0.45 0.55 rg 310 664 Td (ESTIMATED LOSS) Tj ET`);
   page1Lines.push(`BT /F2 10 Tf 0.7 0.1 0.1 rg 310 648 Td (Rs. ${Math.round(ex.businessLoss?.value || 0).toLocaleString("en-IN")}) Tj ET`);
   page1Lines.push(`BT /F1 7 Tf 0.6 0.1 0.1 rg 310 634 Td (Unconverted Opp.) Tj ET`);
 
   // Card 8: Unconverted Leads
-  page1Lines.push(`0.96 0.97 0.99 rg 433 626 122 54 re f`);
-  page1Lines.push(`0.85 0.88 0.92 RG 433 626 122 54 re s`);
-  page1Lines.push(`0.7 0.15 0.55 rg 433 677 122 3 re f`);
+  page1Lines.push(fillRoundedRect("0.96 0.97 0.99", 433, 626, 122, 54, 4));
+  page1Lines.push(strokeRoundedRect("0.85 0.88 0.92", 433, 626, 122, 54, 4));
+  page1Lines.push(fillRoundedRect("0.7 0.15 0.55", 433, 677, 122, 3, 4));
   page1Lines.push(`BT /F2 7 Tf 0.4 0.45 0.55 rg 441 664 Td (UNCONVERTED) Tj ET`);
   page1Lines.push(`BT /F2 10 Tf 0.08 0.12 0.25 rg 441 648 Td (${loss.unconvertedLeads || 0} Leads) Tj ET`);
   page1Lines.push(`BT /F1 7 Tf 0.5 0.1 0.4 rg 441 634 Td (Priority Followup) Tj ET`);
@@ -435,20 +460,20 @@ function buildEnhancedBiReportPdfBuffer(data: DailyBiReportData): Buffer {
   page1Lines.push(`0.02 0.59 0.41 rg 50 ${p1Y - 70} ${Math.max(30, Math.min(450, ((funnel.stagePercentages?.admissionPct || 0) / 100) * 450))} 11 re f`);
   page1Lines.push(`BT /F2 8 Tf 1 1 1 rg 55 ${p1Y - 68} Td (4. Admissions Confirmed: ${funnel.admissionsConfirmed} (Final Conversion: ${funnel.stagePercentages?.admissionPct || 0}%)) Tj ET`);
 
-  page1Lines.push(`0.85 0.85 0.85 rg 40 45 515 1 re f`);
+  page1Lines.push(fillRoundedRect("0.85 0.85 0.85", 40, 45, 515, 1, 4));
   page1Lines.push(`BT /F1 8 Tf 0.5 0.5 0.5 rg 40 30 Td (CoachFlow ERP - Executive BI Master Report - Page 1 of 2) Tj ET`);
 
   // ==========================================
   // PAGE 2: COUNSELLORS + MARKETING ROI + OVERDUE EMIS + PREDICTIVE TARGETS + AI SYNTHESIS
   // ==========================================
   const page2Lines: string[] = [
-    `0.08 0.12 0.28 rg 30 772 535 52 re f`,
+    fillRoundedRect("0.08 0.12 0.28", 30, 772, 535, 52, 4),
     `BT /F2 13.5 Tf 1 1 1 rg 45 802 Td (COACHFLOW ERP - SALES EXECUTIVE, FINANCIAL & AI SYNTHESIS) Tj ET`,
     `BT /F1 8 Tf 0.85 0.9 0.98 rg 45 786 Td (Report Date: ${dateStr}    |    Page 2 of 2) Tj ET`,
 
     // Section 5: Counsellor Performance Dashboard
     `BT /F2 9.5 Tf 0.08 0.12 0.28 rg 40 754 Td (5. COUNSELLOR / SALES EXECUTIVE PERFORMANCE SCORECARD) Tj ET`,
-    `0.12 0.18 0.38 rg 40 734 515 16 re f`,
+    fillRoundedRect("0.12 0.18 0.38", 40, 734, 515, 16, 4),
     `BT /F2 8 Tf 1 1 1 rg 45 738 Td (Sales Executive Name) Tj ET`,
     `BT /F2 8 Tf 1 1 1 rg 180 738 Td (Scope) Tj ET`,
     `BT /F2 8 Tf 1 1 1 rg 240 738 Td (Leads) Tj ET`,
@@ -589,7 +614,7 @@ function buildEnhancedBiReportPdfBuffer(data: DailyBiReportData): Buffer {
     aY -= 12;
   });
 
-  page2Lines.push(`0.85 0.85 0.85 rg 40 45 515 1 re f`);
+  page2Lines.push(fillRoundedRect("0.85 0.85 0.85", 40, 45, 515, 1, 4));
   page2Lines.push(`BT /F1 8 Tf 0.5 0.5 0.5 rg 40 30 Td (CoachFlow Decision Support Engine v3.2   |   Official Executive Master Report) Tj ET`);
   page2Lines.push(`BT /F1 8 Tf 0.5 0.5 0.5 rg 450 30 Td (Page 2 of 2) Tj ET`);
 
