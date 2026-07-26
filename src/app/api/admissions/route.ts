@@ -105,25 +105,81 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Automatically update the original enquiry status to closed/admitted if enquiryId or matching details are present
+    // Helper to cancel uncompleted follow-ups
+    const cancelUncompletedFollowUps = (enquiryDoc: any) => {
+      enquiryDoc.status = "Admitted";
+      enquiryDoc.isAdmitted = true;
+
+      if (enquiryDoc.followUps && Array.isArray(enquiryDoc.followUps)) {
+        enquiryDoc.followUps.forEach((f: any) => {
+          const currentStatus = (f.status || "").toLowerCase();
+          if (!f.isCompleted && currentStatus !== "completed" && currentStatus !== "cancelled") {
+            f.status = "Cancelled";
+            f.isCompleted = true;
+            f.remarks = f.remarks
+              ? `${f.remarks} [Auto-cancelled: Admission created]`
+              : "Auto-cancelled: Admission created";
+          }
+        });
+      }
+    };
+
+    const matchedEnquiryIds: string[] = [];
+
+    // Automatically update original enquiry status to Admitted & cancel all pending follow-ups
     if (data.enquiryId) {
-      if (mongoose.Types.ObjectId.isValid(data.enquiryId)) {
-        await Enquiry.findByIdAndUpdate(data.enquiryId, { status: "Admitted", isAdmitted: true });
-      } else {
-        await Enquiry.findOneAndUpdate(
-          { enquiryId: data.enquiryId },
-          { status: "Admitted", isAdmitted: true }
-        );
+      const enqFilter = mongoose.Types.ObjectId.isValid(data.enquiryId)
+        ? { _id: data.enquiryId }
+        : { enquiryId: data.enquiryId };
+
+      const enqs = await Enquiry.find(enqFilter);
+      for (const enq of enqs) {
+        cancelUncompletedFollowUps(enq);
+        await enq.save();
+        matchedEnquiryIds.push(enq._id.toString());
       }
     }
-    if (data.mobileNumber && data.course) {
-      await Enquiry.updateMany(
-        {
-          primaryPhoneMobile: data.mobileNumber,
-          targetCourse: data.course,
+
+    if (data.mobileNumber) {
+      const cleanDigits = String(data.mobileNumber).replace(/\D/g, "").slice(-10);
+      if (cleanDigits.length === 10) {
+        const queryFilter: any = {
+          primaryPhoneMobile: { $regex: cleanDigits },
           status: { $nin: ["Admitted", "Closed", "Lost", "Converted"] },
+        };
+        if (data.course) {
+          queryFilter.targetCourse = data.course;
+        }
+
+        const matchingEnquiries = await Enquiry.find(queryFilter);
+        for (const enq of matchingEnquiries) {
+          cancelUncompletedFollowUps(enq);
+          await enq.save();
+          if (!matchedEnquiryIds.includes(enq._id.toString())) {
+            matchedEnquiryIds.push(enq._id.toString());
+          }
+        }
+      }
+    }
+
+    // Cancel/close any pending lead call tasks for this student/enquiry
+    if (matchedEnquiryIds.length > 0 || admission.fullName) {
+      await Task.updateMany(
+        {
+          $or: [
+            { linkedEnquiryId: { $in: matchedEnquiryIds } },
+            { linkedStudentId: admission._id.toString() },
+            { linkedStudentName: admission.fullName }
+          ],
+          taskType: { $in: ["Lead Call", "Demo", "General"] },
+          status: { $in: ["Pending", "In Progress"] }
         },
-        { status: "Admitted", isAdmitted: true }
+        {
+          $set: {
+            status: "Completed",
+            completedAt: new Date()
+          }
+        }
       );
     }
 

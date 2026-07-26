@@ -13,6 +13,38 @@ export async function PATCH(
     const body = await req.json();
 
     const updateQuery = (body.$set || body.$push || body.$pull) ? body : { $set: body };
+    const statusVal = body.status || (body.$set && body.$set.status);
+    const isAdmittedVal = body.isAdmitted || (body.$set && body.$set.isAdmitted);
+
+    if (statusVal === "Admitted" || isAdmittedVal === true) {
+      const enquiry = await Enquiry.findById(id);
+      if (enquiry) {
+        if (enquiry.followUps && Array.isArray(enquiry.followUps)) {
+          enquiry.followUps.forEach((f: any) => {
+            const currentStatus = (f.status || "").toLowerCase();
+            if (!f.isCompleted && currentStatus !== "completed" && currentStatus !== "cancelled") {
+              f.status = "Cancelled";
+              f.isCompleted = true;
+              f.remarks = f.remarks
+                ? `${f.remarks} [Auto-cancelled: Admission created]`
+                : "Auto-cancelled: Admission created";
+            }
+          });
+        }
+        (enquiry as any).status = "Admitted";
+        (enquiry as any).isAdmitted = true;
+        if (body.$set) {
+          Object.assign(enquiry, body.$set);
+        } else if (!body.$push && !body.$pull) {
+          Object.assign(enquiry, body);
+        }
+        await enquiry.save();
+        return NextResponse.json({
+          success: true,
+          enquiry,
+        });
+      }
+    }
 
     const updatedEnquiry = await Enquiry.findByIdAndUpdate(
       id,
