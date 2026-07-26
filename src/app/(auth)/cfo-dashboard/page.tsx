@@ -7,10 +7,27 @@ import { useUser } from "../../component/context/user-context";
 import ProfileDisplay from "@/components/ProfileDisplay";
 import CommandPalette from "@/components/CommandPalette";
 
-// --- CUSTOM ZERO-DEPENDENCY SVG GRAPH RENDERERS ---
+interface TooltipItem {
+  name: string;
+  value: number;
+  pct?: number | string;
+  category?: string;
+}
+
+// --- CUSTOM ZERO-DEPENDENCY SVG GRAPH RENDERERS WITH HOVER TOOLTIPS ---
 
 // 1. SVG PIE CHART COMPONENT
-function SvgPieChart({ data, size = 200 }: { data: { name: string; value: number; color: string }[]; size?: number }) {
+function SvgPieChart({
+  data,
+  size = 200,
+  onHover,
+  onLeave,
+}: {
+  data: { name: string; value: number; color: string }[];
+  size?: number;
+  onHover: (item: TooltipItem, e: React.MouseEvent) => void;
+  onLeave: () => void;
+}) {
   const total = data.reduce((sum, d) => sum + Math.max(0, d.value), 0) || 1;
   let accumulatedAngle = 0;
 
@@ -32,30 +49,38 @@ function SvgPieChart({ data, size = 200 }: { data: { name: string; value: number
 
     const largeArcFlag = angle > 180 ? 1 : 0;
 
-    const pathData = angle >= 359.9
-      ? `M ${center - radius}, ${center} A ${radius},${radius} 0 1,0 ${center + radius},${center} A ${radius},${radius} 0 1,0 ${center - radius},${center}`
-      : `M ${center},${center} L ${x1},${y1} A ${radius},${radius} 0 ${largeArcFlag},1 ${x2},${y2} Z`;
+    const pathData =
+      angle >= 359.9
+        ? `M ${center - radius}, ${center} A ${radius},${radius} 0 1,0 ${center + radius},${center} A ${radius},${radius} 0 1,0 ${center - radius},${center}`
+        : `M ${center},${center} L ${x1},${y1} A ${radius},${radius} 0 ${largeArcFlag},1 ${x2},${y2} Z`;
 
-    return { ...d, pathData, pct: Math.round((d.value / total) * 100) };
+    return { ...d, pathData, pct: ((d.value / total) * 100).toFixed(1) };
   });
 
   return (
     <div className="flex flex-col items-center gap-4">
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="drop-shadow-sm">
         {slices.map((slice, idx) => (
-            <path
-              key={idx}
-              d={slice.pathData}
-              fill={slice.color}
-              className="transition-all duration-300 hover:opacity-80 cursor-pointer"
-            >
-              <title>{`${slice.name}: ${slice.pct}%`}</title>
-            </path>
+          <path
+            key={idx}
+            d={slice.pathData}
+            fill={slice.color}
+            className="transition-all duration-200 hover:opacity-75 hover:scale-105 transform origin-center cursor-pointer"
+            onMouseEnter={(e) => onHover({ name: slice.name, value: slice.value, pct: slice.pct, category: "PIE SHARE" }, e)}
+            onMouseMove={(e) => onHover({ name: slice.name, value: slice.value, pct: slice.pct, category: "PIE SHARE" }, e)}
+            onMouseLeave={onLeave}
+          />
         ))}
       </svg>
       <div className="flex flex-wrap items-center justify-center gap-3 max-w-full">
         {slices.map((slice, idx) => (
-          <div key={idx} className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+          <div
+            key={idx}
+            className="flex items-center gap-1.5 text-xs font-bold text-slate-700 cursor-pointer hover:text-indigo-600 transition-colors"
+            onMouseEnter={(e) => onHover({ name: slice.name, value: slice.value, pct: slice.pct, category: "PIE SHARE" }, e)}
+            onMouseMove={(e) => onHover({ name: slice.name, value: slice.value, pct: slice.pct, category: "PIE SHARE" }, e)}
+            onMouseLeave={onLeave}
+          >
             <span className="w-3 h-3 rounded-full" style={{ backgroundColor: slice.color }} />
             <span>{slice.name}</span>
           </div>
@@ -66,7 +91,19 @@ function SvgPieChart({ data, size = 200 }: { data: { name: string; value: number
 }
 
 // 2. SVG DONUT GRAPH COMPONENT
-function SvgDonutChart({ data, size = 200, innerRadiusRatio = 0.65 }: { data: { name: string; value: number; color: string }[]; size?: number; innerRadiusRatio?: number }) {
+function SvgDonutChart({
+  data,
+  size = 200,
+  innerRadiusRatio = 0.65,
+  onHover,
+  onLeave,
+}: {
+  data: { name: string; value: number; color: string }[];
+  size?: number;
+  innerRadiusRatio?: number;
+  onHover: (item: TooltipItem, e: React.MouseEvent) => void;
+  onLeave: () => void;
+}) {
   const total = data.reduce((sum, d) => sum + Math.max(0, d.value), 0) || 1;
   let accumulatedAngle = 0;
 
@@ -95,11 +132,12 @@ function SvgDonutChart({ data, size = 200, innerRadiusRatio = 0.65 }: { data: { 
 
     const largeArcFlag = angle > 180 ? 1 : 0;
 
-    const pathData = angle >= 359.9
-      ? `M ${center - radius}, ${center} A ${radius},${radius} 0 1,0 ${center + radius},${center} A ${radius},${radius} 0 1,0 ${center - radius},${center}`
-      : `M ${x1Out},${y1Out} A ${radius},${radius} 0 ${largeArcFlag},1 ${x2Out},${y2Out} L ${x1In},${y1In} A ${innerRadius},${innerRadius} 0 ${largeArcFlag},0 ${x2In},${y2In} Z`;
+    const pathData =
+      angle >= 359.9
+        ? `M ${center - radius}, ${center} A ${radius},${radius} 0 1,0 ${center + radius},${center} A ${radius},${radius} 0 1,0 ${center - radius},${center}`
+        : `M ${x1Out},${y1Out} A ${radius},${radius} 0 ${largeArcFlag},1 ${x2Out},${y2Out} L ${x1In},${y1In} A ${innerRadius},${innerRadius} 0 ${largeArcFlag},0 ${x2In},${y2In} Z`;
 
-    return { ...d, pathData, pct: Math.round((d.value / total) * 100) };
+    return { ...d, pathData, pct: ((d.value / total) * 100).toFixed(1) };
   });
 
   return (
@@ -111,20 +149,27 @@ function SvgDonutChart({ data, size = 200, innerRadiusRatio = 0.65 }: { data: { 
               key={idx}
               d={slice.pathData}
               fill={slice.color}
-              className="transition-all duration-300 hover:opacity-80 cursor-pointer"
-            >
-              <title>{`${slice.name}: ${slice.pct}%`}</title>
-            </path>
+              className="transition-all duration-200 hover:opacity-75 hover:scale-105 transform origin-center cursor-pointer"
+              onMouseEnter={(e) => onHover({ name: slice.name, value: slice.value, pct: slice.pct, category: "DONUT ALLOCATION" }, e)}
+              onMouseMove={(e) => onHover({ name: slice.name, value: slice.value, pct: slice.pct, category: "DONUT ALLOCATION" }, e)}
+              onMouseLeave={onLeave}
+            />
           ))}
         </svg>
         <div className="absolute flex flex-col items-center justify-center pointer-events-none text-center">
-          <span className="text-xs font-black text-slate-800 uppercase tracking-widest">FINANCE</span>
+          <span className="text-xs font-black text-slate-800 uppercase tracking-widest">CFO</span>
           <span className="text-[10px] font-extrabold text-indigo-600">RING</span>
         </div>
       </div>
       <div className="flex flex-wrap items-center justify-center gap-3 max-w-full">
         {slices.map((slice, idx) => (
-          <div key={idx} className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+          <div
+            key={idx}
+            className="flex items-center gap-1.5 text-xs font-bold text-slate-700 cursor-pointer hover:text-indigo-600 transition-colors"
+            onMouseEnter={(e) => onHover({ name: slice.name, value: slice.value, pct: slice.pct, category: "DONUT ALLOCATION" }, e)}
+            onMouseMove={(e) => onHover({ name: slice.name, value: slice.value, pct: slice.pct, category: "DONUT ALLOCATION" }, e)}
+            onMouseLeave={onLeave}
+          >
             <span className="w-3 h-3 rounded-full" style={{ backgroundColor: slice.color }} />
             <span>{slice.name}</span>
           </div>
@@ -135,7 +180,27 @@ function SvgDonutChart({ data, size = 200, innerRadiusRatio = 0.65 }: { data: { 
 }
 
 // 3. SVG LINE GRAPH COMPONENT
-function SvgLineGraph({ data, width = 500, height = 220, color1 = "#10b981", color2 = "#ef4444", label1 = "Inflow", label2 = "Outlay" }: { data: { label: string; line1: number; line2?: number }[]; width?: number; height?: number; color1?: string; color2?: string; label1?: string; label2?: string }) {
+function SvgLineGraph({
+  data,
+  width = 700,
+  height = 220,
+  color1 = "#10b981",
+  color2 = "#ef4444",
+  label1 = "Collections",
+  label2 = "Disbursements",
+  onHover,
+  onLeave,
+}: {
+  data: { label: string; line1: number; line2?: number }[];
+  width?: number;
+  height?: number;
+  color1?: string;
+  color2?: string;
+  label1?: string;
+  label2?: string;
+  onHover: (item: TooltipItem, e: React.MouseEvent) => void;
+  onLeave: () => void;
+}) {
   if (!data || data.length === 0) return null;
 
   const maxVal = Math.max(...data.map((d) => Math.max(d.line1 || 0, d.line2 || 0, 1)));
@@ -146,13 +211,13 @@ function SvgLineGraph({ data, width = 500, height = 220, color1 = "#10b981", col
   const points1 = data.map((d, i) => {
     const x = padding + (i / Math.max(1, data.length - 1)) * graphWidth;
     const y = height - padding - ((d.line1 || 0) / maxVal) * graphHeight;
-    return { x, y };
+    return { x, y, val: d.line1, label: d.label };
   });
 
   const points2 = data.map((d, i) => {
     const x = padding + (i / Math.max(1, data.length - 1)) * graphWidth;
     const y = height - padding - ((d.line2 || 0) / maxVal) * graphHeight;
-    return { x, y };
+    return { x, y, val: d.line2, label: d.label };
   });
 
   const path1 = points1.reduce((acc, p, i) => `${acc} ${i === 0 ? "M" : "L"} ${p.x},${p.y}`, "");
@@ -163,17 +228,16 @@ function SvgLineGraph({ data, width = 500, height = 220, color1 = "#10b981", col
   return (
     <div className="w-full flex flex-col items-center">
       <div className="flex items-center gap-4 text-xs font-bold mb-2">
-        <span className="flex items-center gap-1.5" style={{ color: color1 }}>
+        <span className="flex items-center gap-1.5 cursor-pointer" style={{ color: color1 }}>
           <span className="w-3 h-3 rounded-full" style={{ backgroundColor: color1 }} /> {label1}
         </span>
         {label2 && (
-          <span className="flex items-center gap-1.5" style={{ color: color2 }}>
+          <span className="flex items-center gap-1.5 cursor-pointer" style={{ color: color2 }}>
             <span className="w-3 h-3 rounded-full" style={{ backgroundColor: color2 }} /> {label2}
           </span>
         )}
       </div>
       <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} className="overflow-visible">
-        {/* Horizontal Grid lines */}
         {[0.2, 0.5, 0.8].map((ratio, idx) => (
           <line
             key={idx}
@@ -186,7 +250,6 @@ function SvgLineGraph({ data, width = 500, height = 220, color1 = "#10b981", col
           />
         ))}
 
-        {/* Gradient fill for line 1 */}
         <defs>
           <linearGradient id="lineGrad1" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={color1} stopOpacity="0.25" />
@@ -202,13 +265,33 @@ function SvgLineGraph({ data, width = 500, height = 220, color1 = "#10b981", col
 
         {/* Data points */}
         {points1.map((p, i) => (
-          <circle key={`p1-${i}`} cx={p.x} cy={p.y} r="5" fill={color1} className="transition-all hover:r-7 cursor-pointer" />
+          <circle
+            key={`p1-${i}`}
+            cx={p.x}
+            cy={p.y}
+            r="6"
+            fill={color1}
+            className="transition-all hover:r-8 hover:opacity-80 cursor-pointer"
+            onMouseEnter={(e) => onHover({ name: `${p.label} (${label1})`, value: p.val, category: "TIMELINE POINT" }, e)}
+            onMouseMove={(e) => onHover({ name: `${p.label} (${label1})`, value: p.val, category: "TIMELINE POINT" }, e)}
+            onMouseLeave={onLeave}
+          />
         ))}
-        {data[0]?.line2 !== undefined && points2.map((p, i) => (
-          <circle key={`p2-${i}`} cx={p.x} cy={p.y} r="5" fill={color2} className="transition-all hover:r-7 cursor-pointer" />
-        ))}
+        {data[0]?.line2 !== undefined &&
+          points2.map((p, i) => (
+            <circle
+              key={`p2-${i}`}
+              cx={p.x}
+              cy={p.y}
+              r="6"
+              fill={color2}
+              className="transition-all hover:r-8 hover:opacity-80 cursor-pointer"
+              onMouseEnter={(e) => onHover({ name: `${p.label} (${label2})`, value: p.val || 0, category: "TIMELINE POINT" }, e)}
+              onMouseMove={(e) => onHover({ name: `${p.label} (${label2})`, value: p.val || 0, category: "TIMELINE POINT" }, e)}
+              onMouseLeave={onLeave}
+            />
+          ))}
 
-        {/* X Axis Labels */}
         {data.map((d, i) => {
           const x = padding + (i / Math.max(1, data.length - 1)) * graphWidth;
           return (
@@ -223,7 +306,25 @@ function SvgLineGraph({ data, width = 500, height = 220, color1 = "#10b981", col
 }
 
 // 4. SVG BAR GRAPH COMPONENT
-function SvgBarGraph({ data, height = 220, color1 = "#4f46e5", color2 = "#f43f5e", label1 = "Revenue", label2 = "Expense" }: { data: { label: string; bar1: number; bar2?: number }[]; height?: number; color1?: string; color2?: string; label1?: string; label2?: string }) {
+function SvgBarGraph({
+  data,
+  height = 220,
+  color1 = "#4f46e5",
+  color2 = "#f43f5e",
+  label1 = "Revenue",
+  label2 = "Expense",
+  onHover,
+  onLeave,
+}: {
+  data: { label: string; bar1: number; bar2?: number }[];
+  height?: number;
+  color1?: string;
+  color2?: string;
+  label1?: string;
+  label2?: string;
+  onHover: (item: TooltipItem, e: React.MouseEvent) => void;
+  onLeave: () => void;
+}) {
   if (!data || data.length === 0) return null;
 
   const maxVal = Math.max(...data.map((d) => Math.max(d.bar1 || 0, d.bar2 || 0, 1)));
@@ -250,13 +351,19 @@ function SvgBarGraph({ data, height = 220, color1 = "#4f46e5", color2 = "#f43f5e
             <div key={idx} className="flex-1 flex flex-col items-center justify-end h-full group">
               <div className="w-full flex items-end justify-center gap-1.5 h-full">
                 <div
-                  className="w-1/2 rounded-t-lg transition-all hover:opacity-85"
+                  className="w-1/2 rounded-t-lg transition-all hover:opacity-75 cursor-pointer"
                   style={{ height: `${h1}%`, backgroundColor: color1 }}
+                  onMouseEnter={(e) => onHover({ name: `${item.label} (${label1})`, value: item.bar1, category: "BAR VALUE" }, e)}
+                  onMouseMove={(e) => onHover({ name: `${item.label} (${label1})`, value: item.bar1, category: "BAR VALUE" }, e)}
+                  onMouseLeave={onLeave}
                 />
                 {h2 !== null && (
                   <div
-                    className="w-1/2 rounded-t-lg transition-all hover:opacity-85"
+                    className="w-1/2 rounded-t-lg transition-all hover:opacity-75 cursor-pointer"
                     style={{ height: `${h2}%`, backgroundColor: color2 }}
+                    onMouseEnter={(e) => onHover({ name: `${item.label} (${label2})`, value: item.bar2 || 0, category: "BAR VALUE" }, e)}
+                    onMouseMove={(e) => onHover({ name: `${item.label} (${label2})`, value: item.bar2 || 0, category: "BAR VALUE" }, e)}
+                    onMouseLeave={onLeave}
                   />
                 )}
               </div>
@@ -269,7 +376,6 @@ function SvgBarGraph({ data, height = 220, color1 = "#4f46e5", color2 = "#f43f5e
   );
 }
 
-
 // --- MAIN CFO DASHBOARD PAGE ---
 
 export default function CfoDashboardPage() {
@@ -280,6 +386,19 @@ export default function CfoDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [selectedBrand, setSelectedBrand] = useState("All Brands");
   const [selectedCompany, setSelectedCompany] = useState("All Companies");
+
+  // Floating Hover Tooltip State
+  const [hoveredTooltip, setHoveredTooltip] = useState<TooltipItem | null>(null);
+  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+
+  const handleHover = (item: TooltipItem, e: React.MouseEvent) => {
+    setHoveredTooltip(item);
+    setTooltipPos({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleLeave = () => {
+    setHoveredTooltip(null);
+  };
 
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [brands, setBrands] = useState<any[]>([]);
@@ -336,15 +455,15 @@ export default function CfoDashboardPage() {
 
   // Pie / Donut Chart Datasets
   const kpiDonutData = [
-    { name: "Gross Collections", value: summary.totalRevenue || 1, color: "#10b981" },
-    { name: "Total Expenses", value: summary.totalExpenses || 1, color: "#ef4444" },
-    { name: "Fee Receivables", value: summary.outstandingFees || 1, color: "#f59e0b" },
-    { name: "Net Cash Reserves", value: Math.max(0, summary.netCashFlow), color: "#4f46e5" },
+    { name: "Gross Fee Revenue", value: summary.totalRevenue || 1, color: "#10b981" },
+    { name: "Operational Disbursements", value: summary.totalExpenses || 1, color: "#ef4444" },
+    { name: "Outstanding Dues", value: summary.outstandingFees || 1, color: "#f59e0b" },
+    { name: "Net Operating Reserves", value: Math.max(0, summary.netCashFlow), color: "#4f46e5" },
   ];
 
   const treasuryPieData = [
-    { name: "Bank Reserves", value: Math.max(1, summary.bankReserves), color: "#10b981" },
-    { name: "Cash Vault Balance", value: Math.max(1, summary.cashReserves), color: "#f59e0b" },
+    { name: "Bank Account Net Reserves", value: Math.max(1, summary.bankReserves), color: "#10b981" },
+    { name: "Physical Cash Vault Balance", value: Math.max(1, summary.cashReserves), color: "#f59e0b" },
   ];
 
   const categoryDonutData = (categoryBreakdown || []).slice(0, 6).map((c: any, idx: number) => ({
@@ -360,7 +479,7 @@ export default function CfoDashboardPage() {
   }));
 
   const overheadPieData = [
-    { name: "Variable Operational Costs", value: Math.max(1, summary.variableExpenses), color: "#06b6d4" },
+    { name: "Variable Operating Costs", value: Math.max(1, summary.variableExpenses), color: "#06b6d4" },
     { name: "Fixed Commitments", value: Math.max(1, summary.fixedExpenses), color: "#14b8a6" },
   ];
 
@@ -396,8 +515,29 @@ export default function CfoDashboardPage() {
   }));
 
   return (
-    <div className="flex h-screen bg-[#f8faff] text-slate-800 overflow-hidden font-sans transition-colors duration-200">
+    <div className="flex h-screen bg-[#f8faff] text-slate-800 overflow-hidden font-sans transition-colors duration-200 relative">
       <Sidebar />
+
+      {/* DYNAMIC FLOATING HOVER TOOLTIP POPUP */}
+      {hoveredTooltip && (
+        <div
+          className="fixed z-50 pointer-events-none bg-slate-900/95 text-white text-xs font-bold px-3.5 py-2.5 rounded-xl shadow-2xl border border-slate-700 backdrop-blur-md transform -translate-x-1/2 -translate-y-full transition-all duration-100"
+          style={{ left: tooltipPos.x, top: tooltipPos.y - 12 }}
+        >
+          <div className="flex items-center gap-1.5 text-indigo-300 font-extrabold uppercase text-[10px] tracking-wider mb-0.5">
+            <span>{hoveredTooltip.category || "FINANCIAL DETAILS"}</span>
+          </div>
+          <div className="text-sm font-black text-white">{hoveredTooltip.name}</div>
+          <div className="flex items-center justify-between gap-4 mt-1.5 pt-1.5 border-t border-slate-800 text-[11px]">
+            <span className="text-emerald-400 font-extrabold">Amount: ₹{Number(hoveredTooltip.value).toLocaleString("en-IN")}</span>
+            {hoveredTooltip.pct !== undefined && (
+              <span className="text-slate-300 font-bold bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
+                Share: {hoveredTooltip.pct}%
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto px-6 py-6 space-y-6">
         {/* Header */}
@@ -406,7 +546,7 @@ export default function CfoDashboardPage() {
             <div className="text-xs font-semibold text-slate-400 flex items-center gap-1 select-none">
               <span>CoachFlow</span>
               <span>/</span>
-              <span className="text-slate-600 font-bold">CFO Visual Graphs Center (Pure Graphics)</span>
+              <span className="text-slate-600 font-bold">CFO Visual Graphs Center (Hover Tooltips Enabled)</span>
             </div>
           </div>
 
@@ -450,14 +590,14 @@ export default function CfoDashboardPage() {
                 🎨 PURE GRAPHICAL CFO VISUALIZATION
               </span>
               <span className="text-slate-400 text-xs font-semibold">
-                Pie Charts • Donut Graphs • Bar Charts • Line Graphs
+                Hover over any slice, bar, or curve to inspect exact financial amounts
               </span>
             </div>
             <h1 className="text-2xl font-black tracking-tight text-slate-900 font-sans">
-              Financial Visual Command Center
+              Financial Master Visual Dashboard
             </h1>
             <p className="text-slate-500 text-xs font-medium mt-0.5">
-              100% Visual Graphical Interface showcasing Revenue, Expenses, Treasury & Company Tags through vector graphs.
+              Comprehensive visual graphs depicting Operating Revenue, Expenses, Cash Flow, Treasury Reserves & Company Tags.
             </p>
           </div>
 
@@ -505,15 +645,15 @@ export default function CfoDashboardPage() {
           </div>
         </div>
 
-        {/* GRAPH 1: LINE GRAPH - MONTHLY REVENUE VS EXPENSE TIMELINE */}
+        {/* GRAPH 1: LINE GRAPH - MONTHLY CASH FLOW TREND */}
         <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-base font-extrabold text-slate-800">
-                📈 Line Graph 1: Historical Monthly Inflow & Outlay Trend
+                📈 Monthly Cash Flow Trend (Fee Collections vs Operating Expenses)
               </h3>
               <p className="text-xs text-slate-400 font-medium">
-                Smooth vector line plot comparing monthly fee collections vs operating expenses
+                Smooth vector line plot comparing monthly fee collections vs operating disbursements
               </p>
             </div>
             <span className="text-xs font-extrabold bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full border border-indigo-100">
@@ -529,31 +669,33 @@ export default function CfoDashboardPage() {
             color2="#ef4444"
             label1="Fee Collections Line"
             label2="Operating Expenses Line"
+            onHover={handleHover}
+            onLeave={handleLeave}
           />
         </div>
 
         {/* GRAPH 2 & 3: DONUT & PIE CHARTS ROW */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* GRAPH 2: DONUT GRAPH - EXECUTIVE KPI PROPORTIONS */}
+          {/* GRAPH 2: DONUT GRAPH - EXECUTIVE CAPITAL ALLOCATION */}
           <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm flex flex-col items-center">
             <div className="w-full flex items-center justify-between mb-4">
               <h3 className="text-base font-extrabold text-slate-800">
-                🍩 Donut Graph 1: Executive KPI Volume Ring
+                🍩 Executive Financial Capital Allocation Ring
               </h3>
               <span className="text-xs font-bold text-indigo-600">KPI Ring</span>
             </div>
-            <SvgDonutChart data={kpiDonutData} size={220} />
+            <SvgDonutChart data={kpiDonutData} size={220} onHover={handleHover} onLeave={handleLeave} />
           </div>
 
-          {/* GRAPH 3: PIE CHART - TREASURY RESERVES SPLIT */}
+          {/* GRAPH 3: PIE CHART - TREASURY RESERVES DISTRIBUTION */}
           <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm flex flex-col items-center">
             <div className="w-full flex items-center justify-between mb-4">
               <h3 className="text-base font-extrabold text-slate-800">
-                🥧 Pie Chart 1: Treasury Bank vs Cash Reserves Pie
+                🥧 Treasury Reserves Distribution (Bank Accounts vs Physical Vault)
               </h3>
               <span className="text-xs font-bold text-emerald-600">Vault Pie</span>
             </div>
-            <SvgPieChart data={treasuryPieData} size={220} />
+            <SvgPieChart data={treasuryPieData} size={220} onHover={handleHover} onLeave={handleLeave} />
           </div>
         </div>
 
@@ -564,7 +706,7 @@ export default function CfoDashboardPage() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-base font-extrabold text-slate-800">
-                  📊 Bar Graph 1: Quarterly Run-Rate Performance Bars
+                  📊 Quarterly Revenue & Outlay Run-Rate Comparison
                 </h3>
                 <p className="text-xs text-slate-400 font-medium">
                   Grouped comparative bars for Q1 to Q4 cumulative inflows vs outlays
@@ -578,6 +720,8 @@ export default function CfoDashboardPage() {
               color2="#ef4444"
               label1="Quarterly Revenue"
               label2="Quarterly Expense"
+              onHover={handleHover}
+              onLeave={handleLeave}
             />
           </div>
 
@@ -585,14 +729,14 @@ export default function CfoDashboardPage() {
           <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm flex flex-col items-center">
             <div className="w-full flex items-center justify-between mb-4">
               <h3 className="text-base font-extrabold text-slate-800">
-                🍩 Donut Graph 2: Expense Category Share Ring
+                🍩 Operational Expenditure Allocation by Category
               </h3>
               <span className="text-xs font-bold text-rose-600">Category Donut</span>
             </div>
             {categoryDonutData.length === 0 ? (
               <div className="py-12 text-xs font-semibold text-slate-400">No expense records found</div>
             ) : (
-              <SvgDonutChart data={categoryDonutData} size={220} />
+              <SvgDonutChart data={categoryDonutData} size={220} onHover={handleHover} onLeave={handleLeave} />
             )}
           </div>
         </div>
@@ -604,7 +748,7 @@ export default function CfoDashboardPage() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-base font-extrabold text-slate-800">
-                  📊 Bar Graph 2: Corporate Company Tag Performance Bars
+                  🏢 Corporate Entity Financial Matrix (Revenue vs Expenses)
                 </h3>
                 <p className="text-xs text-slate-400 font-medium">
                   Comparative bars for registered corporate entities
@@ -621,6 +765,8 @@ export default function CfoDashboardPage() {
                 color2="#f43f5e"
                 label1="Company Inflow"
                 label2="Company Outlay"
+                onHover={handleHover}
+                onLeave={handleLeave}
               />
             )}
           </div>
@@ -630,7 +776,7 @@ export default function CfoDashboardPage() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-base font-extrabold text-slate-800">
-                  📊 Bar Graph 3: Brand Performance Matrix Bars
+                  🏷️ Brand Entity Financial Performance Comparison
                 </h3>
                 <p className="text-xs text-slate-400 font-medium">
                   Comparative bars for registered brand entities
@@ -647,6 +793,8 @@ export default function CfoDashboardPage() {
                 color2="#f59e0b"
                 label1="Brand Inflow"
                 label2="Brand Outlay"
+                onHover={handleHover}
+                onLeave={handleLeave}
               />
             )}
           </div>
@@ -658,14 +806,14 @@ export default function CfoDashboardPage() {
           <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm flex flex-col items-center">
             <div className="w-full flex items-center justify-between mb-4">
               <h3 className="text-base font-extrabold text-slate-800">
-                🥧 Pie Chart 2: Payment Method Distribution Pie
+                💳 Payment Channel Disbursement Distribution
               </h3>
               <span className="text-xs font-bold text-sky-600">Channel Pie</span>
             </div>
             {paymentPieData.length === 0 ? (
               <div className="py-12 text-xs font-semibold text-slate-400">No payment data</div>
             ) : (
-              <SvgPieChart data={paymentPieData} size={210} />
+              <SvgPieChart data={paymentPieData} size={210} onHover={handleHover} onLeave={handleLeave} />
             )}
           </div>
 
@@ -673,11 +821,11 @@ export default function CfoDashboardPage() {
           <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm flex flex-col items-center">
             <div className="w-full flex items-center justify-between mb-4">
               <h3 className="text-base font-extrabold text-slate-800">
-                🥧 Pie Chart 3: Fixed vs. Variable Overhead Pie
+                ⚡ Operational Cost Structure (Variable vs Fixed Overhead)
               </h3>
               <span className="text-xs font-bold text-teal-600">Cost Pie</span>
             </div>
-            <SvgPieChart data={overheadPieData} size={210} />
+            <SvgPieChart data={overheadPieData} size={210} onHover={handleHover} onLeave={handleLeave} />
           </div>
         </div>
 
@@ -686,7 +834,7 @@ export default function CfoDashboardPage() {
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div>
               <h3 className="text-base font-extrabold text-slate-800">
-                📈 Line Graph 2: Recent Transaction Velocity Trend Line
+                📋 Disbursement Velocity Stream
               </h3>
               <p className="text-xs text-slate-400 font-medium">
                 Sequential velocity line curve of recent verified disbursements recorded in MongoDB
@@ -703,6 +851,8 @@ export default function CfoDashboardPage() {
             height={200}
             color1="#6366f1"
             label1="Transaction Disbursement Size Line"
+            onHover={handleHover}
+            onLeave={handleLeave}
           />
         </div>
       </div>
