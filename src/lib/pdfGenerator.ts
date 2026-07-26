@@ -286,16 +286,13 @@ function buildEnhancedBiReportPdfBuffer(data: DailyBiReportData): Buffer {
   const fmt = (n: number) => Math.round(n).toLocaleString("en-IN");
   const fmtChg = (pct: number) => (pct >= 0 ? `+${pct}%` : `${pct}%`);
 
-  // ─── HELPER: Draw a pie/donut arc slice (approximate with Bezier) ───
-  // Uses the approach of multiple bezier segments to approximate a full arc
+  // ─── HELPER: Pie arc slices ───
   function pieSlicePath(cx: number, cy: number, r: number, startAngle: number, endAngle: number): string {
     const toRad = (d: number) => (d * Math.PI) / 180;
     const steps = Math.ceil(Math.abs(endAngle - startAngle) / 45);
     const step = (endAngle - startAngle) / steps;
     let path = `${cx} ${cy} m `;
-    const sx = cx + r * Math.cos(toRad(startAngle));
-    const sy = cy + r * Math.sin(toRad(startAngle));
-    path += `${sx.toFixed(2)} ${sy.toFixed(2)} l `;
+    path += `${(cx + r * Math.cos(toRad(startAngle))).toFixed(2)} ${(cy + r * Math.sin(toRad(startAngle))).toFixed(2)} l `;
     for (let i = 0; i < steps; i++) {
       const a0 = toRad(startAngle + i * step);
       const a1 = toRad(startAngle + (i + 1) * step);
@@ -318,361 +315,371 @@ function buildEnhancedBiReportPdfBuffer(data: DailyBiReportData): Buffer {
     const steps = Math.ceil(Math.abs(endAngle - startAngle) / 45);
     const step = (endAngle - startAngle) / steps;
     const sa = toRad(startAngle), ea = toRad(endAngle);
-    // Outer arc start
-    const oxs = cx + outerR * Math.cos(sa), oys = cy + outerR * Math.sin(sa);
-    let path = `${oxs.toFixed(2)} ${oys.toFixed(2)} m `;
+    let path = `${(cx + outerR * Math.cos(sa)).toFixed(2)} ${(cy + outerR * Math.sin(sa)).toFixed(2)} m `;
     for (let i = 0; i < steps; i++) {
       const a0 = toRad(startAngle + i * step);
       const a1 = toRad(startAngle + (i + 1) * step);
       const da = a1 - a0;
       const alpha = (4 / 3) * Math.tan(da / 4);
-      const x1 = cx + outerR * (Math.cos(a0) - alpha * Math.sin(a0));
-      const y1 = cy + outerR * (Math.sin(a0) + alpha * Math.cos(a0));
-      const x2 = cx + outerR * (Math.cos(a1) + alpha * Math.sin(a1));
-      const y2 = cy + outerR * (Math.sin(a1) - alpha * Math.cos(a1));
-      const x3 = cx + outerR * Math.cos(a1);
-      const y3 = cy + outerR * Math.sin(a1);
-      path += `${x1.toFixed(2)} ${y1.toFixed(2)} ${x2.toFixed(2)} ${y2.toFixed(2)} ${x3.toFixed(2)} ${y3.toFixed(2)} c `;
+      path += `${(cx + outerR * (Math.cos(a0) - alpha * Math.sin(a0))).toFixed(2)} ${(cy + outerR * (Math.sin(a0) + alpha * Math.cos(a0))).toFixed(2)} ${(cx + outerR * (Math.cos(a1) + alpha * Math.sin(a1))).toFixed(2)} ${(cy + outerR * (Math.sin(a1) - alpha * Math.cos(a1))).toFixed(2)} ${(cx + outerR * Math.cos(a1)).toFixed(2)} ${(cy + outerR * Math.sin(a1)).toFixed(2)} c `;
     }
-    // Line to inner arc end
-    const ixe = cx + innerR * Math.cos(ea), iye = cy + innerR * Math.sin(ea);
-    path += `${ixe.toFixed(2)} ${iye.toFixed(2)} l `;
-    // Inner arc reverse
+    path += `${(cx + innerR * Math.cos(ea)).toFixed(2)} ${(cy + innerR * Math.sin(ea)).toFixed(2)} l `;
     for (let i = steps - 1; i >= 0; i--) {
       const a0 = toRad(startAngle + (i + 1) * step);
       const a1 = toRad(startAngle + i * step);
       const da = a1 - a0;
       const alpha = (4 / 3) * Math.tan(da / 4);
-      const x1 = cx + innerR * (Math.cos(a0) - alpha * Math.sin(a0));
-      const y1 = cy + innerR * (Math.sin(a0) + alpha * Math.cos(a0));
-      const x2 = cx + innerR * (Math.cos(a1) + alpha * Math.sin(a1));
-      const y2 = cy + innerR * (Math.sin(a1) - alpha * Math.cos(a1));
-      const x3 = cx + innerR * Math.cos(a1);
-      const y3 = cy + innerR * Math.sin(a1);
-      path += `${x1.toFixed(2)} ${y1.toFixed(2)} ${x2.toFixed(2)} ${y2.toFixed(2)} ${x3.toFixed(2)} ${y3.toFixed(2)} c `;
+      path += `${(cx + innerR * (Math.cos(a0) - alpha * Math.sin(a0))).toFixed(2)} ${(cy + innerR * (Math.sin(a0) + alpha * Math.cos(a0))).toFixed(2)} ${(cx + innerR * (Math.cos(a1) + alpha * Math.sin(a1))).toFixed(2)} ${(cy + innerR * (Math.sin(a1) - alpha * Math.cos(a1))).toFixed(2)} ${(cx + innerR * Math.cos(a1)).toFixed(2)} ${(cy + innerR * Math.sin(a1)).toFixed(2)} c `;
     }
     path += "h f";
     return path;
   }
 
-  // Palette: indigo, emerald, amber, rose, cyan, violet
   const PALETTE = [
-    { rg: "0.29 0.0 0.51",  label: "Indigo"   },
-    { rg: "0.02 0.59 0.41", label: "Emerald"  },
-    { rg: "0.85 0.45 0.05", label: "Amber"    },
-    { rg: "0.88 0.17 0.24", label: "Rose"     },
-    { rg: "0.02 0.52 0.78", label: "Cyan"     },
-    { rg: "0.48 0.22 0.93", label: "Violet"   },
+    "0.29 0.0 0.51",   // Indigo
+    "0.02 0.59 0.41",  // Emerald
+    "0.85 0.45 0.05",  // Amber
+    "0.88 0.17 0.24",  // Rose
+    "0.02 0.52 0.78",  // Cyan
+    "0.48 0.22 0.93",  // Violet
   ];
 
-  // ══════════════════════════════════════════════════════════
-  // PAGE 1  –  Header · KPI Cards · Bar Chart · Donut Chart
-  // ══════════════════════════════════════════════════════════
-  const page1Lines: string[] = [];
-
-  // ── Header gradient-look (two-layer) ──
-  page1Lines.push(fillRoundedRect("0.08 0.12 0.28", 20, 768, 555, 60, 8));
-  page1Lines.push(fillRoundedRect("0.12 0.18 0.38", 20, 768, 555, 30, 0));
-  page1Lines.push(`BT /F2 14 Tf 1 1 1 rg 38 806 Td (COACHFLOW ERP  \xb7  EXECUTIVE BI MASTER REPORT) Tj ET`);
-  page1Lines.push(`BT /F1 8 Tf 0.75 0.85 0.95 rg 38 789 Td (Date: ${dateStr}    Generated: ${genAtStr}    |    CoachFlow v3.2) Tj ET`);
-
-  // ── Accent line under header ──
-  page1Lines.push(fillRoundedRect("0.29 0.0 0.51", 20, 765, 555, 3, 0));
-
-  // ── Section Title: KPIs ──
-  page1Lines.push(`BT /F2 9 Tf 0.29 0.0 0.51 rg 22 748 Td (KEY PERFORMANCE INDICATORS) Tj ET`);
-
-  // ── KPI Card helper ──
-  const kpiCard = (x: number, y: number, w: number, h: number, accentCol: string, label: string, value: string, badge: string, badgeCol: string) => {
-    const lines: string[] = [];
-    lines.push(fillRoundedRect("0.97 0.97 0.99", x, y, w, h, 6));
-    lines.push(fillRoundedRect(accentCol, x, y + h - 4, w, 4, 4));
-    lines.push(`BT /F2 6.5 Tf 0.45 0.45 0.55 rg ${x + 8} ${y + h - 15} Td (${label}) Tj ET`);
-    lines.push(`BT /F2 11 Tf 0.08 0.10 0.22 rg ${x + 8} ${y + h - 30} Td (${value}) Tj ET`);
-    lines.push(fillRoundedRect(badgeCol, x + 8, y + 8, 65, 12, 4));
-    lines.push(`BT /F2 6 Tf 1 1 1 rg ${x + 11} ${y + 12} Td (${badge}) Tj ET`);
-    return lines;
+  // KPI card: fixed-height 58px, top accent bar 3px
+  const kpiCard = (x: number, y: number, w: number, accentCol: string, label: string, value: string, badge: string, badgeCol: string): string[] => {
+    const h = 58;
+    return [
+      fillRoundedRect("0.97 0.97 0.99", x, y, w, h, 6),
+      fillRoundedRect(accentCol, x, y + h - 3, w, 3, 2),
+      `BT /F2 6.5 Tf 0.45 0.45 0.55 rg ${x + 8} ${y + h - 13} Td (${label}) Tj ET`,
+      `BT /F2 10.5 Tf 0.08 0.10 0.22 rg ${x + 8} ${y + h - 27} Td (${value}) Tj ET`,
+      fillRoundedRect(badgeCol, x + 8, y + 7, 68, 11, 4),
+      `BT /F2 5.5 Tf 1 1 1 rg ${x + 11} ${y + 11} Td (${badge}) Tj ET`,
+    ];
   };
 
-  // Row 1 KPIs
-  page1Lines.push(...kpiCard(22,  680, 126, 60, "0.02 0.59 0.41", "TOTAL REVENUE",     `Rs.${fmt(ex.totalRevenue?.value||0)}`,      fmtChg(ex.totalRevenue?.changePct||0)+" vs yest", "0.02 0.59 0.41"));
-  page1Lines.push(...kpiCard(155, 680, 126, 60, "0.14 0.38 0.92", "TOTAL COLLECTIONS", `Rs.${fmt(ex.totalCollections?.value||0)}`,  fmtChg(ex.totalCollections?.changePct||0)+" vs yest", "0.14 0.38 0.92"));
-  page1Lines.push(...kpiCard(288, 680, 126, 60, "0.48 0.22 0.93", "TOTAL LEADS",       `${ex.totalLeads?.value||0} Enquiries`,       fmtChg(ex.totalLeads?.changePct||0)+" vs yest", "0.48 0.22 0.93"));
-  page1Lines.push(...kpiCard(421, 680, 154, 60, "0.02 0.52 0.78", "ADMISSIONS",        `${ex.admissions?.value||0} Confirmed`,       fmtChg(ex.admissions?.changePct||0)+" vs yest", "0.02 0.52 0.78"));
+  // ══════════════════════════════════════════════════════════════════════
+  // PAGE 1  –  Fixed layout zones (all coordinates absolute)
+  // Zone layout (Y from bottom):
+  //   820-828: header
+  //   760-818: header box
+  //   754-760: accent
+  //   694-752: KPI row 1 label + cards
+  //   631-692: KPI row 2
+  //   618-629: bar chart section label
+  //   475-617: bar chart (left) + donut chart (right) side by side
+  //   460-474: benchmark label
+  //   385-459: benchmark bars
+  //   372-384: funnel label
+  //   295-371: funnel bars
+  //   55-294:  footer separator
+  // ══════════════════════════════════════════════════════════════════════
+  const page1Lines: string[] = [];
 
-  // Row 2 KPIs
-  page1Lines.push(...kpiCard(22,  612, 126, 60, "0.85 0.45 0.05", "CONVERSION RATE",   `${ex.conversionRate?.value||0}%`,             "Target > 15%", "0.85 0.45 0.05"));
-  page1Lines.push(...kpiCard(155, 612, 126, 60, "0.35 0.40 0.50", "OUTSTANDING FEES",  `Rs.${fmt(ex.outstandingFees?.value||0)}`,   "Pending Recovery", "0.35 0.40 0.50"));
-  page1Lines.push(...kpiCard(288, 612, 126, 60, "0.88 0.17 0.24", "ESTIMATED LOSS",    `Rs.${fmt(ex.businessLoss?.value||0)}`,      "Unconverted Opp.", "0.88 0.17 0.24"));
-  page1Lines.push(...kpiCard(421, 612, 154, 60, "0.7 0.15 0.55",  "UNCONVERTED",       `${loss.unconvertedLeads||0} Leads`,          "Priority Followup", "0.7 0.15 0.55"));
+  // Header box
+  page1Lines.push(fillRoundedRect("0.08 0.12 0.28", 20, 760, 555, 60, 8));
+  page1Lines.push(fillRoundedRect("0.12 0.18 0.38", 20, 760, 555, 30, 0));
+  page1Lines.push(`BT /F2 13.5 Tf 1 1 1 rg 38 798 Td (COACHFLOW ERP  \xb7  EXECUTIVE BI MASTER REPORT) Tj ET`);
+  page1Lines.push(`BT /F1 7.5 Tf 0.75 0.85 0.95 rg 38 782 Td (Date: ${dateStr}    |    Generated: ${genAtStr}    |    CoachFlow v3.2) Tj ET`);
+  page1Lines.push(fillRoundedRect("0.29 0.0 0.51", 20, 757, 555, 3, 0));
 
-  // ── SECTION: Vertical Bar Chart – Brand Revenue ──
-  page1Lines.push(`BT /F2 9 Tf 0.29 0.0 0.51 rg 22 603 Td (BRAND REVENUE BAR CHART  \xb7  Daily Collections Comparison) Tj ET`);
+  // KPI Section label
+  page1Lines.push(`BT /F2 8.5 Tf 0.29 0.0 0.51 rg 22 743 Td (KEY PERFORMANCE INDICATORS) Tj ET`);
 
-  const barChartX = 22, barChartY = 490, barChartH = 108, barChartW = 350;
+  // KPI Row 1 (Y base = 680, height = 58)
+  page1Lines.push(...kpiCard(22,  680, 126, "0.02 0.59 0.41", "TOTAL REVENUE",     `Rs.${fmt(ex.totalRevenue?.value||0)}`,      fmtChg(ex.totalRevenue?.changePct||0)+" vs yest",       "0.02 0.59 0.41"));
+  page1Lines.push(...kpiCard(155, 680, 126, "0.14 0.38 0.92", "TOTAL COLLECTIONS", `Rs.${fmt(ex.totalCollections?.value||0)}`,  fmtChg(ex.totalCollections?.changePct||0)+" vs yest", "0.14 0.38 0.92"));
+  page1Lines.push(...kpiCard(288, 680, 126, "0.48 0.22 0.93", "TOTAL LEADS",       `${ex.totalLeads?.value||0} Enquiries`,      fmtChg(ex.totalLeads?.changePct||0)+" vs yest",       "0.48 0.22 0.93"));
+  page1Lines.push(...kpiCard(421, 680, 154, "0.02 0.52 0.78", "ADMISSIONS",        `${ex.admissions?.value||0} Confirmed`,     fmtChg(ex.admissions?.changePct||0)+" vs yest",       "0.02 0.52 0.78"));
+
+  // KPI Row 2 (Y base = 614)
+  page1Lines.push(`BT /F2 8.5 Tf 0.29 0.0 0.51 rg 22 677 Td ( ) Tj ET`); // spacer
+  page1Lines.push(...kpiCard(22,  614, 126, "0.85 0.45 0.05", "CONVERSION RATE",   `${ex.conversionRate?.value||0}%`,           "Target > 15%",     "0.85 0.45 0.05"));
+  page1Lines.push(...kpiCard(155, 614, 126, "0.35 0.40 0.50", "OUTSTANDING FEES",  `Rs.${fmt(ex.outstandingFees?.value||0)}`,  "Pending Recovery",  "0.35 0.40 0.50"));
+  page1Lines.push(...kpiCard(288, 614, 126, "0.88 0.17 0.24", "ESTIMATED LOSS",    `Rs.${fmt(ex.businessLoss?.value||0)}`,     "Unconverted Opp.",  "0.88 0.17 0.24"));
+  page1Lines.push(...kpiCard(421, 614, 154, "0.7 0.15 0.55",  "UNCONVERTED",       `${loss.unconvertedLeads||0} Leads`,        "Priority Followup", "0.7 0.15 0.55"));
+
+  // ── BRAND REVENUE BAR CHART (left panel, Y: 480–608) ──
+  page1Lines.push(`BT /F2 8.5 Tf 0.29 0.0 0.51 rg 22 605 Td (BRAND REVENUE  \xb7  Daily Collections) Tj ET`);
+
+  const BCX = 22, BCY = 480, BCH = 120, BCW = 340;
   const topBrands = brands.slice(0, 6);
-  const maxBrandColl = Math.max(...topBrands.map(b => b.dailyCollections || 0), 1);
-  const barSlotW = topBrands.length > 0 ? Math.floor(barChartW / topBrands.length) : 60;
-  const barW = Math.min(40, barSlotW - 8);
+  const maxBC = Math.max(...topBrands.map(b => b.dailyCollections || 0), 1);
+  const bSlotW = topBrands.length > 0 ? Math.floor(BCW / topBrands.length) : 56;
+  const bBarW = Math.min(38, bSlotW - 10);
 
-  // Chart background
-  page1Lines.push(fillRoundedRect("0.97 0.97 0.99", barChartX, barChartY, barChartW, barChartH, 6));
-  // Grid lines (3 horizontal)
-  [25, 50, 75].forEach(pct => {
-    const gy = barChartY + (pct / 100) * barChartH;
-    page1Lines.push(`0.90 0.90 0.93 RG ${barChartX + 5} ${gy.toFixed(1)} m ${barChartX + barChartW - 5} ${gy.toFixed(1)} l s`);
+  // Chart bg + grid lines
+  page1Lines.push(fillRoundedRect("0.97 0.97 0.99", BCX, BCY, BCW, BCH, 6));
+  [33, 66].forEach(pct => {
+    const gy = (BCY + 4 + (pct / 100) * (BCH - 18)).toFixed(1);
+    page1Lines.push(`0.91 0.91 0.93 RG ${BCX + 8} ${gy} m ${BCX + BCW - 8} ${gy} l s`);
   });
 
   topBrands.forEach((b, idx) => {
-    const col = PALETTE[idx % PALETTE.length].rg;
-    const barH = Math.max(4, ((b.dailyCollections || 0) / maxBrandColl) * (barChartH - 20));
-    const bx = barChartX + idx * barSlotW + Math.floor((barSlotW - barW) / 2);
-    const by = barChartY + 2;
-    // Bar shadow
-    page1Lines.push(fillRoundedRect("0.88 0.88 0.92", bx + 2, by + 2, barW, barH, 3));
-    // Bar fill
-    page1Lines.push(fillRoundedRect(col, bx, by, barW, barH, 3));
-    // Value label above bar
-    const vLabel = b.dailyCollections >= 100000 ? `${(b.dailyCollections/100000).toFixed(1)}L` : `${Math.round((b.dailyCollections||0)/1000)}K`;
-    page1Lines.push(`BT /F2 6.5 Tf 0.08 0.10 0.22 rg ${bx} ${by + barH + 3} Td (${vLabel}) Tj ET`);
-    // Brand label below
-    const shortName = escapePdfText((b.brandName || "").slice(0, 10));
-    page1Lines.push(`BT /F1 5.5 Tf 0.35 0.35 0.45 rg ${bx - 2} ${barChartY - 10} Td (${shortName}) Tj ET`);
+    const col = PALETTE[idx % PALETTE.length];
+    const barH = Math.max(4, ((b.dailyCollections || 0) / maxBC) * (BCH - 22));
+    const bx = BCX + idx * bSlotW + Math.floor((bSlotW - bBarW) / 2);
+    const by = BCY + 4;
+    // Shadow
+    page1Lines.push(fillRoundedRect("0.87 0.87 0.91", bx + 2, by + 2, bBarW, barH, 3));
+    // Bar
+    page1Lines.push(fillRoundedRect(col, bx, by, bBarW, barH, 3));
+    // Value label above bar (clipped to inside chart)
+    const vLabel = (b.dailyCollections || 0) >= 100000
+      ? `${((b.dailyCollections||0)/100000).toFixed(1)}L`
+      : `${Math.round((b.dailyCollections||0)/1000)}K`;
+    const labelY = Math.min(by + barH + 3, BCY + BCH - 6);
+    page1Lines.push(`BT /F2 5.5 Tf 0.08 0.10 0.22 rg ${bx} ${labelY} Td (${vLabel}) Tj ET`);
+    // Brand name below chart (strictly below BCY)
+    const shortName = escapePdfText((b.brandName || "").slice(0, 9));
+    page1Lines.push(`BT /F1 5 Tf 0.35 0.35 0.45 rg ${bx} ${BCY - 10} Td (${shortName}) Tj ET`);
   });
 
-  // ── SECTION: Donut Chart – Payment Mode Distribution (right of bar chart) ──
-  page1Lines.push(`BT /F2 9 Tf 0.29 0.0 0.51 rg 388 603 Td (PAYMENT MODE  \xb7  Donut Chart) Tj ET`);
+  // ── DONUT CHART (right panel, Y: 480–608, same row as bar chart) ──
+  page1Lines.push(`BT /F2 8.5 Tf 0.29 0.0 0.51 rg 374 605 Td (PAYMENT MODE  \xb7  Donut Chart) Tj ET`);
 
-  const dCX = 494, dCY = 545, dOuter = 52, dInner = 28;
+  // Background panel
+  page1Lines.push(fillRoundedRect("0.97 0.97 0.99", 372, BCY, 203, BCH, 6));
+
+  const dCX = 430, dCY = BCY + 60, dOuter = 50, dInner = 26;
   const totalModeAmt = modes.reduce((s, m) => s + (m.amount || 0), 0) || 1;
   let dAngle = -90;
   modes.slice(0, 5).forEach((m, idx) => {
-    const col = PALETTE[idx % PALETTE.length].rg;
+    const col = PALETTE[idx % PALETTE.length];
     const sweep = ((m.amount || 0) / totalModeAmt) * 360;
     if (sweep < 1) { dAngle += sweep; return; }
     page1Lines.push(`${col} rg ${donutSlicePath(dCX, dCY, dOuter, dInner, dAngle, dAngle + sweep)}`);
     dAngle += sweep;
   });
-  // White center hole label
-  page1Lines.push(fillRoundedRect("1 1 1", dCX - dInner, dCY - dInner, dInner * 2, dInner * 2, dInner));
-  page1Lines.push(`BT /F2 6.5 Tf 0.29 0.0 0.51 rg ${dCX - 14} ${dCY + 4} Td (PAYMENT) Tj ET`);
-  page1Lines.push(`BT /F2 6.5 Tf 0.29 0.0 0.51 rg ${dCX - 11} ${dCY - 6} Td (MODES) Tj ET`);
-  // Legend
-  let legY = 590;
+  // Center white hole
+  page1Lines.push(fillRoundedRect("0.97 0.97 0.99", dCX - dInner, dCY - dInner, dInner * 2, dInner * 2, dInner));
+  page1Lines.push(`BT /F2 5.5 Tf 0.29 0.0 0.51 rg ${dCX - 13} ${dCY + 3} Td (PAYMENT) Tj ET`);
+  page1Lines.push(`BT /F2 5.5 Tf 0.29 0.0 0.51 rg ${dCX - 9} ${dCY - 7} Td (MODES) Tj ET`);
+
+  // Legend — right of donut within panel
+  let legY = dCY + 45;
   modes.slice(0, 4).forEach((m, idx) => {
-    const col = PALETTE[idx % PALETTE.length].rg;
-    page1Lines.push(fillRoundedRect(col, 386, legY - 6, 8, 8, 2));
-    page1Lines.push(`BT /F1 6.5 Tf 0.2 0.2 0.2 rg 397 ${legY - 1} Td (${escapePdfText(m.mode)}: ${m.percentage}%) Tj ET`);
+    const col = PALETTE[idx % PALETTE.length];
+    page1Lines.push(fillRoundedRect(col, 488, legY - 6, 7, 7, 2));
+    page1Lines.push(`BT /F1 5.5 Tf 0.2 0.2 0.2 rg 498 ${legY - 1} Td (${escapePdfText((m.mode||"").slice(0,10))}: ${m.percentage}%) Tj ET`);
     legY -= 13;
   });
 
-  // ── SECTION: Revenue Comparison Bar Chart ──
-  page1Lines.push(`BT /F2 9 Tf 0.29 0.0 0.51 rg 22 480 Td (REVENUE BENCHMARK  \xb7  Today vs Yesterday vs Last Week) Tj ET`);
-  const rbY = 400, rbH = 72;
-  page1Lines.push(fillRoundedRect("0.97 0.97 0.99", 22, rbY, 555, rbH, 6));
+  // ── REVENUE BENCHMARK BAR CHART (Y: 385–470) ──
+  page1Lines.push(`BT /F2 8.5 Tf 0.29 0.0 0.51 rg 22 472 Td (REVENUE BENCHMARK  \xb7  Today vs Yesterday vs Last Week) Tj ET`);
+
+  const rbY = 385, rbH = 82, rbW = 555;
+  page1Lines.push(fillRoundedRect("0.97 0.97 0.99", 22, rbY, rbW, rbH, 6));
 
   const maxComp = Math.max(comp.today || 0, comp.yesterday || 0, comp.sameDayLastWeek || 0, 1);
-  const barsData = [
-    { label: "Today", value: comp.today || 0, col: "0.02 0.59 0.41" },
-    { label: "Yesterday", value: comp.yesterday || 0, col: "0.29 0.0 0.51" },
-    { label: "Last Week", value: comp.sameDayLastWeek || 0, col: "0.48 0.22 0.93" },
-  ];
-  const rbBarSlotW = 185, rbBarW = 28;
-  barsData.forEach((bd, idx) => {
-    const bx = 22 + idx * rbBarSlotW + 10;
-    const bh = Math.max(4, (bd.value / maxComp) * (rbH - 22));
-    const by = rbY + 2;
-    // Shadow bar
-    page1Lines.push(fillRoundedRect("0.88 0.88 0.92", bx + 2 + 2, by + 2, rbBarW, bh, 3));
-    // Actual bar
-    page1Lines.push(fillRoundedRect(bd.col, bx + 2, by, rbBarW, bh, 3));
+  [
+    { label: "Today", value: comp.today || 0, col: "0.02 0.59 0.41", x: 40 },
+    { label: "Yesterday", value: comp.yesterday || 0, col: "0.29 0.0 0.51", x: 225 },
+    { label: "Last Week", value: comp.sameDayLastWeek || 0, col: "0.48 0.22 0.93", x: 410 },
+  ].forEach(bd => {
+    const bh = Math.max(4, (bd.value / maxComp) * (rbH - 26));
+    const by = rbY + 4;
+    page1Lines.push(fillRoundedRect("0.87 0.87 0.91", bd.x + 2, by + 2, 32, bh, 3));
+    page1Lines.push(fillRoundedRect(bd.col, bd.x, by, 32, bh, 3));
     const amt = bd.value >= 100000 ? `Rs.${(bd.value/100000).toFixed(1)}L` : `Rs.${Math.round(bd.value/1000)}K`;
-    page1Lines.push(`BT /F2 7 Tf 0.08 0.10 0.22 rg ${bx + 2} ${by + bh + 4} Td (${amt}) Tj ET`);
-    page1Lines.push(`BT /F1 6.5 Tf 0.45 0.45 0.55 rg ${bx + 2} ${rbY - 8} Td (${bd.label}) Tj ET`);
+    const valLabelY = Math.min(by + bh + 4, rbY + rbH - 10);
+    page1Lines.push(`BT /F2 6.5 Tf 0.08 0.10 0.22 rg ${bd.x} ${valLabelY} Td (${amt}) Tj ET`);
+    page1Lines.push(`BT /F2 7 Tf ${bd.col} rg ${bd.x + 38} ${by + 2} Td (${bd.label}) Tj ET`);
+    // Horizontal reference line
+    page1Lines.push(`0.91 0.91 0.93 RG ${bd.x} ${rbY + rbH / 2} m ${bd.x + 160} ${rbY + rbH / 2} l s`);
   });
 
-  // ── SECTION: Lead Funnel ──
-  page1Lines.push(`BT /F2 9 Tf 0.29 0.0 0.51 rg 22 392 Td (CONVERSION FUNNEL  \xb7  Lead Pipeline Stage Drop-Off) Tj ET`);
-  const funnelData = [
-    { label: `1. Leads Received: ${funnel.leadsReceived}`, pct: 100, col: "0.29 0.0 0.51" },
-    { label: `2. Followups: ${funnel.followupsCompleted} (${funnel.stagePercentages?.followupPct||0}%)`, pct: funnel.stagePercentages?.followupPct||0, col: "0.14 0.38 0.92" },
-    { label: `3. Demos: ${funnel.demosScheduled} (${funnel.stagePercentages?.demoPct||0}%)`, pct: funnel.stagePercentages?.demoPct||0, col: "0.48 0.22 0.93" },
-    { label: `4. Admissions: ${funnel.admissionsConfirmed} (${funnel.stagePercentages?.admissionPct||0}%)`, pct: funnel.stagePercentages?.admissionPct||0, col: "0.02 0.59 0.41" },
+  // ── CONVERSION FUNNEL (Y: 295–376) ──
+  page1Lines.push(`BT /F2 8.5 Tf 0.29 0.0 0.51 rg 22 377 Td (CONVERSION FUNNEL  \xb7  Lead Pipeline Stage Drop-Off) Tj ET`);
+
+  const funnelItems = [
+    { label: `Leads Received: ${funnel.leadsReceived}`,                                             pct: 100,  col: "0.29 0.0 0.51" },
+    { label: `Followups: ${funnel.followupsCompleted} (${funnel.stagePercentages?.followupPct||0}%)`, pct: funnel.stagePercentages?.followupPct||0, col: "0.14 0.38 0.92" },
+    { label: `Demos: ${funnel.demosScheduled} (${funnel.stagePercentages?.demoPct||0}%)`,          pct: funnel.stagePercentages?.demoPct||0,      col: "0.48 0.22 0.93" },
+    { label: `Admissions: ${funnel.admissionsConfirmed} (${funnel.stagePercentages?.admissionPct||0}%)`, pct: funnel.stagePercentages?.admissionPct||0, col: "0.02 0.59 0.41" },
   ];
-  let fY = 374;
-  funnelData.forEach(f => {
-    const fw = Math.max(10, (f.pct / 100) * 510);
-    page1Lines.push(fillRoundedRect("0.93 0.93 0.96", 22, fY - 11, 555, 14, 3));
-    page1Lines.push(fillRoundedRect(f.col, 22, fY - 11, fw, 14, 3));
-    page1Lines.push(`BT /F2 7 Tf 1 1 1 rg 28 ${fY - 5} Td (${escapePdfText(f.label)}) Tj ET`);
-    fY -= 18;
+
+  let fY = 362;
+  funnelItems.forEach(f => {
+    const fw = Math.max(12, (f.pct / 100) * 540);
+    page1Lines.push(fillRoundedRect("0.91 0.91 0.95", 22, fY - 11, 555, 15, 3));
+    page1Lines.push(fillRoundedRect(f.col, 22, fY - 11, fw, 15, 3));
+    page1Lines.push(`BT /F2 6.5 Tf 1 1 1 rg 28 ${fY - 5} Td (${escapePdfText(f.label)}) Tj ET`);
+    fY -= 19;
   });
 
   // Footer
-  page1Lines.push(fillRoundedRect("0.85 0.85 0.85", 20, 45, 555, 1, 0));
-  page1Lines.push(`BT /F1 7.5 Tf 0.5 0.5 0.5 rg 22 30 Td (CoachFlow ERP  \xb7  Executive BI Report  \xb7  Page 1 of 2) Tj ET`);
-  page1Lines.push(`BT /F1 7.5 Tf 0.5 0.5 0.5 rg 490 30 Td (Generated: ${genAtStr}) Tj ET`);
+  page1Lines.push(fillRoundedRect("0.82 0.82 0.85", 20, 55, 555, 1, 0));
+  page1Lines.push(`BT /F1 7 Tf 0.5 0.5 0.5 rg 22 42 Td (CoachFlow ERP  \xb7  Executive BI Report  \xb7  Page 1 of 2) Tj ET`);
+  page1Lines.push(`BT /F1 7 Tf 0.5 0.5 0.5 rg 460 42 Td (Generated: ${genAtStr}) Tj ET`);
 
-  // ══════════════════════════════════════════════════════════
-  // PAGE 2  –  Counsellors · Pie Chart · EMI List · AI Synthesis
-  // ══════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════
+  // PAGE 2  –  Fixed layout zones
+  // Zone layout (Y from bottom):
+  //   760-820: header
+  //   736-758: counsellor section label + table header
+  //   666-735: counsellor rows (max 5 x 14px)
+  //   570-664: pie chart (left) + marketing ROI bars (right) side by side
+  //   480-568: EMI list
+  //   420-478: predictive targets
+  //   238-418: AI dark card
+  //   55-237:  footer
+  // ══════════════════════════════════════════════════════════════════════
   const page2Lines: string[] = [];
 
   // Header
-  page2Lines.push(fillRoundedRect("0.08 0.12 0.28", 20, 768, 555, 60, 8));
-  page2Lines.push(fillRoundedRect("0.12 0.18 0.38", 20, 768, 555, 30, 0));
-  page2Lines.push(`BT /F2 14 Tf 1 1 1 rg 38 806 Td (COACHFLOW ERP  \xb7  SALES & FINANCIAL INTELLIGENCE) Tj ET`);
-  page2Lines.push(`BT /F1 8 Tf 0.75 0.85 0.95 rg 38 789 Td (Date: ${dateStr}    Page 2 of 2    |    CoachFlow Decision Support Engine v3.2) Tj ET`);
-  page2Lines.push(fillRoundedRect("0.02 0.59 0.41", 20, 765, 555, 3, 0));
+  page2Lines.push(fillRoundedRect("0.08 0.12 0.28", 20, 760, 555, 60, 8));
+  page2Lines.push(fillRoundedRect("0.12 0.18 0.38", 20, 760, 555, 30, 0));
+  page2Lines.push(`BT /F2 13.5 Tf 1 1 1 rg 38 798 Td (COACHFLOW ERP  \xb7  SALES & FINANCIAL INTELLIGENCE) Tj ET`);
+  page2Lines.push(`BT /F1 7.5 Tf 0.75 0.85 0.95 rg 38 782 Td (Date: ${dateStr}    |    Page 2 of 2    |    CoachFlow Decision Support Engine v3.2) Tj ET`);
+  page2Lines.push(fillRoundedRect("0.02 0.59 0.41", 20, 757, 555, 3, 0));
 
-  // ── Counsellor Performance Table ──
-  page2Lines.push(`BT /F2 9 Tf 0.29 0.0 0.51 rg 22 748 Td (COUNSELLOR PERFORMANCE SCORECARD) Tj ET`);
-  page2Lines.push(fillRoundedRect("0.12 0.18 0.38", 22, 728, 555, 16, 4));
-  page2Lines.push(`BT /F2 7.5 Tf 1 1 1 rg 28 733 Td (Name) Tj ET`);
-  page2Lines.push(`BT /F2 7.5 Tf 1 1 1 rg 155 733 Td (Scope) Tj ET`);
-  page2Lines.push(`BT /F2 7.5 Tf 1 1 1 rg 215 733 Td (Leads) Tj ET`);
-  page2Lines.push(`BT /F2 7.5 Tf 1 1 1 rg 255 733 Td (Adm) Tj ET`);
-  page2Lines.push(`BT /F2 7.5 Tf 1 1 1 rg 295 733 Td (Conv%) Tj ET`);
-  page2Lines.push(`BT /F2 7.5 Tf 1 1 1 rg 340 733 Td (Collections) Tj ET`);
-  page2Lines.push(`BT /F2 7.5 Tf 1 1 1 rg 450 733 Td (Status) Tj ET`);
+  // ── Counsellor Table (fixed top at Y=742) ──
+  page2Lines.push(`BT /F2 8.5 Tf 0.29 0.0 0.51 rg 22 743 Td (COUNSELLOR PERFORMANCE SCORECARD) Tj ET`);
+  page2Lines.push(fillRoundedRect("0.12 0.18 0.38", 22, 724, 555, 15, 4));
+  const cols2 = [
+    { x: 28,  label: "Name"        },
+    { x: 158, label: "Scope"       },
+    { x: 218, label: "Leads"       },
+    { x: 258, label: "Adm"         },
+    { x: 300, label: "Conv%"       },
+    { x: 348, label: "Collections" },
+    { x: 455, label: "Status"      },
+  ];
+  cols2.forEach(c => page2Lines.push(`BT /F2 7 Tf 1 1 1 rg ${c.x} 730 Td (${c.label}) Tj ET`));
 
-  let p2Y = 715;
+  let cpY = 712;
   counsellors.slice(0, 5).forEach((cs, idx) => {
     const bg = idx % 2 === 0 ? "0.96 0.97 0.99" : "1 1 1";
-    page2Lines.push(fillRoundedRect(bg, 22, p2Y - 2, 555, 14, 2));
-    page2Lines.push(`BT /F1 7 Tf 0.12 0.12 0.22 rg 28 ${p2Y + 2} Td (${escapePdfText(cs.name)}) Tj ET`);
-    page2Lines.push(`BT /F1 7 Tf 0.12 0.12 0.22 rg 155 ${p2Y + 2} Td (${escapePdfText(cs.brandScope)}) Tj ET`);
-    page2Lines.push(`BT /F1 7 Tf 0.12 0.12 0.22 rg 215 ${p2Y + 2} Td (${cs.leadsAssigned}) Tj ET`);
-    page2Lines.push(`BT /F1 7 Tf 0.12 0.12 0.22 rg 255 ${p2Y + 2} Td (${cs.admissionsConverted}) Tj ET`);
-    page2Lines.push(`BT /F1 7 Tf 0.12 0.12 0.22 rg 295 ${p2Y + 2} Td (${cs.conversionPct}%) Tj ET`);
-    page2Lines.push(`BT /F2 7 Tf 0.02 0.59 0.41 rg 340 ${p2Y + 2} Td (Rs.${fmt(cs.collectionsGenerated||0)}) Tj ET`);
+    page2Lines.push(fillRoundedRect(bg, 22, cpY - 2, 555, 14, 2));
+    page2Lines.push(`BT /F1 6.5 Tf 0.12 0.12 0.22 rg 28 ${cpY + 2} Td (${escapePdfText((cs.name||"").slice(0,18))}) Tj ET`);
+    page2Lines.push(`BT /F1 6.5 Tf 0.12 0.12 0.22 rg 158 ${cpY + 2} Td (${escapePdfText((cs.brandScope||"").slice(0,12))}) Tj ET`);
+    page2Lines.push(`BT /F1 6.5 Tf 0.12 0.12 0.22 rg 218 ${cpY + 2} Td (${cs.leadsAssigned}) Tj ET`);
+    page2Lines.push(`BT /F1 6.5 Tf 0.12 0.12 0.22 rg 258 ${cpY + 2} Td (${cs.admissionsConverted}) Tj ET`);
+    page2Lines.push(`BT /F1 6.5 Tf 0.12 0.12 0.22 rg 300 ${cpY + 2} Td (${cs.conversionPct}%) Tj ET`);
+    page2Lines.push(`BT /F2 6.5 Tf 0.02 0.59 0.41 rg 348 ${cpY + 2} Td (Rs.${fmt(cs.collectionsGenerated||0)}) Tj ET`);
     const tagCol = cs.isTopPerformer ? "0.02 0.59 0.41" : cs.isLowPerformer ? "0.88 0.17 0.24" : "0.14 0.38 0.92";
     const tag = cs.isTopPerformer ? "Top Performer" : cs.isLowPerformer ? "Low Velocity" : "Active";
-    page2Lines.push(fillRoundedRect(tagCol, 450, p2Y - 1, 65, 12, 3));
-    page2Lines.push(`BT /F2 6 Tf 1 1 1 rg 454 ${p2Y + 3} Td (${tag}) Tj ET`);
-    p2Y -= 14;
+    page2Lines.push(fillRoundedRect(tagCol, 455, cpY - 1, 64, 12, 3));
+    page2Lines.push(`BT /F2 5.5 Tf 1 1 1 rg 458 ${cpY + 3} Td (${tag}) Tj ET`);
+    cpY -= 14;
   });
 
-  // ── Pie Chart: Lead Source Distribution + Bar chart side by side ──
-  p2Y -= 10;
-  page2Lines.push(`BT /F2 9 Tf 0.29 0.0 0.51 rg 22 ${p2Y} Td (LEAD SOURCE PIE CHART  \xb7  Marketing ROI Distribution) Tj ET`);
-  p2Y -= 16;
+  // ── PIE CHART (left panel, Y: 570–660) + MARKETING ROI BARS (right panel) ──
+  const sectionPieY = 660;
+  page2Lines.push(`BT /F2 8.5 Tf 0.29 0.0 0.51 rg 22 ${sectionPieY + 2} Td (LEAD SOURCE PIE CHART  \xb7  Marketing ROI Distribution) Tj ET`);
+  page2Lines.push(fillRoundedRect("0.97 0.97 0.99", 22, 575, 268, 82, 6));
 
-  const pieCX = 100, pieCY = p2Y - 58, pieR = 52;
+  const pieCX = 100, pieCY = 620, pieR = 38;
   const totalSrcLeads = sources.reduce((s, src) => s + (src.leadsGenerated || 0), 0) || 1;
   let pAngle = -90;
   sources.slice(0, 5).forEach((src, idx) => {
-    const col = PALETTE[idx % PALETTE.length].rg;
+    const col = PALETTE[idx % PALETTE.length];
     const sweep = ((src.leadsGenerated || 0) / totalSrcLeads) * 360;
     if (sweep < 1) { pAngle += sweep; return; }
     page2Lines.push(`${col} rg ${pieSlicePath(pieCX, pieCY, pieR, pAngle, pAngle + sweep)}`);
     pAngle += sweep;
   });
 
-  // Pie Legend
-  let pieLegY = p2Y - 10;
+  // Pie legend (to the right of pie, inside same panel)
+  let pieLegY = 653;
   sources.slice(0, 5).forEach((src, idx) => {
-    const col = PALETTE[idx % PALETTE.length].rg;
-    page2Lines.push(fillRoundedRect(col, 168, pieLegY - 7, 9, 9, 2));
-    page2Lines.push(`BT /F1 7 Tf 0.1 0.1 0.2 rg 180 ${pieLegY - 2} Td (${escapePdfText(src.source)}: ${src.leadsGenerated} leads) Tj ET`);
-    pieLegY -= 14;
+    const col = PALETTE[idx % PALETTE.length];
+    page2Lines.push(fillRoundedRect(col, 148, pieLegY - 6, 7, 7, 2));
+    page2Lines.push(`BT /F1 5.5 Tf 0.1 0.1 0.2 rg 158 ${pieLegY - 1} Td (${escapePdfText((src.source||"").slice(0,14))}: ${src.leadsGenerated}) Tj ET`);
+    pieLegY -= 13;
   });
 
-  // Lead Source Bar Chart on the right side
-  page2Lines.push(`BT /F2 9 Tf 0.29 0.0 0.51 rg 380 ${p2Y} Td (MARKETING ROI  \xb7  Revenue per Source) Tj ET`);
+  // Marketing ROI Bars right panel
+  page2Lines.push(`BT /F2 8.5 Tf 0.29 0.0 0.51 rg 300 ${sectionPieY + 2} Td (MARKETING ROI  \xb7  Revenue per Source) Tj ET`);
+  page2Lines.push(fillRoundedRect("0.97 0.97 0.99", 298, 575, 279, 82, 6));
   const srcMaxRev = Math.max(...sources.map(s => s.revenueContribution || 0), 1);
-  let srcBY = p2Y - 16;
+  let srcBY = 648;
   sources.slice(0, 5).forEach((src, idx) => {
-    const col = PALETTE[idx % PALETTE.length].rg;
-    const bw = Math.max(5, ((src.revenueContribution || 0) / srcMaxRev) * 150);
-    page2Lines.push(fillRoundedRect("0.93 0.93 0.96", 380, srcBY - 10, 195, 12, 3));
-    page2Lines.push(fillRoundedRect(col, 380, srcBY - 10, bw, 12, 3));
-    page2Lines.push(`BT /F1 6.5 Tf 0.1 0.1 0.2 rg 384 ${srcBY - 5} Td (${escapePdfText(src.source)}: Rs.${fmt(src.revenueContribution||0)}) Tj ET`);
-    srcBY -= 16;
+    const col = PALETTE[idx % PALETTE.length];
+    const bw = Math.max(5, ((src.revenueContribution || 0) / srcMaxRev) * 230);
+    page2Lines.push(fillRoundedRect("0.91 0.91 0.95", 304, srcBY - 8, 265, 11, 3));
+    page2Lines.push(fillRoundedRect(col, 304, srcBY - 8, bw, 11, 3));
+    page2Lines.push(`BT /F1 5.5 Tf 1 1 1 rg 307 ${srcBY - 3} Td (${escapePdfText((src.source||"").slice(0,12))}: Rs.${fmt(src.revenueContribution||0)}) Tj ET`);
+    srcBY -= 14;
   });
 
-  p2Y = pieCY - pieR - 20;
-
-  // ── EMI Priority List ──
-  page2Lines.push(`BT /F2 9 Tf 0.29 0.0 0.51 rg 22 ${p2Y} Td (OVERDUE EMI  \xb7  Priority Follow-Up List) Tj ET`);
-  p2Y -= 16;
-  page2Lines.push(fillRoundedRect("0.7 0.2 0.2", 22, p2Y, 555, 14, 4));
-  page2Lines.push(`BT /F2 7.5 Tf 1 1 1 rg 28 ${p2Y + 4} Td (Student Name) Tj ET`);
-  page2Lines.push(`BT /F2 7.5 Tf 1 1 1 rg 175 ${p2Y + 4} Td (Course) Tj ET`);
-  page2Lines.push(`BT /F2 7.5 Tf 1 1 1 rg 305 ${p2Y + 4} Td (Phone) Tj ET`);
-  page2Lines.push(`BT /F2 7.5 Tf 1 1 1 rg 400 ${p2Y + 4} Td (Balance Due) Tj ET`);
-  page2Lines.push(`BT /F2 7.5 Tf 1 1 1 rg 490 ${p2Y + 4} Td (Due Date) Tj ET`);
-  p2Y -= 14;
+  // ── EMI PRIORITY LIST (Y: 480–568) ──
+  page2Lines.push(`BT /F2 8.5 Tf 0.29 0.0 0.51 rg 22 568 Td (OVERDUE EMI  \xb7  Priority Follow-Up List) Tj ET`);
+  page2Lines.push(fillRoundedRect("0.7 0.2 0.2", 22, 550, 555, 15, 4));
+  const emiCols = [
+    { x: 28,  label: "Student Name" },
+    { x: 175, label: "Course"       },
+    { x: 305, label: "Phone"        },
+    { x: 403, label: "Balance Due"  },
+    { x: 494, label: "Due Date"     },
+  ];
+  emiCols.forEach(c => page2Lines.push(`BT /F2 7 Tf 1 1 1 rg ${c.x} 556 Td (${c.label}) Tj ET`));
+  let emiY = 540;
   (pending.studentsRequiringFollowup || []).slice(0, 4).forEach((st, idx) => {
     const bg = idx % 2 === 0 ? "0.99 0.96 0.96" : "1 1 1";
-    page2Lines.push(fillRoundedRect(bg, 22, p2Y - 2, 555, 14, 2));
-    page2Lines.push(`BT /F1 7 Tf 0.12 0.12 0.22 rg 28 ${p2Y + 2} Td (${escapePdfText(st.fullName)}) Tj ET`);
-    page2Lines.push(`BT /F1 7 Tf 0.12 0.12 0.22 rg 175 ${p2Y + 2} Td (${escapePdfText(st.course)}) Tj ET`);
-    page2Lines.push(`BT /F1 7 Tf 0.12 0.12 0.22 rg 305 ${p2Y + 2} Td (${escapePdfText(st.mobileNumber)}) Tj ET`);
-    page2Lines.push(`BT /F2 7 Tf 0.7 0.1 0.1 rg 400 ${p2Y + 2} Td (Rs.${fmt(st.remainingBalance||0)}) Tj ET`);
-    page2Lines.push(`BT /F1 7 Tf 0.3 0.3 0.4 rg 490 ${p2Y + 2} Td (${escapePdfText(st.nextDueDate)}) Tj ET`);
-    p2Y -= 14;
+    page2Lines.push(fillRoundedRect(bg, 22, emiY - 2, 555, 13, 2));
+    page2Lines.push(`BT /F1 6.5 Tf 0.12 0.12 0.22 rg 28 ${emiY + 2} Td (${escapePdfText((st.fullName||"").slice(0,20))}) Tj ET`);
+    page2Lines.push(`BT /F1 6.5 Tf 0.12 0.12 0.22 rg 175 ${emiY + 2} Td (${escapePdfText((st.course||"").slice(0,16))}) Tj ET`);
+    page2Lines.push(`BT /F1 6.5 Tf 0.12 0.12 0.22 rg 305 ${emiY + 2} Td (${escapePdfText(st.mobileNumber||"")}) Tj ET`);
+    page2Lines.push(`BT /F2 6.5 Tf 0.7 0.1 0.1 rg 403 ${emiY + 2} Td (Rs.${fmt(st.remainingBalance||0)}) Tj ET`);
+    page2Lines.push(`BT /F1 6.5 Tf 0.3 0.3 0.4 rg 494 ${emiY + 2} Td (${escapePdfText(st.nextDueDate||"")}) Tj ET`);
+    emiY -= 13;
   });
 
-  // ── Predictive Targets mini-bars ──
-  p2Y -= 8;
-  page2Lines.push(`BT /F2 9 Tf 0.29 0.0 0.51 rg 22 ${p2Y} Td (TOMORROW'S TARGETS  \xb7  Predictive Business Goals) Tj ET`);
-  p2Y -= 14;
-  page2Lines.push(fillRoundedRect("0.97 0.97 0.99", 22, p2Y - 42, 555, 46, 6));
-  const targetsData = [
-    { label: "Revenue", val: targets.revenueTarget||0, col: "0.02 0.59 0.41" },
-    { label: "Collections", val: targets.collectionsTarget||0, col: "0.14 0.38 0.92" },
-    { label: "Admissions", val: (targets.admissionsTarget||0)*10000, col: "0.48 0.22 0.93" },
+  // ── PREDICTIVE TARGETS (Y: 420–478) ──
+  page2Lines.push(`BT /F2 8.5 Tf 0.29 0.0 0.51 rg 22 476 Td (TOMORROW'S TARGETS  \xb7  Predictive Business Goals) Tj ET`);
+  page2Lines.push(fillRoundedRect("0.97 0.97 0.99", 22, 422, 555, 50, 6));
+
+  const tItems = [
+    { label: "Revenue Target",     val: targets.revenueTarget||0,     col: "0.02 0.59 0.41", x: 28 },
+    { label: "Collections Target", val: targets.collectionsTarget||0, col: "0.14 0.38 0.92", x: 215 },
+    { label: "Admissions Goal",    val: (targets.admissionsTarget||0)*10000, col: "0.48 0.22 0.93", x: 402 },
   ];
-  const maxTarget = Math.max(...targetsData.map(t => t.val), 1);
-  targetsData.forEach((t, idx) => {
-    const tx = 30 + idx * 185;
-    const tw = Math.max(5, (t.val / maxTarget) * 160);
-    page2Lines.push(`BT /F2 6.5 Tf 0.29 0.0 0.51 rg ${tx} ${p2Y - 8} Td (${t.label}) Tj ET`);
-    page2Lines.push(fillRoundedRect("0.88 0.88 0.92", tx, p2Y - 26, 165, 10, 3));
-    page2Lines.push(fillRoundedRect(t.col, tx, p2Y - 26, tw, 10, 3));
-    const tVal = t.label === "Admissions" ? `${targets.admissionsTarget||0} Students` : `Rs.${fmt(t.val)}`;
-    page2Lines.push(`BT /F1 6.5 Tf 0.1 0.1 0.2 rg ${tx} ${p2Y - 38} Td (${tVal}) Tj ET`);
+  const maxTgt = Math.max(...tItems.map(t => t.val), 1);
+  tItems.forEach(t => {
+    const tw = Math.max(5, (t.val / maxTgt) * 155);
+    const display = t.label === "Admissions Goal" ? `${targets.admissionsTarget||0} Students` : `Rs.${fmt(t.val)}`;
+    page2Lines.push(`BT /F2 6 Tf 0.29 0.0 0.51 rg ${t.x} 467 Td (${t.label}) Tj ET`);
+    page2Lines.push(fillRoundedRect("0.87 0.87 0.91", t.x, 450, 165, 10, 3));
+    page2Lines.push(fillRoundedRect(t.col, t.x, 450, tw, 10, 3));
+    page2Lines.push(`BT /F1 6 Tf 0.12 0.12 0.22 rg ${t.x} 436 Td (${display}) Tj ET`);
   });
-  p2Y -= 56;
 
-  // ── AI Synthesis Dark Card ──
-  page2Lines.push(`BT /F2 9 Tf 0.29 0.0 0.51 rg 22 ${p2Y} Td (AI SYNTHESIS  \xb7  Strategic Executive Insights) Tj ET`);
-  p2Y -= 14;
-  const aiCardH = 170;
-  page2Lines.push(fillRoundedRect("0.06 0.09 0.16", 22, p2Y - aiCardH, 555, aiCardH, 8));
-  page2Lines.push(fillRoundedRect("0.29 0.0 0.51", 22, p2Y - 4, 555, 4, 4));
+  // ── AI SYNTHESIS DARK CARD (Y: 238–418) ──
+  page2Lines.push(`BT /F2 8.5 Tf 0.29 0.0 0.51 rg 22 418 Td (AI SYNTHESIS  \xb7  Strategic Executive Insights) Tj ET`);
+  page2Lines.push(fillRoundedRect("0.06 0.09 0.16", 22, 238, 555, 176, 8));
+  page2Lines.push(fillRoundedRect("0.29 0.0 0.51", 22, 410, 555, 4, 4));
 
-  page2Lines.push(`BT /F2 9 Tf 0.34 0.8 0.95 rg 32 ${p2Y - 18} Td (AUTOMATED EXECUTIVE OBSERVATION SUMMARY) Tj ET`);
-  page2Lines.push(`BT /F1 7.5 Tf 0.85 0.85 0.9 rg 32 ${p2Y - 32} Td (${escapePdfText(ai.executiveSummary||"Monitoring active across all CRM, admissions & financial streams.")}) Tj ET`);
+  page2Lines.push(`BT /F2 9 Tf 0.34 0.8 0.95 rg 32 400 Td (AUTOMATED EXECUTIVE OBSERVATION SUMMARY) Tj ET`);
+  page2Lines.push(`BT /F1 7 Tf 0.85 0.85 0.9 rg 32 386 Td (${escapePdfText((ai.executiveSummary||"Monitoring active across all CRM, admissions & financial streams.").slice(0,100))}) Tj ET`);
 
-  page2Lines.push(`BT /F2 8 Tf 0.4 0.9 0.5 rg 32 ${p2Y - 52} Td (KEY ACHIEVEMENTS TODAY) Tj ET`);
-  let aY = p2Y - 65;
+  page2Lines.push(`BT /F2 7.5 Tf 0.4 0.9 0.5 rg 32 368 Td (KEY ACHIEVEMENTS TODAY) Tj ET`);
+  let aY = 354;
   (ai.keyAchievements || []).slice(0, 3).forEach(ach => {
-    page2Lines.push(fillRoundedRect("0.02 0.59 0.41", 32, aY - 4, 6, 6, 2));
-    page2Lines.push(`BT /F1 7 Tf 0.92 0.95 0.98 rg 42 ${aY} Td (${escapePdfText(ach)}) Tj ET`);
-    aY -= 13;
+    page2Lines.push(fillRoundedRect("0.02 0.59 0.41", 32, aY - 3, 5, 5, 2));
+    page2Lines.push(`BT /F1 6.5 Tf 0.92 0.95 0.98 rg 40 ${aY} Td (${escapePdfText((ach||"").slice(0,95))}) Tj ET`);
+    aY -= 12;
   });
 
-  aY -= 4;
-  page2Lines.push(`BT /F2 8 Tf 1 0.7 0.3 rg 32 ${aY} Td (RECOMMENDED ACTIONS FOR TOMORROW) Tj ET`);
-  aY -= 13;
+  aY -= 5;
+  page2Lines.push(`BT /F2 7.5 Tf 1 0.7 0.3 rg 32 ${aY} Td (RECOMMENDED ACTIONS FOR TOMORROW) Tj ET`);
+  aY -= 12;
   (ai.recommendedPriorityActions || []).slice(0, 3).forEach(act => {
-    page2Lines.push(fillRoundedRect("0.85 0.45 0.05", 32, aY - 4, 6, 6, 2));
-    page2Lines.push(`BT /F1 7 Tf 0.92 0.95 0.98 rg 42 ${aY} Td (${escapePdfText(act)}) Tj ET`);
-    aY -= 13;
+    page2Lines.push(fillRoundedRect("0.85 0.45 0.05", 32, aY - 3, 5, 5, 2));
+    page2Lines.push(`BT /F1 6.5 Tf 0.92 0.95 0.98 rg 40 ${aY} Td (${escapePdfText((act||"").slice(0,95))}) Tj ET`);
+    aY -= 12;
   });
 
   // Footer
-  page2Lines.push(fillRoundedRect("0.85 0.85 0.85", 20, 45, 555, 1, 0));
-  page2Lines.push(`BT /F1 7.5 Tf 0.5 0.5 0.5 rg 22 30 Td (CoachFlow ERP  \xb7  Executive BI Report  \xb7  Page 2 of 2) Tj ET`);
-  page2Lines.push(`BT /F1 7.5 Tf 0.5 0.5 0.5 rg 490 30 Td (Official Report) Tj ET`);
+  page2Lines.push(fillRoundedRect("0.82 0.82 0.85", 20, 55, 555, 1, 0));
+  page2Lines.push(`BT /F1 7 Tf 0.5 0.5 0.5 rg 22 42 Td (CoachFlow ERP  \xb7  Executive BI Report  \xb7  Official Report) Tj ET`);
+  page2Lines.push(`BT /F1 7 Tf 0.5 0.5 0.5 rg 488 42 Td (Page 2 of 2) Tj ET`);
 
   // ── Assemble PDF ──
   const p1Text = page1Lines.join("\n");
   const p2Text = page2Lines.join("\n");
 
-  const objects = [];
+  const objects: string[] = [];
   objects.push(`1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj`);
   objects.push(`2 0 obj\n<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>\nendobj`);
   objects.push(`3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 7 0 R >>\nendobj`);
@@ -685,15 +692,14 @@ function buildEnhancedBiReportPdfBuffer(data: DailyBiReportData): Buffer {
   let header = "%PDF-1.4\n";
   let body = "";
   let xref = `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
-  let currentOffset = Buffer.byteLength(header);
+  let offset = Buffer.byteLength(header);
 
   for (let i = 0; i < objects.length; i++) {
-    const objStr = objects[i] + "\n";
-    xref += `${String(currentOffset).padStart(10, "0")} 00000 n \n`;
-    body += objStr;
-    currentOffset += Buffer.byteLength(objStr);
+    const obj = objects[i] + "\n";
+    xref += `${String(offset).padStart(10, "0")} 00000 n \n`;
+    body += obj;
+    offset += Buffer.byteLength(obj);
   }
 
-  const trailer = `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${currentOffset}\n%%EOF\n`;
-  return Buffer.from(header + body + xref + trailer, "utf-8");
+  return Buffer.from(header + body + xref + `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${offset}\n%%EOF\n`, "utf-8");
 }
