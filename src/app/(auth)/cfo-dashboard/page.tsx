@@ -14,7 +14,7 @@ interface TooltipItem {
   category?: string;
 }
 
-// --- CUSTOM ZERO-DEPENDENCY SVG GRAPH RENDERERS WITH HOVER TOOLTIPS ---
+// --- CUSTOM ZERO-DEPENDENCY SVG GRAPH RENDERERS ---
 
 // 1. SVG PIE CHART COMPONENT
 function SvgPieChart({
@@ -66,26 +66,12 @@ function SvgPieChart({
             d={slice.pathData}
             fill={slice.color}
             className="transition-all duration-200 hover:opacity-75 hover:scale-105 transform origin-center cursor-pointer"
-            onMouseEnter={(e) => onHover({ name: slice.name, value: slice.value, pct: slice.pct, category: "PIE SHARE" }, e)}
-            onMouseMove={(e) => onHover({ name: slice.name, value: slice.value, pct: slice.pct, category: "PIE SHARE" }, e)}
+            onMouseEnter={(e) => onHover({ name: slice.name, value: slice.value, pct: slice.pct, category: "SHARE" }, e)}
+            onMouseMove={(e) => onHover({ name: slice.name, value: slice.value, pct: slice.pct, category: "SHARE" }, e)}
             onMouseLeave={onLeave}
           />
         ))}
       </svg>
-      <div className="flex flex-wrap items-center justify-center gap-3 max-w-full">
-        {slices.map((slice, idx) => (
-          <div
-            key={idx}
-            className="flex items-center gap-1.5 text-xs font-bold text-slate-700 cursor-pointer hover:text-indigo-600 transition-colors"
-            onMouseEnter={(e) => onHover({ name: slice.name, value: slice.value, pct: slice.pct, category: "PIE SHARE" }, e)}
-            onMouseMove={(e) => onHover({ name: slice.name, value: slice.value, pct: slice.pct, category: "PIE SHARE" }, e)}
-            onMouseLeave={onLeave}
-          >
-            <span className="w-3 h-3 rounded-full" style={{ backgroundColor: slice.color }} />
-            <span>{slice.name}</span>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
@@ -150,30 +136,15 @@ function SvgDonutChart({
               d={slice.pathData}
               fill={slice.color}
               className="transition-all duration-200 hover:opacity-75 hover:scale-105 transform origin-center cursor-pointer"
-              onMouseEnter={(e) => onHover({ name: slice.name, value: slice.value, pct: slice.pct, category: "DONUT ALLOCATION" }, e)}
-              onMouseMove={(e) => onHover({ name: slice.name, value: slice.value, pct: slice.pct, category: "DONUT ALLOCATION" }, e)}
+              onMouseEnter={(e) => onHover({ name: slice.name, value: slice.value, pct: slice.pct, category: "ALLOCATION" }, e)}
+              onMouseMove={(e) => onHover({ name: slice.name, value: slice.value, pct: slice.pct, category: "ALLOCATION" }, e)}
               onMouseLeave={onLeave}
             />
           ))}
         </svg>
         <div className="absolute flex flex-col items-center justify-center pointer-events-none text-center">
-          <span className="text-xs font-black text-slate-800 uppercase tracking-widest">CFO</span>
-          <span className="text-[10px] font-extrabold text-indigo-600">RING</span>
+          <span className="text-xs font-black text-slate-800 uppercase tracking-widest">SUMMARY</span>
         </div>
-      </div>
-      <div className="flex flex-wrap items-center justify-center gap-3 max-w-full">
-        {slices.map((slice, idx) => (
-          <div
-            key={idx}
-            className="flex items-center gap-1.5 text-xs font-bold text-slate-700 cursor-pointer hover:text-indigo-600 transition-colors"
-            onMouseEnter={(e) => onHover({ name: slice.name, value: slice.value, pct: slice.pct, category: "DONUT ALLOCATION" }, e)}
-            onMouseMove={(e) => onHover({ name: slice.name, value: slice.value, pct: slice.pct, category: "DONUT ALLOCATION" }, e)}
-            onMouseLeave={onLeave}
-          >
-            <span className="w-3 h-3 rounded-full" style={{ backgroundColor: slice.color }} />
-            <span>{slice.name}</span>
-          </div>
-        ))}
       </div>
     </div>
   );
@@ -186,8 +157,8 @@ function SvgLineGraph({
   height = 220,
   color1 = "#10b981",
   color2 = "#ef4444",
-  label1 = "Collections",
-  label2 = "Disbursements",
+  label1 = "Money In",
+  label2 = "Money Out",
   onHover,
   onLeave,
 }: {
@@ -272,8 +243,8 @@ function SvgLineGraph({
             r="6"
             fill={color1}
             className="transition-all hover:r-8 hover:opacity-80 cursor-pointer"
-            onMouseEnter={(e) => onHover({ name: `${p.label} (${label1})`, value: p.val, category: "TIMELINE POINT" }, e)}
-            onMouseMove={(e) => onHover({ name: `${p.label} (${label1})`, value: p.val, category: "TIMELINE POINT" }, e)}
+            onMouseEnter={(e) => onHover({ name: `${p.label} (${label1})`, value: p.val, category: "TIMELINE" }, e)}
+            onMouseMove={(e) => onHover({ name: `${p.label} (${label1})`, value: p.val, category: "TIMELINE" }, e)}
             onMouseLeave={onLeave}
           />
         ))}
@@ -286,8 +257,8 @@ function SvgLineGraph({
               r="6"
               fill={color2}
               className="transition-all hover:r-8 hover:opacity-80 cursor-pointer"
-              onMouseEnter={(e) => onHover({ name: `${p.label} (${label2})`, value: p.val || 0, category: "TIMELINE POINT" }, e)}
-              onMouseMove={(e) => onHover({ name: `${p.label} (${label2})`, value: p.val || 0, category: "TIMELINE POINT" }, e)}
+              onMouseEnter={(e) => onHover({ name: `${p.label} (${label2})`, value: p.val || 0, category: "TIMELINE" }, e)}
+              onMouseMove={(e) => onHover({ name: `${p.label} (${label2})`, value: p.val || 0, category: "TIMELINE" }, e)}
               onMouseLeave={onLeave}
             />
           ))}
@@ -311,8 +282,8 @@ function SvgBarGraph({
   height = 220,
   color1 = "#4f46e5",
   color2 = "#f43f5e",
-  label1 = "Revenue",
-  label2 = "Expense",
+  label1 = "Money In",
+  label2 = "Money Out",
   onHover,
   onLeave,
 }: {
@@ -353,16 +324,16 @@ function SvgBarGraph({
                 <div
                   className="w-1/2 rounded-t-lg transition-all hover:opacity-75 cursor-pointer"
                   style={{ height: `${h1}%`, backgroundColor: color1 }}
-                  onMouseEnter={(e) => onHover({ name: `${item.label} (${label1})`, value: item.bar1, category: "BAR VALUE" }, e)}
-                  onMouseMove={(e) => onHover({ name: `${item.label} (${label1})`, value: item.bar1, category: "BAR VALUE" }, e)}
+                  onMouseEnter={(e) => onHover({ name: `${item.label} (${label1})`, value: item.bar1, category: "BAR" }, e)}
+                  onMouseMove={(e) => onHover({ name: `${item.label} (${label1})`, value: item.bar1, category: "BAR" }, e)}
                   onMouseLeave={onLeave}
                 />
                 {h2 !== null && (
                   <div
                     className="w-1/2 rounded-t-lg transition-all hover:opacity-75 cursor-pointer"
                     style={{ height: `${h2}%`, backgroundColor: color2 }}
-                    onMouseEnter={(e) => onHover({ name: `${item.label} (${label2})`, value: item.bar2 || 0, category: "BAR VALUE" }, e)}
-                    onMouseMove={(e) => onHover({ name: `${item.label} (${label2})`, value: item.bar2 || 0, category: "BAR VALUE" }, e)}
+                    onMouseEnter={(e) => onHover({ name: `${item.label} (${label2})`, value: item.bar2 || 0, category: "BAR" }, e)}
+                    onMouseMove={(e) => onHover({ name: `${item.label} (${label2})`, value: item.bar2 || 0, category: "BAR" }, e)}
                     onMouseLeave={onLeave}
                   />
                 )}
@@ -455,15 +426,15 @@ export default function CfoDashboardPage() {
 
   // Pie / Donut Chart Datasets
   const kpiDonutData = [
-    { name: "Gross Fee Revenue", value: summary.totalRevenue || 1, color: "#10b981" },
-    { name: "Operational Disbursements", value: summary.totalExpenses || 1, color: "#ef4444" },
-    { name: "Outstanding Dues", value: summary.outstandingFees || 1, color: "#f59e0b" },
-    { name: "Net Operating Reserves", value: Math.max(0, summary.netCashFlow), color: "#4f46e5" },
+    { name: "Money In (Collections)", value: summary.totalRevenue || 1, color: "#10b981" },
+    { name: "Money Out (Expenses)", value: summary.totalExpenses || 1, color: "#ef4444" },
+    { name: "Pending Fees", value: summary.outstandingFees || 1, color: "#f59e0b" },
+    { name: "Savings Left", value: Math.max(0, summary.netCashFlow), color: "#4f46e5" },
   ];
 
   const treasuryPieData = [
-    { name: "Bank Account Net Reserves", value: Math.max(1, summary.bankReserves), color: "#10b981" },
-    { name: "Physical Cash Vault Balance", value: Math.max(1, summary.cashReserves), color: "#f59e0b" },
+    { name: "Bank Balance", value: Math.max(1, summary.bankReserves), color: "#10b981" },
+    { name: "Cash Balance", value: Math.max(1, summary.cashReserves), color: "#f59e0b" },
   ];
 
   const categoryDonutData = (categoryBreakdown || []).slice(0, 6).map((c: any, idx: number) => ({
@@ -479,8 +450,8 @@ export default function CfoDashboardPage() {
   }));
 
   const overheadPieData = [
-    { name: "Variable Operating Costs", value: Math.max(1, summary.variableExpenses), color: "#06b6d4" },
-    { name: "Fixed Commitments", value: Math.max(1, summary.fixedExpenses), color: "#14b8a6" },
+    { name: "Variable Expenses", value: Math.max(1, summary.variableExpenses), color: "#06b6d4" },
+    { name: "Fixed Overhead", value: Math.max(1, summary.fixedExpenses), color: "#14b8a6" },
   ];
 
   // Line Graph Datasets
@@ -491,7 +462,7 @@ export default function CfoDashboardPage() {
   }));
 
   const transactionLineData = (recentExpenses || []).slice(0, 7).map((e: any, idx: number) => ({
-    label: `T${idx + 1}`,
+    label: `Ex ${idx + 1}`,
     line1: Number(e.amount) || 0,
   }));
 
@@ -514,24 +485,24 @@ export default function CfoDashboardPage() {
     bar2: b.expense,
   }));
 
+  const totalKpiVolume = (summary.totalRevenue || 0) + (summary.totalExpenses || 0) + (summary.outstandingFees || 0) || 1;
+
   return (
     <div className="flex h-screen bg-[#f8faff] text-slate-800 overflow-hidden font-sans transition-colors duration-200 relative">
       <Sidebar />
 
-      {/* DYNAMIC FLOATING HOVER TOOLTIP POPUP */}
+      {/* FLOATING HOVER TOOLTIP */}
       {hoveredTooltip && (
         <div
           className="fixed z-50 pointer-events-none bg-slate-900/95 text-white text-xs font-bold px-3.5 py-2.5 rounded-xl shadow-2xl border border-slate-700 backdrop-blur-md transform -translate-x-1/2 -translate-y-full transition-all duration-100"
           style={{ left: tooltipPos.x, top: tooltipPos.y - 12 }}
         >
-          <div className="flex items-center gap-1.5 text-indigo-300 font-extrabold uppercase text-[10px] tracking-wider mb-0.5">
-            <span>{hoveredTooltip.category || "FINANCIAL DETAILS"}</span>
-          </div>
+          <div className="text-[10px] text-indigo-300 font-extrabold uppercase mb-0.5">{hoveredTooltip.category || "DETAILS"}</div>
           <div className="text-sm font-black text-white">{hoveredTooltip.name}</div>
-          <div className="flex items-center justify-between gap-4 mt-1.5 pt-1.5 border-t border-slate-800 text-[11px]">
+          <div className="flex items-center justify-between gap-4 mt-1 pt-1 border-t border-slate-800 text-[11px]">
             <span className="text-emerald-400 font-extrabold">Amount: ₹{Number(hoveredTooltip.value).toLocaleString("en-IN")}</span>
             {hoveredTooltip.pct !== undefined && (
-              <span className="text-slate-300 font-bold bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
+              <span className="text-slate-300 font-bold bg-slate-800 px-1.5 py-0.5 rounded">
                 Share: {hoveredTooltip.pct}%
               </span>
             )}
@@ -546,7 +517,7 @@ export default function CfoDashboardPage() {
             <div className="text-xs font-semibold text-slate-400 flex items-center gap-1 select-none">
               <span>CoachFlow</span>
               <span>/</span>
-              <span className="text-slate-600 font-bold">CFO Visual Graphs Center (Hover Tooltips Enabled)</span>
+              <span className="text-slate-600 font-bold">CFO Finance Overview</span>
             </div>
           </div>
 
@@ -587,17 +558,17 @@ export default function CfoDashboardPage() {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                🎨 PURE GRAPHICAL CFO VISUALIZATION
+                📊 Simple Visual Dashboard
               </span>
               <span className="text-slate-400 text-xs font-semibold">
-                Hover over any slice, bar, or curve to inspect exact financial amounts
+                Hover over graphs to see numbers & view exact data tables below
               </span>
             </div>
             <h1 className="text-2xl font-black tracking-tight text-slate-900 font-sans">
-              Financial Master Visual Dashboard
+              CFO Finance Dashboard
             </h1>
             <p className="text-slate-500 text-xs font-medium mt-0.5">
-              Comprehensive visual graphs depicting Operating Revenue, Expenses, Cash Flow, Treasury Reserves & Company Tags.
+              Clear visual graphs showing Money In, Money Out, Savings, Company Income & Expense Tables.
             </p>
           </div>
 
@@ -634,7 +605,7 @@ export default function CfoDashboardPage() {
               href="/expenses"
               className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-sm transition-all"
             >
-              + Record Expense
+              + Add Expense
             </Link>
             <Link
               href="/admin-dashboard/reports"
@@ -645,19 +616,19 @@ export default function CfoDashboardPage() {
           </div>
         </div>
 
-        {/* GRAPH 1: LINE GRAPH - MONTHLY CASH FLOW TREND */}
-        <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm">
-          <div className="flex items-center justify-between mb-4">
+        {/* 1. MONTHLY MONEY IN VS MONEY OUT LINE GRAPH & TABLE */}
+        <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div>
               <h3 className="text-base font-extrabold text-slate-800">
-                📈 Monthly Cash Flow Trend (Fee Collections vs Operating Expenses)
+                📈 1. Monthly Money In vs Money Out
               </h3>
               <p className="text-xs text-slate-400 font-medium">
-                Smooth vector line plot comparing monthly fee collections vs operating disbursements
+                Line graph comparing total fee collections (Money In) and total expenses (Money Out) each month
               </p>
             </div>
             <span className="text-xs font-extrabold bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full border border-indigo-100">
-              6 Month Timeline
+              6 Month Trend
             </span>
           </div>
 
@@ -667,193 +638,489 @@ export default function CfoDashboardPage() {
             height={220}
             color1="#10b981"
             color2="#ef4444"
-            label1="Fee Collections Line"
-            label2="Operating Expenses Line"
+            label1="Money In (Collections)"
+            label2="Money Out (Expenses)"
             onHover={handleHover}
             onLeave={handleLeave}
           />
+
+          {/* Table below graph */}
+          <div className="pt-2">
+            <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">📋 Monthly Numbers Table</h4>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs font-semibold border border-slate-200/60 rounded-xl overflow-hidden">
+                <thead className="bg-slate-100/70 text-slate-600 uppercase text-[10px]">
+                  <tr>
+                    <th className="py-2.5 px-4">Month</th>
+                    <th className="py-2.5 px-4">Money In (Collections)</th>
+                    <th className="py-2.5 px-4">Money Out (Expenses)</th>
+                    <th className="py-2.5 px-4 text-right">Net Savings</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-700">
+                  {monthlyTrends.map((t: any) => (
+                    <tr key={t.month} className="hover:bg-slate-50">
+                      <td className="py-2.5 px-4 font-bold text-slate-900">{t.month}</td>
+                      <td className="py-2.5 px-4 font-bold text-emerald-600">₹{t.revenue.toLocaleString("en-IN")}</td>
+                      <td className="py-2.5 px-4 font-bold text-rose-600">₹{t.expense.toLocaleString("en-IN")}</td>
+                      <td className={`py-2.5 px-4 text-right font-black ${t.netProfit >= 0 ? "text-indigo-600" : "text-rose-600"}`}>
+                        ₹{t.netProfit.toLocaleString("en-IN")}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
 
-        {/* GRAPH 2 & 3: DONUT & PIE CHARTS ROW */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* GRAPH 2: DONUT GRAPH - EXECUTIVE CAPITAL ALLOCATION */}
-          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm flex flex-col items-center">
-            <div className="w-full flex items-center justify-between mb-4">
-              <h3 className="text-base font-extrabold text-slate-800">
-                🍩 Executive Financial Capital Allocation Ring
-              </h3>
-              <span className="text-xs font-bold text-indigo-600">KPI Ring</span>
-            </div>
-            <SvgDonutChart data={kpiDonutData} size={220} onHover={handleHover} onLeave={handleLeave} />
-          </div>
-
-          {/* GRAPH 3: PIE CHART - TREASURY RESERVES DISTRIBUTION */}
-          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm flex flex-col items-center">
-            <div className="w-full flex items-center justify-between mb-4">
-              <h3 className="text-base font-extrabold text-slate-800">
-                🥧 Treasury Reserves Distribution (Bank Accounts vs Physical Vault)
-              </h3>
-              <span className="text-xs font-bold text-emerald-600">Vault Pie</span>
-            </div>
-            <SvgPieChart data={treasuryPieData} size={220} onHover={handleHover} onLeave={handleLeave} />
-          </div>
-        </div>
-
-        {/* GRAPH 4 & 5: QUARTERLY & CATEGORY CHARTS */}
+        {/* 2 & 3. SUMMARY DONUT & TREASURY PIE WITH TABLES */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* GRAPH 4: BAR GRAPH - QUARTERLY FINANCIAL PERFORMANCE */}
-          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm">
-            <div className="flex items-center justify-between mb-4">
+          {/* 2. OVERALL FINANCE SUMMARY DONUT & TABLE */}
+          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-4">
+            <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
               <div>
-                <h3 className="text-base font-extrabold text-slate-800">
-                  📊 Quarterly Revenue & Outlay Run-Rate Comparison
-                </h3>
-                <p className="text-xs text-slate-400 font-medium">
-                  Grouped comparative bars for Q1 to Q4 cumulative inflows vs outlays
-                </p>
+                <h3 className="text-base font-extrabold text-slate-800">🍩 2. Finance Summary Breakdown</h3>
+                <p className="text-xs text-slate-400 font-medium">Overall share of Money In, Expenses, Pending Fees & Savings</p>
               </div>
             </div>
+
+            <SvgDonutChart data={kpiDonutData} size={200} onHover={handleHover} onLeave={handleLeave} />
+
+            {/* Table below donut */}
+            <div>
+              <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">📋 Summary Numbers Table</h4>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs font-semibold border border-slate-200/60 rounded-xl overflow-hidden">
+                  <thead className="bg-slate-100/70 text-slate-600 uppercase text-[10px]">
+                    <tr>
+                      <th className="py-2 px-3">Category</th>
+                      <th className="py-2 px-3">Amount (₹)</th>
+                      <th className="py-2 px-3 text-right">Share (%)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-700">
+                    {kpiDonutData.map((d) => {
+                      const pct = ((d.value / totalKpiVolume) * 100).toFixed(1);
+                      return (
+                        <tr key={d.name} className="hover:bg-slate-50">
+                          <td className="py-2 px-3 font-bold flex items-center gap-1.5">
+                            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.color }} />
+                            <span>{d.name}</span>
+                          </td>
+                          <td className="py-2 px-3 font-bold text-slate-900">₹{d.value.toLocaleString("en-IN")}</td>
+                          <td className="py-2 px-3 text-right font-extrabold text-indigo-600">{pct}%</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          {/* 3. BANK VS CASH PIE & TABLE */}
+          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-4">
+            <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-extrabold text-slate-800">🥧 3. Bank Balance vs Cash Balance</h3>
+                <p className="text-xs text-slate-400 font-medium">Distribution between Bank Account Reserves and Cash Vault</p>
+              </div>
+            </div>
+
+            <SvgPieChart data={treasuryPieData} size={200} onHover={handleHover} onLeave={handleLeave} />
+
+            {/* Table below pie */}
+            <div>
+              <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">📋 Treasury Numbers Table</h4>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs font-semibold border border-slate-200/60 rounded-xl overflow-hidden">
+                  <thead className="bg-slate-100/70 text-slate-600 uppercase text-[10px]">
+                    <tr>
+                      <th className="py-2 px-3">Account Type</th>
+                      <th className="py-2 px-3">Balance (₹)</th>
+                      <th className="py-2 px-3 text-right">Share (%)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-700">
+                    {treasuryPieData.map((d) => {
+                      const totTreasury = Math.max(1, summary.bankReserves + summary.cashReserves);
+                      const pct = ((d.value / totTreasury) * 100).toFixed(1);
+                      return (
+                        <tr key={d.name} className="hover:bg-slate-50">
+                          <td className="py-2 px-3 font-bold flex items-center gap-1.5">
+                            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.color }} />
+                            <span>{d.name}</span>
+                          </td>
+                          <td className="py-2 px-3 font-bold text-slate-900">₹{d.value.toLocaleString("en-IN")}</td>
+                          <td className="py-2 px-3 text-right font-extrabold text-emerald-600">{pct}%</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 4 & 5. QUARTERLY BARS & CATEGORY DONUT WITH TABLES */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* 4. QUARTERLY PERFORMANCE BARS & TABLE */}
+          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-4">
+            <div className="border-b border-slate-100 pb-3">
+              <h3 className="text-base font-extrabold text-slate-800">📊 4. Quarterly Performance</h3>
+              <p className="text-xs text-slate-400 font-medium">Comparison across Q1, Q2, Q3, and Q4 periods</p>
+            </div>
+
             <SvgBarGraph
               data={quarterlyBarData}
-              height={220}
+              height={200}
               color1="#4f46e5"
               color2="#ef4444"
-              label1="Quarterly Revenue"
-              label2="Quarterly Expense"
+              label1="Money In"
+              label2="Money Out"
               onHover={handleHover}
               onLeave={handleLeave}
             />
+
+            <div>
+              <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">📋 Quarterly Numbers Table</h4>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs font-semibold border border-slate-200/60 rounded-xl overflow-hidden">
+                  <thead className="bg-slate-100/70 text-slate-600 uppercase text-[10px]">
+                    <tr>
+                      <th className="py-2 px-3">Quarter</th>
+                      <th className="py-2 px-3">Money In (₹)</th>
+                      <th className="py-2 px-3">Money Out (₹)</th>
+                      <th className="py-2 px-3 text-right">Net Savings</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-700">
+                    {quarterlyTrends.map((q: any) => (
+                      <tr key={q.quarter} className="hover:bg-slate-50">
+                        <td className="py-2 px-3 font-bold text-slate-900">{q.quarter}</td>
+                        <td className="py-2 px-3 font-bold text-emerald-600">₹{q.revenue.toLocaleString("en-IN")}</td>
+                        <td className="py-2 px-3 font-bold text-rose-600">₹{q.expense.toLocaleString("en-IN")}</td>
+                        <td className={`py-2 px-3 text-right font-black ${q.netProfit >= 0 ? "text-indigo-600" : "text-rose-600"}`}>
+                          ₹{q.netProfit.toLocaleString("en-IN")}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
 
-          {/* GRAPH 5: DONUT GRAPH - EXPENSE CATEGORY ALLOCATION */}
-          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm flex flex-col items-center">
-            <div className="w-full flex items-center justify-between mb-4">
-              <h3 className="text-base font-extrabold text-slate-800">
-                🍩 Operational Expenditure Allocation by Category
-              </h3>
-              <span className="text-xs font-bold text-rose-600">Category Donut</span>
+          {/* 5. EXPENSE CATEGORY DONUT & TABLE */}
+          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-4">
+            <div className="border-b border-slate-100 pb-3">
+              <h3 className="text-base font-extrabold text-slate-800">🍩 5. Where Expenses Go (Categories)</h3>
+              <p className="text-xs text-slate-400 font-medium">Category breakdown of operational expenditures</p>
             </div>
+
             {categoryDonutData.length === 0 ? (
-              <div className="py-12 text-xs font-semibold text-slate-400">No expense records found</div>
+              <div className="py-12 text-xs font-semibold text-slate-400 text-center">No expense records found</div>
             ) : (
-              <SvgDonutChart data={categoryDonutData} size={220} onHover={handleHover} onLeave={handleLeave} />
+              <SvgDonutChart data={categoryDonutData} size={200} onHover={handleHover} onLeave={handleLeave} />
             )}
+
+            <div>
+              <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">📋 Category Numbers Table</h4>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs font-semibold border border-slate-200/60 rounded-xl overflow-hidden">
+                  <thead className="bg-slate-100/70 text-slate-600 uppercase text-[10px]">
+                    <tr>
+                      <th className="py-2 px-3">Category Name</th>
+                      <th className="py-2 px-3">Spent Amount (₹)</th>
+                      <th className="py-2 px-3 text-right">Share (%)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-700">
+                    {categoryBreakdown.map((c: any, idx: number) => {
+                      const totalExp = summary.totalExpenses || 1;
+                      const pct = ((c.value / totalExp) * 100).toFixed(1);
+                      return (
+                        <tr key={c.name} className="hover:bg-slate-50">
+                          <td className="py-2 px-3 font-bold flex items-center gap-1.5">
+                            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
+                            <span>{c.name}</span>
+                          </td>
+                          <td className="py-2 px-3 font-bold text-rose-600">₹{c.value.toLocaleString("en-IN")}</td>
+                          <td className="py-2 px-3 text-right font-extrabold text-slate-700">{pct}%</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* GRAPH 6 & 7: COMPANY & BRAND BAR GRAPHS */}
+        {/* 6 & 7. COMPANY & BRAND BARS WITH TABLES */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* GRAPH 6: BAR GRAPH - CORPORATE ENTITY TAG MATRIX */}
-          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm">
-            <div className="flex items-center justify-between mb-4">
+          {/* 6. COMPANY TAG BARS & TABLE */}
+          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-4">
+            <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
               <div>
-                <h3 className="text-base font-extrabold text-slate-800">
-                  🏢 Corporate Entity Financial Matrix (Revenue vs Expenses)
-                </h3>
-                <p className="text-xs text-slate-400 font-medium">
-                  Comparative bars for registered corporate entities
-                </p>
+                <h3 className="text-base font-extrabold text-slate-800">🏢 6. Company-wise Income & Expense</h3>
+                <p className="text-xs text-slate-400 font-medium">Financial totals by registered company entity tag</p>
               </div>
+              <Link href="/companies" className="text-xs font-bold text-indigo-600 hover:underline">Manage Companies →</Link>
             </div>
+
             {companyBarData.length === 0 ? (
-              <div className="py-12 text-xs font-semibold text-slate-400 text-center">No company tag data</div>
+              <div className="py-12 text-xs font-semibold text-slate-400 text-center">No company data</div>
             ) : (
               <SvgBarGraph
                 data={companyBarData}
-                height={220}
+                height={200}
                 color1="#10b981"
                 color2="#f43f5e"
-                label1="Company Inflow"
-                label2="Company Outlay"
+                label1="Money In"
+                label2="Money Out"
                 onHover={handleHover}
                 onLeave={handleLeave}
               />
             )}
-          </div>
 
-          {/* GRAPH 7: BAR GRAPH - BRAND PERFORMANCE MATRIX */}
-          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-base font-extrabold text-slate-800">
-                  🏷️ Brand Entity Financial Performance Comparison
-                </h3>
-                <p className="text-xs text-slate-400 font-medium">
-                  Comparative bars for registered brand entities
-                </p>
+            <div>
+              <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">📋 Company Numbers Table</h4>
+              <div className="overflow-x-auto max-h-52 overflow-y-auto">
+                <table className="w-full text-left text-xs font-semibold border border-slate-200/60 rounded-xl overflow-hidden">
+                  <thead className="bg-slate-100/70 text-slate-600 uppercase text-[10px] sticky top-0 bg-slate-100">
+                    <tr>
+                      <th className="py-2 px-3">Company Name</th>
+                      <th className="py-2 px-3">Income (₹)</th>
+                      <th className="py-2 px-3">Expense (₹)</th>
+                      <th className="py-2 px-3 text-right">Net (₹)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-700">
+                    {companyFinancials.map((comp: any) => (
+                      <tr key={comp.name} className="hover:bg-slate-50">
+                        <td className="py-2 px-3 font-bold text-slate-900">{comp.name}</td>
+                        <td className="py-2 px-3 font-bold text-emerald-600">₹{comp.revenue.toLocaleString("en-IN")}</td>
+                        <td className="py-2 px-3 font-bold text-rose-600">₹{comp.expense.toLocaleString("en-IN")}</td>
+                        <td className={`py-2 px-3 text-right font-black ${comp.net >= 0 ? "text-indigo-600" : "text-rose-600"}`}>
+                          ₹{comp.net.toLocaleString("en-IN")}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
+          </div>
+
+          {/* 7. BRAND BARS & TABLE */}
+          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-4">
+            <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-extrabold text-slate-800">🏷️ 7. Brand-wise Income & Expense</h3>
+                <p className="text-xs text-slate-400 font-medium">Financial totals by brand entity</p>
+              </div>
+              <Link href="/admin-dashboard/brands" className="text-xs font-bold text-indigo-600 hover:underline">Manage Brands →</Link>
+            </div>
+
             {brandBarData.length === 0 ? (
               <div className="py-12 text-xs font-semibold text-slate-400 text-center">No brand data</div>
             ) : (
               <SvgBarGraph
                 data={brandBarData}
-                height={220}
+                height={200}
                 color1="#8b5cf6"
                 color2="#f59e0b"
-                label1="Brand Inflow"
-                label2="Brand Outlay"
+                label1="Money In"
+                label2="Money Out"
                 onHover={handleHover}
                 onLeave={handleLeave}
               />
             )}
+
+            <div>
+              <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">📋 Brand Numbers Table</h4>
+              <div className="overflow-x-auto max-h-52 overflow-y-auto">
+                <table className="w-full text-left text-xs font-semibold border border-slate-200/60 rounded-xl overflow-hidden">
+                  <thead className="bg-slate-100/70 text-slate-600 uppercase text-[10px] sticky top-0 bg-slate-100">
+                    <tr>
+                      <th className="py-2 px-3">Brand Name</th>
+                      <th className="py-2 px-3">Income (₹)</th>
+                      <th className="py-2 px-3">Expense (₹)</th>
+                      <th className="py-2 px-3 text-right">Net (₹)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-700">
+                    {brandFinancials.map((b: any) => (
+                      <tr key={b.name} className="hover:bg-slate-50">
+                        <td className="py-2 px-3 font-bold text-slate-900">{b.name}</td>
+                        <td className="py-2 px-3 font-bold text-emerald-600">₹{b.revenue.toLocaleString("en-IN")}</td>
+                        <td className="py-2 px-3 font-bold text-rose-600">₹{b.expense.toLocaleString("en-IN")}</td>
+                        <td className={`py-2 px-3 text-right font-black ${b.net >= 0 ? "text-indigo-600" : "text-rose-600"}`}>
+                          ₹{b.net.toLocaleString("en-IN")}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* GRAPH 8 & 9: PAYMENT PIE & OVERHEAD PIE */}
+        {/* 8 & 9. PAYMENT PIE & OVERHEAD PIE WITH TABLES */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* GRAPH 8: PIE CHART - PAYMENT METHOD DISTRIBUTION */}
-          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm flex flex-col items-center">
-            <div className="w-full flex items-center justify-between mb-4">
-              <h3 className="text-base font-extrabold text-slate-800">
-                💳 Payment Channel Disbursement Distribution
-              </h3>
-              <span className="text-xs font-bold text-sky-600">Channel Pie</span>
+          {/* 8. PAYMENT MODES PIE & TABLE */}
+          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-4">
+            <div className="border-b border-slate-100 pb-3">
+              <h3 className="text-base font-extrabold text-slate-800">💳 8. Payment Modes (Cash, UPI, Bank)</h3>
+              <p className="text-xs text-slate-400 font-medium">Expense disbursements by payment method</p>
             </div>
+
             {paymentPieData.length === 0 ? (
-              <div className="py-12 text-xs font-semibold text-slate-400">No payment data</div>
+              <div className="py-12 text-xs font-semibold text-slate-400 text-center">No payment mode data</div>
             ) : (
-              <SvgPieChart data={paymentPieData} size={210} onHover={handleHover} onLeave={handleLeave} />
+              <SvgPieChart data={paymentPieData} size={190} onHover={handleHover} onLeave={handleLeave} />
             )}
+
+            <div>
+              <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">📋 Payment Mode Numbers Table</h4>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs font-semibold border border-slate-200/60 rounded-xl overflow-hidden">
+                  <thead className="bg-slate-100/70 text-slate-600 uppercase text-[10px]">
+                    <tr>
+                      <th className="py-2 px-3">Mode</th>
+                      <th className="py-2 px-3">Spent Amount (₹)</th>
+                      <th className="py-2 px-3 text-right">Share (%)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-700">
+                    {paymentModeDistribution.map((m: any, idx: number) => {
+                      const tot = summary.totalExpenses || 1;
+                      const pct = ((m.value / tot) * 100).toFixed(1);
+                      return (
+                        <tr key={m.name} className="hover:bg-slate-50">
+                          <td className="py-2 px-3 font-bold flex items-center gap-1.5">
+                            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
+                            <span>{m.name}</span>
+                          </td>
+                          <td className="py-2 px-3 font-bold text-slate-900">₹{m.value.toLocaleString("en-IN")}</td>
+                          <td className="py-2 px-3 text-right font-extrabold text-indigo-600">{pct}%</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
 
-          {/* GRAPH 9: PIE CHART - FIXED VS VARIABLE OVERHEAD */}
-          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm flex flex-col items-center">
-            <div className="w-full flex items-center justify-between mb-4">
-              <h3 className="text-base font-extrabold text-slate-800">
-                ⚡ Operational Cost Structure (Variable vs Fixed Overhead)
-              </h3>
-              <span className="text-xs font-bold text-teal-600">Cost Pie</span>
+          {/* 9. OVERHEAD TYPES PIE & TABLE */}
+          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-4">
+            <div className="border-b border-slate-100 pb-3">
+              <h3 className="text-base font-extrabold text-slate-800">⚡ 9. Fixed vs Variable Expenses</h3>
+              <p className="text-xs text-slate-400 font-medium">Proportion of variable operating costs vs fixed overhead</p>
             </div>
-            <SvgPieChart data={overheadPieData} size={210} onHover={handleHover} onLeave={handleLeave} />
+
+            <SvgPieChart data={overheadPieData} size={190} onHover={handleHover} onLeave={handleLeave} />
+
+            <div>
+              <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">📋 Expense Type Numbers Table</h4>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs font-semibold border border-slate-200/60 rounded-xl overflow-hidden">
+                  <thead className="bg-slate-100/70 text-slate-600 uppercase text-[10px]">
+                    <tr>
+                      <th className="py-2 px-3">Cost Type</th>
+                      <th className="py-2 px-3">Spent Amount (₹)</th>
+                      <th className="py-2 px-3 text-right">Share (%)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-700">
+                    {overheadPieData.map((d) => {
+                      const tot = Math.max(1, summary.totalExpenses);
+                      const pct = ((d.value / tot) * 100).toFixed(1);
+                      return (
+                        <tr key={d.name} className="hover:bg-slate-50">
+                          <td className="py-2 px-3 font-bold flex items-center gap-1.5">
+                            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.color }} />
+                            <span>{d.name}</span>
+                          </td>
+                          <td className="py-2 px-3 font-bold text-slate-900">₹{d.value.toLocaleString("en-IN")}</td>
+                          <td className="py-2 px-3 text-right font-extrabold text-teal-600">{pct}%</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* GRAPH 10: LINE GRAPH - RECENT DISBURSEMENT VELOCITY STREAM */}
+        {/* 10. RECENT DISBURSEMENTS TABLE & TREND LINE */}
         <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div>
-              <h3 className="text-base font-extrabold text-slate-800">
-                📋 Disbursement Velocity Stream
-              </h3>
-              <p className="text-xs text-slate-400 font-medium">
-                Sequential velocity line curve of recent verified disbursements recorded in MongoDB
-              </p>
+              <h3 className="text-base font-extrabold text-slate-800">📋 10. Recent Expenses List</h3>
+              <p className="text-xs text-slate-400 font-medium">Detailed list of latest verified expense disbursements in MongoDB</p>
             </div>
-            <Link href="/expenses" className="text-xs font-bold text-indigo-600 hover:text-indigo-800 underline">
-              View All Entries →
-            </Link>
+            <Link href="/expenses" className="text-xs font-bold text-indigo-600 hover:underline">View All Expenses →</Link>
           </div>
 
           <SvgLineGraph
             data={transactionLineData}
             width={700}
-            height={200}
+            height={180}
             color1="#6366f1"
-            label1="Transaction Disbursement Size Line"
+            label1="Expense Amount Trend Line"
             onHover={handleHover}
             onLeave={handleLeave}
           />
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs font-semibold border border-slate-200/60 rounded-xl overflow-hidden">
+              <thead className="bg-slate-100/70 text-slate-600 uppercase text-[10px]">
+                <tr>
+                  <th className="py-3 px-4">Date</th>
+                  <th className="py-3 px-4">Category</th>
+                  <th className="py-3 px-4">Expense Name</th>
+                  <th className="py-3 px-4">Company Tag</th>
+                  <th className="py-3 px-4">Payment Mode</th>
+                  <th className="py-3 px-4">Bank</th>
+                  <th className="py-3 px-4 text-right">Amount (₹)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-slate-700">
+                {recentExpenses.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="text-center py-6 text-slate-400 font-semibold">No expense records found.</td>
+                  </tr>
+                ) : (
+                  recentExpenses.map((exp: any) => (
+                    <tr key={exp._id} className="hover:bg-slate-50 transition-colors">
+                      <td className="py-2.5 px-4 font-mono text-slate-500">
+                        {exp.expenseDate ? new Date(exp.expenseDate).toLocaleDateString("en-IN") : "-"}
+                      </td>
+                      <td className="py-2.5 px-4 font-bold text-slate-800">{exp.category}</td>
+                      <td className="py-2.5 px-4">{exp.title}</td>
+                      <td className="py-2.5 px-4">
+                        <span className="bg-slate-100 px-2 py-0.5 rounded text-[11px] font-bold text-slate-700">
+                          {exp.company || "Unallocated"}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-4 font-bold text-indigo-600">{exp.paymentMode}</td>
+                      <td className="py-2.5 px-4 text-slate-500">{exp.bank || "-"}</td>
+                      <td className="py-2.5 px-4 text-right font-bold text-rose-600">
+                        ₹{Number(exp.amount).toLocaleString("en-IN")}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
