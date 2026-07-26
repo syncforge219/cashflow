@@ -283,6 +283,31 @@ export default function ExpensesPage() {
   const availableFilterCompanies = getLinkedCompaniesForBrand(selectedBrand);
   const availableFormCompanies = getLinkedCompaniesForBrand(formData.brand);
 
+  const getBankForCompany = (compName: string) => {
+    if (!compName || compName === "All Companies" || compName === "All") return "";
+    const found = rawCompanies.find(
+      (c) => c.name?.trim().toLowerCase() === compName.trim().toLowerCase()
+    );
+    return found?.bank || found?.bankName || "";
+  };
+
+  const availableCompanyBanks = Array.from(
+    new Set(
+      rawCompanies
+        .map((c) => c.bank || c.bankName)
+        .filter((b) => Boolean(b) && b !== "Not Provided")
+    )
+  );
+
+  const handleCompanyChangeInForm = (newCompany: string) => {
+    const compBank = getBankForCompany(newCompany);
+    setFormData((prev) => ({
+      ...prev,
+      company: newCompany,
+      bank: compBank || prev.bank,
+    }));
+  };
+
   const handleBrandChangeInForm = (newBrand: string) => {
     const linked = getLinkedCompaniesForBrand(newBrand);
     let newCompany = "All Companies";
@@ -291,7 +316,13 @@ export default function ExpensesPage() {
     } else if (linked.length > 1) {
       newCompany = linked.includes(formData.company) ? formData.company : linked[0];
     }
-    setFormData((prev) => ({ ...prev, brand: newBrand, company: newCompany }));
+    const compBank = getBankForCompany(newCompany);
+    setFormData((prev) => ({
+      ...prev,
+      brand: newBrand,
+      company: newCompany,
+      bank: compBank || prev.bank,
+    }));
   };
 
   const fetchExpenses = async () => {
@@ -724,7 +755,7 @@ export default function ExpensesPage() {
                   <label className="block text-slate-600 mb-1 font-semibold text-xs">Company Tag</label>
                   <select
                     value={formData.company}
-                    onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                    onChange={(e) => handleCompanyChangeInForm(e.target.value)}
                     className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-xs font-semibold text-slate-800 bg-white cursor-pointer"
                   >
                     <option value="All Companies">All Companies</option>
@@ -736,14 +767,40 @@ export default function ExpensesPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-slate-600 mb-1 font-semibold text-xs">Bank Name (Optional)</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-slate-600 font-semibold text-xs">Bank Name (Optional)</label>
+                      {formData.company && formData.company !== "All Companies" && getBankForCompany(formData.company) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const b = getBankForCompany(formData.company);
+                            if (b) setFormData((prev) => ({ ...prev, bank: b }));
+                          }}
+                          className="text-[10px] font-bold text-rose-600 hover:text-rose-800 underline cursor-pointer"
+                        >
+                          Import: {getBankForCompany(formData.company)}
+                        </button>
+                      )}
+                    </div>
                     <input
                       type="text"
+                      list="company-banks-list"
                       placeholder="e.g. BOI, ICICI, HDFC"
                       value={formData.bank}
                       onChange={(e) => setFormData({ ...formData, bank: e.target.value })}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-xs font-semibold text-slate-800"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-xs font-semibold text-slate-800 bg-white"
                     />
+                    <datalist id="company-banks-list">
+                      {availableCompanyBanks.map((b) => (
+                        <option key={b} value={b} />
+                      ))}
+                      <option value="BOI" />
+                      <option value="Bank Of India" />
+                      <option value="ICICI" />
+                      <option value="HDFC" />
+                      <option value="SBI" />
+                      <option value="AXIS" />
+                    </datalist>
                   </div>
                   <div>
                     <label className="block text-slate-600 mb-1 font-semibold text-xs">Expense Nature</label>
