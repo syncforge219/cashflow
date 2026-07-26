@@ -304,7 +304,7 @@ export default function ExpensesPage() {
     setFormData((prev) => ({
       ...prev,
       company: newCompany,
-      bank: compBank || prev.bank,
+      bank: compBank || (newCompany === "All Companies" ? "" : prev.bank),
     }));
   };
 
@@ -321,9 +321,18 @@ export default function ExpensesPage() {
       ...prev,
       brand: newBrand,
       company: newCompany,
-      bank: compBank || prev.bank,
+      bank: compBank || (newCompany === "All Companies" ? "" : prev.bank),
     }));
   };
+
+  useEffect(() => {
+    if (formData.company && formData.company !== "All Companies" && rawCompanies.length > 0) {
+      const compBank = getBankForCompany(formData.company);
+      if (compBank) {
+        setFormData((prev) => ({ ...prev, bank: compBank }));
+      }
+    }
+  }, [formData.company, rawCompanies]);
 
   const fetchExpenses = async () => {
     setIsLoading(true);
@@ -768,39 +777,29 @@ export default function ExpensesPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="block text-slate-600 font-semibold text-xs">Bank Name (Optional)</label>
+                      <label className="block text-slate-600 font-semibold text-xs">Bank Name</label>
                       {formData.company && formData.company !== "All Companies" && getBankForCompany(formData.company) && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const b = getBankForCompany(formData.company);
-                            if (b) setFormData((prev) => ({ ...prev, bank: b }));
-                          }}
-                          className="text-[10px] font-bold text-rose-600 hover:text-rose-800 underline cursor-pointer"
-                        >
-                          Import: {getBankForCompany(formData.company)}
-                        </button>
+                        <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                          ✓ Auto-selected from {formData.company}
+                        </span>
                       )}
                     </div>
-                    <input
-                      type="text"
-                      list="company-banks-list"
-                      placeholder="e.g. BOI, ICICI, HDFC"
+                    <select
                       value={formData.bank}
                       onChange={(e) => setFormData({ ...formData, bank: e.target.value })}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-xs font-semibold text-slate-800 bg-white"
-                    />
-                    <datalist id="company-banks-list">
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-xs font-semibold text-slate-800 bg-white cursor-pointer"
+                    >
+                      <option value="">-- Select Bank --</option>
                       {availableCompanyBanks.map((b) => (
-                        <option key={b} value={b} />
+                        <option key={b} value={b}>{b}</option>
                       ))}
-                      <option value="BOI" />
-                      <option value="Bank Of India" />
-                      <option value="ICICI" />
-                      <option value="HDFC" />
-                      <option value="SBI" />
-                      <option value="AXIS" />
-                    </datalist>
+                      {!availableCompanyBanks.includes("BOI") && <option value="BOI">BOI</option>}
+                      {!availableCompanyBanks.includes("Bank Of India") && <option value="Bank Of India">Bank Of India</option>}
+                      {!availableCompanyBanks.includes("ICICI") && <option value="ICICI">ICICI</option>}
+                      {!availableCompanyBanks.includes("HDFC") && <option value="HDFC">HDFC</option>}
+                      {!availableCompanyBanks.includes("SBI") && <option value="SBI">SBI</option>}
+                      {!availableCompanyBanks.includes("AXIS") && <option value="AXIS">AXIS</option>}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-slate-600 mb-1 font-semibold text-xs">Expense Nature</label>
