@@ -936,16 +936,16 @@ export default function ExpensesPage() {
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-slate-100 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                  <th className="pb-3">Title / Description</th>
-                  <th className="pb-3">Category</th>
-                  <th className="pb-3">Brand Tag</th>
-                  <th className="pb-3">Company Tag</th>
-                  <th className="pb-3">Bank</th>
-                  <th className="pb-3">Nature</th>
-                  <th className="pb-3 text-right">Amount</th>
-                  <th className="pb-3">Payment Mode</th>
-                  <th className="pb-3">Date</th>
-                  <th className="pb-3 text-right">Actions</th>
+                  <th className="pb-3 pr-4 min-w-[130px]">Title / Description</th>
+                  <th className="pb-3 pr-4 min-w-[140px]">Category</th>
+                  <th className="pb-3 pr-3 min-w-[90px]">Brand Tag</th>
+                  <th className="pb-3 pr-3 min-w-[130px]">Company Tag</th>
+                  <th className="pb-3 pr-3 min-w-[90px]">Bank</th>
+                  <th className="pb-3 pr-3 min-w-[72px]">Nature</th>
+                  <th className="pb-3 px-3 min-w-[90px] text-right">Amount</th>
+                  <th className="pb-3 pl-4 min-w-[100px]">Payment Mode</th>
+                  <th className="pb-3 pr-3 min-w-[85px]">Date</th>
+                  <th className="pb-3 text-right min-w-[60px]">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100/60 font-semibold text-slate-600">
@@ -964,23 +964,23 @@ export default function ExpensesPage() {
                 ) : (
                   expenses.map((e) => (
                     <tr key={e._id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3 font-bold text-slate-900">{e.title}</td>
-                      <td>
-                        <span className="bg-rose-50 text-rose-700 px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase border border-rose-100">
+                      <td className="py-3 pr-4 font-bold text-slate-900">{e.title}</td>
+                      <td className="pr-4">
+                        <span className="bg-rose-50 text-rose-700 px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase border border-rose-100 whitespace-nowrap">
                           {e.category}
                         </span>
                       </td>
-                      <td className="text-slate-600">{e.brand || "-"}</td>
-                      <td className="text-slate-600">{e.company || "-"}</td>
-                      <td className="text-slate-600 font-bold">{e.bank || "-"}</td>
-                      <td>
-                        <span className={`px-2 py-0.5 rounded-md text-[9px] font-extrabold ${e.expenseType === "fixed" ? "bg-indigo-50 text-indigo-700 border border-indigo-200" : "bg-slate-100 text-slate-600"}`}>
+                      <td className="pr-3 text-slate-600">{e.brand || "-"}</td>
+                      <td className="pr-3 text-slate-600">{e.company || "-"}</td>
+                      <td className="pr-3 text-slate-600 font-bold">{e.bank || "-"}</td>
+                      <td className="pr-3">
+                        <span className={`px-2 py-0.5 rounded-md text-[9px] font-extrabold whitespace-nowrap ${e.expenseType === "fixed" ? "bg-indigo-50 text-indigo-700 border border-indigo-200" : "bg-slate-100 text-slate-600"}`}>
                           {e.expenseType || "variable"}
                         </span>
                       </td>
-                      <td className="text-right font-black text-rose-600">₹{e.amount.toLocaleString("en-IN")}</td>
-                      <td className="text-slate-500">{e.paymentMode}</td>
-                      <td className="text-slate-500 text-[11px]">
+                      <td className="px-3 text-right font-black text-rose-600 whitespace-nowrap">₹{e.amount.toLocaleString("en-IN")}</td>
+                      <td className="pl-4 pr-3 text-slate-500 whitespace-nowrap">{e.paymentMode}</td>
+                      <td className="pr-3 text-slate-500 text-[11px] whitespace-nowrap">
                         {new Date(e.expenseDate).toLocaleDateString("en-IN", {
                           day: "numeric",
                           month: "short",
