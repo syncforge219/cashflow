@@ -87,7 +87,7 @@ export async function sendWhatsAppFeeReceipt(params: FeeReceiptWhatsAppParams) {
 
     const rNo = params.receiptNo || "GEN-001";
     const receiptDocUrl =
-      params.receiptUrl || `${getPublicPdfBaseUrl()}/api/receipts/${rNo}/pdf`;
+      params.receiptUrl || `${getPublicPdfBaseUrl()}/api/receipts/${rNo}/pdf?v=${Date.now()}`;
     const filename = `Fee_Receipt_${rNo}.pdf`;
     const formattedAmount = `₹${Number(params.amountPaid || 0).toLocaleString(
       "en-IN",
@@ -213,7 +213,7 @@ export async function sendWhatsAppDailyReport(params: DailyReportWhatsAppParams)
     }
 
     const reportPdfUrl =
-      params.pdfUrl || `${getPublicPdfBaseUrl()}/api/reports/daily/pdf`;
+      params.pdfUrl || `${getPublicPdfBaseUrl()}/api/reports/daily/pdf?v=${Date.now()}`;
 
     const safeDate = params.reportData.dateStr.replace(/[^a-zA-Z0-9]/g, "_");
     const filename = `Daily_Report_${safeDate}.pdf`;
@@ -384,7 +384,7 @@ export async function sendWhatsAppMonthlyReport(params: {
     if (!formattedPhone) {
       return { success: false, error: "Invalid admin mobile number." };
     }
-    const reportPdfUrl = `${getPublicPdfBaseUrl()}/api/reports/monthly/pdf`;
+    const reportPdfUrl = `${getPublicPdfBaseUrl()}/api/reports/monthly/pdf?v=${Date.now()}`;
     const filename = `Monthly_Report_${params.reportData.dateStr.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
 
     const totalLeads = params.reportData.executiveSummary?.totalLeads?.value ?? 0;
