@@ -1812,7 +1812,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
 
           {/* Daily & Monthly WhatsApp Report Trigger Cards */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Daily WhatsApp Trigger */}
+            {/* Daily WhatsApp & PDF Trigger */}
             <div className="bg-white border border-emerald-200/80 rounded-3xl p-6 shadow-md space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
@@ -1820,21 +1820,31 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
                   Daily Executive PDF Report
                 </h3>
                 <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[9px] font-extrabold uppercase">
-                  Daily WhatsApp
+                  Daily WhatsApp & PDF
                 </span>
               </div>
               <p className="text-xs text-slate-500 font-medium">Triggers 24-hour midnight dispatch & instant PDF summary on WhatsApp.</p>
-              <button
-                onClick={handleSendDailyWhatsAppReport}
-                disabled={isSendingWhatsAppReport}
-                className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-extrabold shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-              >
-                {isSendingWhatsAppReport ? "Sending PDF Report..." : "📲 Trigger Daily WhatsApp Report"}
-              </button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  onClick={handleSendDailyWhatsAppReport}
+                  disabled={isSendingWhatsAppReport}
+                  className="py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-extrabold shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {isSendingWhatsAppReport ? "Sending..." : "📲 WhatsApp Report"}
+                </button>
+                <a
+                  href="/api/reports/daily/pdf"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-extrabold shadow-sm transition-all flex items-center justify-center gap-2 text-center"
+                >
+                  📄 View / Download PDF
+                </a>
+              </div>
               {waReportStatus.text && <p className="text-[11px] font-bold text-emerald-700">{waReportStatus.text}</p>}
             </div>
 
-            {/* Monthly MTD WhatsApp Trigger */}
+            {/* Monthly MTD WhatsApp & PDF Trigger */}
             <div className="bg-white border border-indigo-200/80 rounded-3xl p-6 shadow-md space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
@@ -1842,17 +1852,27 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
                   Monthly MTD PDF Report
                 </h3>
                 <span className="px-2.5 py-0.5 bg-indigo-100 text-indigo-800 rounded-full text-[9px] font-extrabold uppercase">
-                  Monthly MTD
+                  Monthly MTD & PDF
                 </span>
               </div>
               <p className="text-xs text-slate-500 font-medium">Aggregates Day 1 to Today MTD metrics into a formal executive PDF on WhatsApp.</p>
-              <button
-                onClick={handleSendMonthlyWhatsAppReport}
-                disabled={isSendingMonthlyReport}
-                className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-extrabold shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-              >
-                {isSendingMonthlyReport ? "Generating MTD PDF..." : "📊 Trigger Monthly MTD Report"}
-              </button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  onClick={handleSendMonthlyWhatsAppReport}
+                  disabled={isSendingMonthlyReport}
+                  className="py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-extrabold shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {isSendingMonthlyReport ? "Generating..." : "📊 WhatsApp MTD"}
+                </button>
+                <a
+                  href="/api/reports/monthly/pdf"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-extrabold shadow-sm transition-all flex items-center justify-center gap-2 text-center"
+                >
+                  📄 View / Download MTD PDF
+                </a>
+              </div>
               {monthlyReportStatus.text && <p className="text-[11px] font-bold text-indigo-700">{monthlyReportStatus.text}</p>}
             </div>
           </div>

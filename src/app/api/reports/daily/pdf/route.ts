@@ -13,8 +13,10 @@ export async function GET(req: NextRequest) {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="Daily_Report_${safeDateStr}.pdf"`,
-        "Cache-Control": "no-store, max-age=0",
+        "Content-Disposition": `inline; filename="Daily_Executive_Report_${safeDateStr}.pdf"`,
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
+        "Pragma": "no-cache",
+        "Expires": "0",
       },
     });
   } catch (error: any) {

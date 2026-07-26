@@ -7,14 +7,16 @@ export async function GET(req: NextRequest) {
     const stats = await getMonthlyReportStats();
     const pdfBuffer = generateMonthlyReportPdfBuffer(stats);
 
-    const filename = `Monthly_Report_${stats.dateStr.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
+    const filename = `Monthly_MTD_Executive_Report_${stats.dateStr.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
 
     return new NextResponse(Uint8Array.from(pdfBuffer), {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `inline; filename="${filename}"`,
-        "Cache-Control": "public, max-age=60",
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
+        "Pragma": "no-cache",
+        "Expires": "0",
       },
     });
   } catch (error: any) {
