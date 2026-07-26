@@ -14,6 +14,200 @@ interface ReportsPageContentProps {
   role: "admin" | "manager";
 }
 
+// ── CANVAS CHART ENGINE FOR EXCEL REPORTS ───────────────────────
+const drawBarChartCanvas = (
+  title: string,
+  labels: string[],
+  values: number[],
+  colors = ["#4f46e5", "#059669", "#7c3aed", "#2563eb", "#d97706", "#dc2626", "#06b6d4"],
+  valueFormatter: (v: number) => string = (v) => v >= 100000 ? `₹${(v/100000).toFixed(1)}L` : `₹${v.toLocaleString('en-IN')}`,
+  width = 720,
+  height = 360
+): string | null => {
+  if (typeof window === "undefined" || !document) return null;
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+
+  // Background
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, width, height);
+
+  // Border & Header
+  ctx.strokeStyle = "#e2e8f0";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(1, 1, width - 2, height - 2);
+
+  ctx.fillStyle = "#f8fafc";
+  ctx.fillRect(2, 2, width - 4, 44);
+
+  ctx.fillStyle = "#0f172a";
+  ctx.font = "bold 15px Arial, sans-serif";
+  ctx.fillText(title.toUpperCase(), 20, 28);
+
+  if (labels.length === 0 || values.length === 0) {
+    ctx.fillStyle = "#94a3b8";
+    ctx.font = "14px Arial, sans-serif";
+    ctx.fillText("No data available to generate chart", 20, 100);
+    return canvas.toDataURL("image/png");
+  }
+
+  const maxVal = Math.max(...values, 1);
+  const chartTop = 80;
+  const chartBottom = height - 50;
+  const chartLeft = 70;
+  const chartRight = width - 40;
+  const chartH = chartBottom - chartTop;
+  const chartW = chartRight - chartLeft;
+
+  // Gridlines
+  const steps = 4;
+  ctx.strokeStyle = "#f1f5f9";
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= steps; i++) {
+    const y = chartBottom - (chartH / steps) * i;
+    const val = (maxVal / steps) * i;
+    ctx.beginPath();
+    ctx.moveTo(chartLeft, y);
+    ctx.lineTo(chartRight, y);
+    ctx.stroke();
+
+    ctx.fillStyle = "#64748b";
+    ctx.font = "10px Arial, sans-serif";
+    ctx.textAlign = "right";
+    ctx.fillText(valueFormatter(val), chartLeft - 8, y + 3);
+  }
+
+  // Bars
+  const gap = 16;
+  const barW = Math.min(65, Math.max(20, (chartW - gap * (labels.length + 1)) / labels.length));
+
+  labels.forEach((lbl, i) => {
+    const val = values[i] || 0;
+    const bHeight = (val / maxVal) * chartH;
+    const x = chartLeft + gap + i * (barW + gap);
+    const y = chartBottom - bHeight;
+    const color = colors[i % colors.length];
+
+    ctx.fillStyle = color;
+    if ((ctx as any).roundRect) {
+      ctx.beginPath();
+      (ctx as any).roundRect(x, y, barW, bHeight, [6, 6, 0, 0]);
+      ctx.fill();
+    } else {
+      ctx.fillRect(x, y, barW, bHeight);
+    }
+
+    // Top Label
+    ctx.fillStyle = "#0f172a";
+    ctx.font = "bold 11px Arial, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(valueFormatter(val), x + barW / 2, y - 6);
+
+    // Bottom X-Axis Label
+    ctx.fillStyle = "#334155";
+    ctx.font = "11px Arial, sans-serif";
+    const trunc = lbl.length > 12 ? lbl.substring(0, 10) + ".." : lbl;
+    ctx.fillText(trunc, x + barW / 2, chartBottom + 18);
+  });
+
+  return canvas.toDataURL("image/png");
+};
+
+const drawDonutChartCanvas = (
+  title: string,
+  labels: string[],
+  values: number[],
+  colors = ["#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#ef4444", "#06b6d4"],
+  width = 640,
+  height = 360
+): string | null => {
+  if (typeof window === "undefined" || !document) return null;
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.strokeStyle = "#e2e8f0";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(1, 1, width - 2, height - 2);
+
+  ctx.fillStyle = "#f8fafc";
+  ctx.fillRect(2, 2, width - 4, 44);
+
+  ctx.fillStyle = "#0f172a";
+  ctx.font = "bold 15px Arial, sans-serif";
+  ctx.fillText(title.toUpperCase(), 20, 28);
+
+  const total = values.reduce((a, b) => a + b, 0);
+  if (total === 0) {
+    ctx.fillStyle = "#94a3b8";
+    ctx.font = "14px Arial, sans-serif";
+    ctx.fillText("No data available", 20, 100);
+    return canvas.toDataURL("image/png");
+  }
+
+  const cx = 170;
+  const cy = height / 2 + 10;
+  const radius = 105;
+  let startAngle = -Math.PI / 2;
+
+  values.forEach((val, i) => {
+    const sliceAngle = (val / total) * Math.PI * 2;
+    const endAngle = startAngle + sliceAngle;
+    const color = colors[i % colors.length];
+
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, radius, startAngle, endAngle);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    startAngle = endAngle;
+  });
+
+  // Center hole
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius * 0.55, 0, Math.PI * 2);
+  ctx.fillStyle = "#ffffff";
+  ctx.fill();
+
+  ctx.fillStyle = "#0f172a";
+  ctx.font = "bold 18px Arial, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(total.toString(), cx, cy + 2);
+  ctx.fillStyle = "#64748b";
+  ctx.font = "10px Arial, sans-serif";
+  ctx.fillText("TOTAL", cx, cy + 16);
+
+  // Legend
+  let legendY = 80;
+  labels.forEach((lbl, i) => {
+    const val = values[i] || 0;
+    const pct = ((val / total) * 100).toFixed(1) + "%";
+    const color = colors[i % colors.length];
+
+    ctx.fillStyle = color;
+    ctx.fillRect(340, legendY, 14, 14);
+
+    ctx.fillStyle = "#1e293b";
+    ctx.font = "bold 12px Arial, sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText(`${lbl}: ${val} (${pct})`, 364, legendY + 12);
+
+    legendY += 28;
+  });
+
+  return canvas.toDataURL("image/png");
+};
+
 export default function ReportsPageContent({ role }: ReportsPageContentProps) {
   const { user, logout } = useUser();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -246,6 +440,50 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
     // Format Sheet 1 Columns
     summarySheet.columns.forEach(col => col.width = 24);
 
+    // Embed Visual Chart Graphics into Sheet 1
+    try {
+      const brandNames = brands.map((b: any) => b.name);
+      const brandRevenues = brands.map((b: any) => {
+        const bNameLower = (b.name || "").toLowerCase().trim();
+        return payments.reduce((sum: number, p: any) => {
+          const admission = p.admissionId || {};
+          const pBrand = (admission.brand || p.brand || "").toLowerCase().trim();
+          return pBrand === bNameLower ? sum + Number(p.amountReceived || 0) : sum;
+        }, 0);
+      });
+
+      const compNames = companies.map((c: any) => c.name);
+      const compRevenues = companies.map((comp: any) => {
+        const cNameLower = (comp.name || "").toLowerCase().trim();
+        const compPayments = payments.filter((p: any) => {
+          const admission = p.admissionId || {};
+          const pComp = (admission.companyAssigned || p.company || "").toLowerCase().trim();
+          return pComp.includes(cNameLower) || cNameLower.includes(pComp);
+        });
+        return compPayments.reduce((sum: number, p: any) => sum + Number(p.amountReceived || 0), 0);
+      });
+
+      const brandChartBase64 = drawBarChartCanvas("BRAND BILLED REVENUE (INR)", brandNames, brandRevenues);
+      if (brandChartBase64) {
+        const img1 = workbook.addImage({ base64: brandChartBase64, extension: "png" });
+        summarySheet.addImage(img1, {
+          tl: { col: 8, row: 3 },
+          ext: { width: 560, height: 280 }
+        });
+      }
+
+      const compChartBase64 = drawDonutChartCanvas("COMPANY COLLECTIONS SHARE", compNames, compRevenues);
+      if (compChartBase64) {
+        const img2 = workbook.addImage({ base64: compChartBase64, extension: "png" });
+        summarySheet.addImage(img2, {
+          tl: { col: 8, row: 18 },
+          ext: { width: 560, height: 280 }
+        });
+      }
+    } catch (chartErr) {
+      console.error("Failed adding charts to Super Master report:", chartErr);
+    }
+
     // ── SHEETS FOR EACH BRAND ────────────────────────────────
     brands.forEach((b: any) => {
       const bNameLower = (b.name || "").toLowerCase().trim();
@@ -370,6 +608,40 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
 
     sheet.columns.forEach(col => col.width = 20);
 
+    // Embed Visual Chart Graphics into Leads Register
+    try {
+      const enquiries = master.enquiries || [];
+      const statusMap: Record<string, number> = {};
+      const sourceMap: Record<string, number> = {};
+
+      enquiries.forEach((e: any) => {
+        const st = e.status || "New";
+        const src = e.leadSource || "Direct";
+        statusMap[st] = (statusMap[st] || 0) + 1;
+        sourceMap[src] = (sourceMap[src] || 0) + 1;
+      });
+
+      const statusChart = drawDonutChartCanvas("ENQUIRY STATUS BREAKDOWN", Object.keys(statusMap), Object.values(statusMap));
+      if (statusChart) {
+        const img1 = workbook.addImage({ base64: statusChart, extension: "png" });
+        sheet.addImage(img1, {
+          tl: { col: 13, row: 3 },
+          ext: { width: 520, height: 260 }
+        });
+      }
+
+      const sourceChart = drawBarChartCanvas("LEAD ACQUISITION CHANNELS", Object.keys(sourceMap), Object.values(sourceMap), ["#3b82f6", "#10b981", "#7c3aed", "#d97706"], (v) => v.toString());
+      if (sourceChart) {
+        const img2 = workbook.addImage({ base64: sourceChart, extension: "png" });
+        sheet.addImage(img2, {
+          tl: { col: 13, row: 18 },
+          ext: { width: 560, height: 280 }
+        });
+      }
+    } catch (chartErr) {
+      console.error("Failed adding charts to Leads Register report:", chartErr);
+    }
+
     const buffer = await workbook.xlsx.writeBuffer();
     saveAs(new Blob([buffer]), `Leads_Register_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
@@ -417,6 +689,34 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
     });
 
     sheet.columns.forEach(col => col.width = 22);
+
+    // Embed Visual Chart Graphics into Counsellor Performance
+    try {
+      const cList = Object.values(statsMap);
+      const names = cList.map((c: any) => c.name);
+      const admissions = cList.map((c: any) => c.admissions);
+      const revenues = cList.map((c: any) => c.revenue);
+
+      const admChart = drawBarChartCanvas("SALES EXECUTIVE ADMISSIONS SCORECARD", names, admissions, ["#10b981", "#3b82f6", "#8b5cf6"], (v) => v.toString());
+      if (admChart) {
+        const img1 = workbook.addImage({ base64: admChart, extension: "png" });
+        sheet.addImage(img1, {
+          tl: { col: 9, row: 3 },
+          ext: { width: 560, height: 280 }
+        });
+      }
+
+      const revChart = drawBarChartCanvas("SALES EXECUTIVE REVENUE COLLECTED (INR)", names, revenues, ["#4f46e5", "#059669", "#7c3aed"]);
+      if (revChart) {
+        const img2 = workbook.addImage({ base64: revChart, extension: "png" });
+        sheet.addImage(img2, {
+          tl: { col: 9, row: 18 },
+          ext: { width: 560, height: 280 }
+        });
+      }
+    } catch (chartErr) {
+      console.error("Failed adding charts to Counsellor report:", chartErr);
+    }
 
     const buffer = await workbook.xlsx.writeBuffer();
     saveAs(new Blob([buffer]), `Counsellor_Performance_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
@@ -472,6 +772,34 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
     });
 
     sheet.columns.forEach(col => col.width = 22);
+
+    // Embed Visual Chart Graphics into Brand Performance
+    try {
+      const bNames: string[] = [];
+      const bRevenues: number[] = [];
+
+      (master.brands || []).forEach((b: any) => {
+        const bNameLower = (b.name || "").toLowerCase().trim();
+        const bRev = (master.payments || []).reduce((sum: number, p: any) => {
+          const admission = p.admissionId || {};
+          const pBrand = (admission.brand || p.brand || "").toLowerCase().trim();
+          return pBrand === bNameLower ? sum + Number(p.amountReceived || 0) : sum;
+        }, 0);
+        bNames.push(b.name);
+        bRevenues.push(bRev);
+      });
+
+      const brandChart = drawBarChartCanvas("BRAND REVENUE PERFORMANCE", bNames, bRevenues);
+      if (brandChart) {
+        const img1 = workbook.addImage({ base64: brandChart, extension: "png" });
+        sheet.addImage(img1, {
+          tl: { col: 10, row: 3 },
+          ext: { width: 560, height: 280 }
+        });
+      }
+    } catch (chartErr) {
+      console.error("Failed adding charts to Brand Manager report:", chartErr);
+    }
 
     const buffer = await workbook.xlsx.writeBuffer();
     saveAs(new Blob([buffer]), `BrandManager_Performance_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
