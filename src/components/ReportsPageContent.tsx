@@ -530,6 +530,31 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
     const compTotalRow = summarySheet.addRow(["TOTAL ALL COMPANIES", "-", globalReceiptsCount, globalCompanyTotalRevenue]);
     compTotalRow.font = { bold: true };
 
+    summarySheet.addRow([]);
+    summarySheet.addRow([]);
+
+    // 1C. LEAD ACQUISITION SOURCES SUMMARY TABLE
+    summarySheet.addRow(["3. LEAD ACQUISITION SOURCES SUMMARY"]);
+    const sourceHeaders = ["Lead Source Channel", "Total Leads Volume", "% Share of Total Leads"];
+    const sourceHeaderRow = summarySheet.addRow(sourceHeaders);
+    sourceHeaderRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    sourceHeaderRow.eachCell(cell => {
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF3B82F6" } }; // Blue
+    });
+
+    const sourceCounts: Record<string, number> = {};
+    enquiries.forEach((e: any) => {
+      const src = e.leadSource || "Direct";
+      sourceCounts[src] = (sourceCounts[src] || 0) + 1;
+    });
+    const sortedSources = Object.entries(sourceCounts).sort((a, b) => b[1] - a[1]);
+    const totalLeadsVolume = enquiries.length || 1;
+
+    sortedSources.forEach(([src, count]) => {
+      const pctShare = ((count / totalLeadsVolume) * 100).toFixed(1) + "%";
+      summarySheet.addRow([src, count, pctShare]);
+    });
+
     summarySheet.columns.forEach(col => col.width = 24);
 
     // Canvas charts on summary sheet
@@ -554,6 +579,9 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
 
       const crsChart = drawHorizontalBarChartCanvas("TOP DEMANDED COURSES", sortedCourses.map(c => c[0]), sortedCourses.map(c => c[1]), ["#06b6d4", "#ec4899", "#14b8a6", "#f97316", "#6366f1"], (v) => v.toString() + " Leads");
       if (crsChart) summarySheet.addImage(workbook.addImage({ base64: crsChart, extension: "png" }), { tl: { col: 8, row: 33 }, ext: { width: 560, height: 280 } });
+
+      const srcChart = drawBarChartCanvas("LEAD ACQUISITION SOURCES & CHANNELS", sortedSources.map(s => s[0]), sortedSources.map(s => s[1]), ["#3b82f6", "#10b981", "#7c3aed", "#d97706", "#ec4899", "#06b6d4"], (v) => v.toString() + " Leads");
+      if (srcChart) summarySheet.addImage(workbook.addImage({ base64: srcChart, extension: "png" }), { tl: { col: 8, row: 48 }, ext: { width: 560, height: 280 } });
     } catch (chartErr) {
       console.error("Failed adding summary charts:", chartErr);
     }
