@@ -21,8 +21,13 @@ interface SidebarGroup {
 
 export default function ManagerSidebar() {
   const pathname = usePathname();
-  const { logout } = useUser();
+  const { user, logout } = useUser();
   const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const isCfoUser =
+    user?.role === "cfo" ||
+    user?.role === "finance manager" ||
+    user?.role === "finance executive";
 
   const groups: SidebarGroup[] = [
     {
@@ -131,6 +136,72 @@ export default function ManagerSidebar() {
     },
   ];
 
+  const cfoGroups: SidebarGroup[] = [
+    {
+      category: "FINANCE SUITE",
+      items: [
+        {
+          name: "Expenses",
+          href: "/expenses",
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5h16.5a1.5 1.5 0 011.5 1.5v9.75a1.5 1.5 0 01-1.5 1.5H3.75a1.5 1.5 0 01-1.5-1.5V6a1.5 1.5 0 011.5-1.5z" />
+            </svg>
+          ),
+        },
+        {
+          name: "Payroll",
+          href: "/payroll",
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+            </svg>
+          ),
+        },
+        {
+          name: "Fee Collection",
+          href: "/manager-dashboard/fee-collection",
+          icon: (
+            <span className="font-semibold text-lg flex items-center justify-center h-5 w-5 leading-none">
+              ₹
+            </span>
+          ),
+        },
+        {
+          name: "Companies",
+          href: "/companies",
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M14 6.75h.75m-.75 3h.75m-.75 3h.75m3-3h.75m-.75 3h.75" />
+            </svg>
+          ),
+        },
+        {
+          name: "Reports",
+          href: "/manager-dashboard/reports",
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+            </svg>
+          ),
+        },
+        {
+          name: "Logout",
+          href: "#",
+          isLogout: true,
+          onClick: logout,
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
+            </svg>
+          ),
+        },
+      ],
+    },
+  ];
+
+  const displayedGroups = isCfoUser ? cfoGroups : groups;
+
   return (
     <aside
       className={`h-screen bg-white border-r border-slate-100 flex flex-col font-sans shrink-0 ${isCollapsed ? "w-20" : "w-64"
@@ -143,7 +214,7 @@ export default function ManagerSidebar() {
 
         {/* Navigation Links */}
         <div className="flex-1 overflow-y-auto py-6 px-4 space-y-8 custom-scrollbar">
-          {groups.map((group, idx) => (
+          {displayedGroups.map((group, idx) => (
             <div key={idx} className="space-y-3">
               {!isCollapsed && (
                 <div className="flex items-center gap-4">
