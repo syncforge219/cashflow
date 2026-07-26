@@ -2,7 +2,7 @@ import mongoose, { Schema, Document } from "mongoose";
 
 export interface IExpense extends Document {
   title: string;
-  category: "Rent" | "Marketing / Ads" | "Utilities" | "Software / Tools" | "Office Supplies" | "Travel" | "Misc";
+  category: string;
   amount: number;
   expenseDate: Date;
   paymentMode: string;

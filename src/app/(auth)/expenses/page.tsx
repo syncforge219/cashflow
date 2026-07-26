@@ -25,6 +25,55 @@ interface ExpenseRecord {
   remarks?: string;
 }
 
+const EXPENSE_CATEGORIES = [
+  "Maintenance/repairs",
+  "Nagar Nigam",
+  "University Expenses",
+  "Salaries",
+  "Digital marketing",
+  "Ads Recharge",
+  "Electricity",
+  "Loan",
+  "Rent",
+  "Misc Expense",
+  "Stationary",
+  "Mobile",
+  "Internet",
+  "Gunjan",
+  "Tarang",
+  "Pending Payment",
+  "Advance",
+  "GST",
+  "Vendor Payment",
+  "Income Tax",
+  "TDS",
+  "Bank Charges",
+  "Deposit",
+  "Audit Fees",
+  "General Expenses",
+  "Office Expenses",
+  "Over Time",
+  "Diesel / Petrol",
+  "Course Material",
+  "Temple / Pooja",
+  "Refund",
+  "Incentive",
+  "Printing",
+  "Furniture",
+  "Training",
+  "Pantry Expenses",
+  "Petty Cash",
+  "Marketing",
+  "Conveyance",
+  "Internal Transfer",
+  "Computer Rental",
+  "Credit Card",
+  "Travel",
+  "Maintenance",
+  "Pending Salary",
+  "Legal",
+];
+
 export default function ExpensesPage() {
   const { user, logout } = useUser();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -45,7 +94,7 @@ export default function ExpensesPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
-    category: "Marketing / Ads",
+    category: "Maintenance/repairs",
     amount: "",
     expenseDate: new Date().toISOString().slice(0, 10),
     paymentMode: "UPI",
@@ -459,22 +508,20 @@ export default function ExpensesPage() {
               </select>
             </div>
 
-            <div className="flex items-center gap-1.5 overflow-x-auto">
-              {["All", "Marketing / Ads", "Rent", "Utilities", "Software / Tools", "Office Supplies", "Travel", "Misc"].map(
-                (cat) => (
-                  <button
-                    key={cat}
-                    onClick={() => setSelectedCategory(cat)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
-                      selectedCategory === cat
-                        ? "bg-rose-600 text-white shadow-xs"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
-                  >
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-xs font-bold text-slate-500">Category:</span>
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="px-3 py-1.5 text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-slate-700 cursor-pointer"
+              >
+                <option value="All">All Categories</option>
+                {EXPENSE_CATEGORIES.map((cat) => (
+                  <option key={cat} value={cat}>
                     {cat}
-                  </button>
-                )
-              )}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </div>
@@ -578,19 +625,17 @@ export default function ExpensesPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-slate-600 mb-1">Category *</label>
+                    <label className="block text-slate-600 mb-1 font-semibold text-xs">Category *</label>
                     <select
                       value={formData.category}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value as any })}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20"
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-xs font-semibold text-slate-800 bg-white cursor-pointer"
                     >
-                      <option value="Marketing / Ads">Marketing / Ads</option>
-                      <option value="Rent">Rent</option>
-                      <option value="Utilities">Utilities</option>
-                      <option value="Software / Tools">Software / Tools</option>
-                      <option value="Office Supplies">Office Supplies</option>
-                      <option value="Travel">Travel</option>
-                      <option value="Misc">Misc</option>
+                      {EXPENSE_CATEGORIES.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div>
