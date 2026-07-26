@@ -276,7 +276,7 @@ function SvgLineGraph({
   );
 }
 
-// 4. SVG BAR GRAPH COMPONENT
+// 4. SVG VERTICAL BAR GRAPH COMPONENT
 function SvgBarGraph({
   data,
   height = 220,
@@ -339,6 +339,93 @@ function SvgBarGraph({
                 )}
               </div>
               <span className="text-[10px] font-bold text-slate-600 mt-2 truncate max-w-full">{item.label}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// 5. NEW ELEGANT HORIZONTAL BAR GRAPH (PERFECT FOR COMPANIES & BRANDS WITHOUT ANY LABEL CUTOFF!)
+function SvgHorizontalBarGraph({
+  data,
+  color1 = "#10b981",
+  color2 = "#f43f5e",
+  label1 = "Money In",
+  label2 = "Money Out",
+  onHover,
+  onLeave,
+}: {
+  data: { label: string; bar1: number; bar2?: number }[];
+  color1?: string;
+  color2?: string;
+  label1?: string;
+  label2?: string;
+  onHover: (item: TooltipItem, e: React.MouseEvent) => void;
+  onLeave: () => void;
+}) {
+  if (!data || data.length === 0) return null;
+
+  const maxVal = Math.max(...data.map((d) => Math.max(d.bar1 || 0, d.bar2 || 0, 1)));
+
+  return (
+    <div className="w-full space-y-4">
+      <div className="flex items-center gap-4 text-xs font-bold mb-2">
+        <span className="flex items-center gap-1.5" style={{ color: color1 }}>
+          <span className="w-3 h-3 rounded-md" style={{ backgroundColor: color1 }} /> {label1}
+        </span>
+        {label2 && (
+          <span className="flex items-center gap-1.5" style={{ color: color2 }}>
+            <span className="w-3 h-3 rounded-md" style={{ backgroundColor: color2 }} /> {label2}
+          </span>
+        )}
+      </div>
+
+      <div className="space-y-3.5">
+        {data.map((item, idx) => {
+          const w1 = Math.max(2, Math.round(((item.bar1 || 0) / maxVal) * 100));
+          const w2 = item.bar2 !== undefined ? Math.max(2, Math.round(((item.bar2 || 0) / maxVal) * 100)) : null;
+          const net = (item.bar1 || 0) - (item.bar2 || 0);
+
+          return (
+            <div key={idx} className="p-3 bg-slate-50 border border-slate-200/60 rounded-xl space-y-2">
+              <div className="flex items-center justify-between text-xs font-extrabold gap-2">
+                <span className="text-slate-800 font-extrabold truncate" title={item.label}>
+                  {item.label}
+                </span>
+                <span className={`px-2 py-0.5 rounded text-[11px] font-black shrink-0 ${net >= 0 ? "text-emerald-700 bg-emerald-50 border border-emerald-200" : "text-rose-700 bg-rose-50 border border-rose-200"}`}>
+                  Net: ₹{net.toLocaleString("en-IN")}
+                </span>
+              </div>
+
+              {/* Bar 1: Money In */}
+              <div className="space-y-1">
+                <div className="w-full bg-slate-200/70 h-3 rounded-full overflow-hidden flex items-center">
+                  <div
+                    className="h-full rounded-full transition-all duration-300 hover:opacity-80 cursor-pointer"
+                    style={{ width: `${w1}%`, backgroundColor: color1 }}
+                    onMouseEnter={(e) => onHover({ name: `${item.label} (${label1})`, value: item.bar1, category: "MONEY IN" }, e)}
+                    onMouseMove={(e) => onHover({ name: `${item.label} (${label1})`, value: item.bar1, category: "MONEY IN" }, e)}
+                    onMouseLeave={onLeave}
+                  />
+                </div>
+              </div>
+
+              {/* Bar 2: Money Out */}
+              {w2 !== null && (
+                <div className="space-y-1">
+                  <div className="w-full bg-slate-200/70 h-3 rounded-full overflow-hidden flex items-center">
+                    <div
+                      className="h-full rounded-full transition-all duration-300 hover:opacity-80 cursor-pointer"
+                      style={{ width: `${w2}%`, backgroundColor: color2 }}
+                      onMouseEnter={(e) => onHover({ name: `${item.label} (${label2})`, value: item.bar2 || 0, category: "MONEY OUT" }, e)}
+                      onMouseMove={(e) => onHover({ name: `${item.label} (${label2})`, value: item.bar2 || 0, category: "MONEY OUT" }, e)}
+                      onMouseLeave={onLeave}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}
@@ -424,7 +511,7 @@ export default function CfoDashboardPage() {
 
   if (!user) return null;
 
-  // Pie / Donut Chart Datasets
+  // Datasets
   const kpiDonutData = [
     { name: "Money In (Collections)", value: summary.totalRevenue || 1, color: "#10b981" },
     { name: "Money Out (Expenses)", value: summary.totalExpenses || 1, color: "#ef4444" },
@@ -454,7 +541,6 @@ export default function CfoDashboardPage() {
     { name: "Fixed Overhead", value: Math.max(1, summary.fixedExpenses), color: "#14b8a6" },
   ];
 
-  // Line Graph Datasets
   const monthlyLineData = (monthlyTrends || []).map((t: any) => ({
     label: t.month,
     line1: t.revenue,
@@ -466,20 +552,19 @@ export default function CfoDashboardPage() {
     line1: Number(e.amount) || 0,
   }));
 
-  // Bar Graph Datasets
   const quarterlyBarData = (quarterlyTrends || []).map((q: any) => ({
     label: q.quarter,
     bar1: q.revenue,
     bar2: q.expense,
   }));
 
-  const companyBarData = (companyFinancials || []).slice(0, 5).map((c: any) => ({
+  const companyBarData = (companyFinancials || []).map((c: any) => ({
     label: c.name,
     bar1: c.revenue,
     bar2: c.expense,
   }));
 
-  const brandBarData = (brandFinancials || []).slice(0, 5).map((b: any) => ({
+  const brandBarData = (brandFinancials || []).map((b: any) => ({
     label: b.name,
     bar1: b.revenue,
     bar2: b.expense,
@@ -687,7 +772,6 @@ export default function CfoDashboardPage() {
 
             <SvgDonutChart data={kpiDonutData} size={200} onHover={handleHover} onLeave={handleLeave} />
 
-            {/* Table below donut */}
             <div>
               <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">📋 Summary Numbers Table</h4>
               <div className="overflow-x-auto">
@@ -730,7 +814,6 @@ export default function CfoDashboardPage() {
 
             <SvgPieChart data={treasuryPieData} size={200} onHover={handleHover} onLeave={handleLeave} />
 
-            {/* Table below pie */}
             <div>
               <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">📋 Treasury Numbers Table</h4>
               <div className="overflow-x-auto">
@@ -859,14 +942,14 @@ export default function CfoDashboardPage() {
           </div>
         </div>
 
-        {/* 6 & 7. COMPANY & BRAND BARS WITH TABLES */}
+        {/* 6 & 7. COMPANY & BRAND HORIZONTAL BAR GRAPHS WITH TABLES */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* 6. COMPANY TAG BARS & TABLE */}
+          {/* 6. COMPANY TAG HORIZONTAL BARS & TABLE */}
           <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-4">
             <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
               <div>
                 <h3 className="text-base font-extrabold text-slate-800">🏢 6. Company-wise Income & Expense</h3>
-                <p className="text-xs text-slate-400 font-medium">Financial totals by registered company entity tag</p>
+                <p className="text-xs text-slate-400 font-medium">Horizontal visual bars showing Money In vs Money Out per company tag</p>
               </div>
               <Link href="/companies" className="text-xs font-bold text-indigo-600 hover:underline">Manage Companies →</Link>
             </div>
@@ -874,9 +957,8 @@ export default function CfoDashboardPage() {
             {companyBarData.length === 0 ? (
               <div className="py-12 text-xs font-semibold text-slate-400 text-center">No company data</div>
             ) : (
-              <SvgBarGraph
+              <SvgHorizontalBarGraph
                 data={companyBarData}
-                height={200}
                 color1="#10b981"
                 color2="#f43f5e"
                 label1="Money In"
@@ -915,12 +997,12 @@ export default function CfoDashboardPage() {
             </div>
           </div>
 
-          {/* 7. BRAND BARS & TABLE */}
+          {/* 7. BRAND HORIZONTAL BARS & TABLE */}
           <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-4">
             <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
               <div>
                 <h3 className="text-base font-extrabold text-slate-800">🏷️ 7. Brand-wise Income & Expense</h3>
-                <p className="text-xs text-slate-400 font-medium">Financial totals by brand entity</p>
+                <p className="text-xs text-slate-400 font-medium">Horizontal visual bars showing Money In vs Money Out per brand entity</p>
               </div>
               <Link href="/admin-dashboard/brands" className="text-xs font-bold text-indigo-600 hover:underline">Manage Brands →</Link>
             </div>
@@ -928,9 +1010,8 @@ export default function CfoDashboardPage() {
             {brandBarData.length === 0 ? (
               <div className="py-12 text-xs font-semibold text-slate-400 text-center">No brand data</div>
             ) : (
-              <SvgBarGraph
+              <SvgHorizontalBarGraph
                 data={brandBarData}
-                height={200}
                 color1="#8b5cf6"
                 color2="#f59e0b"
                 label1="Money In"
