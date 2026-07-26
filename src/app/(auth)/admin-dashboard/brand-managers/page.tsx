@@ -44,8 +44,8 @@ export default function BrandManagersPage() {
           brand: user.brandScope || "Unassigned",
           joined: new Date(user.createdAt).toLocaleDateString(),
           status: "ACTIVE",
-          registryId: `user-${user._id}`,
-          claim: "BRAND_MANAGER",
+          role: user.role,
+          claim: (user.role === "cfo" || user.role === "finance manager") ? "CFO / FINANCE MANAGER" : "BRAND_MANAGER",
           sync: "DB synchronized",
         }));
         setManagersList(formattedData);
@@ -114,20 +114,23 @@ export default function BrandManagersPage() {
 
             {/* Header buttons */}
             <div className="flex items-center gap-3">
-              {/* <button className="flex items-center gap-2 text-xs font-bold border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 rounded-xl px-4 py-2.5 transition-all shadow-sm">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-4 w-4 text-slate-400">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
-                </svg>
-                Import Excel
-              </button> */}
               <button
                 onClick={() => setIsModalOpen(true)}
-                className="flex items-center gap-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-5 py-2.5 shadow-md shadow-indigo-600/20 transition-all"
+                className="flex items-center gap-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl px-4 py-2.5 shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-4 w-4">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                 </svg>
-                New Manager
+                + Add CFO / Finance Manager
+              </button>
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="flex items-center gap-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-4 py-2.5 shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-4 w-4">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                + Add Centre Head
               </button>
             </div>
           </div>
