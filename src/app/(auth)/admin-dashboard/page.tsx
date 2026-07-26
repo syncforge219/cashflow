@@ -155,139 +155,127 @@ export default function AdminDashboard() {
 
   const initialLetter = user.name ? user.name.charAt(0).toUpperCase() : "A";
 
-  // Data for Colorful Metric Cards
+  // Data for Colorful & Elegant Metric Cards
   const metrics = [
     {
       name: "Total Leads",
       value: data?.kpis?.totalLeads || 0,
       trend: filterLabel === "Overall" ? "Overall" : `Filtered: ${filterLabel}`,
       isGreen: true,
-      accentGradient: "from-blue-500 to-indigo-600",
-      bgLight: "bg-blue-50/60 border-blue-100",
-      textDark: "text-blue-900",
-      badgeClass: "text-blue-700 bg-blue-100/80 border-blue-200",
-      icon: "🎯"
+      accentGradient: "from-blue-500 via-indigo-500 to-indigo-600",
+      bgLight: "bg-blue-50/40 border-blue-100/80",
+      textDark: "text-slate-900",
+      badgeClass: "text-blue-700 bg-blue-100/60 border-blue-200/60"
     },
     {
       name: "Today's Admissions",
       value: data?.kpis?.admissionsToday || 0,
       trend: "Today",
       isGreen: true,
-      accentGradient: "from-teal-500 to-emerald-600",
-      bgLight: "bg-teal-50/60 border-teal-100",
-      textDark: "text-teal-900",
-      badgeClass: "text-teal-700 bg-teal-100/80 border-teal-200",
-      icon: "🎓"
+      accentGradient: "from-teal-400 via-emerald-500 to-teal-600",
+      bgLight: "bg-teal-50/40 border-teal-100/80",
+      textDark: "text-slate-900",
+      badgeClass: "text-teal-700 bg-teal-100/60 border-teal-200/60"
     },
     {
       name: "Today's Collection",
       value: data?.kpis?.todayCollection || "₹0",
       trend: "Today",
       isGreen: true,
-      accentGradient: "from-emerald-500 to-green-600",
-      bgLight: "bg-emerald-50/60 border-emerald-100",
-      textDark: "text-emerald-900",
-      badgeClass: "text-emerald-700 bg-emerald-100/80 border-emerald-200",
-      icon: "💵"
+      accentGradient: "from-emerald-400 via-emerald-500 to-green-600",
+      bgLight: "bg-emerald-50/40 border-emerald-100/80",
+      textDark: "text-slate-900",
+      badgeClass: "text-emerald-700 bg-emerald-100/60 border-emerald-200/60"
     },
     {
       name: "Monthly Collection",
       value: data?.kpis?.monthlyCollection || "₹0 L",
       trend: "Current Month",
       isGreen: true,
-      accentGradient: "from-purple-500 to-indigo-600",
-      bgLight: "bg-purple-50/60 border-purple-100",
-      textDark: "text-purple-900",
-      badgeClass: "text-purple-700 bg-purple-100/80 border-purple-200",
-      icon: "📈"
+      accentGradient: "from-purple-400 via-indigo-500 to-purple-600",
+      bgLight: "bg-purple-50/40 border-purple-100/80",
+      textDark: "text-slate-900",
+      badgeClass: "text-purple-700 bg-purple-100/60 border-purple-200/60"
     },
     {
       name: "Total Revenue",
       value: data?.kpis?.revenue || "₹0 L",
       trend: "Total Collections",
       isGreen: true,
-      accentGradient: "from-indigo-500 to-blue-600",
-      bgLight: "bg-indigo-50/60 border-indigo-100",
-      textDark: "text-indigo-900",
-      badgeClass: "text-indigo-700 bg-indigo-100/80 border-indigo-200",
-      icon: "🏛️"
+      accentGradient: "from-indigo-500 via-blue-500 to-indigo-700",
+      bgLight: "bg-indigo-50/40 border-indigo-100/80",
+      textDark: "text-slate-900",
+      badgeClass: "text-indigo-700 bg-indigo-100/60 border-indigo-200/60"
     },
     {
       name: "Total Payroll",
       value: data?.kpis?.totalPayroll || "₹0 L",
       trend: "Paid Staff Salaries",
       isGreen: false,
-      accentGradient: "from-rose-500 to-pink-600",
-      bgLight: "bg-rose-50/60 border-rose-100",
-      textDark: "text-rose-900",
-      badgeClass: "text-rose-700 bg-rose-100/80 border-rose-200",
-      icon: "💳"
+      accentGradient: "from-rose-400 via-rose-500 to-pink-600",
+      bgLight: "bg-rose-50/40 border-rose-100/80",
+      textDark: "text-slate-900",
+      badgeClass: "text-rose-700 bg-rose-100/60 border-rose-200/60"
     },
     {
       name: "Total Expenses",
       value: data?.kpis?.totalExpenses || "₹0 L",
       trend: "Operational Overhead",
       isGreen: false,
-      accentGradient: "from-amber-500 to-orange-600",
-      bgLight: "bg-amber-50/60 border-amber-100",
-      textDark: "text-amber-900",
-      badgeClass: "text-amber-800 bg-amber-100/80 border-amber-200",
-      icon: "💸"
+      accentGradient: "from-amber-400 via-amber-500 to-orange-500",
+      bgLight: "bg-amber-50/40 border-amber-100/80",
+      textDark: "text-slate-900",
+      badgeClass: "text-amber-800 bg-amber-100/60 border-amber-200/60"
     },
     {
       name: "Net Profit",
       value: data?.kpis?.netProfit || "₹0 L",
       trend: `Margin: ${data?.kpis?.profitMargin || "0%"}`,
       isGreen: data?.kpis?.isProfitable ?? true,
-      accentGradient: data?.kpis?.isProfitable ?? true ? "from-emerald-500 to-teal-600" : "from-rose-600 to-red-600",
-      bgLight: data?.kpis?.isProfitable ?? true ? "bg-emerald-50/60 border-emerald-100" : "bg-rose-50/60 border-rose-100",
-      textDark: data?.kpis?.isProfitable ?? true ? "text-emerald-900" : "text-rose-900",
-      badgeClass: data?.kpis?.isProfitable ?? true ? "text-emerald-700 bg-emerald-100/80 border-emerald-200" : "text-rose-700 bg-rose-100/80 border-rose-200",
-      icon: "💰"
+      accentGradient: data?.kpis?.isProfitable ?? true ? "from-emerald-400 via-teal-500 to-emerald-600" : "from-rose-500 via-red-500 to-rose-700",
+      bgLight: data?.kpis?.isProfitable ?? true ? "bg-emerald-50/40 border-emerald-100/80" : "bg-rose-50/40 border-rose-100/80",
+      textDark: "text-slate-900",
+      badgeClass: data?.kpis?.isProfitable ?? true ? "text-emerald-700 bg-emerald-100/60 border-emerald-200/60" : "text-rose-700 bg-rose-100/60 border-rose-200/60"
     },
     {
       name: "Conversion Rate",
       value: data?.kpis?.conversionRate || "0%",
       trend: filterLabel === "Overall" ? "Overall" : filterLabel,
       isGreen: true,
-      accentGradient: "from-cyan-500 to-blue-500",
-      bgLight: "bg-cyan-50/60 border-cyan-100",
-      textDark: "text-cyan-900",
-      badgeClass: "text-cyan-700 bg-cyan-100/80 border-cyan-200",
-      icon: "⚡"
+      accentGradient: "from-cyan-400 via-sky-500 to-blue-500",
+      bgLight: "bg-cyan-50/40 border-cyan-100/80",
+      textDark: "text-slate-900",
+      badgeClass: "text-cyan-700 bg-cyan-100/60 border-cyan-200/60"
     },
     {
       name: "Pending Approvals",
       value: data?.kpis?.pendingApprovals || 0,
       trend: "Needs Action",
       isGreen: false,
-      accentGradient: "from-amber-600 to-yellow-500",
-      bgLight: "bg-amber-50/60 border-amber-100",
-      textDark: "text-amber-900",
-      badgeClass: "text-amber-800 bg-amber-100/80 border-amber-200",
-      icon: "⏳"
+      accentGradient: "from-orange-400 via-amber-500 to-yellow-500",
+      bgLight: "bg-orange-50/40 border-orange-100/80",
+      textDark: "text-slate-900",
+      badgeClass: "text-orange-800 bg-orange-100/60 border-orange-200/60"
     },
     {
       name: "EMI Overdue Summary",
       value: data?.kpis?.emiOverdueAmount || "₹0 L",
       trend: `${data?.kpis?.emiOverdueCount || 0} Overdue Students`,
       isGreen: false,
-      accentGradient: "from-red-600 to-rose-600",
-      bgLight: "bg-red-50/60 border-red-100",
-      textDark: "text-red-900",
-      badgeClass: "text-red-700 bg-red-100/80 border-red-200",
-      icon: "⏰"
+      accentGradient: "from-red-500 via-rose-500 to-red-600",
+      bgLight: "bg-red-50/40 border-red-100/80",
+      textDark: "text-slate-900",
+      badgeClass: "text-red-700 bg-red-100/60 border-red-200/60"
     },
     {
       name: "Hot Negotiation Leads",
       value: data?.kpis?.hotLeads || 0,
       trend: "High Priority",
       isGreen: true,
-      accentGradient: "from-rose-600 to-orange-500",
-      bgLight: "bg-rose-50/60 border-rose-100",
-      textDark: "text-rose-900",
-      badgeClass: "text-rose-700 bg-rose-100/80 border-rose-200",
-      icon: "🔥",
+      accentGradient: "from-rose-500 via-orange-500 to-amber-500",
+      bgLight: "bg-rose-50/40 border-rose-100/80",
+      textDark: "text-slate-900",
+      badgeClass: "text-rose-700 bg-rose-100/60 border-rose-200/60",
       simpleText: true
     }
   ];
@@ -585,27 +573,24 @@ export default function AdminDashboard() {
               metrics.map((card, i) => (
                 <div
                   key={i}
-                  className={`bg-white border rounded-2xl p-3.5 shadow-xs flex flex-col justify-between relative overflow-hidden transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 cursor-pointer group ${card.bgLight}`}
+                  className={`bg-white border rounded-2xl p-3.5 shadow-xs flex flex-col justify-between relative overflow-hidden transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 cursor-pointer group ${card.bgLight}`}
                 >
                   {/* Top Colorful Accent Bar */}
-                  <div className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${card.accentGradient}`} />
+                  <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${card.accentGradient}`} />
 
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-black text-slate-600 uppercase tracking-wider select-none leading-snug">
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-[10.5px] font-black text-slate-600 uppercase tracking-wider select-none leading-snug">
                       {card.name}
-                    </span>
-                    <span className="text-sm opacity-80 group-hover:scale-110 transition-transform">
-                      {card.icon}
                     </span>
                   </div>
 
                   <div className="my-2 flex items-baseline gap-1">
-                    <span className={`text-xl lg:text-2xl font-black tracking-tight ${card.textDark}`}>
+                    <span className="text-xl lg:text-2xl font-black text-slate-900 tracking-tight">
                       {card.value}
                     </span>
                   </div>
 
-                  <span className={`text-[10px] font-extrabold rounded-lg px-2 py-0.5 w-fit border ${card.badgeClass}`}>
+                  <span className={`text-[9.5px] font-black rounded-lg px-2 py-0.5 w-fit border ${card.badgeClass}`}>
                     {card.trend}
                   </span>
                 </div>
