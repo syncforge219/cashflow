@@ -107,7 +107,200 @@ export default function ExpensesPage() {
     remarks: "",
   });
 
-  // Excel Report Generator matching user screenshot format
+  // Canvas chart graphics generator for Excel workbook
+  const generateExpenseChartImages = (expenseList: any[]) => {
+    if (typeof window === "undefined" || !document) return { categoryPng: null, paymentPng: null, naturePng: null };
+
+    // 1. CATEGORY SPEND DISTRIBUTION (Horizontal Bar Chart)
+    const categoryTotals: Record<string, number> = {};
+    expenseList.forEach((e) => {
+      const cat = e.category || "Misc";
+      categoryTotals[cat] = (categoryTotals[cat] || 0) + (Number(e.amount) || 0);
+    });
+
+    const sortedCategories = Object.entries(categoryTotals)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8);
+
+    const canvas1 = document.createElement("canvas");
+    canvas1.width = 750;
+    canvas1.height = 380;
+    const ctx1 = canvas1.getContext("2d");
+
+    if (ctx1) {
+      ctx1.fillStyle = "#ffffff";
+      ctx1.fillRect(0, 0, canvas1.width, canvas1.height);
+
+      ctx1.fillStyle = "#1e293b";
+      ctx1.font = "bold 16px Arial";
+      ctx1.fillText("TOP OPERATIONAL EXPENSE CATEGORIES (INR)", 25, 35);
+
+      const maxVal = Math.max(...sortedCategories.map((c) => c[1]), 1);
+      const startY = 70;
+      const barHeight = 26;
+      const gap = 12;
+
+      sortedCategories.forEach(([cat, val], idx) => {
+        const y = startY + idx * (barHeight + gap);
+        const barWidth = Math.max((val / maxVal) * 450, 10);
+
+        ctx1.fillStyle = "#334155";
+        ctx1.font = "bold 12px Arial";
+        ctx1.textAlign = "left";
+        ctx1.fillText(cat.length > 20 ? cat.substring(0, 18) + "..." : cat, 25, y + 18);
+
+        const grad = ctx1.createLinearGradient(170, y, 170 + barWidth, y);
+        grad.addColorStop(0, "#4f46e5");
+        grad.addColorStop(1, "#818cf8");
+        ctx1.fillStyle = grad;
+
+        ctx1.beginPath();
+        if ((ctx1 as any).roundRect) {
+          (ctx1 as any).roundRect(170, y, barWidth, barHeight, 6);
+        } else {
+          ctx1.rect(170, y, barWidth, barHeight);
+        }
+        ctx1.fill();
+
+        ctx1.fillStyle = "#1e293b";
+        ctx1.font = "bold 12px Arial";
+        ctx1.textAlign = "left";
+        ctx1.fillText(`₹${val.toLocaleString("en-IN")}`, 180 + barWidth, y + 18);
+      });
+    }
+
+    // 2. PAYMENT MODE DONUT CHART
+    const paymentTotals: Record<string, number> = {};
+    let grandTotal = 0;
+    expenseList.forEach((e) => {
+      const mode = e.paymentMode || "Cash";
+      const amt = Number(e.amount) || 0;
+      paymentTotals[mode] = (paymentTotals[mode] || 0) + amt;
+      grandTotal += amt;
+    });
+
+    const canvas2 = document.createElement("canvas");
+    canvas2.width = 600;
+    canvas2.height = 350;
+    const ctx2 = canvas2.getContext("2d");
+
+    if (ctx2) {
+      ctx2.fillStyle = "#ffffff";
+      ctx2.fillRect(0, 0, canvas2.width, canvas2.height);
+
+      ctx2.fillStyle = "#1e293b";
+      ctx2.font = "bold 16px Arial";
+      ctx2.fillText("PAYMENT MODE DISTRIBUTION SHARE", 25, 35);
+
+      const colors = ["#10b981", "#3b82f6", "#8b5cf6", "#f59e0b", "#ef4444", "#06b6d4"];
+      const entries = Object.entries(paymentTotals);
+      const centerX = 160;
+      const centerY = 190;
+      const radius = 100;
+
+      let startAngle = 0;
+      entries.forEach(([mode, val], i) => {
+        const sliceAngle = grandTotal > 0 ? (val / grandTotal) * 2 * Math.PI : 0;
+        const endAngle = startAngle + sliceAngle;
+        const color = colors[i % colors.length];
+
+        ctx2.beginPath();
+        ctx2.arc(centerX, centerY, radius, startAngle, endAngle);
+        ctx2.arc(centerX, centerY, radius * 0.55, endAngle, startAngle, true);
+        ctx2.closePath();
+        ctx2.fillStyle = color;
+        ctx2.fill();
+
+        startAngle = endAngle;
+
+        const legendY = 80 + i * 32;
+        ctx2.fillStyle = color;
+        ctx2.fillRect(320, legendY, 16, 16);
+
+        const pct = grandTotal > 0 ? ((val / grandTotal) * 100).toFixed(1) : "0.0";
+        ctx2.fillStyle = "#334155";
+        ctx2.font = "bold 12px Arial";
+        ctx2.textAlign = "left";
+        ctx2.fillText(`${mode}: ₹${val.toLocaleString("en-IN")} (${pct}%)`, 345, legendY + 13);
+      });
+
+      ctx2.fillStyle = "#0f172a";
+      ctx2.font = "bold 12px Arial";
+      ctx2.textAlign = "center";
+      ctx2.fillText("Total Spend", centerX, centerY - 6);
+      ctx2.fillStyle = "#10b981";
+      ctx2.font = "bold 13px Arial";
+      ctx2.fillText(`₹${grandTotal.toLocaleString("en-IN")}`, centerX, centerY + 14);
+    }
+
+    // 3. VARIABLE VS FIXED COMPARISON CHART
+    let variableTotal = 0;
+    let fixedTotal = 0;
+    expenseList.forEach((e) => {
+      const type = (e.expenseType || "variable").toLowerCase();
+      const amt = Number(e.amount) || 0;
+      if (type === "fixed") fixedTotal += amt;
+      else variableTotal += amt;
+    });
+
+    const canvas3 = document.createElement("canvas");
+    canvas3.width = 500;
+    canvas3.height = 350;
+    const ctx3 = canvas3.getContext("2d");
+
+    if (ctx3) {
+      ctx3.fillStyle = "#ffffff";
+      ctx3.fillRect(0, 0, canvas3.width, canvas3.height);
+
+      ctx3.fillStyle = "#1e293b";
+      ctx3.font = "bold 16px Arial";
+      ctx3.fillText("VARIABLE VS FIXED EXPENSES", 25, 35);
+
+      const maxNature = Math.max(variableTotal, fixedTotal, 1);
+      const chartHeight = 200;
+      const baseLine = 280;
+
+      const varH = (variableTotal / maxNature) * chartHeight;
+      ctx3.fillStyle = "#ec4899";
+      ctx3.beginPath();
+      if ((ctx3 as any).roundRect) {
+        (ctx3 as any).roundRect(110, baseLine - varH, 90, varH, 8);
+      } else {
+        ctx3.rect(110, baseLine - varH, 90, varH);
+      }
+      ctx3.fill();
+
+      ctx3.fillStyle = "#1e293b";
+      ctx3.font = "bold 12px Arial";
+      ctx3.textAlign = "center";
+      ctx3.fillText("Variable", 155, baseLine + 22);
+      ctx3.fillText(`₹${variableTotal.toLocaleString("en-IN")}`, 155, baseLine - varH - 10);
+
+      const fixedH = (fixedTotal / maxNature) * chartHeight;
+      ctx3.fillStyle = "#6366f1";
+      ctx3.beginPath();
+      if ((ctx3 as any).roundRect) {
+        (ctx3 as any).roundRect(290, baseLine - fixedH, 90, fixedH, 8);
+      } else {
+        ctx3.rect(290, baseLine - fixedH, 90, fixedH);
+      }
+      ctx3.fill();
+
+      ctx3.fillStyle = "#1e293b";
+      ctx3.font = "bold 12px Arial";
+      ctx3.textAlign = "center";
+      ctx3.fillText("Fixed", 335, baseLine + 22);
+      ctx3.fillText(`₹${fixedTotal.toLocaleString("en-IN")}`, 335, baseLine - fixedH - 10);
+    }
+
+    return {
+      categoryPng: canvas1 ? canvas1.toDataURL("image/png") : null,
+      paymentPng: canvas2 ? canvas2.toDataURL("image/png") : null,
+      naturePng: canvas3 ? canvas3.toDataURL("image/png") : null,
+    };
+  };
+
+  // Excel Report Generator with Visual Analytics & Graphs
   const handleExportExcel = async () => {
     if (!expenses || expenses.length === 0) {
       alert("No expense records available to export.");
@@ -115,9 +308,137 @@ export default function ExpensesPage() {
     }
 
     const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet("Expense Report");
+    workbook.creator = "CoachFlow ERP";
+    workbook.created = new Date();
 
-    // Header Row (Row 1) matching user screenshot styling (#b4d7a8 green fill)
+    // ── SHEET 1: VISUAL ANALYTICS & EXECUTIVE SUMMARY ──────────────────────────
+    const summarySheet = workbook.addWorksheet("📊 Executive Summary & Graphs");
+
+    summarySheet.addRow(["COACHFLOW ERP - OPERATIONAL EXPENSE VISUAL ANALYTICS REPORT"]);
+    summarySheet.addRow([`Report Generated On: ${new Date().toLocaleString("en-IN")}`, `Total Records: ${expenses.length}`]);
+    summarySheet.addRow([]);
+
+    summarySheet.getRow(1).font = { bold: true, size: 14, color: { argb: "FF4F46E5" } };
+    summarySheet.getRow(2).font = { size: 10, color: { argb: "FF64748B" } };
+
+    const totalAmount = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    const variableAmount = expenses
+      .filter((e) => (e.expenseType || "variable").toLowerCase() === "variable")
+      .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    const fixedAmount = expenses
+      .filter((e) => (e.expenseType || "").toLowerCase() === "fixed")
+      .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
+    const cashAmount = expenses
+      .filter((e) => (e.paymentMode || "").toLowerCase() === "cash")
+      .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    const bankAmount = totalAmount - cashAmount;
+
+    // KPI Highlights Grid
+    summarySheet.addRow(["1. KEY PERFORMANCE INDICATORS"]);
+    summarySheet.getRow(4).font = { bold: true, size: 11, color: { argb: "FF1E293B" } };
+
+    const kpiHeader = summarySheet.addRow([
+      "Metric Name",
+      "Total Value (INR)",
+      "% Share of Total Spend",
+      "Transaction Count",
+    ]);
+    kpiHeader.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    kpiHeader.eachCell((c) => (c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4F46E5" } }));
+
+    summarySheet.addRow(["Total Operational Expenses", totalAmount, "100.0%", expenses.length]);
+    summarySheet.addRow([
+      "Variable Expenses",
+      variableAmount,
+      totalAmount > 0 ? `${((variableAmount / totalAmount) * 100).toFixed(1)}%` : "0%",
+      expenses.filter((e) => (e.expenseType || "variable").toLowerCase() === "variable").length,
+    ]);
+    summarySheet.addRow([
+      "Fixed Expenses",
+      fixedAmount,
+      totalAmount > 0 ? `${((fixedAmount / totalAmount) * 100).toFixed(1)}%` : "0%",
+      expenses.filter((e) => (e.expenseType || "").toLowerCase() === "fixed").length,
+    ]);
+    summarySheet.addRow([
+      "Cash Payments",
+      cashAmount,
+      totalAmount > 0 ? `${((cashAmount / totalAmount) * 100).toFixed(1)}%` : "0%",
+      expenses.filter((e) => (e.paymentMode || "").toLowerCase() === "cash").length,
+    ]);
+    summarySheet.addRow([
+      "Digital / Bank Transfers",
+      bankAmount,
+      totalAmount > 0 ? `${((bankAmount / totalAmount) * 100).toFixed(1)}%` : "0%",
+      expenses.filter((e) => (e.paymentMode || "").toLowerCase() !== "cash").length,
+    ]);
+
+    summarySheet.addRow([]);
+
+    // Category Breakdown Table
+    summarySheet.addRow(["2. EXPENSE CATEGORY BREAKDOWN SUMMARY"]);
+    summarySheet.getRow(12).font = { bold: true, size: 11, color: { argb: "FF1E293B" } };
+
+    const catHeader = summarySheet.addRow(["Category Name", "Total Billed (INR)", "% Share", "Transactions"]);
+    catHeader.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    catHeader.eachCell((c) => (c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0284C7" } }));
+
+    const categoryMap: Record<string, { total: number; count: number }> = {};
+    expenses.forEach((e) => {
+      const cat = e.category || "Misc";
+      if (!categoryMap[cat]) categoryMap[cat] = { total: 0, count: 0 };
+      categoryMap[cat].total += Number(e.amount) || 0;
+      categoryMap[cat].count += 1;
+    });
+
+    Object.entries(categoryMap)
+      .sort((a, b) => b[1].total - a[1].total)
+      .forEach(([cat, data]) => {
+        const share = totalAmount > 0 ? ((data.total / totalAmount) * 100).toFixed(1) + "%" : "0%";
+        summarySheet.addRow([cat, data.total, share, data.count]);
+      });
+
+    summarySheet.columns = [
+      { width: 32 },
+      { width: 22 },
+      { width: 22 },
+      { width: 18 },
+    ];
+
+    // Embed Visual Chart Graphics into Sheet 1
+    try {
+      const { categoryPng, paymentPng, naturePng } = generateExpenseChartImages(expenses);
+
+      if (categoryPng) {
+        const img1 = workbook.addImage({ base64: categoryPng, extension: "png" });
+        summarySheet.addImage(img1, {
+          tl: { col: 5, row: 3 },
+          ext: { width: 550, height: 280 },
+        });
+      }
+
+      if (paymentPng) {
+        const img2 = workbook.addImage({ base64: paymentPng, extension: "png" });
+        summarySheet.addImage(img2, {
+          tl: { col: 5, row: 18 },
+          ext: { width: 450, height: 260 },
+        });
+      }
+
+      if (naturePng) {
+        const img3 = workbook.addImage({ base64: naturePng, extension: "png" });
+        summarySheet.addImage(img3, {
+          tl: { col: 10, row: 18 },
+          ext: { width: 380, height: 260 },
+        });
+      }
+    } catch (err) {
+      console.error("Failed to render canvas chart graphics in Excel export:", err);
+    }
+
+    // ── SHEET 2: EXPENSE DETAILED REGISTER (EXACT USER SCREENSHOT FORMAT) ──────
+    const sheet = workbook.addWorksheet("📋 Expense Detailed Register");
+
     const headerRow = sheet.addRow([
       "s.no",
       "Date",
@@ -152,7 +473,6 @@ export default function ExpensesPage() {
       };
     });
 
-    // Populate Data Rows
     expenses.forEach((exp, idx) => {
       const formattedDate = exp.expenseDate
         ? new Date(exp.expenseDate).toLocaleDateString("en-US", {
@@ -196,7 +516,6 @@ export default function ExpensesPage() {
       });
     });
 
-    // Set Column Widths
     sheet.columns = [
       { width: 8 },  // s.no
       { width: 14 }, // Date
