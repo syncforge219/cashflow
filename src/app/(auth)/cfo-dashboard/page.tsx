@@ -14,12 +14,20 @@ interface TooltipItem {
   category?: string;
 }
 
-// --- CUSTOM ZERO-DEPENDENCY VECTOR GRAPH RENDERERS ---
+// Helper to format values nicely above vertical bars (e.g. ₹3.38L, ₹90k, ₹0)
+function formatCompactRupees(val: number) {
+  if (!val || val === 0) return "₹0";
+  if (val >= 100000) return `₹${(val / 100000).toFixed(1)}L`;
+  if (val >= 1000) return `₹${(val / 1000).toFixed(0)}k`;
+  return `₹${val}`;
+}
+
+// --- CUSTOM ZERO-DEPENDENCY VECTOR GRAPH RENDERERS WITH TOP VALUE LABELS ---
 
 // 1. SVG PIE CHART COMPONENT
 function SvgPieChart({
   data,
-  size = 200,
+  size = 210,
   onHover,
   onLeave,
 }: {
@@ -76,10 +84,10 @@ function SvgPieChart({
   );
 }
 
-// 2. SVG DONUT GRAPH COMPONENT
+// 2. SVG DONUT GRAPH COMPONENT WITH CENTRAL SUMMARY STAT
 function SvgDonutChart({
   data,
-  size = 200,
+  size = 210,
   innerRadiusRatio = 0.65,
   onHover,
   onLeave,
@@ -143,8 +151,8 @@ function SvgDonutChart({
           ))}
         </svg>
         <div className="absolute flex flex-col items-center justify-center pointer-events-none text-center">
-          <span className="text-xs font-black text-slate-800 uppercase tracking-widest">CFO</span>
-          <span className="text-[10px] font-extrabold text-indigo-600">ANALYTICS</span>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TOTAL</span>
+          <span className="text-sm font-black text-indigo-600">₹{(total / 100000).toFixed(1)}L</span>
         </div>
       </div>
     </div>
@@ -155,7 +163,7 @@ function SvgDonutChart({
 function SvgLineGraph({
   data,
   width = 700,
-  height = 220,
+  height = 230,
   color1 = "#10b981",
   color2 = "#ef4444",
   label1 = "Money In",
@@ -176,7 +184,7 @@ function SvgLineGraph({
   if (!data || data.length === 0) return null;
 
   const maxVal = Math.max(...data.map((d) => Math.max(d.line1 || 0, d.line2 || 0, 1)));
-  const padding = 30;
+  const padding = 35;
   const graphWidth = width - padding * 2;
   const graphHeight = height - padding * 2;
 
@@ -199,7 +207,7 @@ function SvgLineGraph({
 
   return (
     <div className="w-full flex flex-col items-center">
-      <div className="flex items-center gap-4 text-xs font-bold mb-2">
+      <div className="flex items-center gap-4 text-xs font-bold mb-3">
         <span className="flex items-center gap-1.5 cursor-pointer" style={{ color: color1 }}>
           <span className="w-3 h-3 rounded-full" style={{ backgroundColor: color1 }} /> {label1}
         </span>
@@ -236,31 +244,44 @@ function SvgLineGraph({
         )}
 
         {points1.map((p, i) => (
-          <circle
-            key={`p1-${i}`}
-            cx={p.x}
-            cy={p.y}
-            r="6"
-            fill={color1}
-            className="transition-all hover:r-8 hover:opacity-80 cursor-pointer"
-            onMouseEnter={(e) => onHover({ name: `${p.label} (${label1})`, value: p.val, category: "TIMELINE" }, e)}
-            onMouseMove={(e) => onHover({ name: `${p.label} (${label1})`, value: p.val, category: "TIMELINE" }, e)}
-            onMouseLeave={onLeave}
-          />
-        ))}
-        {data[0]?.line2 !== undefined &&
-          points2.map((p, i) => (
+          <g key={`p1-${i}`}>
             <circle
-              key={`p2-${i}`}
               cx={p.x}
               cy={p.y}
               r="6"
-              fill={color2}
-              className="transition-all hover:r-8 hover:opacity-80 cursor-pointer"
-              onMouseEnter={(e) => onHover({ name: `${p.label} (${label2})`, value: p.val || 0, category: "TIMELINE" }, e)}
-              onMouseMove={(e) => onHover({ name: `${p.label} (${label2})`, value: p.val || 0, category: "TIMELINE" }, e)}
+              fill={color1}
+              className="transition-all hover:r-8 hover:opacity-80 cursor-pointer drop-shadow-sm"
+              onMouseEnter={(e) => onHover({ name: `${p.label} (${label1})`, value: p.val, category: "TIMELINE" }, e)}
+              onMouseMove={(e) => onHover({ name: `${p.label} (${label1})`, value: p.val, category: "TIMELINE" }, e)}
               onMouseLeave={onLeave}
             />
+            {p.val > 0 && (
+              <text x={p.x} y={p.y - 10} textAnchor="middle" fill="#059669" fontSize="9" fontWeight="900">
+                {formatCompactRupees(p.val)}
+              </text>
+            )}
+          </g>
+        ))}
+
+        {data[0]?.line2 !== undefined &&
+          points2.map((p, i) => (
+            <g key={`p2-${i}`}>
+              <circle
+                cx={p.x}
+                cy={p.y}
+                r="6"
+                fill={color2}
+                className="transition-all hover:r-8 hover:opacity-80 cursor-pointer drop-shadow-sm"
+                onMouseEnter={(e) => onHover({ name: `${p.label} (${label2})`, value: p.val || 0, category: "TIMELINE" }, e)}
+                onMouseMove={(e) => onHover({ name: `${p.label} (${label2})`, value: p.val || 0, category: "TIMELINE" }, e)}
+                onMouseLeave={onLeave}
+              />
+              {(p.val || 0) > 0 && (
+                <text x={p.x} y={p.y + 16} textAnchor="middle" fill="#dc2626" fontSize="9" fontWeight="900">
+                  {formatCompactRupees(p.val || 0)}
+                </text>
+              )}
+            </g>
           ))}
 
         {data.map((d, i) => {
@@ -276,10 +297,10 @@ function SvgLineGraph({
   );
 }
 
-// 4. ELEGANT VERTICAL BAR GRAPH COMPONENT
+// 4. ELEGANT VERTICAL BAR GRAPH WITH COMPACT NUMBERS DISPLAYED DIRECTLY ON TOP OF EVERY BAR
 function SvgBarGraph({
   data,
-  height = 240,
+  height = 250,
   color1 = "#10b981",
   color2 = "#ef4444",
   label1 = "Money In",
@@ -313,35 +334,55 @@ function SvgBarGraph({
         )}
       </div>
 
-      <div className="w-full flex items-end justify-around gap-2 border-b border-slate-200/80 pt-6 pb-2 px-2 overflow-x-auto min-h-[220px]" style={{ height: `${height}px` }}>
+      <div className="w-full flex items-end justify-around gap-2 border-b border-slate-200/80 pt-8 pb-3 px-2 overflow-x-auto min-h-[240px] relative" style={{ height: `${height}px` }}>
+        {/* Background Subtle Grid Lines */}
+        <div className="absolute inset-x-2 top-8 bottom-8 flex flex-col justify-between pointer-events-none opacity-40">
+          <div className="border-b border-dashed border-slate-200 w-full" />
+          <div className="border-b border-dashed border-slate-200 w-full" />
+          <div className="border-b border-dashed border-slate-200 w-full" />
+        </div>
+
         {data.map((item, idx) => {
-          const h1 = Math.max(4, Math.round(((item.bar1 || 0) / maxVal) * 100));
-          const h2 = item.bar2 !== undefined ? Math.max(4, Math.round(((item.bar2 || 0) / maxVal) * 100)) : null;
+          const h1 = Math.max(5, Math.round(((item.bar1 || 0) / maxVal) * 100));
+          const h2 = item.bar2 !== undefined ? Math.max(5, Math.round(((item.bar2 || 0) / maxVal) * 100)) : null;
 
           const shortLabel = item.label.length > 18 ? item.label.substring(0, 16) + "..." : item.label;
 
           return (
-            <div key={idx} className="flex-1 min-w-[65px] max-w-[120px] flex flex-col items-center justify-end h-full group relative">
+            <div key={idx} className="flex-1 min-w-[70px] max-w-[130px] flex flex-col items-center justify-end h-full group relative z-10">
               <div className="w-full flex items-end justify-center gap-1.5 h-full">
-                <div
-                  className="w-1/2 rounded-t-lg transition-all hover:opacity-75 cursor-pointer shadow-sm"
-                  style={{ height: `${h1}%`, backgroundColor: color1 }}
-                  onMouseEnter={(e) => onHover({ name: `${item.label} (${label1})`, value: item.bar1, category: "BAR" }, e)}
-                  onMouseMove={(e) => onHover({ name: `${item.label} (${label1})`, value: item.bar1, category: "BAR" }, e)}
-                  onMouseLeave={onLeave}
-                />
-                {h2 !== null && (
+                {/* Bar 1: Money In */}
+                <div className="w-1/2 flex flex-col items-center justify-end h-full">
+                  <span className="text-[9px] font-black text-emerald-600 mb-1 opacity-90 group-hover:opacity-100 transition-opacity">
+                    {formatCompactRupees(item.bar1)}
+                  </span>
                   <div
-                    className="w-1/2 rounded-t-lg transition-all hover:opacity-75 cursor-pointer shadow-sm"
-                    style={{ height: `${h2}%`, backgroundColor: color2 }}
-                    onMouseEnter={(e) => onHover({ name: `${item.label} (${label2})`, value: item.bar2 || 0, category: "BAR" }, e)}
-                    onMouseMove={(e) => onHover({ name: `${item.label} (${label2})`, value: item.bar2 || 0, category: "BAR" }, e)}
+                    className="w-full rounded-t-lg transition-all duration-200 hover:opacity-80 cursor-pointer shadow-sm"
+                    style={{ height: `${h1}%`, backgroundColor: color1 }}
+                    onMouseEnter={(e) => onHover({ name: `${item.label} (${label1})`, value: item.bar1, category: "MONEY IN" }, e)}
+                    onMouseMove={(e) => onHover({ name: `${item.label} (${label1})`, value: item.bar1, category: "MONEY IN" }, e)}
                     onMouseLeave={onLeave}
                   />
+                </div>
+
+                {/* Bar 2: Money Out */}
+                {h2 !== null && (
+                  <div className="w-1/2 flex flex-col items-center justify-end h-full">
+                    <span className="text-[9px] font-black text-rose-600 mb-1 opacity-90 group-hover:opacity-100 transition-opacity">
+                      {formatCompactRupees(item.bar2 || 0)}
+                    </span>
+                    <div
+                      className="w-full rounded-t-lg transition-all duration-200 hover:opacity-80 cursor-pointer shadow-sm"
+                      style={{ height: `${h2}%`, backgroundColor: color2 }}
+                      onMouseEnter={(e) => onHover({ name: `${item.label} (${label2})`, value: item.bar2 || 0, category: "MONEY OUT" }, e)}
+                      onMouseMove={(e) => onHover({ name: `${item.label} (${label2})`, value: item.bar2 || 0, category: "MONEY OUT" }, e)}
+                      onMouseLeave={onLeave}
+                    />
+                  </div>
                 )}
               </div>
               <span
-                className="text-[10px] font-bold text-slate-600 mt-2 text-center line-clamp-2 max-w-full px-0.5 leading-tight"
+                className="text-[10px] font-bold text-slate-700 mt-2 text-center line-clamp-2 max-w-full px-0.5 leading-tight group-hover:text-indigo-600 transition-colors"
                 title={item.label}
               >
                 {shortLabel}
@@ -522,7 +563,7 @@ export default function CfoDashboardPage() {
             <div className="text-xs font-semibold text-slate-400 flex items-center gap-1 select-none">
               <span>CoachFlow</span>
               <span>/</span>
-              <span className="text-slate-600 font-bold">CFO Finance Overview</span>
+              <span className="text-slate-600 font-bold">CFO Financial Overview</span>
             </div>
           </div>
 
@@ -562,15 +603,15 @@ export default function CfoDashboardPage() {
         <div className="bg-white border border-slate-200/80 p-5 rounded-2xl shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <span className="bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                📊 Vertical Bar Graphs
+              <span className="bg-indigo-50 text-indigo-700 border border-indigo-100 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                📊 PREMIUM BAR CHARTS & DATA TABLES
               </span>
               <span className="text-slate-400 text-xs font-semibold">
-                Hover over bars to see numbers & view exact data tables below
+                Direct rupee value badges on all bars + exact numbers tables
               </span>
             </div>
             <h1 className="text-2xl font-black tracking-tight text-slate-900 font-sans">
-              CFO Finance Dashboard
+              CFO Executive Financial Command Center
             </h1>
             <p className="text-slate-500 text-xs font-medium mt-0.5">
               Clear visual graphs showing Money In, Money Out, Savings, Company Income & Expense Tables.
@@ -622,7 +663,7 @@ export default function CfoDashboardPage() {
         </div>
 
         {/* 1. MONTHLY MONEY IN VS MONEY OUT LINE GRAPH & TABLE */}
-        <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-4">
+        <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-5">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div>
               <h3 className="text-base font-extrabold text-slate-800">
@@ -640,7 +681,7 @@ export default function CfoDashboardPage() {
           <SvgLineGraph
             data={monthlyLineData}
             width={700}
-            height={220}
+            height={230}
             color1="#10b981"
             color2="#ef4444"
             label1="Money In (Collections)"
@@ -649,12 +690,14 @@ export default function CfoDashboardPage() {
             onLeave={handleLeave}
           />
 
-          {/* Table below graph */}
-          <div className="pt-2">
-            <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">📋 Monthly Numbers Table</h4>
+          <div className="pt-2 border-t border-slate-100">
+            <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2.5 flex items-center justify-between">
+              <span>📋 Monthly Numbers Table</span>
+              <span className="text-[10px] text-slate-400 font-semibold">6 Months</span>
+            </h4>
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs font-semibold border border-slate-200/60 rounded-xl overflow-hidden">
-                <thead className="bg-slate-100/70 text-slate-600 uppercase text-[10px]">
+              <table className="w-full text-left text-xs font-semibold border border-slate-200/60 rounded-xl overflow-hidden shadow-xs">
+                <thead className="bg-slate-100/80 text-slate-600 uppercase text-[10px]">
                   <tr>
                     <th className="py-2.5 px-4">Month</th>
                     <th className="py-2.5 px-4">Money In (Collections)</th>
@@ -664,7 +707,7 @@ export default function CfoDashboardPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-700">
                   {monthlyTrends.map((t: any) => (
-                    <tr key={t.month} className="hover:bg-slate-50">
+                    <tr key={t.month} className="hover:bg-slate-50 transition-colors">
                       <td className="py-2.5 px-4 font-bold text-slate-900">{t.month}</td>
                       <td className="py-2.5 px-4 font-bold text-emerald-600">₹{t.revenue.toLocaleString("en-IN")}</td>
                       <td className="py-2.5 px-4 font-bold text-rose-600">₹{t.expense.toLocaleString("en-IN")}</td>
@@ -682,38 +725,40 @@ export default function CfoDashboardPage() {
         {/* 2 & 3. SUMMARY DONUT & TREASURY PIE WITH TABLES */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* 2. OVERALL FINANCE SUMMARY DONUT & TABLE */}
-          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-4">
-            <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-extrabold text-slate-800">🍩 2. Finance Summary Breakdown</h3>
-                <p className="text-xs text-slate-400 font-medium">Overall share of Money In, Expenses, Pending Fees & Savings</p>
+          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-5 flex flex-col justify-between">
+            <div className="space-y-4">
+              <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-800">🍩 2. Finance Summary Breakdown</h3>
+                  <p className="text-xs text-slate-400 font-medium">Overall share of Money In, Expenses, Pending Fees & Savings</p>
+                </div>
               </div>
+
+              <SvgDonutChart data={kpiDonutData} size={210} onHover={handleHover} onLeave={handleLeave} />
             </div>
 
-            <SvgDonutChart data={kpiDonutData} size={200} onHover={handleHover} onLeave={handleLeave} />
-
-            <div>
+            <div className="pt-2 border-t border-slate-100">
               <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">📋 Summary Numbers Table</h4>
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs font-semibold border border-slate-200/60 rounded-xl overflow-hidden">
-                  <thead className="bg-slate-100/70 text-slate-600 uppercase text-[10px]">
+                <table className="w-full text-left text-xs font-semibold border border-slate-200/60 rounded-xl overflow-hidden shadow-xs">
+                  <thead className="bg-slate-100/80 text-slate-600 uppercase text-[10px]">
                     <tr>
-                      <th className="py-2 px-3">Category</th>
-                      <th className="py-2 px-3">Amount (₹)</th>
-                      <th className="py-2 px-3 text-right">Share (%)</th>
+                      <th className="py-2.5 px-3">Category</th>
+                      <th className="py-2.5 px-3">Amount (₹)</th>
+                      <th className="py-2.5 px-3 text-right">Share (%)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-slate-700">
                     {kpiDonutData.map((d) => {
                       const pct = ((d.value / totalKpiVolume) * 100).toFixed(1);
                       return (
-                        <tr key={d.name} className="hover:bg-slate-50">
-                          <td className="py-2 px-3 font-bold flex items-center gap-1.5">
-                            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.color }} />
-                            <span>{d.name}</span>
+                        <tr key={d.name} className="hover:bg-slate-50 transition-colors">
+                          <td className="py-2.5 px-3 font-bold flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+                            <span className="truncate">{d.name}</span>
                           </td>
-                          <td className="py-2 px-3 font-bold text-slate-900">₹{d.value.toLocaleString("en-IN")}</td>
-                          <td className="py-2 px-3 text-right font-extrabold text-indigo-600">{pct}%</td>
+                          <td className="py-2.5 px-3 font-bold text-slate-900">₹{d.value.toLocaleString("en-IN")}</td>
+                          <td className="py-2.5 px-3 text-right font-extrabold text-indigo-600">{pct}%</td>
                         </tr>
                       );
                     })}
@@ -724,25 +769,27 @@ export default function CfoDashboardPage() {
           </div>
 
           {/* 3. BANK VS CASH PIE & TABLE */}
-          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-4">
-            <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-extrabold text-slate-800">🥧 3. Bank Balance vs Cash Balance</h3>
-                <p className="text-xs text-slate-400 font-medium">Distribution between Bank Account Reserves and Cash Vault</p>
+          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-5 flex flex-col justify-between">
+            <div className="space-y-4">
+              <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-800">🥧 3. Bank Balance vs Cash Balance</h3>
+                  <p className="text-xs text-slate-400 font-medium">Distribution between Bank Account Reserves and Cash Vault</p>
+                </div>
               </div>
+
+              <SvgPieChart data={treasuryPieData} size={210} onHover={handleHover} onLeave={handleLeave} />
             </div>
 
-            <SvgPieChart data={treasuryPieData} size={200} onHover={handleHover} onLeave={handleLeave} />
-
-            <div>
+            <div className="pt-2 border-t border-slate-100">
               <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">📋 Treasury Numbers Table</h4>
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs font-semibold border border-slate-200/60 rounded-xl overflow-hidden">
-                  <thead className="bg-slate-100/70 text-slate-600 uppercase text-[10px]">
+                <table className="w-full text-left text-xs font-semibold border border-slate-200/60 rounded-xl overflow-hidden shadow-xs">
+                  <thead className="bg-slate-100/80 text-slate-600 uppercase text-[10px]">
                     <tr>
-                      <th className="py-2 px-3">Account Type</th>
-                      <th className="py-2 px-3">Balance (₹)</th>
-                      <th className="py-2 px-3 text-right">Share (%)</th>
+                      <th className="py-2.5 px-3">Account Type</th>
+                      <th className="py-2.5 px-3">Balance (₹)</th>
+                      <th className="py-2.5 px-3 text-right">Share (%)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -750,13 +797,13 @@ export default function CfoDashboardPage() {
                       const totTreasury = Math.max(1, summary.bankReserves + summary.cashReserves);
                       const pct = ((d.value / totTreasury) * 100).toFixed(1);
                       return (
-                        <tr key={d.name} className="hover:bg-slate-50">
-                          <td className="py-2 px-3 font-bold flex items-center gap-1.5">
-                            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.color }} />
-                            <span>{d.name}</span>
+                        <tr key={d.name} className="hover:bg-slate-50 transition-colors">
+                          <td className="py-2.5 px-3 font-bold flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+                            <span className="truncate">{d.name}</span>
                           </td>
-                          <td className="py-2 px-3 font-bold text-slate-900">₹{d.value.toLocaleString("en-IN")}</td>
-                          <td className="py-2 px-3 text-right font-extrabold text-emerald-600">{pct}%</td>
+                          <td className="py-2.5 px-3 font-bold text-slate-900">₹{d.value.toLocaleString("en-IN")}</td>
+                          <td className="py-2.5 px-3 text-right font-extrabold text-emerald-600">{pct}%</td>
                         </tr>
                       );
                     })}
@@ -770,7 +817,7 @@ export default function CfoDashboardPage() {
         {/* 4 & 5. QUARTERLY BARS & CATEGORY DONUT WITH TABLES */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* 4. QUARTERLY PERFORMANCE BARS & TABLE */}
-          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-4">
+          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-5">
             <div className="border-b border-slate-100 pb-3">
               <h3 className="text-base font-extrabold text-slate-800">📊 4. Quarterly Performance</h3>
               <p className="text-xs text-slate-400 font-medium">Comparison across Q1, Q2, Q3, and Q4 periods</p>
@@ -778,7 +825,7 @@ export default function CfoDashboardPage() {
 
             <SvgBarGraph
               data={quarterlyBarData}
-              height={220}
+              height={230}
               color1="#4f46e5"
               color2="#ef4444"
               label1="Money In"
@@ -787,25 +834,25 @@ export default function CfoDashboardPage() {
               onLeave={handleLeave}
             />
 
-            <div>
+            <div className="pt-2 border-t border-slate-100">
               <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">📋 Quarterly Numbers Table</h4>
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs font-semibold border border-slate-200/60 rounded-xl overflow-hidden">
-                  <thead className="bg-slate-100/70 text-slate-600 uppercase text-[10px]">
+                <table className="w-full text-left text-xs font-semibold border border-slate-200/60 rounded-xl overflow-hidden shadow-xs">
+                  <thead className="bg-slate-100/80 text-slate-600 uppercase text-[10px]">
                     <tr>
-                      <th className="py-2 px-3">Quarter</th>
-                      <th className="py-2 px-3">Money In (₹)</th>
-                      <th className="py-2 px-3">Money Out (₹)</th>
-                      <th className="py-2 px-3 text-right">Net Savings</th>
+                      <th className="py-2.5 px-3">Quarter</th>
+                      <th className="py-2.5 px-3">Money In (₹)</th>
+                      <th className="py-2.5 px-3">Money Out (₹)</th>
+                      <th className="py-2.5 px-3 text-right">Net Savings</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-slate-700">
                     {quarterlyTrends.map((q: any) => (
-                      <tr key={q.quarter} className="hover:bg-slate-50">
-                        <td className="py-2 px-3 font-bold text-slate-900">{q.quarter}</td>
-                        <td className="py-2 px-3 font-bold text-emerald-600">₹{q.revenue.toLocaleString("en-IN")}</td>
-                        <td className="py-2 px-3 font-bold text-rose-600">₹{q.expense.toLocaleString("en-IN")}</td>
-                        <td className={`py-2 px-3 text-right font-black ${q.netProfit >= 0 ? "text-indigo-600" : "text-rose-600"}`}>
+                      <tr key={q.quarter} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-2.5 px-3 font-bold text-slate-900">{q.quarter}</td>
+                        <td className="py-2.5 px-3 font-bold text-emerald-600">₹{q.revenue.toLocaleString("en-IN")}</td>
+                        <td className="py-2.5 px-3 font-bold text-rose-600">₹{q.expense.toLocaleString("en-IN")}</td>
+                        <td className={`py-2.5 px-3 text-right font-black ${q.netProfit >= 0 ? "text-indigo-600" : "text-rose-600"}`}>
                           ₹{q.netProfit.toLocaleString("en-IN")}
                         </td>
                       </tr>
@@ -817,7 +864,7 @@ export default function CfoDashboardPage() {
           </div>
 
           {/* 5. EXPENSE CATEGORY DONUT & TABLE */}
-          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-4">
+          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-5">
             <div className="border-b border-slate-100 pb-3">
               <h3 className="text-base font-extrabold text-slate-800">🍩 5. Where Expenses Go (Categories)</h3>
               <p className="text-xs text-slate-400 font-medium">Category breakdown of operational expenditures</p>
@@ -826,18 +873,18 @@ export default function CfoDashboardPage() {
             {categoryDonutData.length === 0 ? (
               <div className="py-12 text-xs font-semibold text-slate-400 text-center">No expense records found</div>
             ) : (
-              <SvgDonutChart data={categoryDonutData} size={200} onHover={handleHover} onLeave={handleLeave} />
+              <SvgDonutChart data={categoryDonutData} size={210} onHover={handleHover} onLeave={handleLeave} />
             )}
 
-            <div>
+            <div className="pt-2 border-t border-slate-100">
               <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">📋 Category Numbers Table</h4>
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs font-semibold border border-slate-200/60 rounded-xl overflow-hidden">
-                  <thead className="bg-slate-100/70 text-slate-600 uppercase text-[10px]">
+                <table className="w-full text-left text-xs font-semibold border border-slate-200/60 rounded-xl overflow-hidden shadow-xs">
+                  <thead className="bg-slate-100/80 text-slate-600 uppercase text-[10px]">
                     <tr>
-                      <th className="py-2 px-3">Category Name</th>
-                      <th className="py-2 px-3">Spent Amount (₹)</th>
-                      <th className="py-2 px-3 text-right">Share (%)</th>
+                      <th className="py-2.5 px-3">Category Name</th>
+                      <th className="py-2.5 px-3">Spent Amount (₹)</th>
+                      <th className="py-2.5 px-3 text-right">Share (%)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -845,13 +892,13 @@ export default function CfoDashboardPage() {
                       const totalExp = summary.totalExpenses || 1;
                       const pct = ((c.value / totalExp) * 100).toFixed(1);
                       return (
-                        <tr key={c.name} className="hover:bg-slate-50">
-                          <td className="py-2 px-3 font-bold flex items-center gap-1.5">
-                            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
+                        <tr key={c.name} className="hover:bg-slate-50 transition-colors">
+                          <td className="py-2.5 px-3 font-bold flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
                             <span>{c.name}</span>
                           </td>
-                          <td className="py-2 px-3 font-bold text-rose-600">₹{c.value.toLocaleString("en-IN")}</td>
-                          <td className="py-2 px-3 text-right font-extrabold text-slate-700">{pct}%</td>
+                          <td className="py-2.5 px-3 font-bold text-rose-600">₹{c.value.toLocaleString("en-IN")}</td>
+                          <td className="py-2.5 px-3 text-right font-extrabold text-slate-700">{pct}%</td>
                         </tr>
                       );
                     })}
@@ -862,14 +909,14 @@ export default function CfoDashboardPage() {
           </div>
         </div>
 
-        {/* 6 & 7. COMPANY & BRAND VERTICAL BAR GRAPHS WITH TABLES */}
+        {/* 6 & 7. COMPANY & BRAND VERTICAL BAR GRAPHS WITH TOP RUPEE VALUE BADGES AND TABLES */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* 6. COMPANY TAG VERTICAL BARS & TABLE */}
-          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-4">
+          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-5">
             <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
               <div>
                 <h3 className="text-base font-extrabold text-slate-800">📊 6. Company-wise Income & Expense Bar Graph</h3>
-                <p className="text-xs text-slate-400 font-medium">Vertical bar graph comparing Money In vs Money Out per company tag</p>
+                <p className="text-xs text-slate-400 font-medium">Vertical bars with rupee value badges directly on top of each bar</p>
               </div>
               <Link href="/companies" className="text-xs font-bold text-indigo-600 hover:underline">Manage Companies →</Link>
             </div>
@@ -879,7 +926,7 @@ export default function CfoDashboardPage() {
             ) : (
               <SvgBarGraph
                 data={companyBarData}
-                height={220}
+                height={250}
                 color1="#10b981"
                 color2="#f43f5e"
                 label1="Money In"
@@ -889,25 +936,28 @@ export default function CfoDashboardPage() {
               />
             )}
 
-            <div>
-              <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">📋 Company Numbers Table</h4>
-              <div className="overflow-x-auto max-h-52 overflow-y-auto">
-                <table className="w-full text-left text-xs font-semibold border border-slate-200/60 rounded-xl overflow-hidden">
-                  <thead className="bg-slate-100/70 text-slate-600 uppercase text-[10px] sticky top-0 bg-slate-100">
+            <div className="pt-2 border-t border-slate-100">
+              <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2.5 flex items-center justify-between">
+                <span>📋 Company Numbers Table</span>
+                <span className="text-[10px] text-slate-400 font-semibold">{companyFinancials.length} Registered Companies</span>
+              </h4>
+              <div className="overflow-x-auto max-h-56 overflow-y-auto rounded-xl border border-slate-200/60 shadow-xs">
+                <table className="w-full text-left text-xs font-semibold">
+                  <thead className="bg-slate-100/90 text-slate-600 uppercase text-[10px] sticky top-0 bg-slate-100 border-b border-slate-200/80">
                     <tr>
-                      <th className="py-2 px-3">Company Name</th>
-                      <th className="py-2 px-3">Income (₹)</th>
-                      <th className="py-2 px-3">Expense (₹)</th>
-                      <th className="py-2 px-3 text-right">Net (₹)</th>
+                      <th className="py-2.5 px-3">Company Name</th>
+                      <th className="py-2.5 px-3">Income (₹)</th>
+                      <th className="py-2.5 px-3">Expense (₹)</th>
+                      <th className="py-2.5 px-3 text-right">Net (₹)</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 text-slate-700">
+                  <tbody className="divide-y divide-slate-100 text-slate-700 bg-white">
                     {companyFinancials.map((comp: any) => (
-                      <tr key={comp.name} className="hover:bg-slate-50">
-                        <td className="py-2 px-3 font-bold text-slate-900">{comp.name}</td>
-                        <td className="py-2 px-3 font-bold text-emerald-600">₹{comp.revenue.toLocaleString("en-IN")}</td>
-                        <td className="py-2 px-3 font-bold text-rose-600">₹{comp.expense.toLocaleString("en-IN")}</td>
-                        <td className={`py-2 px-3 text-right font-black ${comp.net >= 0 ? "text-indigo-600" : "text-rose-600"}`}>
+                      <tr key={comp.name} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-2.5 px-3 font-bold text-slate-900">{comp.name}</td>
+                        <td className="py-2.5 px-3 font-bold text-emerald-600">₹{comp.revenue.toLocaleString("en-IN")}</td>
+                        <td className="py-2.5 px-3 font-bold text-rose-600">₹{comp.expense.toLocaleString("en-IN")}</td>
+                        <td className={`py-2.5 px-3 text-right font-black ${comp.net >= 0 ? "text-indigo-600" : "text-rose-600"}`}>
                           ₹{comp.net.toLocaleString("en-IN")}
                         </td>
                       </tr>
@@ -919,11 +969,11 @@ export default function CfoDashboardPage() {
           </div>
 
           {/* 7. BRAND VERTICAL BARS & TABLE */}
-          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-4">
+          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-5">
             <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
               <div>
                 <h3 className="text-base font-extrabold text-slate-800">📊 7. Brand-wise Income & Expense Bar Graph</h3>
-                <p className="text-xs text-slate-400 font-medium">Vertical bar graph comparing Money In vs Money Out per brand entity</p>
+                <p className="text-xs text-slate-400 font-medium">Vertical bars with rupee value badges directly on top of each bar</p>
               </div>
               <Link href="/admin-dashboard/brands" className="text-xs font-bold text-indigo-600 hover:underline">Manage Brands →</Link>
             </div>
@@ -933,7 +983,7 @@ export default function CfoDashboardPage() {
             ) : (
               <SvgBarGraph
                 data={brandBarData}
-                height={220}
+                height={250}
                 color1="#8b5cf6"
                 color2="#f59e0b"
                 label1="Money In"
@@ -943,25 +993,28 @@ export default function CfoDashboardPage() {
               />
             )}
 
-            <div>
-              <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">📋 Brand Numbers Table</h4>
-              <div className="overflow-x-auto max-h-52 overflow-y-auto">
-                <table className="w-full text-left text-xs font-semibold border border-slate-200/60 rounded-xl overflow-hidden">
-                  <thead className="bg-slate-100/70 text-slate-600 uppercase text-[10px] sticky top-0 bg-slate-100">
+            <div className="pt-2 border-t border-slate-100">
+              <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2.5 flex items-center justify-between">
+                <span>📋 Brand Numbers Table</span>
+                <span className="text-[10px] text-slate-400 font-semibold">{brandFinancials.length} Registered Brands</span>
+              </h4>
+              <div className="overflow-x-auto max-h-56 overflow-y-auto rounded-xl border border-slate-200/60 shadow-xs">
+                <table className="w-full text-left text-xs font-semibold">
+                  <thead className="bg-slate-100/90 text-slate-600 uppercase text-[10px] sticky top-0 bg-slate-100 border-b border-slate-200/80">
                     <tr>
-                      <th className="py-2 px-3">Brand Name</th>
-                      <th className="py-2 px-3">Income (₹)</th>
-                      <th className="py-2 px-3">Expense (₹)</th>
-                      <th className="py-2 px-3 text-right">Net (₹)</th>
+                      <th className="py-2.5 px-3">Brand Name</th>
+                      <th className="py-2.5 px-3">Income (₹)</th>
+                      <th className="py-2.5 px-3">Expense (₹)</th>
+                      <th className="py-2.5 px-3 text-right">Net (₹)</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 text-slate-700">
+                  <tbody className="divide-y divide-slate-100 text-slate-700 bg-white">
                     {brandFinancials.map((b: any) => (
-                      <tr key={b.name} className="hover:bg-slate-50">
-                        <td className="py-2 px-3 font-bold text-slate-900">{b.name}</td>
-                        <td className="py-2 px-3 font-bold text-emerald-600">₹{b.revenue.toLocaleString("en-IN")}</td>
-                        <td className="py-2 px-3 font-bold text-rose-600">₹{b.expense.toLocaleString("en-IN")}</td>
-                        <td className={`py-2 px-3 text-right font-black ${b.net >= 0 ? "text-indigo-600" : "text-rose-600"}`}>
+                      <tr key={b.name} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-2.5 px-3 font-bold text-slate-900">{b.name}</td>
+                        <td className="py-2.5 px-3 font-bold text-emerald-600">₹{b.revenue.toLocaleString("en-IN")}</td>
+                        <td className="py-2.5 px-3 font-bold text-rose-600">₹{b.expense.toLocaleString("en-IN")}</td>
+                        <td className={`py-2.5 px-3 text-right font-black ${b.net >= 0 ? "text-indigo-600" : "text-rose-600"}`}>
                           ₹{b.net.toLocaleString("en-IN")}
                         </td>
                       </tr>
@@ -976,7 +1029,7 @@ export default function CfoDashboardPage() {
         {/* 8 & 9. PAYMENT PIE & OVERHEAD PIE WITH TABLES */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* 8. PAYMENT MODES PIE & TABLE */}
-          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-4">
+          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-5">
             <div className="border-b border-slate-100 pb-3">
               <h3 className="text-base font-extrabold text-slate-800">💳 8. Payment Modes (Cash, UPI, Bank)</h3>
               <p className="text-xs text-slate-400 font-medium">Expense disbursements by payment method</p>
@@ -988,15 +1041,15 @@ export default function CfoDashboardPage() {
               <SvgPieChart data={paymentPieData} size={190} onHover={handleHover} onLeave={handleLeave} />
             )}
 
-            <div>
+            <div className="pt-2 border-t border-slate-100">
               <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">📋 Payment Mode Numbers Table</h4>
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs font-semibold border border-slate-200/60 rounded-xl overflow-hidden">
-                  <thead className="bg-slate-100/70 text-slate-600 uppercase text-[10px]">
+                <table className="w-full text-left text-xs font-semibold border border-slate-200/60 rounded-xl overflow-hidden shadow-xs">
+                  <thead className="bg-slate-100/80 text-slate-600 uppercase text-[10px]">
                     <tr>
-                      <th className="py-2 px-3">Mode</th>
-                      <th className="py-2 px-3">Spent Amount (₹)</th>
-                      <th className="py-2 px-3 text-right">Share (%)</th>
+                      <th className="py-2.5 px-3">Mode</th>
+                      <th className="py-2.5 px-3">Spent Amount (₹)</th>
+                      <th className="py-2.5 px-3 text-right">Share (%)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -1004,13 +1057,13 @@ export default function CfoDashboardPage() {
                       const tot = summary.totalExpenses || 1;
                       const pct = ((m.value / tot) * 100).toFixed(1);
                       return (
-                        <tr key={m.name} className="hover:bg-slate-50">
-                          <td className="py-2 px-3 font-bold flex items-center gap-1.5">
-                            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
+                        <tr key={m.name} className="hover:bg-slate-50 transition-colors">
+                          <td className="py-2.5 px-3 font-bold flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
                             <span>{m.name}</span>
                           </td>
-                          <td className="py-2 px-3 font-bold text-slate-900">₹{m.value.toLocaleString("en-IN")}</td>
-                          <td className="py-2 px-3 text-right font-extrabold text-indigo-600">{pct}%</td>
+                          <td className="py-2.5 px-3 font-bold text-slate-900">₹{m.value.toLocaleString("en-IN")}</td>
+                          <td className="py-2.5 px-3 text-right font-extrabold text-indigo-600">{pct}%</td>
                         </tr>
                       );
                     })}
@@ -1021,7 +1074,7 @@ export default function CfoDashboardPage() {
           </div>
 
           {/* 9. OVERHEAD TYPES PIE & TABLE */}
-          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-4">
+          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-5">
             <div className="border-b border-slate-100 pb-3">
               <h3 className="text-base font-extrabold text-slate-800">⚡ 9. Fixed vs Variable Expenses</h3>
               <p className="text-xs text-slate-400 font-medium">Proportion of variable operating costs vs fixed overhead</p>
@@ -1029,15 +1082,15 @@ export default function CfoDashboardPage() {
 
             <SvgPieChart data={overheadPieData} size={190} onHover={handleHover} onLeave={handleLeave} />
 
-            <div>
+            <div className="pt-2 border-t border-slate-100">
               <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">📋 Expense Type Numbers Table</h4>
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs font-semibold border border-slate-200/60 rounded-xl overflow-hidden">
-                  <thead className="bg-slate-100/70 text-slate-600 uppercase text-[10px]">
+                <table className="w-full text-left text-xs font-semibold border border-slate-200/60 rounded-xl overflow-hidden shadow-xs">
+                  <thead className="bg-slate-100/80 text-slate-600 uppercase text-[10px]">
                     <tr>
-                      <th className="py-2 px-3">Cost Type</th>
-                      <th className="py-2 px-3">Spent Amount (₹)</th>
-                      <th className="py-2 px-3 text-right">Share (%)</th>
+                      <th className="py-2.5 px-3">Cost Type</th>
+                      <th className="py-2.5 px-3">Spent Amount (₹)</th>
+                      <th className="py-2.5 px-3 text-right">Share (%)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -1045,13 +1098,13 @@ export default function CfoDashboardPage() {
                       const tot = Math.max(1, summary.totalExpenses);
                       const pct = ((d.value / tot) * 100).toFixed(1);
                       return (
-                        <tr key={d.name} className="hover:bg-slate-50">
-                          <td className="py-2 px-3 font-bold flex items-center gap-1.5">
-                            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.color }} />
+                        <tr key={d.name} className="hover:bg-slate-50 transition-colors">
+                          <td className="py-2.5 px-3 font-bold flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
                             <span>{d.name}</span>
                           </td>
-                          <td className="py-2 px-3 font-bold text-slate-900">₹{d.value.toLocaleString("en-IN")}</td>
-                          <td className="py-2 px-3 text-right font-extrabold text-teal-600">{pct}%</td>
+                          <td className="py-2.5 px-3 font-bold text-slate-900">₹{d.value.toLocaleString("en-IN")}</td>
+                          <td className="py-2.5 px-3 text-right font-extrabold text-teal-600">{pct}%</td>
                         </tr>
                       );
                     })}
@@ -1063,7 +1116,7 @@ export default function CfoDashboardPage() {
         </div>
 
         {/* 10. RECENT DISBURSEMENTS TABLE & TREND LINE */}
-        <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-4">
+        <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-5">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div>
               <h3 className="text-base font-extrabold text-slate-800">📋 10. Recent Expenses List</h3>
@@ -1075,16 +1128,16 @@ export default function CfoDashboardPage() {
           <SvgLineGraph
             data={transactionLineData}
             width={700}
-            height={180}
+            height={190}
             color1="#6366f1"
             label1="Expense Amount Trend Line"
             onHover={handleHover}
             onLeave={handleLeave}
           />
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs font-semibold border border-slate-200/60 rounded-xl overflow-hidden">
-              <thead className="bg-slate-100/70 text-slate-600 uppercase text-[10px]">
+          <div className="overflow-x-auto rounded-xl border border-slate-200/60 shadow-xs">
+            <table className="w-full text-left text-xs font-semibold">
+              <thead className="bg-slate-100/90 text-slate-600 uppercase text-[10px] border-b border-slate-200/80">
                 <tr>
                   <th className="py-3 px-4">Date</th>
                   <th className="py-3 px-4">Category</th>
@@ -1095,7 +1148,7 @@ export default function CfoDashboardPage() {
                   <th className="py-3 px-4 text-right">Amount (₹)</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700">
+              <tbody className="divide-y divide-slate-100 text-slate-700 bg-white">
                 {recentExpenses.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="text-center py-6 text-slate-400 font-semibold">No expense records found.</td>
