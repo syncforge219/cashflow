@@ -416,21 +416,61 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
 
     const { enquiries = [], payments = [], brands = [], companies = [], counsellors = [] } = master;
 
-    // ── SHEET 1: MASTER SUMMARY (ALL BRANDS & ALL COMPANIES) ──
+    // Helper data calculations
+    const brandCollectionMap: Record<string, { name: string; brandId: string; enquiries: number; admissions: number; collection: number }> = {};
+    brands.forEach((b: any) => {
+      const bNameLower = (b.name || "").toLowerCase().trim();
+      const bEnquiries = enquiries.filter((e: any) =>
+        (e.targetBrand || "").toLowerCase().trim() === bNameLower ||
+        (e.brand || "").toLowerCase().trim() === bNameLower
+      );
+      const bAdmissions = bEnquiries.filter((e: any) => (e.status || "").toLowerCase() === "admitted").length;
+      const bRev = payments.reduce((sum: number, p: any) => {
+        const admission = p.admissionId || {};
+        const pBrand = (admission.brand || p.brand || "").toLowerCase().trim();
+        return pBrand === bNameLower ? sum + Number(p.amountReceived || 0) : sum;
+      }, 0);
+
+      brandCollectionMap[bNameLower] = {
+        name: b.name,
+        brandId: b.brandId || "N/A",
+        enquiries: bEnquiries.length,
+        admissions: bAdmissions,
+        collection: bRev,
+      };
+    });
+
+    const companyCollectionMap: Record<string, { name: string; gst: string; count: number; collection: number }> = {};
+    companies.forEach((comp: any) => {
+      const cNameLower = (comp.name || "").toLowerCase().trim();
+      const compPayments = payments.filter((p: any) => {
+        const admission = p.admissionId || {};
+        const pComp = (admission.companyAssigned || p.company || "").toLowerCase().trim();
+        return pComp.includes(cNameLower) || cNameLower.includes(pComp);
+      });
+      const compRev = compPayments.reduce((sum: number, p: any) => sum + Number(p.amountReceived || 0), 0);
+
+      companyCollectionMap[cNameLower] = {
+        name: comp.name,
+        gst: comp.gst || "Registered",
+        count: compPayments.length,
+        collection: compRev,
+      };
+    });
+
+    // ── SHEET 1: MASTER EXECUTIVE SUMMARY ─────────────────────
     const summarySheet = workbook.addWorksheet("Master Executive Summary");
 
-    // Title Block
     summarySheet.addRow(["ACADEMIC & CORPORATE MASTER EXECUTIVE SUMMARY REPORT"]);
     summarySheet.addRow([`Generated On: ${new Date().toLocaleString('en-IN')}`, `Date Scope: ${startDate || 'Beginning'} to ${endDate || 'Today'}`]);
     summarySheet.addRow([]);
 
-    // 1A. ALL BRANDS SUMMARY TABLE
     summarySheet.addRow(["1. ALL BRANDS PERFORMANCE SUMMARY"]);
     const brandHeaders = ["Brand Name", "Brand ID", "Total Enquiries", "Demos Conducted", "Admissions", "Conversion Rate", "Total Revenue Billed (INR)"];
     const brandHeaderRow = summarySheet.addRow(brandHeaders);
     brandHeaderRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
     brandHeaderRow.eachCell(cell => {
-      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4F46E5" } }; // Indigo
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4F46E5" } };
     });
 
     let globalTotalEnquiries = 0;
@@ -445,13 +485,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
       );
       const bDemos = bEnquiries.filter((e: any) => e.isDemoScheduled || (e.demos && e.demos.length > 0) || (e.status || "").toLowerCase().includes("demo")).length;
       const bAdmissions = bEnquiries.filter((e: any) => (e.status || "").toLowerCase() === "admitted").length;
-
-      const bRev = payments.reduce((sum: number, p: any) => {
-        const admission = p.admissionId || {};
-        const pBrand = (admission.brand || p.brand || "").toLowerCase().trim();
-        return pBrand === bNameLower ? sum + Number(p.amountReceived || 0) : sum;
-      }, 0);
-
+      const bRev = brandCollectionMap[bNameLower]?.collection || 0;
       const convPct = bEnquiries.length > 0 ? ((bAdmissions / bEnquiries.length) * 100).toFixed(1) + "%" : "0.0%";
 
       globalTotalEnquiries += bEnquiries.length;
@@ -461,7 +495,6 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
       summarySheet.addRow([b.name, b.brandId || "N/A", bEnquiries.length, bDemos, bAdmissions, convPct, bRev]);
     });
 
-    // Total Brand Row
     const brandTotalRow = summarySheet.addRow([
       "TOTAL ALL BRANDS", "-", globalTotalEnquiries, "-", globalTotalAdmissions,
       globalTotalEnquiries > 0 ? ((globalTotalAdmissions / globalTotalEnquiries) * 100).toFixed(1) + "%" : "0.0%",
@@ -469,16 +502,15 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
     ]);
     brandTotalRow.font = { bold: true };
 
-    summarySheet.addRow([]); // Blank Row
-    summarySheet.addRow([]); // Blank Row
+    summarySheet.addRow([]);
+    summarySheet.addRow([]);
 
-    // 1B. ALL COMPANIES SUMMARY TABLE
     summarySheet.addRow(["2. ALL LEGAL COMPANIES FINANCIAL SUMMARY"]);
     const companyHeaders = ["Company Name", "GST Number", "Receipts Issued", "Total Billed Collections (INR)"];
     const companyHeaderRow = summarySheet.addRow(companyHeaders);
     companyHeaderRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
     companyHeaderRow.eachCell(cell => {
-      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF059669" } }; // Emerald
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF059669" } };
     });
 
     let globalCompanyTotalRevenue = 0;
@@ -486,47 +518,24 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
 
     companies.forEach((comp: any) => {
       const cNameLower = (comp.name || "").toLowerCase().trim();
-      const compPayments = payments.filter((p: any) => {
-        const admission = p.admissionId || {};
-        const pComp = (admission.companyAssigned || p.company || "").toLowerCase().trim();
-        return pComp.includes(cNameLower) || cNameLower.includes(pComp);
-      });
+      const compData = companyCollectionMap[cNameLower] || { count: 0, collection: 0 };
+      globalCompanyTotalRevenue += compData.collection;
+      globalReceiptsCount += compData.count;
 
-      const compRev = compPayments.reduce((sum: number, p: any) => sum + Number(p.amountReceived || 0), 0);
-      globalCompanyTotalRevenue += compRev;
-      globalReceiptsCount += compPayments.length;
-
-      summarySheet.addRow([comp.name, comp.gst || "Registered", compPayments.length, compRev]);
+      summarySheet.addRow([comp.name, comp.gst || "Registered", compData.count, compData.collection]);
     });
 
     const compTotalRow = summarySheet.addRow(["TOTAL ALL COMPANIES", "-", globalReceiptsCount, globalCompanyTotalRevenue]);
     compTotalRow.font = { bold: true };
 
-    // Format Sheet 1 Columns
     summarySheet.columns.forEach(col => col.width = 24);
 
-    // Embed Visual Chart Graphics into Sheet 1
+    // Canvas charts on summary sheet
     try {
       const brandNames = brands.map((b: any) => b.name);
-      const brandRevenues = brands.map((b: any) => {
-        const bNameLower = (b.name || "").toLowerCase().trim();
-        return payments.reduce((sum: number, p: any) => {
-          const admission = p.admissionId || {};
-          const pBrand = (admission.brand || p.brand || "").toLowerCase().trim();
-          return pBrand === bNameLower ? sum + Number(p.amountReceived || 0) : sum;
-        }, 0);
-      });
-
+      const brandRevenues = brands.map((b: any) => brandCollectionMap[(b.name || "").toLowerCase().trim()]?.collection || 0);
       const compNames = companies.map((c: any) => c.name);
-      const compRevenues = companies.map((comp: any) => {
-        const cNameLower = (comp.name || "").toLowerCase().trim();
-        const compPayments = payments.filter((p: any) => {
-          const admission = p.admissionId || {};
-          const pComp = (admission.companyAssigned || p.company || "").toLowerCase().trim();
-          return pComp.includes(cNameLower) || cNameLower.includes(pComp);
-        });
-        return compPayments.reduce((sum: number, p: any) => sum + Number(p.amountReceived || 0), 0);
-      });
+      const compRevenues = companies.map((c: any) => companyCollectionMap[(c.name || "").toLowerCase().trim()]?.collection || 0);
 
       const courseCounts: Record<string, number> = {};
       enquiries.forEach((e: any) => {
@@ -535,53 +544,204 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
       });
       const sortedCourses = Object.entries(courseCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
 
-      const brandChartBase64 = drawBarChartCanvas("BRAND BILLED REVENUE (INR)", brandNames, brandRevenues, ["#4f46e5", "#059669", "#7c3aed", "#2563eb", "#d97706"]);
-      if (brandChartBase64) {
-        const img1 = workbook.addImage({ base64: brandChartBase64, extension: "png" });
-        summarySheet.addImage(img1, {
-          tl: { col: 8, row: 3 },
-          ext: { width: 560, height: 280 }
-        });
-      }
+      const bChart = drawBarChartCanvas("BRAND BILLED REVENUE (INR)", brandNames, brandRevenues, ["#4f46e5", "#059669", "#7c3aed", "#2563eb", "#d97706"]);
+      if (bChart) summarySheet.addImage(workbook.addImage({ base64: bChart, extension: "png" }), { tl: { col: 8, row: 3 }, ext: { width: 560, height: 280 } });
 
-      const compChartBase64 = drawDonutChartCanvas("COMPANY COLLECTIONS SHARE", compNames, compRevenues, ["#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#ef4444"]);
-      if (compChartBase64) {
-        const img2 = workbook.addImage({ base64: compChartBase64, extension: "png" });
-        summarySheet.addImage(img2, {
-          tl: { col: 8, row: 18 },
-          ext: { width: 560, height: 280 }
-        });
-      }
+      const cChart = drawDonutChartCanvas("COMPANY COLLECTIONS SHARE", compNames, compRevenues, ["#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#ef4444"]);
+      if (cChart) summarySheet.addImage(workbook.addImage({ base64: cChart, extension: "png" }), { tl: { col: 8, row: 18 }, ext: { width: 560, height: 280 } });
 
-      const courseChartBase64 = drawHorizontalBarChartCanvas("TOP DEMANDED COURSES", sortedCourses.map(c => c[0]), sortedCourses.map(c => c[1]), ["#06b6d4", "#ec4899", "#14b8a6", "#f97316", "#6366f1"], (v) => v.toString() + " Leads");
-      if (courseChartBase64) {
-        const img3 = workbook.addImage({ base64: courseChartBase64, extension: "png" });
-        summarySheet.addImage(img3, {
-          tl: { col: 8, row: 33 },
-          ext: { width: 560, height: 280 }
-        });
-      }
+      const crsChart = drawHorizontalBarChartCanvas("TOP DEMANDED COURSES", sortedCourses.map(c => c[0]), sortedCourses.map(c => c[1]), ["#06b6d4", "#ec4899", "#14b8a6", "#f97316", "#6366f1"], (v) => v.toString() + " Leads");
+      if (crsChart) summarySheet.addImage(workbook.addImage({ base64: crsChart, extension: "png" }), { tl: { col: 8, row: 33 }, ext: { width: 560, height: 280 } });
     } catch (chartErr) {
-      console.error("Failed adding charts to Super Master report:", chartErr);
+      console.error("Failed adding summary charts:", chartErr);
     }
 
-    // ── SHEETS FOR EACH BRAND ────────────────────────────────
+    // ── SHEET 2: ALL LEADS REGISTER (WITH BRAND & COMPANY SUMMARY ON TOP) ──────
+    const leadsSheet = workbook.addWorksheet("All Leads Register");
+
+    leadsSheet.addRow(["ALL LEADS & ENQUIRIES COMPREHENSIVE REGISTER"]);
+    leadsSheet.addRow([`Export Date: ${new Date().toLocaleString('en-IN')}`, `Total Enquiries Count: ${enquiries.length}`]);
+    leadsSheet.addRow([]);
+
+    // BRAND-WISE COLLECTION BOX ON TOP
+    leadsSheet.addRow(["1. BRAND-WISE FINANCIAL COLLECTIONS & LEADS OVERVIEW"]);
+    const lBrandH = leadsSheet.addRow(["Brand Name", "Brand ID", "Total Enquiries", "Admissions Closed", "Total Collection (INR)"]);
+    lBrandH.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    lBrandH.eachCell(c => c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4F46E5" } });
+
+    Object.values(brandCollectionMap).forEach(b => {
+      leadsSheet.addRow([b.name, b.brandId, b.enquiries, b.admissions, b.collection]);
+    });
+    leadsSheet.addRow([]);
+
+    // COMPANY-WISE COLLECTION BOX ON TOP
+    leadsSheet.addRow(["2. COMPANY-WISE FINANCIAL COLLECTIONS OVERVIEW"]);
+    const lCompH = leadsSheet.addRow(["Company Name", "GST Number", "Billed Receipts Count", "Total Billed Collections (INR)"]);
+    lCompH.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    lCompH.eachCell(c => c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF059669" } });
+
+    Object.values(companyCollectionMap).forEach(c => {
+      leadsSheet.addRow([c.name, c.gst, c.count, c.collection]);
+    });
+    leadsSheet.addRow([]);
+
+    // MAIN ALL LEADS TABLE
+    leadsSheet.addRow(["3. DETAILED ALL LEADS REGISTER"]);
+    const lMainH = leadsSheet.addRow([
+      "Enquiry ID", "Student Name", "Mobile / Phone Number", "Email Address",
+      "Target Course", "Target Brand", "Assigned Legal Company", "Assigned Counsellor",
+      "Lead Source", "Priority Level", "Status", "Fees Collected (INR)", "Date Created"
+    ]);
+    lMainH.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    lMainH.eachCell(c => c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2563EB" } });
+
+    enquiries.forEach((e: any, idx: number) => {
+      const phone = e.primaryPhoneMobile || e.phone || e.mobile || e.mobileNumber || "N/A";
+      const course = e.targetCourse || e.course || "General";
+      const brand = e.targetBrand || e.brand || "N/A";
+      const company = e.companyAssigned || e.company || "N/A";
+      const fee = parseFloat(String(e.feesCollected || "0").replace(/[^0-9.]/g, "")) || 0;
+
+      const row = leadsSheet.addRow([
+        e.enquiryId || "N/A",
+        e.studentFullName || e.fullName || e.name || "Student",
+        phone,
+        e.emailAddress || e.email || "N/A",
+        course,
+        brand,
+        company,
+        e.assignedCrmAdvisor || e.counsellor || "Unassigned",
+        e.leadSource || "Direct",
+        e.priorityLevel || e.priority || "Medium",
+        e.status || "New",
+        fee,
+        e.createdAt ? new Date(e.createdAt).toLocaleDateString("en-IN") : "N/A"
+      ]);
+
+      if (idx % 2 === 1) {
+        row.eachCell(c => c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF8FAFC" } });
+      }
+    });
+
+    leadsSheet.columns.forEach(col => col.width = 22);
+
+    // ── SHEET 3: ADMITTED STUDENTS REGISTER (DEDICATED ADMISSION SHEET) ────────
+    const admissionSheet = workbook.addWorksheet("Admitted Students Register");
+
+    const admittedEnquiries = enquiries.filter((e: any) => (e.status || "").toLowerCase() === "admitted");
+
+    admissionSheet.addRow(["OFFICIAL ADMITTED STUDENTS & ADMISSIONS REGISTER"]);
+    admissionSheet.addRow([`Export Date: ${new Date().toLocaleString('en-IN')}`, `Total Admitted Students: ${admittedEnquiries.length}`]);
+    admissionSheet.addRow([]);
+
+    // BRAND-WISE ADMISSION COLLECTION BOX ON TOP
+    admissionSheet.addRow(["1. BRAND-WISE ADMISSION COLLECTIONS HIGHLIGHTS"]);
+    const aBrandH = admissionSheet.addRow(["Brand Name", "Brand ID", "Total Admitted Students", "Total Revenue Collected (INR)"]);
+    aBrandH.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    aBrandH.eachCell(c => c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF7C3AED" } });
+
+    Object.values(brandCollectionMap).forEach(b => {
+      admissionSheet.addRow([b.name, b.brandId, b.admissions, b.collection]);
+    });
+    admissionSheet.addRow([]);
+
+    // COMPANY-WISE ADMISSION COLLECTION BOX ON TOP
+    admissionSheet.addRow(["2. COMPANY-WISE ADMISSION COLLECTIONS HIGHLIGHTS"]);
+    const aCompH = admissionSheet.addRow(["Company Name", "GST Number", "Total Receipts Issued", "Total Billed Revenue (INR)"]);
+    aCompH.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    aCompH.eachCell(c => c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF059669" } });
+
+    Object.values(companyCollectionMap).forEach(c => {
+      admissionSheet.addRow([c.name, c.gst, c.count, c.collection]);
+    });
+    admissionSheet.addRow([]);
+
+    // MAIN ADMISSIONS TABLE
+    admissionSheet.addRow(["3. ADMITTED STUDENTS DETAILED REGISTER"]);
+    const aMainH = admissionSheet.addRow([
+      "Admission ID", "Student Name", "Mobile / Phone Number", "Email Address",
+      "Enrolled Course", "Brand Name", "Assigned Legal Company", "Assigned Counsellor",
+      "Total Fees Collected (INR)", "Status", "Date Admitted / Created"
+    ]);
+    aMainH.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    aMainH.eachCell(c => c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF10B981" } });
+
+    admittedEnquiries.forEach((e: any, idx: number) => {
+      const phone = e.primaryPhoneMobile || e.phone || e.mobile || e.mobileNumber || "N/A";
+      const course = e.targetCourse || e.course || "General";
+      const brand = e.targetBrand || e.brand || "N/A";
+      const company = e.companyAssigned || e.company || "N/A";
+      const fee = parseFloat(String(e.feesCollected || "0").replace(/[^0-9.]/g, "")) || 0;
+
+      const row = admissionSheet.addRow([
+        e.enquiryId || "N/A",
+        e.studentFullName || e.fullName || e.name || "Student",
+        phone,
+        e.emailAddress || e.email || "N/A",
+        course,
+        brand,
+        company,
+        e.assignedCrmAdvisor || e.counsellor || "Unassigned",
+        fee,
+        "Admitted",
+        e.createdAt ? new Date(e.createdAt).toLocaleDateString("en-IN") : "N/A"
+      ]);
+
+      if (idx % 2 === 1) {
+        row.eachCell(c => c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF0FDF4" } });
+      }
+    });
+
+    admissionSheet.columns.forEach(col => col.width = 22);
+
+    // ── SHEETS FOR EACH BRAND (WITH BRAND & COMPANY HIGHLIGHTS ON TOP) ─────────
     brands.forEach((b: any) => {
       const bNameLower = (b.name || "").toLowerCase().trim();
       const bEnquiries = enquiries.filter((e: any) =>
         (e.targetBrand || "").toLowerCase().trim() === bNameLower ||
         (e.brand || "").toLowerCase().trim() === bNameLower
       );
+      const bAdmissions = bEnquiries.filter((e: any) => (e.status || "").toLowerCase() === "admitted").length;
+      const bCollection = brandCollectionMap[bNameLower]?.collection || 0;
 
       const safeSheetName = `Brand - ${b.name}`.replace(/[?*/\\[\]]/g, '').substring(0, 31);
       const sheet = workbook.addWorksheet(safeSheetName);
 
-      sheet.addRow([`BRAND REGISTER: ${b.name.toUpperCase()} (${b.brandId || ''})`]);
+      sheet.addRow([`BRAND DEDICATED REGISTER: ${b.name.toUpperCase()} (${b.brandId || 'N/A'})`]);
       sheet.addRow([]);
 
+      // BRAND HIGHLIGHTS ON TOP
+      sheet.addRow(["1. BRAND FINANCIAL HIGHLIGHTS ON TOP"]);
+      const bTopH = sheet.addRow(["Brand Name", "Brand ID", "Total Enquiries", "Admissions Closed", "Total Collection (INR)"]);
+      bTopH.font = { bold: true, color: { argb: "FFFFFFFF" } };
+      bTopH.eachCell(c => c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4F46E5" } });
+      sheet.addRow([b.name, b.brandId || "N/A", bEnquiries.length, bAdmissions, bCollection]);
+      sheet.addRow([]);
+
+      // COMPANY HIGHLIGHTS FOR THIS BRAND ON TOP
+      sheet.addRow(["2. COMPANY COLLECTIONS BREAKDOWN FOR THIS BRAND ON TOP"]);
+      const bCompTopH = sheet.addRow(["Company Name", "Receipts Billed", "Total Collection (INR)"]);
+      bCompTopH.font = { bold: true, color: { argb: "FFFFFFFF" } };
+      bCompTopH.eachCell(c => c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF059669" } });
+
+      companies.forEach((comp: any) => {
+        const cNameLower = (comp.name || "").toLowerCase().trim();
+        const compPayments = payments.filter((p: any) => {
+          const admission = p.admissionId || {};
+          const pBrand = (admission.brand || p.brand || "").toLowerCase().trim();
+          const pComp = (admission.companyAssigned || p.company || "").toLowerCase().trim();
+          return pBrand === bNameLower && (pComp.includes(cNameLower) || cNameLower.includes(pComp));
+        });
+        const compRev = compPayments.reduce((sum: number, p: any) => sum + Number(p.amountReceived || 0), 0);
+        sheet.addRow([comp.name, compPayments.length, compRev]);
+      });
+      sheet.addRow([]);
+
+      // BRAND TABLE WITH COURSE & PHONE NUMBER
+      sheet.addRow(["3. BRAND ENQUIRIES & ADMISSIONS REGISTER"]);
       const headerRow = sheet.addRow([
-        "Enquiry ID", "Student Name", "Mobile", "Email", "Target Course",
-        "Assigned Counsellor", "Lead Source", "Priority", "Status", "Fees Collected (INR)"
+        "Enquiry ID", "Student Name", "Mobile / Phone Number", "Email Address", "Target Course",
+        "Assigned Counsellor", "Lead Source", "Priority Level", "Status", "Fees Collected (INR)"
       ]);
       headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
       headerRow.eachCell(cell => {
@@ -589,17 +749,21 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
       });
 
       bEnquiries.forEach((e: any, idx: number) => {
+        const phone = e.primaryPhoneMobile || e.phone || e.mobile || e.mobileNumber || "N/A";
+        const course = e.targetCourse || e.course || "General";
+        const fee = parseFloat(String(e.feesCollected || "0").replace(/[^0-9.]/g, "")) || 0;
+
         const row = sheet.addRow([
           e.enquiryId || "N/A",
-          e.studentFullName || "Student",
-          e.primaryPhoneMobile || e.phone || "N/A",
+          e.studentFullName || e.fullName || e.name || "Student",
+          phone,
           e.emailAddress || e.email || "N/A",
-          e.targetCourse || "General",
-          e.assignedCrmAdvisor || "Unassigned",
+          course,
+          e.assignedCrmAdvisor || e.counsellor || "Unassigned",
           e.leadSource || "Direct",
           e.priorityLevel || e.priority || "Medium",
           e.status || "New",
-          parseFloat(String(e.feesCollected || "0").replace(/[^0-9.]/g, "")) || 0
+          fee
         ]);
         if (idx % 2 === 1) {
           row.eachCell(cell => {
@@ -611,7 +775,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
       sheet.columns.forEach(col => col.width = 20);
     });
 
-    // ── SHEETS FOR EACH COMPANY ──────────────────────────────
+    // ── SHEETS FOR EACH COMPANY (WITH COMPANY & BRAND HIGHLIGHTS ON TOP) ───────
     companies.forEach((comp: any) => {
       const cNameLower = (comp.name || "").toLowerCase().trim();
       const compPayments = payments.filter((p: any) => {
@@ -619,6 +783,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
         const pComp = (admission.companyAssigned || p.company || "").toLowerCase().trim();
         return pComp.includes(cNameLower) || cNameLower.includes(pComp);
       });
+      const compRev = compPayments.reduce((sum: number, p: any) => sum + Number(p.amountReceived || 0), 0);
 
       let safeSheetName = `Comp - ${comp.name}`.replace(/[?*/\\[\]]/g, '').substring(0, 31);
       if (workbook.getWorksheet(safeSheetName)) {
@@ -629,9 +794,37 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
       sheet.addRow([`CORPORATE FINANCIAL REGISTER: ${comp.name.toUpperCase()} (GST: ${comp.gst || 'N/A'})`]);
       sheet.addRow([]);
 
+      // COMPANY HIGHLIGHTS ON TOP
+      sheet.addRow(["1. COMPANY FINANCIAL HIGHLIGHTS ON TOP"]);
+      const cTopH = sheet.addRow(["Company Name", "GST Number", "Receipts Issued Count", "Total Billed Collections (INR)"]);
+      cTopH.font = { bold: true, color: { argb: "FFFFFFFF" } };
+      cTopH.eachCell(c => c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF059669" } });
+      sheet.addRow([comp.name, comp.gst || "Registered", compPayments.length, compRev]);
+      sheet.addRow([]);
+
+      // BRAND HIGHLIGHTS UNDER THIS COMPANY ON TOP
+      sheet.addRow(["2. BRAND COLLECTIONS BREAKDOWN FOR THIS COMPANY ON TOP"]);
+      const cBrandTopH = sheet.addRow(["Brand Name", "Receipts Count", "Total Collection (INR)"]);
+      cBrandTopH.font = { bold: true, color: { argb: "FFFFFFFF" } };
+      cBrandTopH.eachCell(c => c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4F46E5" } });
+
+      brands.forEach((b: any) => {
+        const bNameLower = (b.name || "").toLowerCase().trim();
+        const bCompPayments = compPayments.filter((p: any) => {
+          const admission = p.admissionId || {};
+          const pBrand = (admission.brand || p.brand || "").toLowerCase().trim();
+          return pBrand === bNameLower;
+        });
+        const bCompRev = bCompPayments.reduce((sum: number, p: any) => sum + Number(p.amountReceived || 0), 0);
+        sheet.addRow([b.name, bCompPayments.length, bCompRev]);
+      });
+      sheet.addRow([]);
+
+      // COMPANY RECEIPTS TABLE WITH COURSE AND PHONE NUMBER
+      sheet.addRow(["3. FINANCIAL RECEIPTS REGISTER FOR THIS COMPANY"]);
       const headerRow = sheet.addRow([
-        "Receipt No", "Student Name", "Mobile", "Course Billed", "Brand",
-        "Payment Date", "Payment Mode", "Reference No", "Amount Received (INR)"
+        "Receipt No", "Student Name", "Mobile / Phone Number", "Email Address", "Course Billed",
+        "Brand Name", "Payment Date", "Payment Mode", "Reference No", "Amount Received (INR)"
       ]);
       headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
       headerRow.eachCell(cell => {
@@ -640,11 +833,15 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
 
       compPayments.forEach((p: any, idx: number) => {
         const admission = p.admissionId || {};
+        const phone = admission.mobileNumber || admission.phone || p.phone || "N/A";
+        const course = admission.course || p.course || "General";
+
         const row = sheet.addRow([
           p.receiptNo || "N/A",
           admission.fullName || p.studentName || "N/A",
-          admission.mobileNumber || "N/A",
-          admission.course || "N/A",
+          phone,
+          admission.email || p.email || "N/A",
+          course,
           admission.brand || p.brand || "N/A",
           p.paymentDate ? new Date(p.paymentDate).toLocaleDateString("en-IN") : "N/A",
           p.paymentMode || "Cash",
