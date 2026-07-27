@@ -72,14 +72,20 @@ export async function POST(req: Request) {
       if (previousNonCashPayment && previousNonCashPayment.company) {
         finalCompany = previousNonCashPayment.company;
       } else {
-        const brandDoc = await Brand.findOne({ name: admission.brand }).lean();
+        const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const brandStr = (admission.brand || "").trim();
+        const brandRegex = new RegExp(`^${escapeRegExp(brandStr)}$`, "i");
+
+        const brandDoc = await Brand.findOne({ name: { $regex: brandRegex } }).lean();
         const brandCompanies = brandDoc?.companies || [];
+
+        const safeCompRegexes = brandCompanies.map((c: string) => new RegExp(`^${escapeRegExp(c.trim())}$`, "i"));
         
         const availableCompanies = await Company.find({
           $or: [
-            { brand: admission.brand },
-            { brands: admission.brand },
-            { name: { $in: brandCompanies } }
+            { brand: { $regex: brandRegex } },
+            { brands: { $regex: brandRegex } },
+            ...(safeCompRegexes.length > 0 ? [{ name: { $in: safeCompRegexes } }] : [])
           ],
           status: "ACTIVE"
         });
@@ -100,8 +106,10 @@ export async function POST(req: Request) {
 
       // Update Ledger (increment collectedRevenue) & check 95% capacity threshold
       if (finalCompany && finalCompany !== "Cash" && finalCompany !== "Unallocated") {
+        const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const compRegex = new RegExp(`^${escapeRegExp(finalCompany.trim())}$`, "i");
         const updatedComp = await Company.findOneAndUpdate(
-          { name: finalCompany },
+          { name: { $regex: compRegex } },
           { $inc: { collectedRevenue: Number(amountReceived) } },
           { new: true }
         );
