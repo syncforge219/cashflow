@@ -6,6 +6,7 @@ import AdmissionModal from "@/components/AdmissionModal";
 import AddEnquiryModal from "@/components/AddEnquiryModal";
 import AdmissionDetailModal from "@/components/AdmissionDetailModal";
 import PaymentReceiptModal from "@/components/PaymentReceiptModal";
+import BulkImportAdmissionsModal from "@/components/BulkImportAdmissionsModal";
 import Sidebar from "@/components/Sidebar";
 
 export default function AdminAdmissionHub() {
@@ -22,6 +23,7 @@ export default function AdminAdmissionHub() {
   const [leadForAdmission, setLeadForAdmission] = useState<any | null>(null);
   const [isAddEnquiryOpen, setIsAddEnquiryOpen] = useState(false);
   const [selectedAdmissionDetail, setSelectedAdmissionDetail] = useState<any | null>(null);
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
 
   // Receipt Modal States
   const [selectedStudentForReceipt, setSelectedStudentForReceipt] = useState<any | null>(null);
@@ -162,18 +164,30 @@ export default function AdminAdmissionHub() {
   return (
     <div className="flex h-screen bg-[#f8faff] text-slate-800 overflow-hidden font-sans">
       <Sidebar />
+      <BulkImportAdmissionsModal isOpen={isBulkImportOpen} onClose={() => setIsBulkImportOpen(false)} onSuccess={fetchAdmissions} />
 
       {/* Main Content Dashboard */}
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto relative">
         <div className="p-8 pb-32">
           {/* Header */}
-          <header className="mb-8">
-            <h1 className="text-[28px] font-extrabold tracking-tight text-slate-800 mb-2">
-              Admission & Enrollment Hub
-            </h1>
-            <p className="text-sm font-semibold text-slate-500">
-              Convert vetted enquiries into official student enrollment ledgers and generate printable slip agreements.
-            </p>
+          <header className="mb-8 flex items-start justify-between gap-4">
+            <div>
+              <h1 className="text-[28px] font-extrabold tracking-tight text-slate-800 mb-2">
+                Admission & Enrollment Hub
+              </h1>
+              <p className="text-sm font-semibold text-slate-500">
+                Convert vetted enquiries into official student enrollment ledgers and generate printable slip agreements.
+              </p>
+            </div>
+            <button
+              onClick={() => setIsBulkImportOpen(true)}
+              className="flex items-center gap-2 bg-white border border-indigo-200 hover:border-indigo-400 hover:bg-indigo-50 text-indigo-700 text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm whitespace-nowrap mt-1"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+              </svg>
+              Import Historical Data (Excel)
+            </button>
           </header>
 
           {/* Student Search & Action Center */}
