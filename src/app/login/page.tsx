@@ -75,6 +75,8 @@ export default function LoginPage() {
           window.location.href = "/teacher-dashboard";
         } else if (data.user?.role === "cfo" || data.user?.role === "finance manager" || data.user?.role === "finance executive") {
           window.location.href = "/cfo-dashboard";
+        } else if (data.user?.role === "crm" || data.user?.role === "crm executive" || data.user?.role === "crm advisor") {
+          window.location.href = "/crm-dashboard";
         } else {
           window.location.href = "/admin-dashboard";
         }

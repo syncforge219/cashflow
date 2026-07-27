@@ -22,6 +22,7 @@ export async function POST(request: Request) {
       currentRevenue,
       admissionsRecorded,
       password,
+      role,
     } = body;
 
     // Validation
@@ -46,12 +47,12 @@ export async function POST(request: Request) {
     // Hash temporary password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user with role "counsellor" and counsellor-specific fields
+    // Create user with role and counsellor/crm fields
     const newUser = await User.create({
       name: `${firstName} ${lastName}`,
       email: cleanEmail,
       password: hashedPassword,
-      role: "counsellor",
+      role: role || "counsellor",
       phone,
       photoUrl,
       brandScope,
@@ -78,11 +79,18 @@ export async function POST(request: Request) {
   }
 }
 
-// GET: Fetch all users with role "counsellor" or "sales executive" with live admission metrics calculation
-export async function GET() {
+// GET: Fetch users by role with live admission metrics calculation
+export async function GET(request: Request) {
   try {
     await dbConnect();
-    const counsellors = await User.find({ role: { $in: ["counsellor", "sales executive", "sales-executive"] } }).select("-password").sort({ createdAt: -1 });
+    const { searchParams } = new URL(request.url);
+    const roleParam = searchParams.get("role");
+
+    const roleQuery = roleParam === "crm"
+      ? { $in: ["crm", "crm-executive", "crm-advisor", "crm advisor", "crm executive"] }
+      : { $in: ["counsellor", "sales executive", "sales-executive"] };
+
+    const counsellors = await User.find({ role: roleQuery }).select("-password").sort({ createdAt: -1 });
     const admissions = await Admission.find({});
     const allEnquiries = await Enquiry.find({});
     const admittedEnquiries = allEnquiries.filter((enq: any) => enq.status === "Admitted");

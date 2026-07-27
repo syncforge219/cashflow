@@ -6,9 +6,10 @@ interface RegisterCounsellorModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  role?: string;
 }
 
-export default function RegisterCounsellorModal({ isOpen, onClose, onSuccess }: RegisterCounsellorModalProps) {
+export default function RegisterCounsellorModal({ isOpen, onClose, onSuccess, role = "counsellor" }: RegisterCounsellorModalProps) {
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -91,6 +92,8 @@ export default function RegisterCounsellorModal({ isOpen, onClose, onSuccess }: 
     const cleanDigits = formData.phone.replace(/^\+?91\s?/, "").replace(/\D/g, "");
     const payload = {
       ...formData,
+      brandScope: role === "crm" ? "All Brands" : formData.brandScope,
+      role,
       phone: cleanDigits ? `+91 ${cleanDigits}` : "",
     };
 
@@ -106,7 +109,7 @@ export default function RegisterCounsellorModal({ isOpen, onClose, onSuccess }: 
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || "Failed to register counsellor.");
+        setError(data.error || "Failed to register executive.");
       } else {
         onClose();
         if (onSuccess) {
@@ -123,6 +126,8 @@ export default function RegisterCounsellorModal({ isOpen, onClose, onSuccess }: 
     }
   };
 
+  const isCrm = role === "crm";
+
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
       <form
@@ -133,7 +138,7 @@ export default function RegisterCounsellorModal({ isOpen, onClose, onSuccess }: 
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <h3 className="text-base font-extrabold text-slate-800 flex items-center gap-1.5 font-sans">
-            <span className="text-indigo-600 text-lg font-bold">+</span> Register Sales Executive
+            <span className="text-indigo-600 text-lg font-bold">+</span> {isCrm ? "Register CRM Executive" : "Register Sales Executive"}
           </h3>
           <button
             type="button"
@@ -210,29 +215,31 @@ export default function RegisterCounsellorModal({ isOpen, onClose, onSuccess }: 
             />
           </div>
 
-          <div>
-            <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Assigned Brand Scope *</label>
-            <select
-              name="brandScope"
-              value={formData.brandScope}
-              onChange={handleChange}
-              disabled={isLoading}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-600 focus:outline-none disabled:opacity-50"
-            >
-              {dbBrands.length > 0 ? (
-                dbBrands.map((b, idx) => (
-                  <option key={idx} value={b.name}>{b.name}</option>
-                ))
-              ) : (
-                <>
-                  <option value="Cadd Mantra">Cadd Mantra</option>
-                  <option value="Design Gateway">Design Gateway</option>
-                </>
-              )}
-            </select>
-          </div>
+          {!isCrm && (
+            <div>
+              <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Assigned Brand Scope *</label>
+              <select
+                name="brandScope"
+                value={formData.brandScope}
+                onChange={handleChange}
+                disabled={isLoading}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-600 focus:outline-none disabled:opacity-50"
+              >
+                {dbBrands.length > 0 ? (
+                  dbBrands.map((b, idx) => (
+                    <option key={idx} value={b.name}>{b.name}</option>
+                  ))
+                ) : (
+                  <>
+                    <option value="Cadd Mantra">Cadd Mantra</option>
+                    <option value="Design Gateway">Design Gateway</option>
+                  </>
+                )}
+              </select>
+            </div>
+          )}
 
-          <div>
+          <div className={isCrm ? "col-span-2" : ""}>
             <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Official Joining Date</label>
             <input
               type="date"
@@ -308,7 +315,7 @@ export default function RegisterCounsellorModal({ isOpen, onClose, onSuccess }: 
                 Registering...
               </>
             ) : (
-              "Register Counsellor"
+              isCrm ? "Register CRM Executive" : "Register Sales Executive"
             )}
           </button>
         </div>

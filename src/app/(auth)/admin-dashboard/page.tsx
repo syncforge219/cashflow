@@ -117,6 +117,8 @@ export default function AdminDashboard() {
       router.replace("/manager-dashboard");
     } else if (user?.role === "teacher") {
       router.replace("/teacher-dashboard");
+    } else if (user?.role === "crm" || user?.role === "crm executive" || user?.role === "crm advisor") {
+      router.replace("/crm-dashboard");
     }
   }, [user, router]);
 
