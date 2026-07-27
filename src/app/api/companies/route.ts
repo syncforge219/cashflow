@@ -65,6 +65,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Company name is required" }, { status: 400 });
     }
 
+    const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const existingComp = await Company.findOne({ name: { $regex: new RegExp(`^${escapeRegExp(name.trim())}$`, "i") } });
+    if (existingComp) {
+      return NextResponse.json({ error: `Company '${existingComp.name}' already exists in database.` }, { status: 400 });
+    }
+
     const newCompany = await Company.create({
       name,
       legalName: legalName || name,

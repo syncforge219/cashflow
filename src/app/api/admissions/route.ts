@@ -23,18 +23,24 @@ export async function POST(req: NextRequest) {
       data.brand = data.brand || user.brandScope;
     }
 
-    // Auto Company Allocation Engine
+    // Auto Company Allocation Engine (Case-insensitive matching for Brand & Company)
     let finalCompany = "Cash";
 
     if (data.paymentMode && data.paymentMode !== "Cash") {
-      const brandDoc = await Brand.findOne({ name: data.brand }).lean();
+      const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const brandStr = (data.brand || "").trim();
+      const brandRegex = new RegExp(`^${escapeRegExp(brandStr)}$`, "i");
+
+      const brandDoc = await Brand.findOne({ name: { $regex: brandRegex } }).lean();
       const brandCompanies = brandDoc?.companies || [];
+
+      const safeCompRegexes = brandCompanies.map((c: string) => new RegExp(`^${escapeRegExp(c.trim())}$`, "i"));
 
       const availableCompanies = await Company.find({
         $or: [
-          { brand: data.brand },
-          { brands: data.brand },
-          { name: { $in: brandCompanies } }
+          { brand: { $regex: brandRegex } },
+          { brands: { $regex: brandRegex } },
+          ...(safeCompRegexes.length > 0 ? [{ name: { $in: safeCompRegexes } }] : [])
         ],
         status: "ACTIVE"
       });
@@ -55,8 +61,9 @@ export async function POST(req: NextRequest) {
       // Update Ledger (increment collectedRevenue)
       if (finalCompany && finalCompany !== "Cash" && finalCompany !== "Unallocated") {
         if (Number(data.amountReceivedToday) > 0) {
+          const compRegex = new RegExp(`^${escapeRegExp(finalCompany.trim())}$`, "i");
           await Company.updateOne(
-            { name: finalCompany },
+            { name: { $regex: compRegex } },
             { $inc: { collectedRevenue: Number(data.amountReceivedToday) } }
           );
         }

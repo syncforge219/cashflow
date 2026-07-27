@@ -31,8 +31,8 @@ export async function POST(req: NextRequest) {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       try {
-        // Required field validation
-        const required = ["fullName", "mobileNumber", "city", "state", "pincode", "counsellor", "course", "batch", "duration", "startDate", "academicYear", "admissionDate", "companyAssigned", "courseFee", "finalFee", "paymentMode", "transactionNo", "amountReceivedToday", "paymentDate", "remainingBalance"];
+        // Required field validation (companyAssigned, paymentMode, transactionNo, paymentDate are optional)
+        const required = ["fullName", "mobileNumber", "city", "state", "pincode", "counsellor", "course", "batch", "duration", "startDate", "academicYear", "admissionDate", "courseFee", "finalFee", "amountReceivedToday", "remainingBalance"];
         const missing = required.filter((f) => row[f] === undefined || row[f] === null || String(row[f]).trim() === "");
 
         if (missing.length > 0) {
@@ -46,6 +46,10 @@ export async function POST(req: NextRequest) {
           isHistoricalImport: true,
           importedBy: (user.email ?? user.name ?? "admin") as string,
           importedAt: new Date(),
+          // Optional fields — use sensible defaults if not provided
+          companyAssigned: row.companyAssigned?.trim() || "Unallocated",
+          paymentMode: row.paymentMode?.trim() || "Cash",
+          transactionNo: row.transactionNo?.trim() || `IMPORT-${i + 1}`,
           // Ensure numeric fields
           courseFee: Number(row.courseFee) || 0,
           finalFee: Number(row.finalFee) || 0,
