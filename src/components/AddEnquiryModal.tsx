@@ -8,9 +8,10 @@ interface AddEnquiryModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  defaultBrand?: string;
 }
 
-export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnquiryModalProps) {
+export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBrand }: AddEnquiryModalProps) {
   const { user } = useUser();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [counsellors, setCounsellors] = useState<any[]>([]);
@@ -28,7 +29,8 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
     if (isOpen) {
       setPrimaryPhone("+91 ");
       setParentsPhone("+91 ");
-      setSelectedBrand("");
+      // Auto-select brand if defaultBrand is provided (sales exec / counsellor scope)
+      setSelectedBrand(defaultBrand && defaultBrand !== "All Brands" && defaultBrand !== "All" ? defaultBrand : "");
       setSelectedAdvisor("");
 
       fetch("/api/counsellors")
@@ -67,7 +69,7 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess }: AddEnqui
         })
         .catch(console.error);
     }
-  }, [isOpen]);
+  }, [isOpen, defaultBrand]);
 
   const filteredTeachers = teachers.filter((t) => {
     if (!selectedBrand) return true;

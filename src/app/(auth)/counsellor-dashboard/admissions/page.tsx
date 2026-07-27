@@ -593,6 +593,7 @@ export default function AdmissionHub() {
                         setLeadForAdmission(null);
                     }}
                     lead={leadForAdmission}
+                    defaultBrand={user?.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All" ? user.brandScope : undefined}
                     onSuccess={() => {
                         setIsAdmissionModalOpen(false);
                         handleSearch();

@@ -43,6 +43,7 @@ export default function CounsellorDashboardPage() {
   const [todayFollowups, setTodayFollowups] = useState<any[]>([]);
   const [todayDemos, setTodayDemos] = useState<any[]>([]);
   const [recentLeads, setRecentLeads] = useState<any[]>([]);
+  const [myAdmissions, setMyAdmissions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Demo scheduling state inside modal
@@ -78,7 +79,7 @@ export default function CounsellorDashboardPage() {
           (e: any) => (e.assignedCrmAdvisor || "").toLowerCase() === (user.name || "").toLowerCase()
         );
 
-        const myAdmissions = allAdmissions.filter(
+        const counsellorAdmissions = allAdmissions.filter(
           (a: any) => (a.counsellor || "").toLowerCase() === (user.name || "").toLowerCase()
         );
 
@@ -118,11 +119,11 @@ export default function CounsellorDashboardPage() {
         // Pending Admissions (Negotiation / Hot Leads)
         const pendingAdmCount = myEnquiries.filter((e: any) => e.status === "Negotiation" || e.priorityLevel === "High").length;
 
-        const rawConvRate = myEnquiries.length > 0 ? (myAdmissions.length / myEnquiries.length) * 100 : 0;
+        const rawConvRate = myEnquiries.length > 0 ? (counsellorAdmissions.length / myEnquiries.length) * 100 : 0;
         const convRate = Math.min(100, Number(rawConvRate.toFixed(1))) + "%";
 
         // Monthly Target Progress
-        const monthlyAchievedSum = myAdmissions.reduce((sum: number, a: any) => sum + Number(a.amountReceivedToday || a.finalFee || 0), 0);
+        const monthlyAchievedSum = counsellorAdmissions.reduce((sum: number, a: any) => sum + Number(a.amountReceivedToday || a.finalFee || 0), 0);
 
         setStats({
           myLeads: myEnquiries.length,
@@ -138,6 +139,7 @@ export default function CounsellorDashboardPage() {
         setTodayFollowups(todayFollowupsList.slice(0, 5));
         setTodayDemos(todaysDemosList.slice(0, 4));
         setRecentLeads(myEnquiries.slice(0, 5));
+        setMyAdmissions(counsellorAdmissions);
       }
     } catch (err) {
       console.error("Failed fetching counsellor data:", err);
@@ -385,6 +387,62 @@ export default function CounsellorDashboardPage() {
 
           </div>
 
+          {/* ── ENQUIRIES / ADMISSIONS / FEE COLLECTION SUMMARY CARDS ── */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+            {/* Enquiries Card */}
+            <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-2xl p-5 text-white shadow-sm shadow-indigo-500/20">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[10px] font-bold uppercase tracking-wider opacity-80">My Enquiries</span>
+                <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="text-3xl font-black">{stats.myLeads}</div>
+              <div className="flex gap-3 mt-3 text-[11px] font-semibold opacity-80">
+                <span className="bg-white/20 rounded-lg px-2 py-0.5">Follow-ups: {stats.followupsDue}</span>
+                <span className="bg-white/20 rounded-lg px-2 py-0.5">New: {recentLeads.filter((e:any) => e.status === 'New').length}</span>
+              </div>
+            </div>
+
+            {/* Admissions Card */}
+            <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl p-5 text-white shadow-sm shadow-emerald-500/20">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[10px] font-bold uppercase tracking-wider opacity-80">My Admissions</span>
+                <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342M6.75 15a.75.75 0 100-1.5.75.75 0 000 1.5zm0 0v-3.675A55.378 55.378 0 0112 8.443m-7.007 11.55A5.981 5.981 0 006.75 15.75v-1.5" />
+                  </svg>
+                </div>
+              </div>
+              <div className="text-3xl font-black">{myAdmissions.length}</div>
+              <div className="flex gap-3 mt-3 text-[11px] font-semibold opacity-80">
+                <span className="bg-white/20 rounded-lg px-2 py-0.5">Conv. Rate: {stats.conversionRate}</span>
+                <span className="bg-white/20 rounded-lg px-2 py-0.5">Hot Leads: {stats.pendingAdmissions}</span>
+              </div>
+            </div>
+
+            {/* Fee Collection Card */}
+            <div className="bg-gradient-to-br from-amber-500 to-orange-500 rounded-2xl p-5 text-white shadow-sm shadow-amber-500/20">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[10px] font-bold uppercase tracking-wider opacity-80">Fee Collection</span>
+                <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="text-3xl font-black">₹{(stats.monthlyAchieved / 100000).toFixed(1)}L</div>
+              <div className="flex gap-3 mt-3 text-[11px] font-semibold opacity-80">
+                <span className="bg-white/20 rounded-lg px-2 py-0.5">Total: ₹{stats.monthlyAchieved.toLocaleString('en-IN')}</span>
+                <span className="bg-white/20 rounded-lg px-2 py-0.5">Pending: ₹{myAdmissions.reduce((s:number,a:any)=>s+Number(a.remainingBalance||0),0).toLocaleString('en-IN')}</span>
+              </div>
+            </div>
+
+          </div>
+
           {/* TWO COLUMN WORKSPACE */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
@@ -460,6 +518,7 @@ export default function CounsellorDashboardPage() {
         <AddEnquiryModal
           isOpen={isAddLeadModalOpen}
           onClose={() => setIsAddLeadModalOpen(false)}
+          defaultBrand={user.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All" ? user.brandScope : undefined}
           onSuccess={() => {
             setIsAddLeadModalOpen(false);
             fetchCounsellorData();
@@ -470,6 +529,7 @@ export default function CounsellorDashboardPage() {
           isOpen={isAdmissionModalOpen}
           onClose={() => setIsAdmissionModalOpen(false)}
           lead={selectedLead || null}
+          defaultBrand={user.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All" ? user.brandScope : undefined}
           onSuccess={() => {
             setIsAdmissionModalOpen(false);
             fetchCounsellorData();

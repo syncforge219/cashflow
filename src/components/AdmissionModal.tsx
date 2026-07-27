@@ -9,9 +9,10 @@ interface AdmissionModalProps {
   onClose: () => void;
   lead?: any;
   onSuccess?: () => void;
+  defaultBrand?: string;
 }
 
-export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: AdmissionModalProps) {
+export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defaultBrand }: AdmissionModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [courses, setCourses] = useState<any[]>([]);
   const [batchesList, setBatchesList] = useState<any[]>([]);
@@ -31,7 +32,9 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess }: Adm
   const [dob, setDob] = useState("");
   const [gender, setGender] = useState("");
   const [counsellor, setCounsellor] = useState(lead?.assignedCrmAdvisor || "");
-  const [brand, setBrand] = useState(lead?.targetBrand || "");
+  // Auto-select brand: use lead brand first, then defaultBrand prop, then empty
+  const resolvedDefaultBrand = lead?.targetBrand || (defaultBrand && defaultBrand !== "All Brands" && defaultBrand !== "All" ? defaultBrand : "");
+  const [brand, setBrand] = useState(resolvedDefaultBrand);
 
   // 2. Course Details
   const [course, setCourse] = useState(lead?.targetCourse || "");
