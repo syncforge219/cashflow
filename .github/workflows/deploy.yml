@@ -22,7 +22,7 @@ jobs:
             set -e
 
             echo "======================================="
-            echo "🚀 Starting Deployment"
+            echo "🚀   Starting Deployment"
             echo "======================================="
 
             cd /var/www/cashflow
