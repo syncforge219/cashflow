@@ -18,20 +18,45 @@ jobs:
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.PORT }}
+
+          # Connection Settings
+          timeout: 60s
+          command_timeout: 15m
+          debug: true
+
           script: |
             set -e
 
-            echo "======================================="
-            echo "🚀   Starting Deployment"
-            echo "======================================="
+            echo "========================================="
+            echo "🚀 Starting Deployment"
+            echo "========================================="
 
+            echo "🖥️ Server:"
+            hostname
+
+            echo "📅 Time:"
+            date
+
+            echo "📂 Switching to project directory..."
             cd /var/www/cashflow
 
-            echo "📂 Current Directory:"
+            echo "📍 Current Directory:"
             pwd
 
-            echo "📥 Pulling latest code..."
+            echo "🌿 Current Branch:"
+            git branch --show-current
+
+            echo "🔄 Fetching latest code..."
+            git fetch origin
+
+            echo "📥 Pulling latest changes..."
             git pull --ff-only origin main
+
+            echo "🟢 Node Version:"
+            node -v
+
+            echo "📦 NPM Version:"
+            npm -v
 
             echo "📦 Installing dependencies..."
             npm ci
@@ -42,9 +67,12 @@ jobs:
             echo "♻️ Reloading PM2..."
             pm2 reload next-app
 
-            echo "📋 PM2 Status  "
+            echo "💾 Saving PM2 process list..."
+            pm2 save
+
+            echo "📋 PM2 Status:"
             pm2 list
 
-            echo "======================================="
+            echo "========================================="
             echo "✅ Deployment Successful"
-            echo "======================================="
+            echo "========================================="
