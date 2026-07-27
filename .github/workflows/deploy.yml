@@ -42,7 +42,7 @@ jobs:
             echo "♻️ Reloading PM2..."
             pm2 reload next-app
 
-            echo "📋 PM2 Status"
+            echo "📋 PM2 Status  "
             pm2 list
 
             echo "======================================="
