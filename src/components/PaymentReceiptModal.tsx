@@ -194,6 +194,11 @@ export default function PaymentReceiptModal({
   const totalPaid = Math.max(currentPayment, calculatedTotalPaid);
   const remainingBalance = finalFee > 0 ? Math.max(0, finalFee - totalPaid) : 0;
 
+  const regAmount = Number(student?.registrationAmount ?? receipt?.registrationAmount ?? student?.amountReceivedToday ?? receipt?.amountReceived ?? 0);
+  const dpAmount = Number(student?.downpaymentAmount ?? receipt?.downpaymentAmount ?? 0);
+  const dpDueDateRaw = student?.downpaymentDueDate || receipt?.downpaymentDueDate;
+  const dpDueDateFormatted = dpDueDateRaw ? new Date(dpDueDateRaw).toLocaleDateString("en-IN") : null;
+
   const [matchedBrand, setMatchedBrand] = React.useState<any>(null);
 
   const rawCompany = matchedBrand?.companies?.[0] || (receipt.company && receipt.company !== "Cash" && receipt.company !== "Unallocated" ? receipt.company : null) || (student.companyAssigned && student.companyAssigned !== "Cash" && student.companyAssigned !== "Unallocated" ? student.companyAssigned : null);
@@ -442,7 +447,7 @@ export default function PaymentReceiptModal({
             {/* Invoice Details Table */}
             <div className="space-y-1.5">
               <h3 className="text-xs font-bold text-slate-800 border-b border-slate-200 pb-1">
-                Invoice Details
+                Invoice & Fee Particulars Breakdown
               </h3>
               <div className="border border-slate-200 rounded-lg overflow-hidden">
                 <table className="w-full text-left text-xs">
@@ -450,21 +455,33 @@ export default function PaymentReceiptModal({
                     <tr className="bg-slate-200/80 text-slate-700 font-bold border-b border-slate-200">
                       <th className="p-2">Received against Invoice #</th>
                       <th className="p-2">Package Details</th>
-                      <th className="p-2">Fees Details</th>
+                      <th className="p-2">Particulars / Component</th>
                       <th className="p-2">Invoice Date</th>
-                      <th className="p-2 text-right">Due Fee</th>
-                      <th className="p-2 text-right">Received Fee</th>
+                      <th className="p-2 text-right">Agreed Fee</th>
+                      <th className="p-2 text-right">Amount (₹)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
                     <tr>
                       <td className="p-2">566</td>
                       <td className="p-2 font-semibold text-slate-900">{student.course}</td>
-                      <td className="p-2">Course Fees</td>
+                      <td className="p-2 font-bold text-indigo-900">Registration Amount (Collected Today)</td>
                       <td className="p-2">{paymentDateFormatted}</td>
                       <td className="p-2 text-right">{finalFee.toLocaleString("en-IN")}</td>
-                      <td className="p-2 text-right font-bold text-emerald-700">{Number(receipt.amountReceived || 0).toLocaleString("en-IN")}</td>
+                      <td className="p-2 text-right font-bold text-emerald-700">₹{(regAmount || currentPayment).toLocaleString("en-IN")}</td>
                     </tr>
+                    {dpAmount > 0 && (
+                      <tr className="bg-amber-50/50">
+                        <td className="p-2">566</td>
+                        <td className="p-2 font-semibold text-slate-900">{student.course}</td>
+                        <td className="p-2 font-bold text-amber-900">
+                          Downpayment Amount {dpDueDateFormatted ? `(Due Date: ${dpDueDateFormatted})` : ''}
+                        </td>
+                        <td className="p-2">{dpDueDateFormatted || paymentDateFormatted}</td>
+                        <td className="p-2 text-right">-</td>
+                        <td className="p-2 text-right font-bold text-amber-800">₹{dpAmount.toLocaleString("en-IN")}</td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -473,36 +490,59 @@ export default function PaymentReceiptModal({
             {/* Installment Payments Schedule Table */}
             <div className="space-y-1.5">
               <h3 className="text-xs font-bold text-slate-800 border-b border-slate-200 pb-1">
-                Installment Payments
+                Installment Payments Schedule
               </h3>
               <div className="border border-slate-200 rounded-lg overflow-hidden">
                 <table className="w-full text-left text-[11px]">
                   <thead>
                     <tr className="bg-slate-200/80 text-slate-700 font-bold border-b border-slate-200">
                       <th className="p-2">Due Date</th>
-                      <th className="p-2">Invoice</th>
-                      <th className="p-2 text-right">Due Fee</th>
-                      <th className="p-2 text-right">Received Fee</th>
-                      <th className="p-2 text-right">Balance Fee</th>
-                      <th className="p-2">Payment Details</th>
+                      <th className="p-2">Installment / Item</th>
+                      <th className="p-2 text-right">Due Fee (₹)</th>
+                      <th className="p-2 text-right">Status</th>
+                      <th className="p-2 text-right">Balance Fee (₹)</th>
+                      <th className="p-2">Payment Ref</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
-                    <tr>
-                      <td className="p-2">{paymentDateFormatted}</td>
-                      <td className="p-2">566</td>
-                      <td className="p-2 text-right">{finalFee.toLocaleString("en-IN")}</td>
-                      <td className="p-2 text-right font-semibold">{totalPaid.toLocaleString("en-IN")}</td>
-                      <td className="p-2 text-right font-semibold text-rose-600">{remainingBalance.toLocaleString("en-IN")}</td>
-                      <td className="p-2 text-[10px] text-slate-600 font-mono">
-                        {receiptNo} {paymentDateFormatted} {Number(receipt.amountReceived).toLocaleString("en-IN")} {receipt.paymentMode || "Online"}
-                      </td>
-                    </tr>
+                    {Array.isArray(student?.customEmiPlan) && student.customEmiPlan.length > 0 ? (
+                      student.customEmiPlan.map((emi: any, idx: number) => (
+                        <tr key={idx} className={emi.isPaid ? "bg-emerald-50/40" : "bg-white"}>
+                          <td className="p-2 font-semibold">{emi.dueDate ? new Date(emi.dueDate).toLocaleDateString("en-IN") : "-"}</td>
+                          <td className="p-2 font-bold text-slate-800">{emi.installmentName || `Installment #${idx + 1}`}</td>
+                          <td className="p-2 text-right font-bold text-slate-900">₹{Number(emi.amount || 0).toLocaleString("en-IN")}</td>
+                          <td className="p-2 text-right font-bold">
+                            {emi.isPaid ? (
+                              <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">Paid</span>
+                            ) : (
+                              <span className="text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">Pending</span>
+                            )}
+                          </td>
+                          <td className="p-2 text-right font-bold text-rose-600">
+                            {emi.isPaid ? "₹0" : `₹${Number(emi.amount || 0).toLocaleString("en-IN")}`}
+                          </td>
+                          <td className="p-2 text-[10px] text-slate-500 font-mono">
+                            {emi.isPaid ? `Paid on ${emi.paidDate ? new Date(emi.paidDate).toLocaleDateString("en-IN") : paymentDateFormatted}` : `Scheduled`}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td className="p-2">{paymentDateFormatted}</td>
+                        <td className="p-2">Initial Registration Fee</td>
+                        <td className="p-2 text-right">{finalFee.toLocaleString("en-IN")}</td>
+                        <td className="p-2 text-right font-semibold">{totalPaid.toLocaleString("en-IN")}</td>
+                        <td className="p-2 text-right font-semibold text-rose-600">{remainingBalance.toLocaleString("en-IN")}</td>
+                        <td className="p-2 text-[10px] text-slate-600 font-mono">
+                          {receiptNo} {paymentDateFormatted} ₹{Number(receipt.amountReceived).toLocaleString("en-IN")} {receipt.paymentMode || "Online"}
+                        </td>
+                      </tr>
+                    )}
                     <tr className="bg-slate-200/90 font-bold text-slate-900 border-t border-slate-300 text-xs">
                       <td className="p-2 text-right" colSpan={2}>TOTALS:</td>
-                      <td className="p-2 text-right">{finalFee.toLocaleString("en-IN")}</td>
-                      <td className="p-2 text-right text-emerald-700">{totalPaid.toLocaleString("en-IN")}</td>
-                      <td className="p-2 text-right text-rose-700">{remainingBalance.toLocaleString("en-IN")}</td>
+                      <td className="p-2 text-right">₹{finalFee.toLocaleString("en-IN")}</td>
+                      <td className="p-2 text-right text-emerald-700">₹{totalPaid.toLocaleString("en-IN")}</td>
+                      <td className="p-2 text-right text-rose-700">₹{remainingBalance.toLocaleString("en-IN")}</td>
                       <td className="p-2"></td>
                     </tr>
                   </tbody>

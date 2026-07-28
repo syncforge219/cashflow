@@ -249,11 +249,22 @@ export default function Student360Modal({
   if (!isOpen) return null;
 
   const totalCollected = payments.reduce((acc, p) => acc + (Number(p.amountReceived) || 0), 0);
-  const regAmt = studentData?.registrationAmount ?? studentData?.amountReceivedToday ?? totalCollected;
-  const dpAmt = studentData?.downpaymentAmount || 0;
-  const computedBalance = studentData ? Math.max(0, (studentData.finalFee || 0) - regAmt - dpAmt) : 0;
+  const regAmt = Number(studentData?.registrationAmount ?? studentData?.amountReceivedToday) || 0;
+  const dpAmt = Number(studentData?.downpaymentAmount) || 0;
+  const emiItems = studentData?.customEmiPlan || formData.customEmiPlan || [];
+  const pendingEmisSum = emiItems.filter((e: any) => !e.isPaid).reduce((acc: number, e: any) => acc + (Number(e.amount) || 0), 0);
+  const remainingBalFromData = Number(studentData?.remainingBalance || 0);
+  
+  const computedBalance = studentData
+    ? (pendingEmisSum > 0
+        ? pendingEmisSum
+        : (remainingBalFromData > 0
+            ? remainingBalFromData
+            : Math.max(0, (studentData.finalFee || 0) - regAmt - dpAmt)))
+    : 0;
+
   const feeProgress = studentData && studentData.finalFee > 0
-    ? Math.min(100, Math.round((totalCollected / studentData.finalFee) * 100))
+    ? Math.min(100, Math.round(((totalCollected || regAmt) / studentData.finalFee) * 100))
     : 0;
 
   // Task filtering

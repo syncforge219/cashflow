@@ -75,13 +75,19 @@ export default function CounsellorDashboardPage() {
         const allEnquiries = enqData.data || [];
         const allAdmissions = admData.data || [];
 
-        const myEnquiries = allEnquiries.filter(
-          (e: any) => (e.assignedCrmAdvisor || "").toLowerCase() === (user.name || "").toLowerCase()
-        );
+        const uName = ((user as any)?.name || (user as any)?.fullName || (user as any)?.username || "").trim().toLowerCase();
 
-        const counsellorAdmissions = allAdmissions.filter(
-          (a: any) => (a.counsellor || "").toLowerCase() === (user.name || "").toLowerCase()
-        );
+        const myEnquiries = allEnquiries.filter((e: any) => {
+          const adv = (e.assignedCrmAdvisor || "").trim().toLowerCase();
+          if (!uName || !adv) return true;
+          return adv === uName || adv.includes(uName) || uName.includes(adv);
+        });
+
+        const counsellorAdmissions = allAdmissions.filter((a: any) => {
+          const cName = (a.counsellor || "").trim().toLowerCase();
+          if (!uName || !cName) return true;
+          return cName === uName || cName.includes(uName) || uName.includes(cName);
+        });
 
         const todayStr = new Date().toISOString().split("T")[0];
 
