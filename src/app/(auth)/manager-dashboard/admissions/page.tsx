@@ -6,6 +6,7 @@ import AdmissionModal from "@/components/AdmissionModal";
 import AddEnquiryModal from "@/components/AddEnquiryModal";
 import AdmissionDetailModal from "@/components/AdmissionDetailModal";
 import PaymentReceiptModal from "@/components/PaymentReceiptModal";
+import Student360Modal from "@/components/Student360Modal";
 import ManagerSidebar from "@/components/ManagerSidebar";
 import { useUser } from "@/app/component/context/user-context";
 
@@ -24,6 +25,10 @@ export default function BrandManagerAdmissionHub() {
     const [leadForAdmission, setLeadForAdmission] = useState<any | null>(null);
     const [isAddEnquiryOpen, setIsAddEnquiryOpen] = useState(false);
     const [selectedAdmissionDetail, setSelectedAdmissionDetail] = useState<any | null>(null);
+
+    // Student 360 Modal State
+    const [selected360StudentId, setSelected360StudentId] = useState<string | null>(null);
+    const [is360Open, setIs360Open] = useState(false);
 
     // Receipt Modal States
     const [selectedStudentForReceipt, setSelectedStudentForReceipt] = useState<any | null>(null);
@@ -884,7 +889,7 @@ export default function BrandManagerAdmissionHub() {
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
                                         {filteredAdmissions.map((adm: any, i: number) => (
-                                            <tr key={i} className="hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => setSelectedAdmissionDetail(adm)}>
+                                            <tr key={i} className="hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => { setSelected360StudentId(adm._id); setIs360Open(true); }}>
                                                 <td className="px-6 py-4">
                                                     <div className="flex items-center gap-3">
                                                         <div className="h-8 w-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-xs">
@@ -922,7 +927,17 @@ export default function BrandManagerAdmissionHub() {
                                                         })}
                                                     </p>
                                                 </td>
-                                                <td className="px-6 py-4 text-right">
+                                                <td className="px-6 py-4 text-right flex items-center justify-end gap-2">
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setSelected360StudentId(adm._id);
+                                                            setIs360Open(true);
+                                                        }}
+                                                        className="text-xs font-bold text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition-colors border border-emerald-200"
+                                                    >
+                                                        Student 360
+                                                    </button>
                                                     <button
                                                         onClick={(e) => handlePrintSlip(adm, e)}
                                                         className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors border border-indigo-100"
@@ -1051,6 +1066,16 @@ export default function BrandManagerAdmissionHub() {
                     paymentsHistory={paymentsHistory}
                 />
             )}
+
+            <Student360Modal
+                isOpen={is360Open}
+                onClose={() => {
+                    setIs360Open(false);
+                    setSelected360StudentId(null);
+                    fetchAdmissions();
+                }}
+                admissionId={selected360StudentId}
+            />
         </div>
     );
 }

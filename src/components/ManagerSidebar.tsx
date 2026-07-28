@@ -60,6 +60,15 @@ export default function ManagerSidebar() {
             </svg>
           ),
         },
+        {
+          name: "Student 360",
+          href: "/student-360",
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5zm6-10.125a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zm-3.75 7.5c0-1.554 1.256-2.812 2.812-2.812h.376c1.556 0 2.812 1.258 2.812 2.812v.187H6.75v-.187z" />
+            </svg>
+          ),
+        },
       ],
     },
     {

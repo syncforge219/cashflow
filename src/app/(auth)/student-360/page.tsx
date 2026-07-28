@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
+import ManagerSidebar from "@/components/ManagerSidebar";
 import ProfileDisplay from "@/components/ProfileDisplay";
 import { useUser } from "@/app/component/context/user-context";
 import Student360Modal from "@/components/Student360Modal";
@@ -33,7 +34,14 @@ export default function Student360PortalPage() {
     userRole === "super_admin" ||
     userRole === "brand_manager" ||
     userRole === "brand-manager" ||
-    userRole === "brand manager";
+    userRole === "brand manager" ||
+    userRole === "manager" ||
+    userRole === "centre head" ||
+    userRole === "centre_head" ||
+    userRole === "center head" ||
+    userRole === "center_head" ||
+    userRole === "branch head" ||
+    userRole === "branch_head";
 
   const isBrandManager = userRole === "brand_manager" || userRole === "brand-manager" || userRole === "brand manager";
 
@@ -122,10 +130,17 @@ export default function Student360PortalPage() {
   const totalRemainingBalance = filteredStudents.reduce((acc, s) => acc + (Number(s.remainingBalance) || 0), 0);
   const totalCollectedFee = Math.max(0, totalBilledFee - totalRemainingBalance);
 
+  const renderSidebar = () => {
+    if (userRole === "admin" || userRole === "super admin" || userRole === "super_admin") {
+      return <Sidebar />;
+    }
+    return <ManagerSidebar />;
+  };
+
   if (!isAuthorized && !isLoading) {
     return (
       <div className="flex h-screen bg-[#f8faff] text-slate-800 font-sans">
-        <Sidebar />
+        {renderSidebar()}
         <div className="flex-1 flex items-center justify-center p-6">
           <div className="bg-white border border-rose-200 rounded-3xl p-8 max-w-md text-center shadow-xl">
             <div className="h-16 w-16 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mx-auto mb-4 font-black text-2xl">
@@ -133,10 +148,10 @@ export default function Student360PortalPage() {
             </div>
             <h2 className="text-xl font-extrabold text-slate-900 mb-2">Access Restricted</h2>
             <p className="text-xs font-semibold text-slate-500 mb-6">
-              The Student 360 Portal is visible only to authorized Administrators and Brand Managers.
+              The Student 360 Portal is visible only to authorized Administrators, Brand Managers, and Centre Heads.
             </p>
             <a
-              href="/admin-dashboard"
+              href="/manager-dashboard"
               className="inline-block px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all"
             >
               Return to Dashboard
@@ -149,7 +164,7 @@ export default function Student360PortalPage() {
 
   return (
     <div className="flex h-screen bg-[#f8faff] text-slate-800 overflow-hidden font-sans">
-      <Sidebar />
+      {renderSidebar()}
 
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto px-6 py-6">
         {/* Header */}
