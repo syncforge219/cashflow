@@ -371,13 +371,22 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
   const handleGenerateAdmission = async (generateReceipt = false) => {
     setIsSubmitting(true);
     try {
+      const defaultPlan = generateDefaultEmiItems(numInstallments > 0 ? numInstallments : 1, remainingBalance).map((item, idx) => ({
+        installmentName: item.installmentName || `Installment ${idx + 1}`,
+        dueDate: item.dueDate ? new Date(item.dueDate) : new Date(Date.now() + (idx + 1) * 30 * 24 * 60 * 60 * 1000),
+        amount: Number(item.amount) || 0,
+        isPaid: false,
+      }));
+
       const customEmiPlan = hasEmi
-        ? customEmiItems.map((item, idx) => ({
-            installmentName: item.installmentName || `Installment ${idx + 1}`,
-            dueDate: item.dueDate ? new Date(item.dueDate) : new Date(Date.now() + (idx + 1) * 30 * 24 * 60 * 60 * 1000),
-            amount: Number(item.amount) || 0,
-            isPaid: false,
-          }))
+        ? (customEmiItems.length > 0
+            ? customEmiItems.map((item, idx) => ({
+                installmentName: item.installmentName || `Installment ${idx + 1}`,
+                dueDate: item.dueDate ? new Date(item.dueDate) : new Date(Date.now() + (idx + 1) * 30 * 24 * 60 * 60 * 1000),
+                amount: Number(item.amount) || 0,
+                isPaid: false,
+              }))
+            : defaultPlan)
         : [];
 
       const payload = {

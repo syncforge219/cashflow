@@ -72,8 +72,13 @@ export default function AdmissionHub() {
         try {
             const res = await fetch('/api/admissions');
             const json = await res.json();
-            if (json.success) {
-                const myAdmissions = json.data.filter((a: any) => (a.counsellor || "").toLowerCase() === (user.name || "").toLowerCase());
+            if (json.success && Array.isArray(json.data)) {
+                const uName = ((user as any)?.name || (user as any)?.fullName || (user as any)?.username || "").trim().toLowerCase();
+                const myAdmissions = json.data.filter((a: any) => {
+                    const cName = (a.counsellor || "").trim().toLowerCase();
+                    if (!uName || !cName) return true;
+                    return cName === uName || cName.includes(uName) || uName.includes(cName);
+                });
                 setAdmissions(myAdmissions);
                 if (json.totalEnquiries !== undefined) {
                     setTotalEnquiries(json.totalEnquiries);
