@@ -4,10 +4,29 @@ import React, { useState } from "react";
 import Link from "next/link";
 
 export default function WelcomePage() {
-  const [activeTab, setActiveTab] = useState<"allocation" | "crm" | "financials" | "ai" | "academics">("allocation");
+  const [activeTab, setActiveTab] = useState<"allocation" | "crm" | "financials" | "ai" | "academics" | "student360">("student360");
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
   const featureTabs = [
+    {
+      id: "student360",
+      label: "💎 Student 360 & Down Payment",
+      icon: "💎",
+      badge: "360° Management",
+      title: "Comprehensive Student 360 Hub & Flexible Down Payment Engine",
+      desc: "Get an end-to-end 360-degree view of any enrolled student. Edit custom EMI dates, manage down payments, track payment receipts, and execute full cascading deletions across all linked modules.",
+      bullets: [
+        "Interactive 360° student drawer & modal available to Admins, Brand Managers, and Centre Heads",
+        "Custom EMI schedule editor: modify due dates & installment amounts dynamically with live math",
+        "Registration vs Downpayment split: automatic fee balancing, custom dates, and down payment collection mode",
+        "1-Click Cascading Deletion: purges payments, tasks, attendance, company revenue caps, and enquiry statuses"
+      ],
+      previewStats: [
+        { label: "Profile Visibility", val: "360° View" },
+        { label: "EMI Customization", val: "Live Flex" },
+        { label: "Cascading Cleanup", val: "100% Clean" },
+      ]
+    },
     {
       id: "allocation",
       label: "🏢  Multi-Brand & GST Engine",
@@ -38,7 +57,7 @@ export default function WelcomePage() {
         "Strict lead search exclusively by Student Name and Student Phone Number",
         "One-click demo scheduling directly from active prospect enquiry cards",
         "Automated WhatsApp fee reminders for overdue EMI installments",
-        "Auto-closing enquiry pipeline upon admission conversion"
+        "Auto-closing enquiry pipeline and automatic lead creation on direct admissions"
       ],
       previewStats: [
         { label: "Lead Conversion", val: "68.4%" },
@@ -107,7 +126,20 @@ export default function WelcomePage() {
 
   const deepFeatureGrid = [
     {
-      title: "1. Multi-Company Revenue Allocation Engine",
+      title: "1. Student 360 Hub & Flexible Down Payment Engine",
+      badge: "Complete 360° Control",
+      icon: "💎",
+      color: "border-teal-200 bg-teal-50/40 text-teal-700",
+      description: "Complete student lifecycle management with flexible fee structures, live EMI customization, and single-click cascading cleanup.",
+      points: [
+        "360-Degree Profile Modal: Inspect personal info, payment history, custom EMI schedule, SOP tasks, and attendance registers in one view.",
+        "Custom EMI Date & Amount Editor: Tailor installment dates and amounts to match student payment preferences effortlessly.",
+        "Registration & Down Payment Split: Separate upfront registration fees from down payments with custom scheduled dates and dedicated collection mode.",
+        "Cascading Deletion Engine: Deleting a student record automatically cleans up associated payment receipts, tasks, attendance registers, company revenue caps, and enquiry statuses."
+      ]
+    },
+    {
+      title: "2. Multi-Company Revenue Allocation Engine",
       badge: "Tax & GST Automation",
       icon: "⚡",
       color: "border-indigo-200 bg-indigo-50/40 text-indigo-700",
@@ -120,7 +152,7 @@ export default function WelcomePage() {
       ]
     },
     {
-      title: "2. Sales Executive Lead Velocity & WhatsApp CRM",
+      title: "3. Sales Executive Lead Velocity & WhatsApp CRM",
       badge: "High-Velocity Sales",
       icon: "🎯",
       color: "border-purple-200 bg-purple-50/40 text-purple-700",
@@ -128,12 +160,12 @@ export default function WelcomePage() {
       points: [
         "Privacy-First Search Engine: Restricts lead lookups strictly to Student Name and Student Mobile Number.",
         "Built-in Demo Booking Suite: Schedule, reschedule, and log student demo classes directly from prospect cards.",
-        "Auto-Closing Enquiry Pipeline: Enquiries automatically transition to 'Admitted' status when an admission is created.",
+        "Auto-Closing & Direct Admission Sync: Enquiries transition to 'Admitted' automatically, while direct admissions auto-create matching leads.",
         "MSG91 WhatsApp EMI Reminders: Automatically triggers personalized WhatsApp fee reminder alerts for upcoming installment dates."
       ]
     },
     {
-      title: "3. Dual-Tagged Expense Management & Payroll",
+      title: "4. Dual-Tagged Expense Management & Payroll",
       badge: "Financial Governance",
       icon: "💰",
       color: "border-emerald-200 bg-emerald-50/40 text-emerald-700",
@@ -146,7 +178,7 @@ export default function WelcomePage() {
       ]
     },
     {
-      title: "4. Floating CashFlow AI Executive Assistant",
+      title: "5. Floating CashFlow AI Executive Assistant",
       badge: "Natural Language AI",
       icon: "🤖",
       color: "border-blue-200 bg-blue-50/40 text-blue-700",
@@ -159,7 +191,7 @@ export default function WelcomePage() {
       ]
     },
     {
-      title: "5. Course Catalog, Batch Rostering & Attendance",
+      title: "6. Course Catalog, Batch Rostering & Attendance",
       badge: "Academic Suite",
       icon: "🎓",
       color: "border-amber-200 bg-amber-50/40 text-amber-700",
@@ -172,14 +204,14 @@ export default function WelcomePage() {
       ]
     },
     {
-      title: "6. Role-Based Access Control (RBAC) & Brand Isolation",
+      title: "7. Role-Based Access Control (RBAC) & Brand Isolation",
       badge: "Enterprise Security",
       icon: "🔒",
       color: "border-rose-200 bg-rose-50/40 text-rose-700",
       description: "Protect sensitive corporate data with strict multi-tenant authorization and role-based permissions.",
       points: [
         "Super Admin Portal: Complete governance over user accounts, legal entity capacity limits, and master configuration.",
-        "Centre Head Portal (formerly Brand Manager): Brand-scoped analytics, active staff management, and regional performance scorecards.",
+        "Centre Head Portal (formerly Brand Manager): Brand-scoped analytics, active staff management, Student 360 access, and regional scorecards.",
         "Sales Executive Portal: Personalized workspace for lead follow-ups, demo scheduling, and fee collection.",
         "Teacher Portal: Digital attendance registers, class rosters, and subject delivery tracking."
       ]
@@ -245,8 +277,8 @@ export default function WelcomePage() {
 
       {/* Top Announcement Bar */}
       <div className="bg-gradient-to-r from-indigo-900 via-slate-900 to-purple-900 text-white text-[11px] font-semibold py-2 px-4 text-center flex items-center justify-center gap-2 shadow-xs">
-        <span className="bg-indigo-500 text-white px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider">v3.2 Update</span>
-        <span>🎉 Multi-Brand Legal Allocation Engine, MSG91 WhatsApp Integration & AI Assistant are live!</span>
+        <span className="bg-indigo-500 text-white px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider">v4.0 Update</span>
+        <span>🎉 Student 360 Hub, Down Payment Collection Engine & Cascading Cleanup are live!</span>
         <Link href="/login" className="underline font-bold text-indigo-200 hover:text-white ml-1">Sign In &rarr;</Link>
       </div>
 
@@ -422,14 +454,14 @@ export default function WelcomePage() {
           </div>
 
           {/* Tab Selection Navigation */}
-          <div className="flex items-center justify-center gap-2 overflow-x-auto no-scrollbar pb-4 mb-8">
+          <div className="flex flex-wrap items-center justify-center gap-2.5 max-w-full px-2 pb-4 mb-8">
             {featureTabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
                 className={`px-4 py-2.5 rounded-2xl text-xs font-extrabold transition-all shrink-0 cursor-pointer border ${activeTab === tab.id
                   ? "bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-600/20"
-                  : "bg-white text-slate-600 border-slate-200/90 hover:bg-slate-100"
+                  : "bg-white text-slate-600 border-slate-200/90 hover:bg-slate-100 hover:border-slate-300"
                   }`}
               >
                 <span>{tab.label}</span>

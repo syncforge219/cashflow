@@ -93,6 +93,8 @@ export default function Student360Modal({
           email: adm.email || "",
           parentName: adm.parentName || adm.parentsFullName || "",
           parentPhone: adm.parentPhone || adm.parentsPhoneNumber || "",
+          guardian2Name: adm.guardian2Name || "",
+          guardian2Phone: adm.guardian2Phone || "",
           address: adm.address || "",
           city: adm.city || "",
           state: adm.state || "",
@@ -654,11 +656,11 @@ export default function Student360Modal({
                   <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
                     <h3 className="text-sm font-extrabold text-slate-900 border-b border-slate-100 pb-3 mb-4 flex items-center gap-2">
                       <span className="h-2.5 w-2.5 rounded-full bg-blue-600"></span>
-                      Parent & Guardian Contact
+                      Parent & Guardian Contacts (Optional)
                     </h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                       <div>
-                        <label className="block text-slate-500 font-bold mb-1">Parent / Guardian Name</label>
+                        <label className="block text-slate-500 font-bold mb-1">Guardian 1 Name (Optional)</label>
                         {isEditMode ? (
                           <input
                             type="text"
@@ -672,7 +674,7 @@ export default function Student360Modal({
                       </div>
 
                       <div>
-                        <label className="block text-slate-500 font-bold mb-1">Parent Phone Number</label>
+                        <label className="block text-slate-500 font-bold mb-1">Guardian 1 Phone Number (Optional)</label>
                         {isEditMode ? (
                           <input
                             type="text"
@@ -686,7 +688,46 @@ export default function Student360Modal({
                             {(studentData?.parentPhone || studentData?.parentsPhoneNumber) && (
                               <button
                                 type="button"
-                                onClick={() => copyToClipboard(studentData.parentPhone || studentData.parentsPhoneNumber, "Parent Phone")}
+                                onClick={() => copyToClipboard(studentData.parentPhone || studentData.parentsPhoneNumber, "Guardian 1 Phone")}
+                                className="text-xs text-indigo-600 font-bold hover:underline"
+                              >
+                                Copy
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-500 font-bold mb-1">Guardian 2 Name (Optional)</label>
+                        {isEditMode ? (
+                          <input
+                            type="text"
+                            value={formData.guardian2Name}
+                            onChange={(e) => setFormData({ ...formData, guardian2Name: e.target.value })}
+                            className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-slate-900 font-bold shadow-xs"
+                          />
+                        ) : (
+                          <div className="p-3 bg-slate-50 rounded-xl font-bold text-slate-800 border border-slate-200/70">{studentData?.guardian2Name || "-"}</div>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-500 font-bold mb-1">Guardian 2 Phone Number (Optional)</label>
+                        {isEditMode ? (
+                          <input
+                            type="text"
+                            value={formData.guardian2Phone}
+                            onChange={(e) => setFormData({ ...formData, guardian2Phone: e.target.value })}
+                            className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-slate-900 font-bold shadow-xs"
+                          />
+                        ) : (
+                          <div className="p-3 bg-slate-50 rounded-xl font-bold text-slate-800 border border-slate-200/70 flex items-center justify-between">
+                            <span>{studentData?.guardian2Phone || "-"}</span>
+                            {studentData?.guardian2Phone && (
+                              <button
+                                type="button"
+                                onClick={() => copyToClipboard(studentData.guardian2Phone, "Guardian 2 Phone")}
                                 className="text-xs text-indigo-600 font-bold hover:underline"
                               >
                                 Copy
