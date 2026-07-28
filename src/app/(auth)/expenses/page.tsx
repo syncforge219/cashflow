@@ -849,8 +849,11 @@ export default function ExpensesPage() {
   // Summary Metrics
   const totalExpenseSum = expenses.reduce((acc, cur) => acc + cur.amount, 0);
 
-  const marketingExpenseSum = expenses
-    .filter((e) => e.category === "Marketing / Ads")
+  const maintenanceExpenseSum = expenses
+    .filter((e) => {
+      const cat = (e.category || "").toLowerCase();
+      return cat.includes("maintenance") || cat.includes("repair");
+    })
     .reduce((acc, cur) => acc + cur.amount, 0);
 
   const totalRecurringExpenses = expenses.filter((e) => e.isRecurring).length;
@@ -906,9 +909,9 @@ export default function ExpensesPage() {
           </div>
 
           <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs">
-            <span className="text-[10px] font-bold text-slate-400 uppercase">Marketing & Ad Spend</span>
-            <div className="text-2xl font-black text-blue-600 mt-1">₹{marketingExpenseSum.toLocaleString("en-IN")}</div>
-            <span className="text-[10px] font-semibold text-slate-400">Meta, Google & Campaigns</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Maintenance & Repairs</span>
+            <div className="text-2xl font-black text-blue-600 mt-1">₹{maintenanceExpenseSum.toLocaleString("en-IN")}</div>
+            <span className="text-[10px] font-semibold text-slate-400">Facility, Assets & Maintenance</span>
           </div>
 
           <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs">
