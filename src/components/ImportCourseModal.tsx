@@ -1,12 +1,26 @@
 "use client";
 
 import React, { useState, useRef } from "react";
+import ExcelJS from "exceljs";
 
 interface ImportCourseModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
 }
+
+// Key normalization map
+const normalizeKey = (k: string) => {
+  const norm = k.replace(/[^a-z0-9_]/gi, "").toLowerCase();
+  if (norm.includes("name") || norm === "course") return "name";
+  if (norm.includes("code")) return "code";
+  if (norm.includes("brand")) return "brand";
+  if (norm.includes("category")) return "category";
+  if (norm.includes("duration")) return "duration";
+  if (norm.includes("fee") || norm === "price") return "fee";
+  if (norm.includes("status")) return "status";
+  return k;
+};
 
 export default function ImportCourseModal({ isOpen, onClose, onSuccess }: ImportCourseModalProps) {
   const [activeTab, setActiveTab] = useState<"file" | "paste">("file");
@@ -65,20 +79,6 @@ export default function ImportCourseModal({ isOpen, onClose, onSuccess }: Import
     };
 
     const headers = parseLine(lines[0]).map((h) => h.trim().toLowerCase());
-    
-    // Key normalization map
-    const normalizeKey = (k: string) => {
-      const norm = k.replace(/[^a-z0-9_]/gi, "").toLowerCase();
-      if (norm.includes("name") || norm === "course") return "name";
-      if (norm.includes("code")) return "code";
-      if (norm.includes("brand")) return "brand";
-      if (norm.includes("category")) return "category";
-      if (norm.includes("duration")) return "duration";
-      if (norm.includes("fee") || norm === "price") return "fee";
-      if (norm.includes("status")) return "status";
-      return k;
-    };
-
     const normalizedHeaders = headers.map(normalizeKey);
 
     return lines.slice(1).map((line) => {
@@ -141,34 +141,86 @@ export default function ImportCourseModal({ isOpen, onClose, onSuccess }: Import
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target?.result as string;
-      if (!text) return;
+    if (file.name.endsWith(".xlsx") || file.name.endsWith(".xls")) {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const buffer = event.target?.result as ArrayBuffer;
+          const workbook = new ExcelJS.Workbook();
+          await workbook.xlsx.load(buffer);
 
-      try {
-        if (file.name.endsWith(".json")) {
-          const parsed = JSON.parse(text.trim());
-          if (Array.isArray(parsed)) {
-            setPreviewData(parsed);
-          } else {
-            setErrorMessage("File is JSON but does not contain a JSON array.");
+          const worksheet = workbook.worksheets[0];
+          if (!worksheet) {
+            setErrorMessage("No worksheet found in the Excel file.");
+            return;
           }
-        } else {
-          // Assume CSV
-          const parsed = parseCSV(text.trim());
-          if (parsed.length > 0) {
-            setPreviewData(parsed);
+
+          const data: any[] = [];
+          let headers: string[] = [];
+
+          worksheet.eachRow((row, rowNumber) => {
+            if (rowNumber === 1) {
+              headers = (row.values as any[]).map((val) => (val ? String(val).trim().toLowerCase() : ""));
+            } else {
+              const rowData: any = {};
+              (row.values as any[]).forEach((val, idx) => {
+                if (idx > 0 && headers[idx]) {
+                  let strVal = val !== undefined && val !== null ? String(val).trim() : "";
+                  if (typeof val === "object" && val !== null) {
+                    if ((val as any).result !== undefined) strVal = String((val as any).result);
+                    else if ((val as any).text !== undefined) strVal = String((val as any).text);
+                  }
+                  rowData[normalizeKey(headers[idx])] = strVal;
+                }
+              });
+              if (!rowData.status) {
+                rowData.status = "ACTIVE";
+              }
+              data.push(rowData);
+            }
+          });
+
+          if (data.length > 0) {
+            setPreviewData(data);
           } else {
-            setErrorMessage("Failed to parse file as CSV. Check headers.");
+            setErrorMessage("No valid data rows found in the Excel file.");
           }
+        } catch (err: any) {
+          console.error(err);
+          setErrorMessage("Excel parsing failed: " + err.message);
         }
-      } catch (err: any) {
-        console.error(err);
-        setErrorMessage("File parsing failed: " + err.message);
-      }
-    };
-    reader.readAsText(file);
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const text = event.target?.result as string;
+        if (!text) return;
+
+        try {
+          if (file.name.endsWith(".json")) {
+            const parsed = JSON.parse(text.trim());
+            if (Array.isArray(parsed)) {
+              setPreviewData(parsed);
+            } else {
+              setErrorMessage("File is JSON but does not contain a JSON array.");
+            }
+          } else {
+            // Assume CSV
+            const parsed = parseCSV(text.trim());
+            if (parsed.length > 0) {
+              setPreviewData(parsed);
+            } else {
+              setErrorMessage("Failed to parse file as CSV. Check headers.");
+            }
+          }
+        } catch (err: any) {
+          console.error(err);
+          setErrorMessage("File parsing failed: " + err.message);
+        }
+      };
+      reader.readAsText(file);
+    }
   };
 
   const handleImportSubmit = async () => {
@@ -269,7 +321,7 @@ export default function ImportCourseModal({ isOpen, onClose, onSuccess }: Import
                 activeTab === "file" ? "bg-white text-indigo-600 shadow-sm border border-slate-100" : "text-slate-500 hover:text-slate-800"
               }`}
             >
-              Upload File (.csv, .json)
+              Upload File (.csv, .json, .xlsx)
             </button>
             <button
               onClick={() => setActiveTab("paste")}
@@ -323,14 +375,14 @@ export default function ImportCourseModal({ isOpen, onClose, onSuccess }: Import
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z" />
                   </svg>
                   <div className="text-center">
-                    <p className="text-xs font-bold text-slate-700">Choose a CSV or JSON file to upload</p>
+                    <p className="text-xs font-bold text-slate-700">Choose a CSV, JSON, or Excel (.xlsx) file to upload</p>
                     <p className="text-[10px] text-slate-400 mt-1">Headers should include: name, code, brand, category, duration, fee</p>
                   </div>
                   <input
                     type="file"
                     ref={fileInputRef}
                     onChange={handleFileUpload}
-                    accept=".csv,.json"
+                    accept=".csv,.json,.xlsx,.xls"
                     className="hidden"
                   />
                   <button
