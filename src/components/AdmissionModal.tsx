@@ -110,8 +110,18 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
 
   const [customEmiItems, setCustomEmiItems] = useState<CustomEmiItem[]>([]);
 
+  const addMonthsToDate = (date: Date, months: number) => {
+    const d = new Date(date);
+    const day = d.getDate();
+    d.setMonth(d.getMonth() + months);
+    if (d.getDate() !== day) {
+      d.setDate(0);
+    }
+    return d;
+  };
+
   const generateDefaultEmiItems = (count: number, balance: number) => {
-    const cnt = Math.max(count || 1, 1);
+    const cnt = count > 0 ? count : 1;
     const bal = Math.max(balance || 0, 0);
     const baseAmt = Math.floor(bal / cnt);
     const remainder = bal - baseAmt * cnt;
@@ -120,8 +130,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
     const today = new Date();
 
     for (let i = 0; i < cnt; i++) {
-      const d = new Date(today);
-      d.setDate(d.getDate() + 30 * (i + 1));
+      const d = addMonthsToDate(today, i + 1);
       const dateStr = d.toISOString().split("T")[0];
       const itemAmount = i === cnt - 1 ? baseAmt + remainder : baseAmt;
 
@@ -148,6 +157,21 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
     setCustomEmiItems((prev) => {
       const copy = [...prev];
       copy[index] = { ...copy[index], dueDate: dateVal };
+
+      // If changing the 1st installment date, recalculate all subsequent installment dates accordingly
+      if (index === 0 && dateVal) {
+        const firstDate = new Date(dateVal);
+        if (!isNaN(firstDate.getTime())) {
+          for (let i = 1; i < copy.length; i++) {
+            const nextDate = addMonthsToDate(firstDate, i);
+            copy[i] = {
+              ...copy[i],
+              dueDate: nextDate.toISOString().split("T")[0],
+            };
+          }
+        }
+      }
+
       return copy;
     });
   };
@@ -165,12 +189,12 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
       const lastDateStr = prev.length > 0 ? prev[prev.length - 1].dueDate : new Date().toISOString().split("T")[0];
       const lastDate = new Date(lastDateStr);
       if (isNaN(lastDate.getTime())) lastDate.setTime(Date.now());
-      lastDate.setDate(lastDate.getDate() + 30);
+      const nextDate = addMonthsToDate(lastDate, 1);
 
       const nextIndex = prev.length + 1;
       const newItem: CustomEmiItem = {
         installmentName: `Installment ${nextIndex}`,
-        dueDate: lastDate.toISOString().split("T")[0],
+        dueDate: nextDate.toISOString().split("T")[0],
         amount: 0,
       };
       const updated = [...prev, newItem];
@@ -516,15 +540,15 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
                     <input type="text" value={address} onChange={e=>setAddress(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white" />
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-500">City <span className="text-rose-500">*</span></label>
+                    <label className="text-xs font-bold text-slate-500">City</label>
                     <input type="text" value={city} onChange={e=>setCity(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white" />
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-500">State <span className="text-rose-500">*</span></label>
+                    <label className="text-xs font-bold text-slate-500">State</label>
                     <input type="text" value={state} onChange={e=>setState(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white" />
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-500">Pincode <span className="text-rose-500">*</span></label>
+                    <label className="text-xs font-bold text-slate-500">Pincode</label>
                     <input type="text" value={pincode} onChange={e=>setPincode(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white" />
                   </div>
                   <div className="flex flex-col gap-1.5">
@@ -596,7 +620,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
                     </select>
                   </div>
                   <div className="flex flex-col gap-1.5 md:col-span-2">
-                    <label className="text-xs font-bold text-slate-500">Batch <span className="text-rose-500">*</span></label>
+                    <label className="text-xs font-bold text-slate-500">Batch</label>
                     {(() => {
                       const selectedCourseObj = courses.find((c) => c.name === course);
                       const availableBatches: string[] = Array.isArray(selectedCourseObj?.batches) && selectedCourseObj.batches.length > 0
@@ -820,7 +844,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
 
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-bold text-slate-500 h-5 flex items-center">
-                      Transaction / Reference No. <span className="text-rose-500 ml-1">*</span>
+                      Transaction / Reference No.
                     </label>
                     <input
                       type="text"
