@@ -100,44 +100,44 @@ export default function PublicBrandEnquiryPage({ params }: PublicEnquiryPageProp
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 font-sans relative overflow-hidden">
-      {/* Background Decorative Glow */}
-      <div className="absolute -top-40 -left-40 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-emerald-600/20 rounded-full blur-3xl pointer-events-none" />
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50/40 to-slate-100 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 font-sans relative overflow-hidden">
+      {/* Background Ambient Decorative Blurs */}
+      <div className="absolute -top-40 -left-40 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl pointer-events-none" />
 
       <div className="sm:mx-auto sm:w-full sm:max-w-xl relative z-10">
         {/* Brand Badge */}
         <div className="flex justify-center mb-4">
-          <span className="px-4 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-bold uppercase tracking-widest backdrop-blur-md">
-            🏢 {brandName} Admissions & Inquiry Portal
+          <span className="px-4 py-1.5 rounded-full bg-indigo-100/80 border border-indigo-200 text-indigo-800 text-xs font-extrabold uppercase tracking-widest backdrop-blur-md shadow-xs flex items-center gap-2">
+            <span>🏢</span> {brandName} Admissions & Inquiry Portal
           </span>
         </div>
 
-        <h2 className="text-center text-3xl font-extrabold text-white tracking-tight">
+        <h2 className="text-center text-3xl font-extrabold text-slate-900 tracking-tight">
           Admissions Inquiry Form
         </h2>
-        <p className="mt-2 text-center text-xs font-semibold text-slate-400">
-          Fill out the form below to get in touch with our expert academic counsellors for {brandName}.
+        <p className="mt-2 text-center text-xs font-bold text-slate-500 max-w-md mx-auto">
+          Fill out the form below to connect with expert academic counsellors for {brandName}.
         </p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-xl relative z-10">
-        <div className="bg-slate-900/80 border border-slate-800 backdrop-blur-xl py-8 px-6 shadow-2xl rounded-3xl sm:px-10">
+        <div className="bg-white/90 border border-slate-200/80 backdrop-blur-xl py-8 px-6 shadow-2xl rounded-3xl sm:px-10">
           {isSubmitted ? (
-            <div className="text-center py-8 space-y-4">
-              <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto border border-emerald-500/30">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-8 h-8">
+            <div className="text-center py-8 space-y-5">
+              <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto border border-emerald-200 shadow-inner">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-8 h-8">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                 </svg>
               </div>
-              <h3 className="text-xl font-extrabold text-white">Inquiry Submitted Successfully!</h3>
-              <p className="text-xs text-slate-300 max-w-md mx-auto">
-                Thank you for reaching out to <strong className="text-indigo-400">{brandName}</strong>. Our academic team has received your details and will get in touch with you shortly.
+              <h3 className="text-2xl font-extrabold text-slate-900 tracking-tight">Inquiry Submitted Successfully!</h3>
+              <p className="text-xs font-medium text-slate-600 max-w-md mx-auto leading-relaxed">
+                Thank you for reaching out to <strong className="text-indigo-700">{brandName}</strong>. Our academic team has received your details and will contact you shortly.
               </p>
 
               {submittedEnquiryId && (
-                <div className="inline-block bg-slate-800/80 border border-slate-700 px-4 py-2 rounded-xl text-xs text-slate-400 font-mono">
-                  Reference ID: <span className="text-white font-bold">{submittedEnquiryId}</span>
+                <div className="inline-block bg-slate-50 border border-slate-200 px-4 py-2 rounded-xl text-xs text-slate-600 font-mono shadow-2xs">
+                  Reference ID: <span className="text-indigo-900 font-extrabold">{submittedEnquiryId}</span>
                 </div>
               )}
 
@@ -154,7 +154,7 @@ export default function PublicBrandEnquiryPage({ params }: PublicEnquiryPageProp
                       remarks: "",
                     });
                   }}
-                  className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-indigo-600/30"
+                  className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl text-xs font-extrabold transition-all shadow-md shadow-indigo-600/20 cursor-pointer"
                 >
                   Submit Another Inquiry
                 </button>
@@ -163,14 +163,14 @@ export default function PublicBrandEnquiryPage({ params }: PublicEnquiryPageProp
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
               {errorMessage && (
-                <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold text-center">
+                <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold text-center shadow-2xs">
                   {errorMessage}
                 </div>
               )}
 
               {/* Full Name */}
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
                   Full Name
                 </label>
                 <input
@@ -179,17 +179,17 @@ export default function PublicBrandEnquiryPage({ params }: PublicEnquiryPageProp
                   value={formData.studentFullName}
                   onChange={handleChange}
                   placeholder="e.g. Rahul Sharma"
-                  className="w-full px-4 py-3 rounded-xl bg-slate-800/90 border border-slate-700 text-white text-xs font-medium focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-500"
+                  className="w-full px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-800 text-xs font-medium focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-400 shadow-2xs"
                 />
               </div>
 
               {/* Mobile Number */}
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
                   Mobile Number
                 </label>
-                <div className="flex rounded-xl border border-slate-700 overflow-hidden bg-slate-800/90 focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
-                  <span className="inline-flex items-center px-3.5 bg-slate-800 text-slate-400 font-bold text-xs border-r border-slate-700 select-none">
+                <div className="flex rounded-xl border border-slate-200 overflow-hidden bg-white focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100 shadow-2xs">
+                  <span className="inline-flex items-center px-3.5 bg-slate-50 text-slate-600 font-extrabold text-xs border-r border-slate-200 select-none">
                     +91
                   </span>
                   <input
@@ -199,7 +199,7 @@ export default function PublicBrandEnquiryPage({ params }: PublicEnquiryPageProp
                     onChange={handlePhoneChange}
                     placeholder="9876543210"
                     maxLength={10}
-                    className="w-full px-4 py-3 text-white text-xs font-medium outline-none bg-transparent placeholder:text-slate-500"
+                    className="w-full px-4 py-3 text-slate-800 text-xs font-medium outline-none bg-transparent placeholder:text-slate-400"
                   />
                 </div>
               </div>
@@ -207,7 +207,7 @@ export default function PublicBrandEnquiryPage({ params }: PublicEnquiryPageProp
               {/* Email & City Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
                     Email Address
                   </label>
                   <input
@@ -216,11 +216,11 @@ export default function PublicBrandEnquiryPage({ params }: PublicEnquiryPageProp
                     value={formData.emailAddress}
                     onChange={handleChange}
                     placeholder="rahul@domain.com"
-                    className="w-full px-4 py-3 rounded-xl bg-slate-800/90 border border-slate-700 text-white text-xs font-medium focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-500"
+                    className="w-full px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-800 text-xs font-medium focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-400 shadow-2xs"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
                     Current City
                   </label>
                   <input
@@ -229,21 +229,21 @@ export default function PublicBrandEnquiryPage({ params }: PublicEnquiryPageProp
                     value={formData.currentCity}
                     onChange={handleChange}
                     placeholder="e.g. New Delhi"
-                    className="w-full px-4 py-3 rounded-xl bg-slate-800/90 border border-slate-700 text-white text-xs font-medium focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-500"
+                    className="w-full px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-800 text-xs font-medium focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-400 shadow-2xs"
                   />
                 </div>
               </div>
 
               {/* Course Selection */}
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
                   Interested Course
                 </label>
                 <select
                   name="targetCourse"
                   value={formData.targetCourse}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-xl bg-slate-800/90 border border-slate-700 text-white text-xs font-medium focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all"
+                  className="w-full px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-800 text-xs font-semibold focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all shadow-2xs"
                 >
                   <option value="">-- Select a Course for {brandName} --</option>
                   {courses.map((c) => (
@@ -256,7 +256,7 @@ export default function PublicBrandEnquiryPage({ params }: PublicEnquiryPageProp
 
               {/* Remarks */}
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
                   Any Specific Questions / Notes
                 </label>
                 <textarea
@@ -265,7 +265,7 @@ export default function PublicBrandEnquiryPage({ params }: PublicEnquiryPageProp
                   value={formData.remarks}
                   onChange={handleChange}
                   placeholder="Ask about batch timings, fee structures, or curriculum..."
-                  className="w-full px-4 py-3 rounded-xl bg-slate-800/90 border border-slate-700 text-white text-xs font-medium focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-500"
+                  className="w-full px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-800 text-xs font-medium focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-400 shadow-2xs"
                 />
               </div>
 
@@ -274,7 +274,7 @@ export default function PublicBrandEnquiryPage({ params }: PublicEnquiryPageProp
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full py-3.5 px-4 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-xs font-extrabold rounded-xl transition-all shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="w-full py-4 px-4 bg-gradient-to-r from-indigo-600 via-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-extrabold rounded-xl transition-all shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 transform hover:-translate-y-0.5"
                 >
                   {isSubmitting ? (
                     <>
