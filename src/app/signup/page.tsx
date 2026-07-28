@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import ParticleNetwork from "@/components/ParticleNetwork";
 
 export default function SignupPage() {
   const [name, setName] = useState("");
@@ -79,20 +80,24 @@ export default function SignupPage() {
     }
   };
 
-
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-50 px-4 py-12 text-slate-800 font-sans selection:bg-indigo-500 selection:text-white">
-      {/* Soft Dashboard Ambient Glow Blobs */}
-      <div className="absolute -top-40 -left-40 h-[500px] w-[500px] rounded-full bg-indigo-200/40 blur-[120px] pointer-events-none"></div>
-      <div className="absolute -bottom-40 -right-40 h-[500px] w-[500px] rounded-full bg-purple-200/40 blur-[120px] pointer-events-none"></div>
+      {/* Interactive Constellation Particle Network Canvas Background */}
+      <ParticleNetwork />
 
-      {/* Main Card */}
-      <div className="relative w-full max-w-md rounded-3xl border border-slate-200/80 bg-white p-8 sm:p-10 shadow-xl shadow-slate-200/60 transition-all duration-300">
+      {/* Soft Animated Dashboard Ambient Glow Blobs */}
+      <div className="absolute -top-40 -left-40 h-[520px] w-[520px] rounded-full bg-indigo-300/30 blur-[130px] pointer-events-none animate-pulse-glow"></div>
+      <div className="absolute -bottom-40 -right-40 h-[520px] w-[520px] rounded-full bg-purple-300/30 blur-[130px] pointer-events-none animate-pulse-glow" style={{ animationDelay: "2.5s" }}></div>
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[600px] rounded-full bg-blue-200/20 blur-[150px] pointer-events-none"></div>
 
-        {/* Top Brand Logo */}
+      {/* Main Card with Entrance Animation */}
+      <div className="relative w-full max-w-md rounded-3xl border border-slate-200/80 bg-white/95 backdrop-blur-xl p-8 sm:p-10 shadow-2xl shadow-slate-200/80 transition-all duration-500 animate-in fade-in slide-in-from-bottom-6 duration-700 ease-out hover:shadow-indigo-500/10">
+
+        {/* Top Brand Logo with Soft Glow */}
         <div className="flex justify-center mb-6">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 shadow-md shadow-indigo-600/20">
-            <span className="text-white font-extrabold text-lg tracking-tight font-sans">CF</span>
+          <div className="group relative flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-600 shadow-lg shadow-indigo-600/30 transition-transform duration-300 hover:scale-105 hover:rotate-3 cursor-pointer">
+            <span className="text-white font-extrabold text-xl tracking-tight font-sans">CF</span>
+            <div className="absolute -inset-1 rounded-2xl bg-indigo-400/30 blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
           </div>
         </div>
 
@@ -107,32 +112,35 @@ export default function SignupPage() {
         </div>
 
         {isSuccess ? (
-          <div className="flex flex-col items-center justify-center py-6 text-center animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 mb-4 shadow-sm">
+          <div className="flex flex-col items-center justify-center py-6 text-center animate-in fade-in zoom-in-95 duration-300">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 mb-4 shadow-md shadow-emerald-500/10 animate-bounce">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-8 w-8">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
               </svg>
             </div>
             <h3 className="text-lg font-bold text-slate-800">Registration Successful!</h3>
             <p className="mt-1 text-xs font-medium text-slate-400">
-              Your account has been created.
+              Your account has been created successfully.
             </p>
             <Link
               href="/login"
-              className="mt-6 inline-flex justify-center rounded-2xl bg-indigo-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-indigo-700 shadow-md shadow-indigo-600/10 transition-colors"
+              className="mt-6 inline-flex items-center gap-1.5 justify-center rounded-2xl bg-indigo-600 px-6 py-3 text-xs font-bold text-white hover:bg-indigo-700 shadow-md shadow-indigo-600/20 hover:shadow-indigo-600/35 transition-all cursor-pointer active:scale-95"
             >
               Go to Login
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+              </svg>
             </Link>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
             {/* Full Name */}
-            <div>
-              <label htmlFor="name" className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 font-sans">
+            <div className="group">
+              <label htmlFor="name" className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5 font-sans transition-colors group-focus-within:text-indigo-600">
                 FULL NAME
               </label>
               <div className="relative">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400 transition-colors group-focus-within:text-indigo-600">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4.5 w-4.5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
                   </svg>
@@ -147,23 +155,23 @@ export default function SignupPage() {
                     setName(e.target.value);
                     if (errors.name) setErrors((prev) => ({ ...prev, name: undefined }));
                   }}
-                  className={`block w-full rounded-2xl border bg-slate-50 py-3 pl-10 pr-4 text-xs font-semibold text-slate-800 placeholder-slate-400 transition-all duration-200 outline-none
-                    ${errors.name ? "border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20" : "border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"}`}
+                  className={`block w-full rounded-2xl border bg-slate-50/70 py-3 pl-10 pr-4 text-xs font-semibold text-slate-800 placeholder-slate-400 transition-all duration-300 outline-none
+                    ${errors.name ? "border-rose-400 focus:border-rose-500 focus:ring-4 focus:ring-rose-500/15" : "border-slate-200/90 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 focus:bg-white"}`}
                   placeholder="John Doe"
                 />
               </div>
               {errors.name && (
-                <p className="mt-1.5 text-xs text-rose-500 font-semibold">{errors.name}</p>
+                <p className="mt-1.5 text-xs text-rose-500 font-semibold animate-in fade-in slide-in-from-top-1 duration-200">{errors.name}</p>
               )}
             </div>
 
             {/* Email Input */}
-            <div>
-              <label htmlFor="email" className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 font-sans">
+            <div className="group">
+              <label htmlFor="email" className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5 font-sans transition-colors group-focus-within:text-indigo-600">
                 EMAIL ADDRESS
               </label>
               <div className="relative">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400 transition-colors group-focus-within:text-indigo-600">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4.5 w-4.5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
                   </svg>
@@ -178,23 +186,23 @@ export default function SignupPage() {
                     setEmail(e.target.value);
                     if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
                   }}
-                  className={`block w-full rounded-2xl border bg-slate-50 py-3 pl-10 pr-4 text-xs font-semibold text-slate-800 placeholder-slate-400 transition-all duration-200 outline-none
-                    ${errors.email ? "border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20" : "border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"}`}
+                  className={`block w-full rounded-2xl border bg-slate-50/70 py-3 pl-10 pr-4 text-xs font-semibold text-slate-800 placeholder-slate-400 transition-all duration-300 outline-none
+                    ${errors.email ? "border-rose-400 focus:border-rose-500 focus:ring-4 focus:ring-rose-500/15" : "border-slate-200/90 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 focus:bg-white"}`}
                   placeholder="name@example.com"
                 />
               </div>
               {errors.email && (
-                <p className="mt-1.5 text-xs text-rose-500 font-semibold">{errors.email}</p>
+                <p className="mt-1.5 text-xs text-rose-500 font-semibold animate-in fade-in slide-in-from-top-1 duration-200">{errors.email}</p>
               )}
             </div>
 
             {/* Password Input */}
-            <div>
-              <label htmlFor="password" className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 font-sans">
+            <div className="group">
+              <label htmlFor="password" className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5 font-sans transition-colors group-focus-within:text-indigo-600">
                 PASSWORD
               </label>
               <div className="relative">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400 transition-colors group-focus-within:text-indigo-600">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4.5 w-4.5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
                   </svg>
@@ -208,14 +216,14 @@ export default function SignupPage() {
                     setPassword(e.target.value);
                     if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }));
                   }}
-                  className={`block w-full rounded-2xl border bg-slate-50 py-3 pl-10 pr-10 text-xs font-semibold text-slate-800 placeholder-slate-400 transition-all duration-200 outline-none
-                    ${errors.password ? "border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20" : "border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"}`}
+                  className={`block w-full rounded-2xl border bg-slate-50/70 py-3 pl-10 pr-10 text-xs font-semibold text-slate-800 placeholder-slate-400 transition-all duration-300 outline-none
+                    ${errors.password ? "border-rose-400 focus:border-rose-500 focus:ring-4 focus:ring-rose-500/15" : "border-slate-200/90 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 focus:bg-white"}`}
                   placeholder="••••••••"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                  className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer"
                 >
                   {showPassword ? (
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4.5 w-4.5">
@@ -230,17 +238,17 @@ export default function SignupPage() {
                 </button>
               </div>
               {errors.password && (
-                <p className="mt-1.5 text-xs text-rose-500 font-semibold">{errors.password}</p>
+                <p className="mt-1.5 text-xs text-rose-500 font-semibold animate-in fade-in slide-in-from-top-1 duration-200">{errors.password}</p>
               )}
             </div>
 
             {/* Confirm Password Input */}
-            <div>
-              <label htmlFor="confirmPassword" className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 font-sans">
+            <div className="group">
+              <label htmlFor="confirmPassword" className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5 font-sans transition-colors group-focus-within:text-indigo-600">
                 CONFIRM PASSWORD
               </label>
               <div className="relative">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400 transition-colors group-focus-within:text-indigo-600">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4.5 w-4.5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
                   </svg>
@@ -254,14 +262,14 @@ export default function SignupPage() {
                     setConfirmPassword(e.target.value);
                     if (errors.confirmPassword) setErrors((prev) => ({ ...prev, confirmPassword: undefined }));
                   }}
-                  className={`block w-full rounded-2xl border bg-slate-50 py-3 pl-10 pr-10 text-xs font-semibold text-slate-800 placeholder-slate-400 transition-all duration-200 outline-none
-                    ${errors.confirmPassword ? "border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20" : "border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"}`}
+                  className={`block w-full rounded-2xl border bg-slate-50/70 py-3 pl-10 pr-10 text-xs font-semibold text-slate-800 placeholder-slate-400 transition-all duration-300 outline-none
+                    ${errors.confirmPassword ? "border-rose-400 focus:border-rose-500 focus:ring-4 focus:ring-rose-500/15" : "border-slate-200/90 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 focus:bg-white"}`}
                   placeholder="••••••••"
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                  className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer"
                 >
                   {showConfirmPassword ? (
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4.5 w-4.5">
@@ -276,7 +284,7 @@ export default function SignupPage() {
                 </button>
               </div>
               {errors.confirmPassword && (
-                <p className="mt-1.5 text-xs text-rose-500 font-semibold">{errors.confirmPassword}</p>
+                <p className="mt-1.5 text-xs text-rose-500 font-semibold animate-in fade-in slide-in-from-top-1 duration-200">{errors.confirmPassword}</p>
               )}
             </div>
 
@@ -287,9 +295,9 @@ export default function SignupPage() {
                 name="terms"
                 type="checkbox"
                 required
-                className="h-4 w-4 mt-0.5 rounded-md border-slate-300 bg-white text-indigo-600 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none cursor-pointer"
+                className="h-4 w-4 mt-0.5 rounded-md border-slate-300 bg-white text-indigo-600 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none cursor-pointer transition-all"
               />
-              <label htmlFor="terms" className="ml-2.5 block text-xs font-semibold text-slate-600 select-none leading-relaxed cursor-pointer font-sans">
+              <label htmlFor="terms" className="ml-2.5 block text-xs font-semibold text-slate-600 select-none leading-relaxed cursor-pointer font-sans hover:text-slate-900 transition-colors">
                 I agree to the{" "}
                 <a href="#" className="font-bold text-indigo-600 hover:underline">
                   Terms of Service
@@ -301,19 +309,27 @@ export default function SignupPage() {
               </label>
             </div>
 
-            {/* Submit Button */}
+            {/* Animated Submit Button */}
             <button
               type="submit"
               disabled={isLoading}
-              className="relative flex w-full items-center justify-center rounded-2xl bg-indigo-600 hover:bg-indigo-700 py-3.5 text-xs font-bold text-white transition-all duration-200 shadow-md shadow-indigo-600/10 hover:shadow-indigo-600/25 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 active:scale-[0.99] disabled:opacity-75 cursor-pointer mt-2"
+              className="relative group overflow-hidden flex w-full items-center justify-center rounded-2xl bg-indigo-600 hover:bg-indigo-700 py-3.5 text-xs font-bold text-white transition-all duration-300 shadow-md shadow-indigo-600/20 hover:shadow-xl hover:shadow-indigo-600/35 focus:outline-none focus:ring-4 focus:ring-indigo-500/30 active:scale-[0.98] disabled:opacity-75 cursor-pointer mt-2"
             >
+              {/* Button Shimmer Effect */}
+              <div className="absolute inset-0 w-1/2 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-[-20deg] group-hover:animate-shimmer pointer-events-none"></div>
+
               {isLoading ? (
                 <svg className="h-5 w-5 animate-spin text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
               ) : (
-                "Get Started"
+                <span className="flex items-center gap-1.5">
+                  Create Account
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                  </svg>
+                </span>
               )}
             </button>
           </form>
@@ -322,7 +338,7 @@ export default function SignupPage() {
         {/* Footer */}
         <div className="mt-8 text-center text-xs font-medium text-slate-400 font-sans">
           Already have an account?{" "}
-          <Link href="/login" className="font-bold text-indigo-600 hover:underline transition-colors">
+          <Link href="/login" className="font-bold text-indigo-600 hover:text-indigo-700 hover:underline transition-colors">
             Sign in
           </Link>
         </div>

@@ -53,7 +53,7 @@ export default function CounsellorFeeCollectionPage() {
     const [receivedDate, setReceivedDate] = useState("");
     const [referenceNo, setReferenceNo] = useState("");
     const [remarks, setRemarks] = useState("");
-    const [allocateTo, setAllocateTo] = useState("Downpayment");
+    const [allocateTo, setAllocateTo] = useState("");
     const [selectedCompany, setSelectedCompany] = useState("");
 
     // Particulars distribution checkboxes
@@ -745,22 +745,52 @@ export default function CounsellorFeeCollectionPage() {
                                                 />
                                             </div>
 
-                                            {/* Allocate To */}
+                                            {/* Allocation (Down Payment) */}
                                             <div>
-                                                <label className="block text-[9px] uppercase tracking-widest text-slate-400 mb-1.5">Allocate To</label>
-                                                <div className="flex flex-wrap items-center gap-4 py-2 text-xs font-semibold">
-                                                    <label className="flex items-center gap-2 cursor-pointer">
-                                                        <input
-                                                            type="radio"
-                                                            name="allocateTo"
-                                                            checked={allocateTo === "Downpayment"}
-                                                            onChange={() => setAllocateTo("Downpayment")}
-                                                            className="text-indigo-600 focus:ring-indigo-500/50"
-                                                        />
-                                                        <span className="text-emerald-700 font-bold bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 shadow-xs">
-                                                            Down Payment
+                                                <label className="block text-[9px] uppercase tracking-widest text-slate-400 mb-1.5 font-bold">Allocation</label>
+                                                <div className="flex flex-wrap items-center gap-4 py-1 text-xs font-semibold">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            if (allocateTo === "Downpayment") {
+                                                                setAllocateTo("");
+                                                                setAmountReceived("");
+                                                            } else {
+                                                                setAllocateTo("Downpayment");
+                                                                if (selectedStudent) {
+                                                                    const studentAny = selectedStudent as any;
+                                                                    const dpAmt = Number(studentAny.downpaymentAmount || 0);
+                                                                    if (dpAmt > 0) {
+                                                                        setAmountReceived(String(dpAmt));
+                                                                    }
+                                                                    if (studentAny.downpaymentDueDate) {
+                                                                        const d = new Date(studentAny.downpaymentDueDate);
+                                                                        if (!isNaN(d.getTime())) {
+                                                                            setReceivedDate(d.toISOString().slice(0, 10));
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }}
+                                                        className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-2 transition-all cursor-pointer select-none ${
+                                                            allocateTo === "Downpayment"
+                                                                ? "bg-emerald-50 border-emerald-300 text-emerald-700 shadow-xs ring-2 ring-emerald-500/20"
+                                                                : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                                                        }`}
+                                                    >
+                                                        <span className={`w-4 h-4 rounded-md border flex items-center justify-center transition-colors ${
+                                                            allocateTo === "Downpayment"
+                                                                ? "bg-emerald-600 border-emerald-600 text-white"
+                                                                : "border-slate-300 bg-white"
+                                                        }`}>
+                                                            {allocateTo === "Downpayment" && (
+                                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3">
+                                                                    <path fillRule="evenodd" d="M19.916 4.626a.75.75 0 01.208 1.04l-9 13.5a.75.75 0 01-1.154.114l-6-6a.75.75 0 011.06-1.06l5.353 5.353 8.493-12.74a.75.75 0 011.04-.207z" clipRule="evenodd" />
+                                                                </svg>
+                                                            )}
                                                         </span>
-                                                    </label>
+                                                        Down Payment
+                                                    </button>
                                                 </div>
                                             </div>
                                         </div>

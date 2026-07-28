@@ -338,12 +338,11 @@ export default function Student360Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 transition-all duration-300 animate-in fade-in zoom-in-95"
-      onClick={onClose}
+      className="fixed inset-0 z-50 bg-white flex flex-col w-screen h-screen overflow-hidden animate-in fade-in duration-200"
     >
-      {/* Centered Popup Screen Container matching CoachFlow theme */}
+      {/* Full Screen 360 View Container */}
       <div
-        className="bg-white w-full max-w-5xl max-h-[92vh] flex flex-col rounded-3xl shadow-2xl border border-slate-200/80 overflow-hidden font-sans transform transition-all relative"
+        className="bg-white w-full h-full flex flex-col overflow-hidden font-sans relative"
         onClick={(e) => e.stopPropagation()}
       >
         
@@ -356,7 +355,7 @@ export default function Student360Modal({
         )}
 
         {/* Modal Header */}
-        <div className="p-6 bg-white border-b border-slate-200/80 flex items-center justify-between shrink-0 relative rounded-t-3xl">
+        <div className="px-6 py-4 sm:px-8 sm:py-5 bg-white border-b border-slate-200/80 flex items-center justify-between shrink-0 relative">
           <div className="flex items-center gap-4">
             <div className="h-14 w-14 rounded-2xl bg-indigo-600 text-white font-black text-xl flex items-center justify-center shadow-md shadow-indigo-600/20 uppercase shrink-0">
               {studentData?.fullName ? studentData.fullName.substring(0, 2) : "ST"}
@@ -435,20 +434,39 @@ export default function Student360Modal({
 
             {canEdit && (
               <>
-                <button
-                  type="button"
-                  onClick={() => setIsEditMode(!isEditMode)}
-                  className={`h-9 px-4 text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow-md ${
-                    isEditMode
-                      ? "bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/20"
-                      : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-600/20"
-                  }`}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
-                  </svg>
-                  <span>{isEditMode ? "Exit Edit Mode" : "Edit 360"}</span>
-                </button>
+                {!isEditMode ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditMode(true)}
+                    className="h-9 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-md shadow-indigo-600/20 transition-all flex items-center gap-2 cursor-pointer"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                    </svg>
+                    <span>Edit 360</span>
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditMode(false)}
+                      className="h-9 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer border border-slate-200"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => handleSave(e)}
+                      disabled={isSaving}
+                      className="h-9 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-indigo-600/20 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                      </svg>
+                      <span>{isSaving ? "Saving 360 Changes..." : "Save All Changes"}</span>
+                    </button>
+                  </>
+                )}
 
                 <button
                   type="button"
@@ -1349,31 +1367,7 @@ export default function Student360Modal({
                 </div>
               )}
 
-              {/* Save Footer Bar (When Edit Mode is Active) */}
-              {isEditMode && (
-                <div className="sticky bottom-0 bg-white p-4 rounded-2xl border-2 border-amber-400 shadow-2xl flex items-center justify-between shrink-0 animate-in slide-in-from-bottom-3 duration-200">
-                  <span className="text-xs font-black text-amber-800 flex items-center gap-2">
-                    <span className="animate-ping h-2.5 w-2.5 rounded-full bg-amber-500"></span>
-                    Edit Mode Active — Any changes made above will update MongoDB in real-time
-                  </span>
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setIsEditMode(false)}
-                      className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={isSaving}
-                      className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-indigo-600/30 disabled:opacity-50 cursor-pointer transition-all"
-                    >
-                      {isSaving ? "Saving 360 Changes..." : "Save All Changes"}
-                    </button>
-                  </div>
-                </div>
-              )}
+              {/* End of Edit Form */}
 
             </form>
           )}
