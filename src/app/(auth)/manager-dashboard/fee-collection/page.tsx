@@ -279,13 +279,16 @@ export default function FeeCollectionPage() {
                     amountReceived: inputAmtVal,
                     paymentMode,
                     referenceNo,
-                    remarks,
+                    remarks: allocateTo === "Downpayment" ? (remarks ? `${remarks} (Down Payment)` : "Down Payment Collection") : remarks,
                     company: selectedCompany,
+                    isDownpayment: allocateTo === "Downpayment",
                     particulars: {
                         courseFeeDue: allocatedCourse,
                         registrationFeeDue: 0,
                         materialFeeDue: 0,
                         examFeeDue: 0,
+                        isDownpayment: allocateTo === "Downpayment",
+                        paymentCategory: allocateTo === "Downpayment" ? "Down Payment" : "Course Fee / EMI"
                     }
                 })
             });
@@ -760,7 +763,7 @@ export default function FeeCollectionPage() {
                                             {/* Allocate To */}
                                             <div>
                                                 <label className="block text-[9px] uppercase tracking-widest text-slate-400 mb-1.5">Allocate To</label>
-                                                <div className="flex items-center gap-4 py-2 text-xs font-semibold">
+                                                <div className="flex flex-wrap items-center gap-4 py-2 text-xs font-semibold">
                                                     <label className="flex items-center gap-2 cursor-pointer">
                                                         <input
                                                             type="radio"
@@ -770,6 +773,18 @@ export default function FeeCollectionPage() {
                                                             className="text-indigo-600 focus:ring-indigo-500/50"
                                                         />
                                                         Outstanding (Oldest First)
+                                                    </label>
+                                                    <label className="flex items-center gap-2 cursor-pointer">
+                                                        <input
+                                                            type="radio"
+                                                            name="allocateTo"
+                                                            checked={allocateTo === "Downpayment"}
+                                                            onChange={() => setAllocateTo("Downpayment")}
+                                                            className="text-indigo-600 focus:ring-indigo-500/50"
+                                                        />
+                                                        <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                                            Down Payment
+                                                        </span>
                                                     </label>
                                                     <label className="flex items-center gap-2 cursor-pointer">
                                                         <input

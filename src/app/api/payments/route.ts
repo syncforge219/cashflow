@@ -63,10 +63,10 @@ export async function POST(req: Request) {
     let finalCompany = "Cash";
 
     if (paymentMode !== "Cash") {
-      const previousNonCashPayment = await Payment.findOne({ 
-        admissionId, 
+      const previousNonCashPayment = await Payment.findOne({
+        admissionId,
         paymentMode: { $ne: "Cash" },
-        company: { $nin: ["Cash", "Unallocated"] } 
+        company: { $nin: ["Cash", "Unallocated"] }
       });
 
       if (previousNonCashPayment && previousNonCashPayment.company) {
@@ -80,7 +80,7 @@ export async function POST(req: Request) {
         const brandCompanies = brandDoc?.companies || [];
 
         const safeCompRegexes = brandCompanies.map((c: string) => new RegExp(`^${escapeRegExp(c.trim())}$`, "i"));
-        
+
         const availableCompanies = await Company.find({
           $or: [
             { brand: { $regex: brandRegex } },
@@ -97,7 +97,7 @@ export async function POST(req: Request) {
             const capB = (b.annualCapacityCap || 1949999) - (b.collectedRevenue || 0);
             return capB - capA;
           });
-          
+
           finalCompany = availableCompanies[0].name;
         } else {
           finalCompany = company || "Unallocated";
@@ -130,7 +130,7 @@ export async function POST(req: Request) {
           }
         }
       }
-      
+
       // Lock future payments
       admission.companyAssigned = finalCompany;
     }
@@ -149,24 +149,10 @@ export async function POST(req: Request) {
     });
     await payment.save();
 
-    // 3. Update the admission balance and auto-mark matching custom EMI installments as paid
-    const paidAmt = Number(amountReceived);
-    admission.remainingBalance = Math.max(0, admission.remainingBalance - paidAmt);
-
-    if (Array.isArray(admission.customEmiPlan) && admission.customEmiPlan.length > 0) {
-      let unallocated = paidAmt;
-      for (const emi of admission.customEmiPlan) {
-        if (!emi.isPaid && unallocated > 0) {
-          const emiAmt = Number(emi.amount || 0);
-          if (unallocated >= emiAmt) {
-            emi.isPaid = true;
-            emi.paidDate = new Date();
-            unallocated -= emiAmt;
-          } else {
-            break;
-          }
-        }
-      }
+    // 3. Update the admission balance and last transaction details
+    admission.remainingBalance = Math.max(0, admission.remainingBalance - Number(amountReceived));
+    if (body.isDownpayment || particulars?.isDownpayment || particulars?.paymentCategory === "Down Payment" || (remarks && remarks.toLowerCase().includes("down payment"))) {
+      admission.downpaymentAmount = (Number(admission.downpaymentAmount) || 0) + Number(amountReceived);
     }
     await admission.save();
 
