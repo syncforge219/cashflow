@@ -95,6 +95,7 @@ export default function AdminDashboard() {
   }, []);
 
   const handleApproveRejectDiscount = async (notificationId: string, action: "Approved" | "Rejected") => {
+    setNotifications((prev) => prev.filter((n: any) => n._id !== notificationId));
     try {
       const res = await fetch("/api/notifications", {
         method: "PATCH",
@@ -104,9 +105,26 @@ export default function AdminDashboard() {
       const data = await res.json();
       if (data.success) {
         fetchNotifications();
+        // Also refresh dashboard stats so KPIs stay updated
+        if (typeof window !== "undefined") {
+          let url = "/api/admin-dashboard/stats";
+          if (startDate && endDate) {
+            url += `?startDate=${startDate}&endDate=${endDate}`;
+          }
+          fetch(url)
+            .then((r) => r.json())
+            .then((d) => {
+              if (d.success) setData(d.data);
+            })
+            .catch(console.error);
+        }
+      } else {
+        console.error("Failed updating discount approval:", data.error);
+        fetchNotifications();
       }
     } catch (err) {
       console.error("Failed updating discount approval:", err);
+      fetchNotifications();
     }
   };
 

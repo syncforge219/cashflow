@@ -12,6 +12,8 @@ export async function GET(req: Request) {
     const currentUser = await getUserFromCookies();
     const { searchParams } = new URL(req.url);
     const role = searchParams.get("role") || currentUser?.role;
+    const statusParam = searchParams.get("status");
+    const typeParam = searchParams.get("type");
 
     // Fetch stored DB notifications
     const query: any = {};
@@ -21,6 +23,24 @@ export async function GET(req: Request) {
         { targetRole: "all" },
         { targetTeacherId: currentUser?._id }
       ];
+    } else if (role === "admin" || role === "super admin") {
+      query.$or = [
+        { targetRole: { $in: ["admin", "super admin", "all"] } },
+        { targetRole: { $exists: false } }
+      ];
+    }
+
+    if (statusParam) {
+      if (statusParam.toLowerCase() === "pending") {
+        query.status = { $in: ["Pending", "Unread"] };
+        query.read = false;
+      } else {
+        query.status = statusParam;
+      }
+    }
+
+    if (typeParam) {
+      query.type = typeParam;
     }
 
     let notifications = await Notification.find(query).sort({ createdAt: -1 }).lean();
