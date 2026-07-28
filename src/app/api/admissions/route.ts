@@ -26,6 +26,10 @@ export async function POST(req: NextRequest) {
     // Fallbacks for optional form fields
     data.fullName = data.fullName?.trim() || "Student";
     data.mobileNumber = data.mobileNumber?.trim() || "0000000000";
+    data.parentsFullName = data.parentsFullName?.trim() || data.parentName?.trim() || "";
+    data.parentsPhoneNumber = data.parentsPhoneNumber?.trim() || data.parentPhone?.trim() || "";
+    data.parentName = data.parentsFullName;
+    data.parentPhone = data.parentsPhoneNumber;
     data.city = data.city?.trim() || "N/A";
     data.state = data.state?.trim() || "N/A";
     data.pincode = data.pincode?.trim() || "000000";

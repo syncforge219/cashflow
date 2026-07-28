@@ -166,27 +166,6 @@ export default function EditEnquiryModal({ isOpen, onClose, onSuccess, lead }: E
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-500 mb-1.5">Alternate Mobile</label>
-              <div className="flex rounded-xl border border-slate-200 overflow-hidden focus-within:ring-1 focus-within:ring-indigo-500/50 bg-white">
-                <span className="inline-flex items-center px-3 bg-slate-50 text-slate-600 font-bold text-xs border-r border-slate-200 select-none">
-                  +91
-                </span>
-                <input
-                  name="parentsPhoneNumber"
-                  value={formData.parentsPhoneNumber}
-                  onChange={(e) => {
-                    const cleaned = cleanPhoneDigits(e.target.value);
-                    setFormData(prev => ({ ...prev, parentsPhoneNumber: cleaned }));
-                  }}
-                  type="tel"
-                  placeholder="9876500000"
-                  pattern="^\d{10}$"
-                  maxLength={10}
-                  className="w-full text-sm font-semibold text-slate-700 px-4 py-2.5 focus:outline-none bg-transparent"
-                />
-              </div>
-            </div>
-            <div>
               <label className="block text-xs font-bold text-slate-500 mb-1.5">Email Address</label>
               <input name="emailAddress" value={formData.emailAddress} onChange={handleChange} type="email" className="w-full text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50" />
             </div>

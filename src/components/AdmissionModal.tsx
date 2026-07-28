@@ -24,7 +24,8 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
   const [fullName, setFullName] = useState(lead?.studentFullName || "");
   const [mobileNumber, setMobileNumber] = useState(lead?.primaryPhoneMobile || "");
   const [email, setEmail] = useState(lead?.emailAddress || "");
-  const [parentName, setParentName] = useState("");
+  const [parentName, setParentName] = useState(lead?.parentsFullName || lead?.parentName || "");
+  const [parentPhone, setParentPhone] = useState(lead?.parentsPhoneNumber || lead?.parentPhone || "");
   const [address, setAddress] = useState("");
   const [city, setCity] = useState(lead?.currentCity || "");
   const [state, setState] = useState("");
@@ -247,7 +248,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
     try {
       const payload = {
         enquiryId: lead?._id,
-        fullName, mobileNumber, email, address, city, state, pincode, dob, gender, counsellor, brand,
+        fullName, mobileNumber, email, parentName, parentPhone, parentsFullName: parentName, parentsPhoneNumber: parentPhone, address, city, state, pincode, dob, gender, counsellor, brand,
         course, batch, duration, startDate, academicYear, admissionDate, companyAssigned,
         courseFee, scholarshipType, scholarshipAmount, discountType, discountAmount, additionalDiscount, totalDiscount, finalFee,
         paymentMode, transactionNo, amountReceivedToday, paymentDate, remainingBalance, hasEmi, numInstallments, installmentAmount
@@ -393,6 +394,14 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-bold text-slate-500">Email Address <span className="text-indigo-600 text-[10px] font-semibold">(for PDF Receipt & Email)</span></label>
                     <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="student@example.com" className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white" />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-slate-500">Parents Full Name</label>
+                    <input type="text" value={parentName} onChange={e=>setParentName(e.target.value)} placeholder="e.g. Ramesh Sharma" className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white" />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-slate-500">Parents Phone Number</label>
+                    <input type="tel" value={parentPhone} onChange={e=>setParentPhone(e.target.value)} placeholder="e.g. +91 9876500000" className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white" />
                   </div>
                   <div className="flex flex-col gap-1.5 md:col-span-3">
                     <label className="text-xs font-bold text-slate-500">Address</label>
