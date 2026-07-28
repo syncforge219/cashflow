@@ -83,6 +83,23 @@ export default function FeeCollectionPage() {
     }
   }, [selectedStudent, paymentMode]);
 
+  // Auto-fill amount and due date when Down Payment allocation is selected
+  useEffect(() => {
+    if (allocateTo === "Downpayment" && selectedStudent) {
+      const studentAny = selectedStudent as any;
+      const dpAmt = Number(studentAny.downpaymentAmount || 0);
+      if (dpAmt > 0) {
+        setAmountReceived(String(dpAmt));
+      }
+      if (studentAny.downpaymentDueDate) {
+        const d = new Date(studentAny.downpaymentDueDate);
+        if (!isNaN(d.getTime())) {
+          setReceivedDate(d.toISOString().slice(0, 10));
+        }
+      }
+    }
+  }, [allocateTo, selectedStudent]);
+
   const [editingEmiIndex, setEditingEmiIndex] = useState<number | null>(null);
   const [editEmiAmount, setEditEmiAmount] = useState<number>(0);
   const [editEmiDate, setEditEmiDate] = useState<string>("");
@@ -600,10 +617,10 @@ export default function FeeCollectionPage() {
                           <span className="text-slate-800">
                             {admissionDateVal
                               ? new Date(admissionDateVal).toLocaleDateString("en-IN", {
-                                  day: "numeric",
-                                  month: "short",
-                                  year: "numeric",
-                                })
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              })
                               : "N/A"}
                           </span>
                         </div>
@@ -692,8 +709,8 @@ export default function FeeCollectionPage() {
                             type="button"
                             onClick={() => setPaymentMode(mode)}
                             className={`px-4 py-2 border rounded-xl flex items-center gap-1.5 transition-all ${paymentMode === mode
-                                ? "bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-600/10"
-                                : "bg-white border-slate-200 hover:bg-slate-50 text-slate-600"
+                              ? "bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-600/10"
+                              : "bg-white border-slate-200 hover:bg-slate-50 text-slate-600"
                               }`}
                           >
                             <span>
@@ -1053,8 +1070,8 @@ export default function FeeCollectionPage() {
                               {student.admissionId || "No ID"}
                             </span>
                             <span className={`text-[9px] font-bold border rounded-md px-1.5 py-0.5 uppercase tracking-wide ${student.remainingBalance > 0
-                                ? "bg-amber-50 text-amber-600 border-amber-100"
-                                : "bg-emerald-50 text-emerald-600 border-emerald-100"
+                              ? "bg-amber-50 text-amber-600 border-amber-100"
+                              : "bg-emerald-50 text-emerald-600 border-emerald-100"
                               }`}>
                               {(student.remainingBalance || 0) > 0 ? "Due Balance" : "Fully Paid"}
                             </span>

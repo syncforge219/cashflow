@@ -55,7 +55,7 @@ export default function FeeCollectionPage() {
     const [receivedDate, setReceivedDate] = useState("");
     const [referenceNo, setReferenceNo] = useState("");
     const [remarks, setRemarks] = useState("");
-    const [allocateTo, setAllocateTo] = useState("Outstanding");
+    const [allocateTo, setAllocateTo] = useState("Downpayment");
     const [selectedCompany, setSelectedCompany] = useState("");
 
     // Particulars distribution checkboxes
@@ -84,6 +84,23 @@ export default function FeeCollectionPage() {
                 .catch(err => console.error("Failed to fetch allocated company", err));
         }
     }, [selectedStudent, paymentMode]);
+
+    // Auto-fill amount and due date when Down Payment allocation is selected
+    useEffect(() => {
+        if (allocateTo === "Downpayment" && selectedStudent) {
+            const studentAny = selectedStudent as any;
+            const dpAmt = Number(studentAny.downpaymentAmount || 0);
+            if (dpAmt > 0) {
+                setAmountReceived(String(dpAmt));
+            }
+            if (studentAny.downpaymentDueDate) {
+                const d = new Date(studentAny.downpaymentDueDate);
+                if (!isNaN(d.getTime())) {
+                    setReceivedDate(d.toISOString().slice(0, 10));
+                }
+            }
+        }
+    }, [allocateTo, selectedStudent]);
 
     const [editingEmiIndex, setEditingEmiIndex] = useState<number | null>(null);
     const [editEmiAmount, setEditEmiAmount] = useState<number>(0);
@@ -768,33 +785,13 @@ export default function FeeCollectionPage() {
                                                         <input
                                                             type="radio"
                                                             name="allocateTo"
-                                                            checked={allocateTo === "Outstanding"}
-                                                            onChange={() => setAllocateTo("Outstanding")}
-                                                            className="text-indigo-600 focus:ring-indigo-500/50"
-                                                        />
-                                                        Outstanding (Oldest First)
-                                                    </label>
-                                                    <label className="flex items-center gap-2 cursor-pointer">
-                                                        <input
-                                                            type="radio"
-                                                            name="allocateTo"
                                                             checked={allocateTo === "Downpayment"}
                                                             onChange={() => setAllocateTo("Downpayment")}
                                                             className="text-indigo-600 focus:ring-indigo-500/50"
                                                         />
-                                                        <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                                        <span className="text-emerald-700 font-bold bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 shadow-xs">
                                                             Down Payment
                                                         </span>
-                                                    </label>
-                                                    <label className="flex items-center gap-2 cursor-pointer">
-                                                        <input
-                                                            type="radio"
-                                                            name="allocateTo"
-                                                            checked={allocateTo === "Specific"}
-                                                            onChange={() => setAllocateTo("Specific")}
-                                                            className="text-indigo-600 focus:ring-indigo-500/50"
-                                                        />
-                                                        Specific Installment
                                                     </label>
                                                 </div>
                                             </div>
