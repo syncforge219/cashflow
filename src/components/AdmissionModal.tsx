@@ -243,12 +243,6 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
   }, [isOpen, course, courses]);
 
   const handleGenerateAdmission = async (generateReceipt = false) => {
-    if (!fullName || !mobileNumber || !city || !state || !pincode || !counsellor || 
-        !course || !batch || !duration || !startDate || !academicYear || !admissionDate || !companyAssigned) {
-      alert("Please fill in all required fields (Full Name, Mobile, City, State, Pincode, Counsellor, Course, Batch, Duration, Start Date, Academic Year, Admission Date, and Company Assigned).");
-      return;
-    }
-
     setIsSubmitting(true);
     try {
       const payload = {

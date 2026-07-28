@@ -21,6 +21,8 @@ export async function POST(req: Request) {
     body.primaryPhoneMobile = body.primaryPhoneMobile?.trim() || "+91 0000000000";
     body.currentCity = body.currentCity?.trim() || "N/A";
     body.targetCourse = body.targetCourse?.trim() || "General Course";
+    body.targetBrand = body.targetBrand?.trim() || "Cadd Mantra";
+    body.assignedCrmAdvisor = body.assignedCrmAdvisor?.trim() || user?.name || "Unassigned";
 
     // Check for duplicate primary phone number for the target course
     if (body.primaryPhoneMobile && body.targetCourse) {

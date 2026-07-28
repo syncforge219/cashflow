@@ -42,7 +42,8 @@ export async function POST(req: NextRequest) {
     data.transactionNo = data.transactionNo?.trim() || "CASH";
     data.amountReceivedToday = Number(data.amountReceivedToday) || 0;
     data.paymentDate = data.paymentDate ? new Date(data.paymentDate) : new Date();
-    data.remainingBalance = Number(data.remainingBalance) || 0;
+    data.companyAssigned = data.companyAssigned?.trim() || "Cash";
+    data.brand = data.brand?.trim() || "Cadd Mantra";
 
     // Auto Company Allocation Engine (Case-insensitive matching for Brand & Company)
     let finalCompany = "Cash";
