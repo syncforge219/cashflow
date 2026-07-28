@@ -16,9 +16,23 @@ export async function POST(req: Request) {
       );
     }
 
+    const formattedPlan = Array.isArray(customEmiPlan)
+      ? customEmiPlan.map((item: any) => ({
+          ...item,
+          dueDate: item.dueDate ? new Date(item.dueDate) : undefined,
+          amount: Number(item.amount) || 0,
+          isPaid: Boolean(item.isPaid),
+          paidDate: item.isPaid ? (item.paidDate ? new Date(item.paidDate) : new Date()) : null,
+        }))
+      : [];
+
+    const unpaidSum = formattedPlan
+      .filter((e: any) => !e.isPaid)
+      .reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
+
     const admission = await Admission.findByIdAndUpdate(
       studentId,
-      { customEmiPlan },
+      { customEmiPlan: formattedPlan, remainingBalance: unpaidSum },
       { new: true }
     );
 

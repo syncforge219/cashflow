@@ -119,7 +119,29 @@ export async function PUT(
     const dpAmt = body.downpaymentAmount !== undefined ? Number(body.downpaymentAmount) : (existingDoc.downpaymentAmount || 0);
 
     const calculatedBalance = Math.max(0, finalFee - regAmt - dpAmt);
-    const remainingBalance = body.remainingBalance !== undefined ? Number(body.remainingBalance) : calculatedBalance;
+
+    const rawEmiPlan = body.customEmiPlan !== undefined ? body.customEmiPlan : existingDoc.customEmiPlan;
+    const formattedEmiPlan = Array.isArray(rawEmiPlan)
+      ? rawEmiPlan.map((item: any) => ({
+          ...item,
+          dueDate: item.dueDate ? new Date(item.dueDate) : undefined,
+          amount: Number(item.amount) || 0,
+          isPaid: Boolean(item.isPaid),
+          paidDate: item.isPaid ? (item.paidDate ? new Date(item.paidDate) : new Date()) : null,
+        }))
+      : undefined;
+
+    let remainingBalance = existingDoc.remainingBalance;
+    if (Array.isArray(formattedEmiPlan) && formattedEmiPlan.length > 0) {
+      const unpaidSum = formattedEmiPlan
+        .filter((e: any) => !e.isPaid)
+        .reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
+      remainingBalance = unpaidSum;
+    } else if (body.remainingBalance !== undefined) {
+      remainingBalance = Number(body.remainingBalance);
+    } else {
+      remainingBalance = calculatedBalance;
+    }
 
     const updatePayload = {
       fullName: body.fullName !== undefined ? body.fullName.trim() : existingDoc.fullName,
@@ -156,7 +178,7 @@ export async function PUT(
       hasEmi: body.hasEmi !== undefined ? Boolean(body.hasEmi) : existingDoc.hasEmi,
       numInstallments: body.numInstallments !== undefined ? Number(body.numInstallments) : existingDoc.numInstallments,
       installmentAmount: body.installmentAmount !== undefined ? Number(body.installmentAmount) : existingDoc.installmentAmount,
-      customEmiPlan: body.customEmiPlan !== undefined ? body.customEmiPlan : existingDoc.customEmiPlan,
+      customEmiPlan: formattedEmiPlan !== undefined ? formattedEmiPlan : existingDoc.customEmiPlan,
     };
 
     const updatedDoc = await Admission.findByIdAndUpdate(id, updatePayload, { new: true });

@@ -236,14 +236,69 @@ export default function Student360Modal({
 
   const handleEmiFieldChange = (index: number, field: string, value: any) => {
     const currentPlan = [...(formData.customEmiPlan || [])];
-    currentPlan[index] = {
+    const updatedItem = {
       ...currentPlan[index],
       [field]: value,
     };
+    if (field === "isPaid") {
+      updatedItem.paidDate = value ? (updatedItem.paidDate || new Date().toISOString().slice(0, 10)) : "";
+    }
+    currentPlan[index] = updatedItem;
+
+    const unpaidSum = currentPlan
+      .filter((e: any) => !e.isPaid)
+      .reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
+
     setFormData({
       ...formData,
+      remainingBalance: unpaidSum,
       customEmiPlan: currentPlan,
     });
+  };
+
+  const handleEmiStatusChange = async (index: number, isPaid: boolean) => {
+    const currentPlan = [...(formData.customEmiPlan || emiPlanToRender || [])];
+    const todayStr = new Date().toISOString().slice(0, 10);
+
+    currentPlan[index] = {
+      ...currentPlan[index],
+      isPaid: isPaid,
+      paidDate: isPaid ? (currentPlan[index].paidDate || todayStr) : "",
+    };
+
+    const unpaidSum = currentPlan
+      .filter((e: any) => !e.isPaid)
+      .reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
+
+    setFormData((prev: any) => ({
+      ...prev,
+      remainingBalance: unpaidSum,
+      customEmiPlan: currentPlan,
+    }));
+
+    if (admissionId) {
+      try {
+        const res = await fetch(`/api/admissions/${admissionId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            customEmiPlan: currentPlan,
+            remainingBalance: unpaidSum,
+          }),
+        });
+        const json = await res.json();
+        if (json.success) {
+          setStudentData(json.data);
+          if (onRefresh) onRefresh();
+          showToast(`Installment #${index + 1} marked as ${isPaid ? "Paid" : "Pending (Unpaid)"}!`);
+        } else {
+          alert(json.message || "Failed to update EMI status");
+        }
+      } catch (err) {
+        console.error("Failed to update EMI status:", err);
+        alert("Failed to update EMI status");
+      }
+    }
   };
 
   if (!isOpen) return null;
@@ -1049,8 +1104,8 @@ export default function Student360Modal({
                                 <td className="pr-3">
                                   <select
                                     value={emi.isPaid ? "true" : "false"}
-                                    onChange={(e) => handleEmiFieldChange(idx, "isPaid", e.target.value === "true")}
-                                    className={`px-2.5 py-1.5 rounded-lg font-extrabold text-[11px] border ${
+                                    onChange={(e) => handleEmiStatusChange(idx, e.target.value === "true")}
+                                    className={`px-2.5 py-1.5 rounded-lg font-extrabold text-[11px] border cursor-pointer ${
                                       emi.isPaid
                                         ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                                         : "bg-amber-50 text-amber-700 border-amber-200"

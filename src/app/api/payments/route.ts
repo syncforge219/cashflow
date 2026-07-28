@@ -149,8 +149,25 @@ export async function POST(req: Request) {
     });
     await payment.save();
 
-    // 3. Update the admission balance and last transaction details
-    admission.remainingBalance = Math.max(0, admission.remainingBalance - Number(amountReceived));
+    // 3. Update the admission balance and auto-mark matching custom EMI installments as paid
+    const paidAmt = Number(amountReceived);
+    admission.remainingBalance = Math.max(0, admission.remainingBalance - paidAmt);
+
+    if (Array.isArray(admission.customEmiPlan) && admission.customEmiPlan.length > 0) {
+      let unallocated = paidAmt;
+      for (const emi of admission.customEmiPlan) {
+        if (!emi.isPaid && unallocated > 0) {
+          const emiAmt = Number(emi.amount || 0);
+          if (unallocated >= emiAmt) {
+            emi.isPaid = true;
+            emi.paidDate = new Date();
+            unallocated -= emiAmt;
+          } else {
+            break;
+          }
+        }
+      }
+    }
     await admission.save();
 
     // 4. Dispatch Email Fee Receipt Notification (with official PDF attachment)
