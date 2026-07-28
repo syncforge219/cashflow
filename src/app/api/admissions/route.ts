@@ -149,10 +149,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Helper to cancel uncompleted follow-ups
+    // Helper to cancel uncompleted follow-ups & sync counsellor name to enquiry
     const cancelUncompletedFollowUps = (enquiryDoc: any) => {
       enquiryDoc.status = "Admitted";
       enquiryDoc.isAdmitted = true;
+      if (admission.counsellor) {
+        enquiryDoc.assignedCrmAdvisor = admission.counsellor;
+      }
 
       if (enquiryDoc.followUps && Array.isArray(enquiryDoc.followUps)) {
         enquiryDoc.followUps.forEach((f: any) => {
@@ -203,6 +206,32 @@ export async function POST(req: NextRequest) {
             matchedEnquiryIds.push(enq._id.toString());
           }
         }
+      }
+    }
+
+    // Direct Admission: If no matching lead exists, automatically create a Lead/Enquiry with exact same details
+    if (matchedEnquiryIds.length === 0) {
+      try {
+        const directEnquiry = new Enquiry({
+          studentFullName: admission.fullName,
+          primaryPhoneMobile: admission.mobileNumber,
+          parentsFullName: admission.parentName || admission.parentsFullName,
+          parentsPhoneNumber: admission.parentPhone || admission.parentsPhoneNumber,
+          emailAddress: admission.email,
+          currentCity: admission.city,
+          targetBrand: admission.brand,
+          targetCourse: admission.course,
+          assignedCrmAdvisor: admission.counsellor || data.counsellor || "Counsellor",
+          leadSource: "Direct Admission / Walk-in",
+          expectedCourseFee: `₹${Number(admission.finalFee || admission.courseFee || 0).toLocaleString('en-IN')}`,
+          priorityLevel: "High",
+          status: "Admitted",
+          remarks: `Direct admission created by ${admission.counsellor || 'Counsellor'}`
+        });
+        await directEnquiry.save();
+        matchedEnquiryIds.push(directEnquiry._id.toString());
+      } catch (enqCreateErr) {
+        console.error("Failed to auto-create Lead for Direct Admission:", enqCreateErr);
       }
     }
 

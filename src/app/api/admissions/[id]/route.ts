@@ -3,6 +3,10 @@ import dbConnect from "@/lib/db";
 import Admission from "@/models/Admission";
 import Payment from "@/models/Payment";
 import Task from "@/models/Task";
+import Attendance from "@/models/Attendance";
+import Company from "@/models/Company";
+import Enquiry from "@/models/Enquiry";
+import Notification from "@/models/Notification";
 import { getUserFromCookies } from "@/lib/helper";
 
 export async function GET(
@@ -185,13 +189,100 @@ export async function DELETE(
     }
 
     const userRole = (user.role || "").toLowerCase();
-    const isAuthorized = userRole === "admin" || userRole === "super admin" || userRole === "super_admin";
+    const isAuthorized =
+      userRole === "admin" ||
+      userRole === "super admin" ||
+      userRole === "super_admin" ||
+      userRole === "brand_manager" ||
+      userRole === "brand-manager" ||
+      userRole === "brand manager" ||
+      userRole === "manager" ||
+      userRole === "centre head" ||
+      userRole === "centre_head" ||
+      userRole === "center head" ||
+      userRole === "center_head";
+
     if (!isAuthorized) {
-      return NextResponse.json({ success: false, message: "Forbidden: Only Admins can delete student records." }, { status: 403 });
+      return NextResponse.json({ success: false, message: "Forbidden: You do not have permission to delete student records." }, { status: 403 });
     }
 
+    const admission = await Admission.findById(id);
+    if (!admission) {
+      return NextResponse.json({ success: false, message: "Student record not found or already deleted" }, { status: 404 });
+    }
+
+    // 1. Delete associated Payment Receipts
+    await Payment.deleteMany({
+      $or: [
+        { admissionId: id },
+        { admissionId: admission._id },
+        { studentName: admission.fullName },
+        { mobileNumber: admission.mobileNumber }
+      ]
+    });
+
+    // 2. Delete associated Tasks (SOP tasks, followups, EMI reminders)
+    await Task.deleteMany({
+      $or: [
+        { linkedStudentId: id },
+        { linkedStudentId: admission._id?.toString() },
+        { linkedStudentName: admission.fullName }
+      ]
+    });
+
+    // 3. Remove Attendance Records for this student from batch sheets
+    await Attendance.updateMany(
+      {},
+      {
+        $pull: {
+          records: {
+            $or: [
+              { admissionId: admission.admissionId },
+              { admissionId: id },
+              { studentName: admission.fullName },
+              { mobileNumber: admission.mobileNumber }
+            ]
+          }
+        }
+      }
+    );
+
+    // 4. Reverse Company Collected Revenue Cap
+    const regAmt = Number(admission.registrationAmount || admission.amountReceivedToday) || 0;
+    if (regAmt > 0 && admission.companyAssigned && admission.companyAssigned !== "Cash" && admission.companyAssigned !== "Unallocated") {
+      const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const compRegex = new RegExp(`^${escapeRegExp(admission.companyAssigned.trim())}$`, "i");
+      await Company.updateOne(
+        { name: { $regex: compRegex } },
+        { $inc: { collectedRevenue: -regAmt } }
+      );
+    }
+
+    // 5. Reset linked Enquiry status if present
+    if (admission.enquiryId) {
+      await Enquiry.findByIdAndUpdate(admission.enquiryId, {
+        stage: "Closed / Lost",
+        remarks: "Admission deleted via Student 360",
+        isConverted: false
+      });
+    } else if (admission.mobileNumber) {
+      await Enquiry.updateMany(
+        { mobileNumber: admission.mobileNumber },
+        { isConverted: false }
+      );
+    }
+
+    // 6. Delete Notifications mentioning this student
+    if (admission.fullName) {
+      const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const nameRegex = new RegExp(escapeRegExp(admission.fullName.trim()), "i");
+      await Notification.deleteMany({ message: { $regex: nameRegex } });
+    }
+
+    // 7. Delete main Admission record
     await Admission.findByIdAndDelete(id);
-    return NextResponse.json({ success: true, message: "Student record deleted successfully" });
+
+    return NextResponse.json({ success: true, message: "Student record and all associated payments, tasks, attendance, and receipts deleted successfully." });
   } catch (error: any) {
     console.error("Error in DELETE /api/admissions/[id]:", error);
     return NextResponse.json(
