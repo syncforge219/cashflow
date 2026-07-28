@@ -27,16 +27,18 @@ export default function PublicBrandEnquiryPage({ params }: PublicEnquiryPageProp
   });
 
   useEffect(() => {
-    // Fetch courses available for this brand
-    fetch("/api/courses")
+    // Fetch courses available strictly for this brand
+    fetch(`/api/courses?brand=${encodeURIComponent(brandName)}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.success && Array.isArray(data.data)) {
+          const normTarget = brandName.toLowerCase().replace(/[^a-z0-9]/g, "");
           const filtered = data.data.filter((c: any) => {
-            if (!c.brand) return true;
-            return c.brand.toUpperCase().trim() === brandName;
+            if (!c.brand) return false;
+            const normCourseBrand = String(c.brand).toLowerCase().replace(/[^a-z0-9]/g, "");
+            return normCourseBrand === normTarget || normCourseBrand.includes(normTarget) || normTarget.includes(normCourseBrand);
           });
-          setCourses(filtered.length > 0 ? filtered : data.data);
+          setCourses(filtered);
         }
       })
       .catch(console.error);

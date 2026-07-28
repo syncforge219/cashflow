@@ -3,13 +3,19 @@ import dbConnect from "@/lib/db";
 import Course from "@/models/Course";
 import { getUserFromCookies } from "@/lib/helper";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     await dbConnect();
     const user = await getUserFromCookies();
+    const { searchParams } = new URL(req.url);
+    const brandParam = searchParams.get("brand");
     
     let query: any = {};
-    if (user && user.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All") {
+    if (brandParam) {
+      const cleanParam = brandParam.trim().replace(/[^a-zA-Z0-9]/g, "");
+      const regexPattern = cleanParam.split("").join(".*");
+      query.brand = { $regex: new RegExp(regexPattern, "i") };
+    } else if (user && user.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All") {
       query.brand = user.brandScope;
     }
 

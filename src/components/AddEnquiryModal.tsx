@@ -91,9 +91,11 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
 
   const filteredCourses = useMemo(() => {
     if (!selectedBrand) return courses;
+    const target = selectedBrand.toLowerCase().replace(/[^a-z0-9]/g, "");
     return courses.filter((c: any) => {
-      if (!c.brand) return true;
-      return c.brand.toLowerCase().trim() === selectedBrand.toLowerCase().trim();
+      if (!c.brand) return false;
+      const b = String(c.brand).toLowerCase().replace(/[^a-z0-9]/g, "");
+      return b === target || b.includes(target) || target.includes(b);
     });
   }, [courses, selectedBrand]);
 
