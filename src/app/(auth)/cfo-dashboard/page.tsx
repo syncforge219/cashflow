@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useUser } from "../../component/context/user-context";
 import ProfileDisplay from "@/components/ProfileDisplay";
 import CommandPalette from "@/components/CommandPalette";
+import CfoSecurityGuard from "@/components/CfoSecurityGuard";
 
 interface TooltipItem {
   name: string;
@@ -633,7 +634,8 @@ export default function CfoDashboardPage() {
   const totalKpiVolume = (summary.totalRevenue || 0) + (summary.totalExpenses || 0) + (summary.outstandingFees || 0) || 1;
 
   return (
-    <div className="flex h-screen bg-[#f8faff] text-slate-800 overflow-hidden font-sans transition-colors duration-200 relative">
+    <CfoSecurityGuard>
+      <div className="flex h-screen bg-[#f8faff] text-slate-800 overflow-hidden font-sans transition-colors duration-200 relative">
       <Sidebar />
 
       {/* FLOATING HOVER TOOLTIP */}
@@ -751,12 +753,6 @@ export default function CfoDashboardPage() {
               className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-sm transition-all"
             >
               + Add Expense
-            </Link>
-            <Link
-              href="/admin-dashboard/reports"
-              className="inline-flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-sm transition-all"
-            >
-              📊 Export Report
             </Link>
           </div>
         </div>
@@ -1279,5 +1275,6 @@ export default function CfoDashboardPage() {
 
       <CommandPalette isOpen={isCommandPaletteOpen} onClose={() => setIsCommandPaletteOpen(false)} />
     </div>
+    </CfoSecurityGuard>
   );
 }

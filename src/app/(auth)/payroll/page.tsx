@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
 import ProfileDisplay from "@/components/ProfileDisplay";
 import { useUser } from "@/app/component/context/user-context";
+import CfoSecurityGuard from "@/components/CfoSecurityGuard";
 
 interface PayrollRecord {
   _id: string;
@@ -244,7 +245,8 @@ export default function PayrollPage() {
   const totalRecurringCount = payrolls.filter((p) => p.isRecurring).length;
 
   return (
-    <div className="flex h-screen bg-[#f8faff] text-slate-800 overflow-hidden font-sans">
+    <CfoSecurityGuard>
+      <div className="flex h-screen bg-[#f8faff] text-slate-800 overflow-hidden font-sans">
       <Sidebar />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto px-6 py-6">
@@ -684,5 +686,6 @@ export default function PayrollPage() {
         )}
       </div>
     </div>
+    </CfoSecurityGuard>
   );
 }

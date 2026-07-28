@@ -6,6 +6,7 @@ import { saveAs } from "file-saver";
 import Sidebar from "@/components/Sidebar";
 import ProfileDisplay from "@/components/ProfileDisplay";
 import { useUser } from "@/app/component/context/user-context";
+import CfoSecurityGuard from "@/components/CfoSecurityGuard";
 
 interface ExpenseRecord {
   _id: string;
@@ -78,6 +79,11 @@ const EXPENSE_CATEGORIES = [
 export default function ExpensesPage() {
   const { user, logout } = useUser();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+
+  const isCfo =
+    user?.role?.toLowerCase() === "cfo" ||
+    user?.role?.toLowerCase() === "finance manager" ||
+    user?.role?.toLowerCase() === "finance executive";
 
   const [expenses, setExpenses] = useState<ExpenseRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -803,7 +809,8 @@ export default function ExpensesPage() {
   const totalRecurringExpenses = expenses.filter((e) => e.isRecurring).length;
 
   return (
-    <div className="flex h-screen bg-[#f8faff] text-slate-800 overflow-hidden font-sans">
+    <CfoSecurityGuard>
+      <div className="flex h-screen bg-[#f8faff] text-slate-800 overflow-hidden font-sans">
       <Sidebar />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto px-6 py-6">
@@ -819,15 +826,17 @@ export default function ExpensesPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <button
-              onClick={handleExportExcel}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/20 transition-all flex items-center gap-2 cursor-pointer"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-              </svg>
-              <span>Export Expense Report (Excel)</span>
-            </button>
+            {!isCfo && (
+              <button
+                onClick={handleExportExcel}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/20 transition-all flex items-center gap-2 cursor-pointer"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                </svg>
+                <span>Export Expense Report (Excel)</span>
+              </button>
+            )}
             <button
               onClick={() => setIsModalOpen(true)}
               className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-md shadow-rose-600/20 transition-all flex items-center gap-2 cursor-pointer"
@@ -1229,5 +1238,6 @@ export default function ExpensesPage() {
         )}
       </div>
     </div>
+    </CfoSecurityGuard>
   );
 }

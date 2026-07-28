@@ -74,15 +74,6 @@ export default function ManagerSidebar() {
             </span>
           ),
         },
-        {
-          name: "Reports",
-          href: "/manager-dashboard/reports",
-          icon: (
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-            </svg>
-          ),
-        },
       ],
     },
     {
@@ -186,15 +177,6 @@ export default function ManagerSidebar() {
           ),
         },
         {
-          name: "Reports",
-          href: "/manager-dashboard/reports",
-          icon: (
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-            </svg>
-          ),
-        },
-        {
           name: "Logout",
           href: "#",
           isLogout: true,
@@ -216,70 +198,39 @@ export default function ManagerSidebar() {
       className={`h-screen bg-white border-r border-slate-100 flex flex-col font-sans shrink-0 ${isCollapsed ? "w-20" : "w-64"
         }`}
     >
-        {/* Brand / Logo Area */}
-        <div className="py-4 px-4 border-b border-slate-100 shrink-0">
-          <SidebarBrandHeader isCollapsed={isCollapsed} subtitle="ERP" />
-        </div>
+      {/* Brand / Logo Area */}
+      <div className="py-4 px-4 border-b border-slate-100 shrink-0">
+        <SidebarBrandHeader isCollapsed={isCollapsed} subtitle="ERP" />
+      </div>
 
-        {/* Navigation Links */}
-        <div className="flex-1 overflow-y-auto py-6 px-4 space-y-8 custom-scrollbar">
-          {displayedGroups.map((group, idx) => (
-            <div key={idx} className="space-y-3">
-              {!isCollapsed && (
-                <div className="flex items-center gap-4">
-                  <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest shrink-0 px-2">
-                    {group.category}
-                  </h3>
-                  <div className="h-px bg-slate-100 flex-1"></div>
-                </div>
-              )}
-              <div className="space-y-1">
-                {group.items.map((item, itemIdx) => {
-                  const isActive = pathname === item.href;
+      {/* Navigation Links */}
+      <div className="flex-1 overflow-y-auto py-6 px-4 space-y-8 custom-scrollbar">
+        {displayedGroups.map((group, idx) => (
+          <div key={idx} className="space-y-3">
+            {!isCollapsed && (
+              <div className="flex items-center gap-4">
+                <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest shrink-0 px-2">
+                  {group.category}
+                </h3>
+                <div className="h-px bg-slate-100 flex-1"></div>
+              </div>
+            )}
+            <div className="space-y-1">
+              {group.items.map((item, itemIdx) => {
+                const isActive = pathname === item.href;
 
-                  if (item.isLogout) {
-                    return (
-                      <button
-                        key={itemIdx}
-                        onClick={item.onClick || logout}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group relative text-rose-600 hover:bg-rose-50 hover:text-rose-700"
-                      >
-                        <div className="shrink-0 text-rose-500 group-hover:text-rose-700 transition-colors">
-                          {item.icon}
-                        </div>
-                        {!isCollapsed && (
-                          <span className="text-sm font-semibold truncate text-rose-600 group-hover:text-rose-700 font-bold">
-                            {item.name}
-                          </span>
-                        )}
-
-                        {/* Tooltip for collapsed state */}
-                        {isCollapsed && (
-                          <div className="absolute left-full ml-4 px-2 py-1 bg-slate-800 text-white text-xs font-semibold rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50">
-                            {item.name}
-                          </div>
-                        )}
-                      </button>
-                    );
-                  }
-
+                if (item.isLogout) {
                   return (
-                    <Link
+                    <button
                       key={itemIdx}
-                      href={item.href}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group relative ${isActive
-                        ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
-                        : "text-slate-600 hover:bg-slate-50 hover:text-indigo-600"
-                        }`}
+                      onClick={item.onClick || logout}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group relative text-rose-600 hover:bg-rose-50 hover:text-rose-700"
                     >
-                      <div
-                        className={`shrink-0 transition-colors ${isActive ? "text-white" : "text-slate-400 group-hover:text-indigo-600"
-                          }`}
-                      >
+                      <div className="shrink-0 text-rose-500 group-hover:text-rose-700 transition-colors">
                         {item.icon}
                       </div>
                       {!isCollapsed && (
-                        <span className={`text-sm font-semibold truncate ${isActive ? "text-white font-bold" : ""}`}>
+                        <span className="text-sm font-semibold truncate text-rose-600 group-hover:text-rose-700 font-bold">
                           {item.name}
                         </span>
                       )}
@@ -290,13 +241,44 @@ export default function ManagerSidebar() {
                           {item.name}
                         </div>
                       )}
-                    </Link>
+                    </button>
                   );
-                })}
-              </div>
+                }
+
+                return (
+                  <Link
+                    key={itemIdx}
+                    href={item.href}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group relative ${isActive
+                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-indigo-600"
+                      }`}
+                  >
+                    <div
+                      className={`shrink-0 transition-colors ${isActive ? "text-white" : "text-slate-400 group-hover:text-indigo-600"
+                        }`}
+                    >
+                      {item.icon}
+                    </div>
+                    {!isCollapsed && (
+                      <span className={`text-sm font-semibold truncate ${isActive ? "text-white font-bold" : ""}`}>
+                        {item.name}
+                      </span>
+                    )}
+
+                    {/* Tooltip for collapsed state */}
+                    {isCollapsed && (
+                      <div className="absolute left-full ml-4 px-2 py-1 bg-slate-800 text-white text-xs font-semibold rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50">
+                        {item.name}
+                      </div>
+                    )}
+                  </Link>
+                );
+              })}
             </div>
-          ))}
-        </div>
-      </aside>
+          </div>
+        ))}
+      </div>
+    </aside>
   );
 }
