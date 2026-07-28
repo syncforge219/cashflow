@@ -140,7 +140,23 @@ export async function GET(req: Request) {
     }
 
     // 4. Top Counsellors Stats
-    const counsellors = await User.find({ role: "counsellor" }).lean();
+    const counsellorFilter: any = { role: "counsellor" };
+    if (filterByBrand) {
+      const escapeRegExp = (str: string) => str.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+      const bRegex = new RegExp(`(^|[,\\/|\\s])${escapeRegExp(selectedBrand!)}($|[,\\/|\\s])`, 'i');
+      counsellorFilter.$or = [
+        { brandScope: { $regex: bRegex } },
+        { brandScope: { $in: ["All", "All Brands", "global", "*"] } }
+      ];
+    } else if (allowedBrands && allowedBrands.length > 0) {
+      const escapeRegExp = (str: string) => str.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+      const regexes = allowedBrands.map(b => new RegExp(`(^|[,\\/|\\s])${escapeRegExp(b)}($|[,\\/|\\s])`, 'i'));
+      counsellorFilter.$or = [
+        { brandScope: { $in: regexes } },
+        { brandScope: { $in: ["All", "All Brands", "global", "*"] } }
+      ];
+    }
+    const counsellors = await User.find(counsellorFilter).lean();
     const counsellorStats = await Promise.all(
       counsellors.map(async (c: any, index) => {
         const cName = c.name;

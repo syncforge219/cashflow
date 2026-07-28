@@ -61,17 +61,17 @@ export default function EditEnquiryModal({ isOpen, onClose, onSuccess, lead }: E
   }, [lead]);
 
   const filteredCounsellors = useMemo(() => {
-    const brand = lead?.targetBrand || "";
-    if (!brand) return counsellors;
+    const brand = lead?.targetBrand || lead?.brand || "";
+    if (!brand || brand === "All Brands" || brand === "All") return counsellors;
+    const target = brand.toLowerCase().trim();
     return counsellors.filter((c: any) => {
-      if (!c.brandScope) return true;
+      if (!c.brandScope) return false;
       const scope = String(c.brandScope).toLowerCase().trim();
-      const target = brand.toLowerCase().trim();
-      if (scope === "all" || scope === "global" || scope === "*") return true;
+      if (scope === "all" || scope === "all brands" || scope === "global" || scope === "*") return true;
       const parts = scope.split(/[,/|]/).map((p: string) => p.trim());
       return parts.some((p: string) => p === target || p.includes(target) || target.includes(p));
     });
-  }, [counsellors, lead?.targetBrand]);
+  }, [counsellors, lead?.targetBrand, lead?.brand]);
 
   if (!isOpen || !lead) return null;
 

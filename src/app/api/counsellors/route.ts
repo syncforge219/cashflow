@@ -85,12 +85,24 @@ export async function GET(request: Request) {
     await dbConnect();
     const { searchParams } = new URL(request.url);
     const roleParam = searchParams.get("role");
+    const brandParam = searchParams.get("brand") || searchParams.get("brandScope");
 
     const roleQuery = roleParam === "crm"
       ? { $in: ["crm", "crm-executive", "crm-advisor", "crm advisor", "crm executive"] }
       : { $in: ["counsellor", "sales executive", "sales-executive"] };
 
-    const counsellors = await User.find({ role: roleQuery }).select("-password").sort({ createdAt: -1 });
+    const query: any = { role: roleQuery };
+
+    if (brandParam && brandParam !== "All Brands" && brandParam !== "All" && brandParam !== "global") {
+      const escapeRegExp = (str: string) => str.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+      const brandRegex = new RegExp(`(^|[,\\/|\\s])${escapeRegExp(brandParam.trim())}($|[,\\/|\\s])`, 'i');
+      query.$or = [
+        { brandScope: { $regex: brandRegex } },
+        { brandScope: { $in: ["All", "All Brands", "global", "*"] } }
+      ];
+    }
+
+    const counsellors = await User.find(query).select("-password").sort({ createdAt: -1 });
     const admissions = await Admission.find({});
     const allEnquiries = await Enquiry.find({});
     const admittedEnquiries = allEnquiries.filter((enq: any) => enq.status === "Admitted");
