@@ -99,9 +99,10 @@ export default function ExpensesPage() {
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     title: "",
-    category: "Maintenance/repairs",
+    category: "Construction",
     amount: "",
     expenseDate: new Date().toISOString().slice(0, 10),
     paymentMode: "UPI",
@@ -113,6 +114,44 @@ export default function ExpensesPage() {
     recurringFrequency: "Monthly",
     remarks: "",
   });
+
+  const handleOpenCreateModal = () => {
+    setEditingExpenseId(null);
+    setFormData({
+      title: "",
+      category: "Construction",
+      amount: "",
+      expenseDate: new Date().toISOString().slice(0, 10),
+      paymentMode: "UPI",
+      brand: "All Brands",
+      company: "All Companies",
+      bank: "",
+      expenseType: "variable",
+      isRecurring: false,
+      recurringFrequency: "Monthly",
+      remarks: "",
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEditModal = (expense: ExpenseRecord) => {
+    setEditingExpenseId(expense._id);
+    setFormData({
+      title: expense.title || "",
+      category: expense.category || "Misc Expense",
+      amount: expense.amount ? String(expense.amount) : "",
+      expenseDate: expense.expenseDate ? new Date(expense.expenseDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+      paymentMode: expense.paymentMode || "UPI",
+      brand: expense.brand || "All Brands",
+      company: expense.company || "All Companies",
+      bank: expense.bank || "",
+      expenseType: expense.expenseType || "variable",
+      isRecurring: Boolean(expense.isRecurring),
+      recurringFrequency: expense.recurringFrequency || "Monthly",
+      remarks: expense.remarks || "",
+    });
+    setIsModalOpen(true);
+  };
 
   // Canvas chart graphics generator for Excel workbook
   const generateExpenseChartImages = (expenseList: any[]) => {
@@ -749,17 +788,25 @@ export default function ExpensesPage() {
 
     setIsSubmitting(true);
     try {
-      const res = await fetch("/api/expenses", {
-        method: "POST",
+      const url = editingExpenseId ? `/api/expenses?id=${editingExpenseId}` : "/api/expenses";
+      const method = editingExpenseId ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, recordedBy: user?.name || "Admin" }),
+        body: JSON.stringify({
+          ...formData,
+          _id: editingExpenseId,
+          recordedBy: user?.name || "Admin",
+        }),
       });
       const data = await res.json();
       if (data.success) {
         setIsModalOpen(false);
+        setEditingExpenseId(null);
         setFormData({
           title: "",
-          category: "Marketing / Ads",
+          category: "Construction",
           amount: "",
           expenseDate: new Date().toISOString().slice(0, 10),
           paymentMode: "UPI",
@@ -773,10 +820,10 @@ export default function ExpensesPage() {
         });
         fetchExpenses();
       } else {
-        alert(data.message || "Failed to create expense entry.");
+        alert(data.message || "Failed to save expense entry.");
       }
     } catch (err) {
-      console.error("Error creating expense:", err);
+      console.error("Error saving expense:", err);
       alert("Failed to submit expense.");
     } finally {
       setIsSubmitting(false);
@@ -838,7 +885,7 @@ export default function ExpensesPage() {
               </button>
             )}
             <button
-              onClick={() => setIsModalOpen(true)}
+              onClick={handleOpenCreateModal}
               className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-md shadow-rose-600/20 transition-all flex items-center gap-2 cursor-pointer"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
@@ -958,7 +1005,7 @@ export default function ExpensesPage() {
                   <th className="pb-3 px-3 min-w-[90px] text-right">Amount</th>
                   <th className="pb-3 pl-4 min-w-[100px]">Payment Mode</th>
                   <th className="pb-3 pr-3 min-w-[85px]">Date</th>
-                  <th className="pb-3 text-right min-w-[60px]">Actions</th>
+                  <th className="pb-3 text-right min-w-[100px]">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100/60 font-semibold text-slate-600">
@@ -1000,10 +1047,16 @@ export default function ExpensesPage() {
                           year: "numeric",
                         })}
                       </td>
-                      <td className="text-right">
+                      <td className="text-right whitespace-nowrap">
+                        <button
+                          onClick={() => handleOpenEditModal(e)}
+                          className="text-xs text-indigo-600 hover:text-indigo-800 font-bold transition-colors mr-3 cursor-pointer"
+                        >
+                          Edit
+                        </button>
                         <button
                           onClick={() => handleDeleteExpense(e._id)}
-                          className="text-xs text-rose-500 hover:text-rose-700 font-bold transition-colors"
+                          className="text-xs text-rose-500 hover:text-rose-700 font-bold transition-colors cursor-pointer"
                         >
                           Delete
                         </button>
@@ -1016,12 +1069,14 @@ export default function ExpensesPage() {
           </div>
         </div>
 
-        {/* Modal: Add Expense */}
+        {/* Modal: Add or Edit Expense */}
         {isModalOpen && (
           <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 border border-slate-200">
               <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-                <h3 className="font-bold text-slate-900 text-base">Record Operational Expense</h3>
+                <h3 className="font-bold text-slate-900 text-base">
+                  {editingExpenseId ? "Edit Operational Expense" : "Record Operational Expense"}
+                </h3>
                 <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 font-bold text-lg">
                   ×
                 </button>
@@ -1227,9 +1282,9 @@ export default function ExpensesPage() {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl shadow-md"
+                    className="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl shadow-md cursor-pointer disabled:opacity-50"
                   >
-                    {isSubmitting ? "Saving..." : "Save Expense"}
+                    {isSubmitting ? "Saving..." : editingExpenseId ? "Update Expense" : "Save Expense"}
                   </button>
                 </div>
               </form>

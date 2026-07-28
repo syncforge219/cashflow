@@ -124,6 +124,81 @@ export async function POST(req: Request) {
   }
 }
 
+export async function PUT(req: Request) {
+  try {
+    await dbConnect();
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+    const body = await req.json();
+
+    const targetId = id || body._id || body.id;
+    if (!targetId) {
+      return NextResponse.json({ success: false, message: "Expense ID is required." }, { status: 400 });
+    }
+
+    const {
+      title,
+      category,
+      amount,
+      expenseDate,
+      paymentMode,
+      brand,
+      company,
+      bank,
+      expenseType,
+      recordedBy,
+      isRecurring,
+      recurringFrequency,
+      remarks,
+    } = body;
+
+    const eDate = expenseDate ? new Date(expenseDate) : new Date();
+
+    let nextRecDate: Date | undefined = undefined;
+    if (Boolean(isRecurring)) {
+      nextRecDate = new Date(eDate);
+      const freq = recurringFrequency || "Monthly";
+      if (freq === "Weekly") nextRecDate.setDate(nextRecDate.getDate() + 7);
+      else if (freq === "Quarterly") nextRecDate.setMonth(nextRecDate.getMonth() + 3);
+      else if (freq === "Yearly") nextRecDate.setFullYear(nextRecDate.getFullYear() + 1);
+      else nextRecDate.setMonth(nextRecDate.getMonth() + 1);
+    }
+
+    const updatedExpense = await Expense.findByIdAndUpdate(
+      targetId,
+      {
+        title,
+        category: category || "Misc",
+        amount: Number(amount) || 0,
+        expenseDate: eDate,
+        paymentMode: paymentMode || "UPI",
+        brand: brand || "All Brands",
+        company: company || "All Companies",
+        bank: bank || "",
+        expenseType: expenseType || "variable",
+        recordedBy: recordedBy || "Admin",
+        isRecurring: Boolean(isRecurring),
+        recurringFrequency: recurringFrequency || "Monthly",
+        nextRecurringDate: nextRecDate,
+        remarks: remarks || "",
+      },
+      { new: true }
+    );
+
+    if (!updatedExpense) {
+      return NextResponse.json({ success: false, message: "Expense not found." }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, data: updatedExpense, message: "Expense updated successfully" });
+  } catch (error: any) {
+    console.error("Error in PUT /api/expenses:", error);
+    return NextResponse.json(
+      { success: false, message: error.message || "Failed to update expense" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function DELETE(req: Request) {
   try {
     await dbConnect();
