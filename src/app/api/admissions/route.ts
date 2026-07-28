@@ -43,8 +43,11 @@ export async function POST(req: NextRequest) {
     data.courseFee = Number(data.courseFee) || 0;
     data.finalFee = Number(data.finalFee) || 0;
     data.paymentMode = data.paymentMode?.trim() || "Cash";
-    data.transactionNo = data.transactionNo?.trim() || "CASH";
-    data.amountReceivedToday = Number(data.amountReceivedToday) || 0;
+    data.registrationAmount = Number(data.registrationAmount || data.amountReceivedToday) || 0;
+    data.amountReceivedToday = data.registrationAmount;
+    data.downpaymentAmount = Number(data.downpaymentAmount) || 0;
+    data.downpaymentDueDate = data.downpaymentDueDate ? new Date(data.downpaymentDueDate) : undefined;
+    data.remainingBalance = Math.max(0, data.finalFee - data.registrationAmount - data.downpaymentAmount);
     data.paymentDate = data.paymentDate ? new Date(data.paymentDate) : new Date();
     data.companyAssigned = data.companyAssigned?.trim() || "Cash";
     data.brand = data.brand?.trim() || "Cadd Mantra";

@@ -111,6 +111,9 @@ export default function Student360Modal({
           courseFee: adm.courseFee || 0,
           finalFee: adm.finalFee || 0,
           amountReceivedToday: adm.amountReceivedToday || 0,
+          registrationAmount: adm.registrationAmount !== undefined ? adm.registrationAmount : (adm.amountReceivedToday || 0),
+          downpaymentAmount: adm.downpaymentAmount || 0,
+          downpaymentDueDate: adm.downpaymentDueDate ? new Date(adm.downpaymentDueDate).toISOString().slice(0, 10) : "",
           remainingBalance: adm.remainingBalance || 0,
           paymentMode: adm.paymentMode || "Cash",
           transactionNo: adm.transactionNo || "",
@@ -246,7 +249,9 @@ export default function Student360Modal({
   if (!isOpen) return null;
 
   const totalCollected = payments.reduce((acc, p) => acc + (Number(p.amountReceived) || 0), 0);
-  const computedBalance = studentData ? Math.max(0, (studentData.finalFee || 0) - totalCollected) : 0;
+  const regAmt = studentData?.registrationAmount ?? studentData?.amountReceivedToday ?? totalCollected;
+  const dpAmt = studentData?.downpaymentAmount || 0;
+  const computedBalance = studentData ? Math.max(0, (studentData.finalFee || 0) - regAmt - dpAmt) : 0;
   const feeProgress = studentData && studentData.finalFee > 0
     ? Math.min(100, Math.round((totalCollected / studentData.finalFee) * 100))
     : 0;
@@ -869,16 +874,46 @@ export default function Student360Modal({
                       </div>
 
                       <div>
-                        <label className="block text-slate-500 font-bold mb-1">Initial Collected Amount (₹)</label>
+                        <label className="block text-slate-500 font-bold mb-1">Registration Amount (Collected at Admission) (₹) *</label>
                         {isEditMode ? (
                           <input
                             type="number"
-                            value={formData.amountReceivedToday}
-                            onChange={(e) => setFormData({ ...formData, amountReceivedToday: Number(e.target.value) })}
+                            value={formData.registrationAmount}
+                            onChange={(e) => setFormData({ ...formData, registrationAmount: Number(e.target.value), amountReceivedToday: Number(e.target.value) })}
                             className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-slate-900 font-bold shadow-xs"
                           />
                         ) : (
-                          <div className="p-3 bg-slate-50 rounded-xl font-bold text-slate-800 border border-slate-200/70">₹{(studentData?.amountReceivedToday || 0).toLocaleString("en-IN")}</div>
+                          <div className="p-3 bg-slate-50 rounded-xl font-bold text-slate-800 border border-slate-200/70">₹{(studentData?.registrationAmount ?? studentData?.amountReceivedToday ?? 0).toLocaleString("en-IN")}</div>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-500 font-bold mb-1">Downpayment Amount (₹)</label>
+                        {isEditMode ? (
+                          <input
+                            type="number"
+                            value={formData.downpaymentAmount}
+                            onChange={(e) => setFormData({ ...formData, downpaymentAmount: Number(e.target.value) })}
+                            className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-slate-900 font-bold shadow-xs"
+                          />
+                        ) : (
+                          <div className="p-3 bg-slate-50 rounded-xl font-bold text-slate-800 border border-slate-200/70">₹{(studentData?.downpaymentAmount || 0).toLocaleString("en-IN")}</div>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-500 font-bold mb-1">Downpayment Due Date</label>
+                        {isEditMode ? (
+                          <input
+                            type="date"
+                            value={formData.downpaymentDueDate}
+                            onChange={(e) => setFormData({ ...formData, downpaymentDueDate: e.target.value })}
+                            className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-slate-900 font-bold shadow-xs"
+                          />
+                        ) : (
+                          <div className="p-3 bg-slate-50 rounded-xl font-bold text-slate-800 border border-slate-200/70">
+                            {studentData?.downpaymentDueDate ? new Date(studentData.downpaymentDueDate).toLocaleDateString("en-IN") : "-"}
+                          </div>
                         )}
                       </div>
 

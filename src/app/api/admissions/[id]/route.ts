@@ -111,9 +111,10 @@ export async function PUT(
       { $match: { admissionId: existingDoc._id } },
       { $group: { _id: null, total: { $sum: "$amountReceived" } } }
     ]);
-    const totalPaymentsReceived = (paymentsSumResult[0]?.total || 0);
+    const regAmt = body.registrationAmount !== undefined ? Number(body.registrationAmount) : (body.amountReceivedToday !== undefined ? Number(body.amountReceivedToday) : (existingDoc.registrationAmount || existingDoc.amountReceivedToday || 0));
+    const dpAmt = body.downpaymentAmount !== undefined ? Number(body.downpaymentAmount) : (existingDoc.downpaymentAmount || 0);
 
-    const calculatedBalance = Math.max(0, finalFee - totalPaymentsReceived);
+    const calculatedBalance = Math.max(0, finalFee - regAmt - dpAmt);
     const remainingBalance = body.remainingBalance !== undefined ? Number(body.remainingBalance) : calculatedBalance;
 
     const updatePayload = {
@@ -141,7 +142,10 @@ export async function PUT(
       companyAssigned: body.companyAssigned !== undefined ? body.companyAssigned.trim() : existingDoc.companyAssigned,
       courseFee,
       finalFee,
-      amountReceivedToday,
+      amountReceivedToday: body.registrationAmount !== undefined ? Number(body.registrationAmount) : (body.amountReceivedToday !== undefined ? Number(body.amountReceivedToday) : existingDoc.amountReceivedToday),
+      registrationAmount: body.registrationAmount !== undefined ? Number(body.registrationAmount) : existingDoc.registrationAmount,
+      downpaymentAmount: body.downpaymentAmount !== undefined ? Number(body.downpaymentAmount) : existingDoc.downpaymentAmount,
+      downpaymentDueDate: body.downpaymentDueDate ? new Date(body.downpaymentDueDate) : existingDoc.downpaymentDueDate,
       remainingBalance,
       paymentMode: body.paymentMode !== undefined ? body.paymentMode.trim() : existingDoc.paymentMode,
       transactionNo: body.transactionNo !== undefined ? body.transactionNo.trim() : existingDoc.transactionNo,
