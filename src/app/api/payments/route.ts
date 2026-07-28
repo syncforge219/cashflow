@@ -151,6 +151,9 @@ export async function POST(req: Request) {
 
     // 3. Update the admission balance and last transaction details
     admission.remainingBalance = Math.max(0, admission.remainingBalance - Number(amountReceived));
+    if (body.isDownpayment || particulars?.isDownpayment || particulars?.paymentCategory === "Down Payment" || (remarks && remarks.toLowerCase().includes("down payment"))) {
+      admission.downpaymentAmount = (Number(admission.downpaymentAmount) || 0) + Number(amountReceived);
+    }
     await admission.save();
 
     // 4. Dispatch Email Fee Receipt Notification (with official PDF attachment)
