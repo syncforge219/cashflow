@@ -13,7 +13,6 @@ export default function GoogleFormIntegrationModal({ isOpen, onClose }: GoogleFo
   const [brands, setBrands] = useState<any[]>([]);
   const [selectedBrand, setSelectedBrand] = useState("CADD MANTRA");
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
-  const [copiedScript, setCopiedScript] = useState(false);
   const [copiedQrUrl, setCopiedQrUrl] = useState(false);
   const [origin, setOrigin] = useState("");
 
@@ -65,73 +64,13 @@ export default function GoogleFormIntegrationModal({ isOpen, onClose }: GoogleFo
   if (!isOpen) return null;
 
   const publicWebformUrl = `${origin}/public/enquiry/${encodeURIComponent(selectedBrand)}`;
-  const webhookApiUrl = `${origin}/api/enquiries/google-form`;
-
-  // QR Code Image URL
   const qrCodeImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(publicWebformUrl)}`;
 
-  const appsScriptCode = `/**
- * Google Apps Script for linking Google Forms directly to CoachFlow
- * Instructions:
- * 1. Open your Google Form -> click 3 dots (top right) -> Script editor
- * 2. Replace all code in the script editor with this code
- * 3. Save, then click 'Triggers' (alarm icon on left) -> Add Trigger
- * 4. Choose 'onFormSubmit' function -> Select event type 'On form submit' -> Save!
- */
-
-function onFormSubmit(e) {
-  var WEBHOOK_URL = "${webhookApiUrl}";
-  var TARGET_BRAND = "${selectedBrand}";
-
-  var itemResponses = e.response.getItemResponses();
-  var payload = {
-    targetBrand: TARGET_BRAND,
-    leadSource: "Google Form",
-    remarks: "Submitted via Google Form"
-  };
-
-  for (var i = 0; i < itemResponses.length; i++) {
-    var title = itemResponses[i].getItem().getTitle().toLowerCase();
-    var response = itemResponses[i].getResponse();
-
-    if (title.indexOf("name") !== -1) {
-      payload.studentFullName = response;
-    } else if (title.indexOf("mobile") !== -1 || title.indexOf("phone") !== -1) {
-      payload.primaryPhoneMobile = response;
-    } else if (title.indexOf("email") !== -1) {
-      payload.emailAddress = response;
-    } else if (title.indexOf("city") !== -1) {
-      payload.currentCity = response;
-    } else if (title.indexOf("course") !== -1) {
-      payload.targetCourse = response;
-    } else if (title.indexOf("remark") !== -1 || title.indexOf("note") !== -1 || title.indexOf("comment") !== -1) {
-      payload.remarks = response;
-    }
-  }
-
-  var options = {
-    "method": "post",
-    "contentType": "application/json",
-    "payload": JSON.stringify(payload),
-    "muteHttpExceptions": true
-  };
-
-  try {
-    var res = UrlFetchApp.fetch(WEBHOOK_URL, options);
-    Logger.log("CoachFlow Google Form Response: " + res.getContentText());
-  } catch (err) {
-    Logger.log("CoachFlow Google Form Error: " + err.toString());
-  }
-}`;
-
-  const copyToClipboard = (text: string, type: "link" | "script" | "qr") => {
+  const copyToClipboard = (text: string, type: "link" | "qr") => {
     navigator.clipboard.writeText(text);
     if (type === "link") {
       setCopiedLink(selectedBrand);
       setTimeout(() => setCopiedLink(null), 2500);
-    } else if (type === "script") {
-      setCopiedScript(true);
-      setTimeout(() => setCopiedScript(false), 2500);
     } else {
       setCopiedQrUrl(true);
       setTimeout(() => setCopiedQrUrl(false), 2500);
@@ -170,7 +109,7 @@ function onFormSubmit(e) {
                 Brand Forms & QR Code Generator
               </h3>
               <p className="text-xs text-indigo-300 font-medium">
-                Generate brand-specific enquiry forms, QR codes, & Google Form webhooks.
+                Generate brand-specific enquiry forms & QR codes for student admissions.
               </p>
             </div>
           </div>
@@ -203,7 +142,7 @@ function onFormSubmit(e) {
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
                 {isGlobalAdmin
-                  ? "Select any brand to generate its enquiry form link, QR code, and Google Form script."
+                  ? "Select any brand to generate its public enquiry form link and QR code."
                   : `Form and QR code generation is restricted to your assigned brand.`}
               </p>
             </div>
@@ -271,7 +210,7 @@ function onFormSubmit(e) {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-extrabold uppercase">
-                      Option 1
+                      Direct Form Link
                     </span>
                     <h4 className="text-sm font-extrabold text-slate-800">
                       Public Webform Link ({selectedBrand})
@@ -320,55 +259,10 @@ function onFormSubmit(e) {
             </div>
           </div>
 
-          {/* Option 2: Google Forms Apps Script */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-extrabold uppercase">
-                  Option 2
-                </span>
-                <h4 className="text-sm font-extrabold text-slate-800">
-                  Connect Google Form via Apps Script Webhook ({selectedBrand})
-                </h4>
-              </div>
-              <button
-                onClick={() => copyToClipboard(appsScriptCode, "script")}
-                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer"
-              >
-                {copiedScript ? "✔ Script Copied!" : "📋 Copy Google Apps Script"}
-              </button>
-            </div>
-
-            <div className="space-y-2 text-xs text-slate-600 bg-slate-50 p-4 rounded-xl border border-slate-200">
-              <p className="font-bold text-slate-800">Step-by-step instructions to link any Google Form:</p>
-              <ol className="list-decimal list-inside space-y-1 text-[11px] leading-relaxed">
-                <li>Open your Google Form -&gt; click the <strong>3 dots menu</strong> (top right) -&gt; click <strong>Script editor</strong>.</li>
-                <li>Delete any code in the editor and paste the copied Apps Script snippet below.</li>
-                <li>Click <strong>Save</strong> (floppy icon), then click <strong>Triggers</strong> (alarm clock icon on the left menu).</li>
-                <li>Click <strong>+ Add Trigger</strong> (bottom right) -&gt; Set function to <code>onFormSubmit</code> -&gt; Select event type: <strong>On form submit</strong> -&gt; Click <strong>Save</strong>!</li>
-              </ol>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                Google Apps Script Snippet for {selectedBrand}
-              </label>
-              <textarea
-                readOnly
-                rows={9}
-                value={appsScriptCode}
-                className="w-full p-4 rounded-xl border border-slate-800 bg-slate-900 text-emerald-400 font-mono text-[11px] outline-none shadow-inner leading-relaxed"
-              />
-            </div>
-          </div>
-
         </div>
 
         {/* Footer */}
-        <div className="p-4 px-6 bg-slate-50 border-t border-slate-200 flex items-center justify-between rounded-b-3xl">
-          <p className="text-xs text-slate-500 font-medium">
-            Webhook Endpoint: <code className="text-indigo-600 font-mono">{webhookApiUrl}</code>
-          </p>
+        <div className="p-4 px-6 bg-slate-50 border-t border-slate-200 flex items-center justify-end rounded-b-3xl">
           <button
             onClick={onClose}
             className="px-5 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-extrabold rounded-xl transition-colors cursor-pointer"
