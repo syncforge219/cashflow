@@ -6,13 +6,19 @@ import User from "@/models/User";
 import Admission from "@/models/Admission";
 import Counsellor from "@/models/Counsellor";
 import Enquiry from "@/models/Enquiry";
+import { runUppercaseDataMigration } from "@/lib/uppercaseMigration";
 
 export async function GET() {
   try {
     await dbConnect();
+    await runUppercaseDataMigration();
     const brands = await Brand.find({}).sort({ createdAt: -1 }).lean();
 
     const enrichedBrands = await Promise.all(brands.map(async (brand: any) => {
+      brand.name = (brand.name || "").toUpperCase().trim();
+      brand.code = (brand.code || "").toUpperCase().trim();
+      brand.companies = (brand.companies || []).map((c: any) => String(c).toUpperCase().trim());
+
       const brandRegex = new RegExp(`^${brand.name.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')}$`, 'i');
 
       // 1. Legal Entities (Companies linked to this brand)
@@ -108,8 +114,9 @@ export async function POST(req: Request) {
     let { name, code, logoUrl, description, phone, email, website, address, companies, receiptTemplateUrl, receiptTerms } = body;
 
     const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-    name = name?.trim() || `New Brand ${randomSuffix}`;
-    code = code?.trim() || `BRD-${randomSuffix}`;
+    name = (name?.trim() || `New Brand ${randomSuffix}`).toUpperCase();
+    code = (code?.trim() || `BRD-${randomSuffix}`).toUpperCase();
+    companies = Array.isArray(companies) ? Array.from(new Set(companies.map((c: string) => c.toUpperCase().trim()))) : [];
 
     const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const existingBrand = await Brand.findOne({

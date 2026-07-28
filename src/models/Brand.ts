@@ -50,13 +50,21 @@ const BrandSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Pre-save hook to generate unique brandId if not provided
+// Pre-save hook to generate unique brandId and convert brand name/code to UPPERCASE
 BrandSchema.pre("save", async function () {
+  if (this.name) {
+    this.name = this.name.toUpperCase().trim();
+  }
   if (!this.brandId) {
     this.brandId = `BRD-${Date.now()}`;
   }
-  if (!this.code) {
+  if (!this.code && this.name) {
     this.code = this.name.toUpperCase().replace(/[^A-Z0-9]/g, '_');
+  } else if (this.code) {
+    this.code = this.code.toUpperCase().trim();
+  }
+  if (Array.isArray(this.companies)) {
+    this.companies = this.companies.map((c: string) => c.toUpperCase().trim());
   }
 });
 

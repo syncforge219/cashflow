@@ -72,9 +72,10 @@ export default function CompanyModal({
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    const finalVal = (name === "name" || name === "legalName") ? value.toUpperCase() : value;
     setFormData((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: finalVal,
     }));
   };
 
@@ -87,12 +88,18 @@ export default function CompanyModal({
       const url = isEditMode ? `/api/companies/${company.mongoId || company.id}` : "/api/companies";
       const method = isEditMode ? "PUT" : "POST";
 
+      const payload = {
+        ...formData,
+        name: formData.name.toUpperCase().trim(),
+        legalName: (formData.legalName || formData.name).toUpperCase().trim(),
+      };
+
       const response = await fetch(url, {
         method,
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -177,8 +184,9 @@ export default function CompanyModal({
               required
               value={formData.name}
               onChange={handleChange}
-              placeholder="e.g. Institue of Creative Studies"
-              className="w-full text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              placeholder="e.g. INSTITUTE OF CREATIVE STUDIES"
+              className="w-full text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 uppercase"
+              style={{ textTransform: "uppercase" }}
             />
           </div>
 
@@ -192,8 +200,9 @@ export default function CompanyModal({
               name="legalName"
               value={formData.legalName}
               onChange={handleChange}
-              placeholder="e.g. Institue of Creative Studies Pvt Ltd"
-              className="w-full text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              placeholder="e.g. INSTITUTE OF CREATIVE STUDIES PVT LTD"
+              className="w-full text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 uppercase"
+              style={{ textTransform: "uppercase" }}
             />
           </div>
 

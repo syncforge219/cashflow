@@ -31,6 +31,16 @@ export async function PUT(
     const body = await req.json();
     const updateData: any = { ...body };
 
+    if (updateData.name) {
+      updateData.name = updateData.name.toUpperCase().trim();
+    }
+    if (updateData.legalName) {
+      updateData.legalName = updateData.legalName.toUpperCase().trim();
+    }
+    if (Array.isArray(updateData.brands)) {
+      updateData.brands = updateData.brands.map((b: string) => b.toUpperCase().trim());
+    }
+
     if (updateData.annualCapacityCap !== undefined) {
       updateData.annualCapacityCap = Number(updateData.annualCapacityCap);
     }

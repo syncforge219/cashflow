@@ -3,10 +3,12 @@ import dbConnect from "@/lib/db";
 import Company from "@/models/Company";
 import Brand from "@/models/Brand";
 import { getUserFromCookies } from "@/lib/helper";
+import { runUppercaseDataMigration } from "@/lib/uppercaseMigration";
 
 export async function GET() {
   try {
     await dbConnect();
+    await runUppercaseDataMigration();
     const user = await getUserFromCookies();
 
     let query: any = {};
@@ -25,15 +27,20 @@ export async function GET() {
     // Reverse mapping: Find brands that have associated this company
     const allBrands = await Brand.find({}).lean();
     list = list.map((company: any) => {
+      const companyName = (company.name || "").toUpperCase().trim();
+      const companyLegalName = (company.legalName || companyName).toUpperCase().trim();
+
       const reversedBrands = allBrands
-        .filter((b: any) => b.companies && b.companies.includes(company.name))
-        .map((b: any) => b.name);
+        .filter((b: any) => b.companies && b.companies.includes(companyName))
+        .map((b: any) => (b.name || "").toUpperCase().trim());
       
-      const finalBrandsSet = new Set([...(company.brands || []), ...reversedBrands]);
-      if (company.brand) finalBrandsSet.add(company.brand); // backward compatibility
+      const finalBrandsSet = new Set([...(company.brands || []).map((b: any) => String(b).toUpperCase().trim()), ...reversedBrands]);
+      if (company.brand) finalBrandsSet.add(String(company.brand).toUpperCase().trim());
       
       return {
         ...company,
+        name: companyName,
+        legalName: companyLegalName,
         brands: Array.from(finalBrandsSet)
       };
     });
@@ -54,15 +61,17 @@ export async function POST(req: Request) {
     let { brands, brand } = body;
 
     let finalBrands = Array.isArray(brands) ? brands : brand ? [brand] : [];
+    finalBrands = finalBrands.map((b: string) => b.toUpperCase().trim());
 
     if (user && user.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All") {
       if (finalBrands.length === 0) {
-        finalBrands = [user.brandScope];
+        finalBrands = [user.brandScope.toUpperCase().trim()];
       }
     }
 
     const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-    const finalName = (name || "").trim() || `New Company ${randomSuffix}`;
+    const finalName = ((name || "").trim() || `New Company ${randomSuffix}`).toUpperCase();
+    const finalLegalName = (legalName || finalName).trim().toUpperCase();
 
     const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const existingComp = await Company.findOne({ name: { $regex: new RegExp(`^${escapeRegExp(finalName)}$`, "i") } });
@@ -72,7 +81,7 @@ export async function POST(req: Request) {
 
     const newCompany = await Company.create({
       name: finalName,
-      legalName: legalName || finalName,
+      legalName: finalLegalName,
       gst: gst || "Not Provided",
       pan: pan || "Not Provided",
       bank: bank || "Bank Of India",

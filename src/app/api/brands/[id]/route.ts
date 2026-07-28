@@ -7,6 +7,16 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     await dbConnect();
     const { id } = await params;
     const body = await req.json();
+
+    if (body.name) {
+      body.name = body.name.toUpperCase().trim();
+    }
+    if (body.code) {
+      body.code = body.code.toUpperCase().trim();
+    }
+    if (Array.isArray(body.companies)) {
+      body.companies = body.companies.map((c: string) => c.toUpperCase().trim());
+    }
     
     const updatedBrand = await Brand.findByIdAndUpdate(id, body, { new: true });
     

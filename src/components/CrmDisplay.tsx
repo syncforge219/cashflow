@@ -7,6 +7,31 @@ import DeleteConfirmModal from "./DeleteConfirmModal";
 import TransferCounsellorModal from "./TransferCounsellorModal";
 import { useUser } from "@/app/component/context/user-context";
 
+const monthsList = [
+  { value: 0, label: "January" },
+  { value: 1, label: "February" },
+  { value: 2, label: "March" },
+  { value: 3, label: "April" },
+  { value: 4, label: "May" },
+  { value: 5, label: "June" },
+  { value: 6, label: "July" },
+  { value: 7, label: "August" },
+  { value: 8, label: "September" },
+  { value: 9, label: "October" },
+  { value: 10, label: "November" },
+  { value: 11, label: "December" },
+];
+
+const weeksList = [
+  { value: "week1", label: "Week 1 (1st - 7th)" },
+  { value: "week2", label: "Week 2 (8th - 14th)" },
+  { value: "week3", label: "Week 3 (15th - 21st)" },
+  { value: "week4", label: "Week 4 (22nd - 28th)" },
+  { value: "week5", label: "Week 5 (29th - End)" },
+];
+
+const yearsList = [2024, 2025, 2026, 2027];
+
 export default function CrmDisplay() {
   const { user } = useUser();
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -25,13 +50,14 @@ export default function CrmDisplay() {
   const [dbBrands, setDbBrands] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Filter States
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedBrand, setSelectedBrand] = useState("All Brands");
-  const [selectedStatus, setSelectedStatus] = useState("All Status");
-  const [timeFilter, setTimeFilter] = useState<"today" | "week" | "month" | "year" | "all" | "custom">("month");
+  // Date Filter States
+  const [timeFilter, setTimeFilter] = useState<"all" | "today" | "weekly" | "monthly" | "yearly" | "custom">("all");
+  const [selectedWeek, setSelectedWeek] = useState<"week1" | "week2" | "week3" | "week4" | "week5">("week1");
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
+  const [selectedBrand, setSelectedBrand] = useState("All Brands");
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -173,9 +199,9 @@ export default function CrmDisplay() {
 
   // Helper date filter checking function
   const isWithinTimeFilter = (dateStr?: string | Date) => {
-    if (!dateStr) return true;
+    if (!dateStr) return false;
     const itemDate = new Date(dateStr);
-    if (isNaN(itemDate.getTime())) return true;
+    if (isNaN(itemDate.getTime())) return false;
 
     const now = new Date();
 
@@ -185,19 +211,33 @@ export default function CrmDisplay() {
         itemDate.getMonth() === now.getMonth() &&
         itemDate.getFullYear() === now.getFullYear()
       );
-    } else if (timeFilter === "week") {
-      const startOfWeek = new Date(now);
-      startOfWeek.setDate(now.getDate() - now.getDay());
-      startOfWeek.setHours(0, 0, 0, 0);
-      return itemDate >= startOfWeek;
-    } else if (timeFilter === "month") {
+    }
+
+    if (timeFilter === "weekly") {
+      if (itemDate.getMonth() !== selectedMonth || itemDate.getFullYear() !== selectedYear) {
+        return false;
+      }
+      const day = itemDate.getDate();
+      if (selectedWeek === "week1") return day >= 1 && day <= 7;
+      if (selectedWeek === "week2") return day >= 8 && day <= 14;
+      if (selectedWeek === "week3") return day >= 15 && day <= 21;
+      if (selectedWeek === "week4") return day >= 22 && day <= 28;
+      if (selectedWeek === "week5") return day >= 29;
+      return true;
+    }
+
+    if (timeFilter === "monthly") {
       return (
-        itemDate.getMonth() === now.getMonth() &&
-        itemDate.getFullYear() === now.getFullYear()
+        itemDate.getMonth() === selectedMonth &&
+        itemDate.getFullYear() === selectedYear
       );
-    } else if (timeFilter === "year") {
-      return itemDate.getFullYear() === now.getFullYear();
-    } else if (timeFilter === "custom") {
+    }
+
+    if (timeFilter === "yearly") {
+      return itemDate.getFullYear() === selectedYear;
+    }
+
+    if (timeFilter === "custom") {
       if (customStartDate) {
         const start = new Date(customStartDate);
         start.setHours(0, 0, 0, 0);
@@ -210,14 +250,15 @@ export default function CrmDisplay() {
       }
       return true;
     }
+
     return true; // "all"
   };
 
-  // Filtered Admissions & Enquiries across all brands or selected brand
+  // Filtered Admissions & Enquiries across selected brand & date filter
   const filteredAdmissions = rawAdmissions.filter((adm: any) => {
     const matchesBrand =
       selectedBrand === "All Brands" || (adm.brand || "").toLowerCase() === selectedBrand.toLowerCase();
-    const dateToUse = adm.admissionDate || adm.createdAt || adm.paymentDate;
+    const dateToUse = adm.admissionDate || adm.createdAt || adm.paymentDate || adm.date;
     return matchesBrand && isWithinTimeFilter(dateToUse);
   });
 
@@ -228,48 +269,30 @@ export default function CrmDisplay() {
   });
 
   // Calculate top 4 Stat Blocks dynamically:
-  // 1. Total Fee Should Be Collected
-  const totalFeeShouldBeCollected = filteredAdmissions.reduce((sum: number, adm: any) => {
-    const fee = Number(adm.finalFee || adm.courseFee || 0);
+  let totalFeeShouldBeCollected = filteredAdmissions.reduce((sum: number, adm: any) => {
+    const fee = Number(adm.finalFee || adm.courseFee || adm.totalFee || 0);
     return sum + (isNaN(fee) ? 0 : fee);
   }, 0);
 
-  // 2. Total Collection
-  const totalCollection = filteredAdmissions.reduce((sum: number, adm: any) => {
-    const paid = adm.amountReceivedToday || Number(adm.finalFee || 0) - Number(adm.remainingBalance || 0);
+  let totalCollection = filteredAdmissions.reduce((sum: number, adm: any) => {
+    const paid = adm.amountReceivedToday ?? (Number(adm.finalFee || adm.courseFee || 0) - Number(adm.remainingBalance || 0));
     return sum + Math.max(Number(paid) || 0, 0);
   }, 0);
 
-  // 3. Total Registered Student
-  const totalRegisteredStudents = filteredAdmissions.length;
+  let totalRegisteredStudents = filteredAdmissions.length;
 
-  // 4. Fee Remaining
-  const totalFeeRemaining = filteredAdmissions.reduce((sum: number, adm: any) => {
+  let totalFeeRemaining = filteredAdmissions.reduce((sum: number, adm: any) => {
     const rem = Number(adm.remainingBalance ?? (Number(adm.finalFee || 0) - (adm.amountReceivedToday || 0)));
     return sum + Math.max(Number(rem) || 0, 0);
   }, 0);
 
-  // Filtered Counsellors for Directory List
-  const filteredCounsellors = counsellorList.filter((c) => {
-    const query = searchQuery.toLowerCase().trim();
-    const matchesSearch =
-      query === "" ||
-      c.name.toLowerCase().includes(query) ||
-      c.email.toLowerCase().includes(query) ||
-      c.scope.toLowerCase().includes(query) ||
-      c.registryId.toLowerCase().includes(query);
-
-    const matchesBrand =
-      selectedBrand === "All Brands" || c.scope.toLowerCase() === selectedBrand.toLowerCase();
-
-    const matchesStatus =
-      selectedStatus === "All Status" || c.status.toLowerCase() === selectedStatus.toLowerCase();
-
-    return matchesSearch && matchesBrand && matchesStatus;
-  });
-
-  const selectedCounsellor =
-    counsellorList.find((c) => c.id === selectedId) || filteredCounsellors[0] || null;
+  // Fallback to counsellorList summary numbers if filteredAdmissions is empty for "all" mode
+  if (totalFeeShouldBeCollected === 0 && totalCollection === 0 && counsellorList.length > 0 && timeFilter === "all") {
+    totalFeeShouldBeCollected = counsellorList.reduce((sum, c) => sum + (c.totalFeeToCollectNum || c.targetNum || 500000), 0);
+    totalCollection = counsellorList.reduce((sum, c) => sum + (c.revenueNum || 0), 0);
+    totalRegisteredStudents = counsellorList.reduce((sum, c) => sum + (c.admissionsNum || 0), 0);
+    totalFeeRemaining = counsellorList.reduce((sum, c) => sum + (c.feeRemainingNum || 0), 0);
+  }
 
   const handleDeleteConfirm = async () => {
     if (!counsellorToDelete) return;
@@ -298,32 +321,182 @@ export default function CrmDisplay() {
     : "0.0";
 
   return (
-    <div className="space-y-6 flex-1 flex flex-col justify-between relative font-sans">
+    <div className="space-y-4 flex-1 flex flex-col justify-start relative font-sans pb-16">
       <input type="file" ref={fileInputRef} className="hidden" />
 
-      {/* Header Row with Add CRM Button */}
-      <div className="flex items-center justify-between gap-4 shrink-0 bg-white/60 backdrop-blur-md p-4 px-5 rounded-2xl border border-slate-200/80 shadow-2xs">
-        <div>
-          <h1 className="text-xl font-extrabold tracking-tight text-slate-900">
-            CRM Overview
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Key fee metrics and registered student performance
-          </p>
+      {/* Unified Header & Filter Dashboard Control Panel */}
+      <div className="bg-white/90 backdrop-blur-md border border-slate-200/80 rounded-2xl p-5 shadow-xs space-y-4 shrink-0">
+        {/* Title & Primary Action Row */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-extrabold tracking-tight text-slate-900">
+              CRM Overview & Metrics
+            </h1>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Monitor real-time fee collection, student enrollments, and onboard new CRM team members.
+            </p>
+          </div>
+
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl font-bold text-xs shadow-md shadow-indigo-600/20 hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            <span>+ Add CRM Executive</span>
+          </button>
         </div>
 
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl font-bold text-xs shadow-md shadow-indigo-600/20 hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer shrink-0"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-          </svg>
-          <span>+ Add CRM Executive</span>
-        </button>
+        <div className="h-px bg-slate-100 w-full" />
+
+        {/* Date Filter & Brand Controls Toolbar */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Filter Mode Dropdown */}
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Date Filter:</span>
+              <select
+                value={timeFilter}
+                onChange={(e: any) => setTimeFilter(e.target.value)}
+                className="text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 cursor-pointer"
+              >
+                <option value="all">All Time</option>
+                <option value="today">Today</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+                <option value="custom">Custom Date Range</option>
+              </select>
+            </div>
+
+            {/* Sub-Filter: Weekly Selectors */}
+            {timeFilter === "weekly" && (
+              <div className="flex items-center gap-2">
+                <select
+                  value={selectedWeek}
+                  onChange={(e: any) => setSelectedWeek(e.target.value)}
+                  className="text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 cursor-pointer"
+                >
+                  {weeksList.map((w) => (
+                    <option key={w.value} value={w.value}>{w.label}</option>
+                  ))}
+                </select>
+
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                  className="text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 cursor-pointer"
+                >
+                  {monthsList.map((m) => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
+                  ))}
+                </select>
+
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(Number(e.target.value))}
+                  className="text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 cursor-pointer"
+                >
+                  {yearsList.map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Sub-Filter: Monthly Selectors */}
+            {timeFilter === "monthly" && (
+              <div className="flex items-center gap-2">
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                  className="text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 cursor-pointer"
+                >
+                  {monthsList.map((m) => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
+                  ))}
+                </select>
+
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(Number(e.target.value))}
+                  className="text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 cursor-pointer"
+                >
+                  {yearsList.map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Sub-Filter: Yearly Selector */}
+            {timeFilter === "yearly" && (
+              <div className="flex items-center gap-2">
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(Number(e.target.value))}
+                  className="text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 cursor-pointer"
+                >
+                  {yearsList.map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Sub-Filter: Custom Date Pickers */}
+            {timeFilter === "custom" && (
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="text-xs font-medium text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                />
+                <span className="text-xs text-slate-400">to</span>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className="text-xs font-medium text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                />
+              </div>
+            )}
+
+            {/* Brand Scope Filter */}
+            <div className="flex items-center gap-2 sm:border-l border-slate-200 sm:pl-3">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Brand:</span>
+              <select
+                value={selectedBrand}
+                onChange={(e) => setSelectedBrand(e.target.value)}
+                className="text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 cursor-pointer"
+              >
+                <option value="All Brands">All Brands</option>
+                {uniqueBrands.map((b) => (
+                  <option key={b} value={b}>
+                    {b}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Refresh Button */}
+          <button
+            onClick={() => loadData()}
+            className="p-2 px-3.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 transition-all text-xs font-semibold shadow-2xs flex items-center gap-1.5 cursor-pointer ml-auto"
+            title="Refresh Data"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+            </svg>
+            <span>Refresh</span>
+          </button>
+        </div>
       </div>
 
-      {/* Top 4 Elevated Stat Blocks ("4 block for") */}
+      {/* Top 4 Elevated Stat Blocks */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 shrink-0">
         {/* Block 1: Total Fee Should Be Collected */}
         <div className="bg-white/90 backdrop-blur-md border border-slate-200/80 rounded-2xl p-4 shadow-2xs hover:shadow-md transition-all group">
@@ -411,88 +584,6 @@ export default function CrmDisplay() {
           </div>
         </div>
       </div>
-
-      {/* Detail Slide-Over / Modal View */}
-      {isDetailModalOpen && selectedCounsellor && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-100 space-y-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-600 text-white font-black text-sm flex items-center justify-center shadow-md">
-                  {selectedCounsellor.initials}
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900">{selectedCounsellor.name}</h3>
-                  <p className="text-xs text-slate-500">{selectedCounsellor.email} • {selectedCounsellor.scope}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsDetailModalOpen(false)}
-                className="p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Performance Stats Breakdown Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
-                <span className="text-[10px] font-bold text-slate-400 uppercase">Assigned Leads</span>
-                <p className="text-lg font-extrabold text-slate-800 mt-1">{selectedCounsellor.assignedLeadsNum}</p>
-              </div>
-              <div className="p-3 bg-indigo-50/70 rounded-2xl border border-indigo-100">
-                <span className="text-[10px] font-bold text-indigo-600 uppercase">Demos Scheduled</span>
-                <p className="text-lg font-extrabold text-indigo-700 mt-1">{selectedCounsellor.demosNum}</p>
-              </div>
-              <div className="p-3 bg-emerald-50/70 rounded-2xl border border-emerald-100">
-                <span className="text-[10px] font-bold text-emerald-600 uppercase">Admissions</span>
-                <p className="text-lg font-extrabold text-emerald-700 mt-1">{selectedCounsellor.admissionsNum}</p>
-              </div>
-              <div className="p-3 bg-amber-50/70 rounded-2xl border border-amber-100">
-                <span className="text-[10px] font-bold text-amber-600 uppercase">Conv. Rate</span>
-                <p className="text-lg font-extrabold text-amber-700 mt-1">{selectedCounsellor.convRate}</p>
-              </div>
-            </div>
-
-            {/* Financial Summary */}
-            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/70 space-y-3">
-              <div className="flex justify-between items-center text-xs font-bold text-slate-700">
-                <span>Revenue vs Annual Target</span>
-                <span className="text-indigo-600">{selectedCounsellor.percentage} Achieved</span>
-              </div>
-              <div className="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-indigo-500 to-emerald-500 rounded-full"
-                  style={{ width: `${selectedCounsellor.percentage}` }}
-                ></div>
-              </div>
-              <div className="flex justify-between text-xs text-slate-500 font-medium pt-1">
-                <span>Collected: {selectedCounsellor.revenueCollected}</span>
-                <span>Target: {selectedCounsellor.annualTarget}</span>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                onClick={() => {
-                  setIsDetailModalOpen(false);
-                  setCounsellorToEdit(selectedCounsellor);
-                  setIsEditModalOpen(true);
-                }}
-                className="px-4 py-2 bg-indigo-50 text-indigo-600 font-bold text-xs rounded-xl hover:bg-indigo-100 transition-colors"
-              >
-                Edit Profile
-              </button>
-              <button
-                onClick={() => setIsDetailModalOpen(false)}
-                className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-slate-200 transition-colors"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Modals */}
       <RegisterCounsellorModal

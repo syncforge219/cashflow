@@ -142,7 +142,8 @@ export default function RegisterBrandModal({ isOpen, onClose, brandToEdit }: Reg
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    const finalVal = (name === "name" || name === "code") ? value.toUpperCase() : value;
+    setFormData((prev) => ({ ...prev, [name]: finalVal }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -152,10 +153,16 @@ export default function RegisterBrandModal({ isOpen, onClose, brandToEdit }: Reg
       const url = isEdit ? `/api/brands/${brandToEdit._id || brandToEdit.id}` : "/api/brands";
       const method = isEdit ? "PUT" : "POST";
 
+      const payload = {
+        ...formData,
+        name: formData.name.toUpperCase().trim(),
+        code: formData.code ? formData.code.toUpperCase().trim() : "",
+      };
+
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
@@ -208,9 +215,10 @@ export default function RegisterBrandModal({ isOpen, onClose, brandToEdit }: Reg
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
-                placeholder="e.g. Apex Elite Coaching"
+                placeholder="e.g. APEX ELITE COACHING"
                 required
-                className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                className="w-full text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 uppercase"
+                style={{ textTransform: "uppercase" }}
               />
             </div>
             <div>
@@ -221,7 +229,8 @@ export default function RegisterBrandModal({ isOpen, onClose, brandToEdit }: Reg
                 value={formData.code}
                 onChange={handleChange}
                 placeholder="e.g. APEX_PREP (Auto if empty)"
-                className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                className="w-full text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 uppercase"
+                style={{ textTransform: "uppercase" }}
               />
             </div>
           </div>

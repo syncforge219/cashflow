@@ -59,6 +59,15 @@ const CompanySchema = new Schema(
 );
 
 CompanySchema.pre("save", async function () {
+  if (this.name) {
+    this.name = this.name.toUpperCase().trim();
+  }
+  if (this.legalName) {
+    this.legalName = this.legalName.toUpperCase().trim();
+  }
+  if (Array.isArray(this.brands)) {
+    this.brands = this.brands.map((b: string) => b.toUpperCase().trim());
+  }
   if (!this.companyId) {
     const count = await mongoose.models.Company.countDocuments();
     this.companyId = `COMP-${Date.now()}${count + 1}`;
