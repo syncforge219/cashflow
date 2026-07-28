@@ -24,8 +24,8 @@ export async function POST(req: Request) {
     body.targetBrand = body.targetBrand?.trim() || "Cadd Mantra";
     body.assignedCrmAdvisor = body.assignedCrmAdvisor?.trim() || user?.name || "Unassigned";
 
-    // Check for duplicate primary phone number for the target course
-    if (body.primaryPhoneMobile && body.targetCourse) {
+    // Check for duplicate primary phone number for the target course (only for real non-default numbers)
+    if (body.primaryPhoneMobile && body.targetCourse && !body.primaryPhoneMobile.includes("0000000000")) {
       const cleanDigits = String(body.primaryPhoneMobile).replace(/\D/g, "").slice(-10);
       if (cleanDigits.length === 10) {
         const existingEnquiry = await Enquiry.findOne({

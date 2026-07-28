@@ -196,25 +196,23 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
             <h4 className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-4">Section 1: Demographics</h4>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Student Full Name *</label>
-                <input name="studentFullName" type="text" placeholder="e.g. Rahul Sharma" required className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50" />
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Student Full Name</label>
+                <input name="studentFullName" type="text" placeholder="e.g. Rahul Sharma" className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50" />
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Primary Phone Mobile *</label>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Primary Phone Mobile</label>
                 <input 
                   name="primaryPhoneMobile" 
                   type="tel" 
                   value={primaryPhone}
                   onChange={handlePrimaryPhoneChange}
-                  required 
-                  pattern="^\+91 \d{10}$" 
-                  title="Must start with +91 followed by 10 digits" 
+                  placeholder="e.g. +91 9876500000"
                   className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50" 
                 />
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Email Address</label>
-                <input name="emailAddress" type="email" placeholder="e.g. rahul@domain.com" pattern="^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$" title="Please enter a valid email address" className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50" />
+                <input name="emailAddress" type="email" placeholder="e.g. rahul@domain.com" className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50" />
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Current City</label>
@@ -228,10 +226,9 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
             <h4 className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-4">Section 2: Business Routing</h4>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Target Brand *</label>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Target Brand</label>
                 <select 
                   name="targetBrand" 
-                  required 
                   value={selectedBrand}
                   onChange={(e) => {
                     setSelectedBrand(e.target.value);
@@ -246,10 +243,9 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
                 </select>
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Target Course *</label>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Target Course</label>
                 <select 
                   name="targetCourse" 
-                  required 
                   className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
                   onChange={(e) => {
                     const selectedCourseName = e.target.value;
