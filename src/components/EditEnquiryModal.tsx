@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import { useUser } from "@/app/component/context/user-context";
 
 interface EditEnquiryModalProps {
   isOpen: boolean;
@@ -10,6 +11,7 @@ interface EditEnquiryModalProps {
 }
 
 export default function EditEnquiryModal({ isOpen, onClose, onSuccess, lead }: EditEnquiryModalProps) {
+  const { user } = useUser();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [counsellors, setCounsellors] = useState<any[]>([]);
   const [formData, setFormData] = useState({
@@ -60,10 +62,18 @@ export default function EditEnquiryModal({ isOpen, onClose, onSuccess, lead }: E
     }
   }, [lead]);
 
+  const activeBrand = useMemo(() => {
+    return (
+      lead?.targetBrand ||
+      lead?.brand ||
+      (user?.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All" ? user.brandScope : "") ||
+      ""
+    );
+  }, [lead?.targetBrand, lead?.brand, user?.brandScope]);
+
   const filteredCounsellors = useMemo(() => {
-    const brand = lead?.targetBrand || lead?.brand || "";
-    if (!brand || brand === "All Brands" || brand === "All") return counsellors;
-    const target = brand.toLowerCase().trim();
+    if (!activeBrand || activeBrand === "All Brands" || activeBrand === "All") return counsellors;
+    const target = activeBrand.toLowerCase().trim();
     return counsellors.filter((c: any) => {
       if (!c.brandScope) return false;
       const scope = String(c.brandScope).toLowerCase().trim();
@@ -71,7 +81,7 @@ export default function EditEnquiryModal({ isOpen, onClose, onSuccess, lead }: E
       const parts = scope.split(/[,/|]/).map((p: string) => p.trim());
       return parts.some((p: string) => p === target || p.includes(target) || target.includes(p));
     });
-  }, [counsellors, lead?.targetBrand, lead?.brand]);
+  }, [counsellors, activeBrand]);
 
   if (!isOpen || !lead) return null;
 
@@ -210,12 +220,27 @@ export default function EditEnquiryModal({ isOpen, onClose, onSuccess, lead }: E
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1.5">
-                Sales Executive {lead?.targetBrand ? `(${filteredCounsellors.length} for ${lead.targetBrand})` : ""}
+                Sales Executive {activeBrand ? `(${filteredCounsellors.length} for ${activeBrand})` : ""}
               </label>
-              <select name="assignedCrmAdvisor" value={formData.assignedCrmAdvisor} onChange={handleChange} className="w-full text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
-                <option value="Rahul Sharma">Rahul Sharma</option>
-                <option value="Chaitanya Singhal">Chaitanya Singhal</option>
-                <option value="Abhigyan Mishra">Abhigyan Mishra</option>
+              <select
+                name="assignedCrmAdvisor"
+                value={formData.assignedCrmAdvisor}
+                onChange={handleChange}
+                className="w-full text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+              >
+                <option value="">
+                  {activeBrand ? `-- Select Executive for ${activeBrand} --` : "-- Select Sales Executive --"}
+                </option>
+                {formData.assignedCrmAdvisor && !filteredCounsellors.some((c: any) => c.name === formData.assignedCrmAdvisor) && (
+                  <option value={formData.assignedCrmAdvisor}>
+                    {formData.assignedCrmAdvisor} (Currently Assigned)
+                  </option>
+                )}
+                {filteredCounsellors.map((c: any) => (
+                  <option key={c._id || c.name} value={c.name}>
+                    {c.name} {c.brandScope ? `(${c.brandScope})` : ""}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
