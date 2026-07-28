@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import AddEnquiryModal from "./AddEnquiryModal";
 import LeadProfile from "./LeadProfile";
 import ImportLeadsModal from "./ImportLeadsModal";
+import GoogleFormIntegrationModal from "./GoogleFormIntegrationModal";
 
 export default function EnquiriesDisplay() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -27,6 +28,7 @@ export default function EnquiriesDisplay() {
   const [dateFilterMode, setDateFilterMode] = useState<"today" | "week" | "month" | "year" | "custom" | "all">("month");
   const [startDateFilter, setStartDateFilter] = useState("");
   const [endDateFilter, setEndDateFilter] = useState("");
+  const [isGoogleFormModalOpen, setIsGoogleFormModalOpen] = useState(false);
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -286,6 +288,12 @@ export default function EnquiriesDisplay() {
 
         {/* Buttons */}
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsGoogleFormModalOpen(true)}
+            className="flex items-center gap-1.5 text-xs font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 rounded-xl px-4 py-2 shadow-xs transition-all cursor-pointer"
+          >
+            <span>📝 Google Forms & Links</span>
+          </button>
           <button
             onClick={() => setIsImportModalOpen(true)}
             className="flex items-center gap-1.5 text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:text-slate-900 rounded-xl px-4 py-2 shadow-sm transition-all"
@@ -707,6 +715,11 @@ export default function EnquiriesDisplay() {
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
         onSuccess={fetchEnquiries}
+      />
+
+      <GoogleFormIntegrationModal
+        isOpen={isGoogleFormModalOpen}
+        onClose={() => setIsGoogleFormModalOpen(false)}
       />
 
     </div>

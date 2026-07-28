@@ -5,6 +5,7 @@ import RegisterCounsellorModal from "./RegisterCounsellorModal";
 import EditCounsellorModal from "./EditCounsellorModal";
 import DeleteConfirmModal from "./DeleteConfirmModal";
 import TransferCounsellorModal from "./TransferCounsellorModal";
+import GoogleFormIntegrationModal from "./GoogleFormIntegrationModal";
 import { useUser } from "@/app/component/context/user-context";
 
 const monthsList = [
@@ -37,8 +38,9 @@ export default function CrmDisplay() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [counsellorToEdit, setCounsellorToEdit] = useState<any | null>(null);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [isGoogleFormModalOpen, setIsGoogleFormModalOpen] = useState(false);
+  const [counsellorToEdit, setCounsellorToEdit] = useState<any | null>(null);
   const [counsellorToTransfer, setCounsellorToTransfer] = useState<any | null>(null);
   const [counsellorToDelete, setCounsellorToDelete] = useState<{ id: string; name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -376,6 +378,12 @@ export default function CrmDisplay() {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => setIsGoogleFormModalOpen(true)}
+            className="px-4 py-2.5 bg-white hover:bg-slate-50 text-indigo-700 border border-indigo-200 rounded-xl font-bold text-xs shadow-2xs transition-all flex items-center gap-2 cursor-pointer shrink-0"
+          >
+            <span>📝 Google Forms & Links</span>
+          </button>
           <button
             onClick={() => setIsModalOpen(true)}
             className="px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl font-bold text-xs shadow-md shadow-indigo-600/20 hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer shrink-0"
@@ -781,6 +789,11 @@ export default function CrmDisplay() {
         onClose={() => setCounsellorToDelete(null)}
         onConfirm={handleDeleteConfirm}
         isLoading={isDeleting}
+      />
+
+      <GoogleFormIntegrationModal
+        isOpen={isGoogleFormModalOpen}
+        onClose={() => setIsGoogleFormModalOpen(false)}
       />
     </div>
   );
