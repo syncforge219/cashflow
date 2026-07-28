@@ -273,6 +273,43 @@ const drawHorizontalBarChartCanvas = (
   return canvas.toDataURL("image/png");
 };
 
+const REPORT_EXPENSE_CATEGORIES = [
+  "All Categories",
+  "Construction",
+  "Maintenance/repairs",
+  "Nagar Nigam",
+  "University Expenses",
+  "Salaries",
+  "Digital marketing",
+  "Ads Recharge",
+  "Electricity",
+  "Loan",
+  "Rent",
+  "Misc Expense",
+  "Stationary",
+  "Mobile",
+  "Internet",
+  "Gunjan",
+  "Tarang",
+  "Pending Payment",
+  "Advance",
+  "GST",
+  "Vendor Payment",
+  "Income Tax",
+  "TDS",
+  "Bank Charges",
+  "Deposit",
+  "Audit Fees",
+  "General Expenses",
+  "Office Expenses",
+  "Over Time",
+  "Diesel / Petrol",
+  "Course Material",
+  "Temple / Pooja",
+  "Refund",
+  "Incentive",
+];
+
 export default function ReportsPageContent({ role }: ReportsPageContentProps) {
   const { user, logout } = useUser();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -281,6 +318,11 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [activeReportTab, setActiveReportTab] = useState<"super" | "leads" | "counsellors" | "brandManagers" | "expenses">("super");
+  const [brandsList, setBrandsList] = useState<any[]>([]);
+  const [companiesList, setCompaniesList] = useState<any[]>([]);
+  const [selectedBrandFilter, setSelectedBrandFilter] = useState("All Brands");
+  const [selectedCompanyFilter, setSelectedCompanyFilter] = useState("All Companies");
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState("All Categories");
 
   // Status & Loaders
   const [isGenerating, setIsGenerating] = useState(false);
@@ -292,6 +334,26 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
   const [waReportStatus, setWaReportStatus] = useState({ text: "", type: "" });
   const [isSendingMonthlyReport, setIsSendingMonthlyReport] = useState(false);
   const [monthlyReportStatus, setMonthlyReportStatus] = useState({ text: "", type: "" });
+
+  useEffect(() => {
+    fetch("/api/brands")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.brands)) {
+          setBrandsList(data.brands);
+        }
+      })
+      .catch(console.error);
+
+    fetch("/api/companies")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.companies)) {
+          setCompaniesList(data.companies);
+        }
+      })
+      .catch(console.error);
+  }, []);
 
   useEffect(() => {
     const rawUserPhone = (user as any)?.phone || (user as any)?.mobile || (user as any)?.phoneNumber || (user as any)?.mobileNumber;
@@ -378,7 +440,69 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
         throw new Error(data.message || "Failed to fetch master report data");
       }
 
-      const master = data.data;
+      const rawMaster = data.data;
+
+      // Filter datasets dynamically based on Super Admin Filter selections
+      let filteredEnquiries = rawMaster.enquiries || [];
+      let filteredAdmissions = rawMaster.admissions || [];
+      let filteredPayments = rawMaster.payments || [];
+      let filteredExpenses = rawMaster.expenses || [];
+      let filteredCounsellors = rawMaster.counsellors || [];
+      let filteredBrandManagers = rawMaster.brandManagers || [];
+
+      if (selectedBrandFilter !== "All Brands") {
+        const bTarget = selectedBrandFilter.toLowerCase().trim();
+        filteredEnquiries = filteredEnquiries.filter((e: any) => {
+          const b = (e.targetBrand || e.brand || "").toLowerCase().trim();
+          return b === bTarget || b.includes(bTarget) || bTarget.includes(b);
+        });
+        filteredAdmissions = filteredAdmissions.filter((a: any) => {
+          const b = (a.brand || "").toLowerCase().trim();
+          return b === bTarget || b.includes(bTarget) || bTarget.includes(b);
+        });
+        filteredPayments = filteredPayments.filter((p: any) => {
+          const b = (p.admissionId?.brand || p.brand || "").toLowerCase().trim();
+          return b === bTarget || b.includes(bTarget) || bTarget.includes(b);
+        });
+        filteredExpenses = filteredExpenses.filter((ex: any) => {
+          const b = (ex.brand || "").toLowerCase().trim();
+          return b === bTarget || b.includes(bTarget) || bTarget.includes(b);
+        });
+      }
+
+      if (selectedCompanyFilter !== "All Companies") {
+        const cTarget = selectedCompanyFilter.toLowerCase().trim();
+        filteredAdmissions = filteredAdmissions.filter((a: any) => {
+          const comp = (a.companyAssigned || a.company || "").toLowerCase().trim();
+          return comp.includes(cTarget) || cTarget.includes(comp);
+        });
+        filteredPayments = filteredPayments.filter((p: any) => {
+          const comp = (p.admissionId?.companyAssigned || p.company || "").toLowerCase().trim();
+          return comp.includes(cTarget) || cTarget.includes(comp);
+        });
+        filteredExpenses = filteredExpenses.filter((ex: any) => {
+          const comp = (ex.company || "").toLowerCase().trim();
+          return comp.includes(cTarget) || cTarget.includes(comp);
+        });
+      }
+
+      if (selectedCategoryFilter !== "All Categories") {
+        const catTarget = selectedCategoryFilter.toLowerCase().trim();
+        filteredExpenses = filteredExpenses.filter((ex: any) => {
+          const cat = (ex.category || "").toLowerCase().trim();
+          return cat === catTarget;
+        });
+      }
+
+      const master = {
+        ...rawMaster,
+        enquiries: filteredEnquiries,
+        admissions: filteredAdmissions,
+        payments: filteredPayments,
+        expenses: filteredExpenses,
+        counsellors: filteredCounsellors,
+        brandManagers: filteredBrandManagers,
+      };
 
       if (activeReportTab === "super") {
         setMessage({ text: "Building Super Master Multi-Sheet Excel Workbook...", type: "info" });
@@ -393,7 +517,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
         setMessage({ text: "Building Brand Manager Performance Excel...", type: "info" });
         await generateBrandManagerExcel(master);
       } else if (activeReportTab === "expenses") {
-        setMessage({ text: "Building Operational Expense Report Excel...", type: "info" });
+        setMessage({ text: "Building Operational Expenses Report Excel...", type: "info" });
         await generateExpenseExcel(master);
       }
 
@@ -405,6 +529,8 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
       setIsGenerating(false);
     }
   };
+
+
 
   // Dynamic column width autofitter and text alignment helper
   const autofitSheetColumns = (sheet: ExcelJS.Worksheet) => {
@@ -1922,9 +2048,70 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
                 ))}
               </div>
 
+              {/* BRAND, COMPANY & EXPENSE CATEGORY FILTERS */}
+              <div className="pt-4 border-t border-slate-100">
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">
+                  2. Super Admin Filters (Brand, Company & Expense Category)
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">
+                      Filter by Brand
+                    </label>
+                    <select
+                      value={selectedBrandFilter}
+                      onChange={(e) => setSelectedBrandFilter(e.target.value)}
+                      className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                    >
+                      <option value="All Brands">All Brands</option>
+                      {brandsList.map((b) => (
+                        <option key={b._id || b.name} value={b.name}>
+                          {b.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">
+                      Filter by Company / Entity
+                    </label>
+                    <select
+                      value={selectedCompanyFilter}
+                      onChange={(e) => setSelectedCompanyFilter(e.target.value)}
+                      className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                    >
+                      <option value="All Companies">All Companies</option>
+                      {companiesList.map((c) => (
+                        <option key={c._id || c.name} value={c.name}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">
+                      Filter by Expense Category
+                    </label>
+                    <select
+                      value={selectedCategoryFilter}
+                      onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+                      className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                    >
+                      {REPORT_EXPENSE_CATEGORIES.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
               {/* DATE RANGE FILTER */}
-              <div className="pt-2 border-t border-slate-100">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">2. Optional Date Range Filter</h4>
+              <div className="pt-4 border-t border-slate-100">
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">3. Optional Date Range Filter</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md">
                   <div>
                     <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Start Date</label>

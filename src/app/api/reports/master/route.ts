@@ -7,6 +7,7 @@ import User from "@/models/User";
 import Counsellor from "@/models/Counsellor";
 import Brand from "@/models/Brand";
 import Company from "@/models/Company";
+import Expense from "@/models/Expense";
 
 export async function GET(req: Request) {
   try {
@@ -26,7 +27,7 @@ export async function GET(req: Request) {
       }
     }
 
-    const [enquiries, admissions, payments, users, counsellorsModel, brands, companies] = await Promise.all([
+    const [enquiries, admissions, payments, users, counsellorsModel, brands, companies, expenses] = await Promise.all([
       Enquiry.find(dateQuery).sort({ createdAt: -1 }).lean(),
       Admission.find({}).sort({ createdAt: -1 }).lean(),
       Payment.find({}).sort({ createdAt: -1 }).lean(),
@@ -34,6 +35,7 @@ export async function GET(req: Request) {
       Counsellor.find({}).lean(),
       Brand.find({}).lean(),
       Company.find({}).lean(),
+      Expense.find({}).sort({ expenseDate: -1 }).lean(),
     ]);
 
     const counsellors = users.filter(u => u.role === "counsellor" || u.role === "counselor");
@@ -51,6 +53,7 @@ export async function GET(req: Request) {
         brandManagers,
         brands,
         companies,
+        expenses,
       }
     });
   } catch (error: any) {

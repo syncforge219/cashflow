@@ -26,6 +26,7 @@ interface ExpenseRecord {
 }
 
 const EXPENSE_CATEGORIES = [
+  "Construction",
   "Maintenance/repairs",
   "Nagar Nigam",
   "University Expenses",
