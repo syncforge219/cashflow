@@ -23,6 +23,27 @@ export async function POST(req: NextRequest) {
       data.brand = data.brand || user.brandScope;
     }
 
+    // Fallbacks for optional form fields
+    data.fullName = data.fullName?.trim() || "Student";
+    data.mobileNumber = data.mobileNumber?.trim() || "0000000000";
+    data.city = data.city?.trim() || "N/A";
+    data.state = data.state?.trim() || "N/A";
+    data.pincode = data.pincode?.trim() || "000000";
+    data.counsellor = data.counsellor?.trim() || user?.name || "Counsellor";
+    data.course = data.course?.trim() || "General Course";
+    data.batch = data.batch?.trim() || "General Batch";
+    data.duration = data.duration?.trim() || "6 Months";
+    data.startDate = data.startDate ? new Date(data.startDate) : new Date();
+    data.academicYear = data.academicYear?.trim() || `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`;
+    data.admissionDate = data.admissionDate ? new Date(data.admissionDate) : new Date();
+    data.courseFee = Number(data.courseFee) || 0;
+    data.finalFee = Number(data.finalFee) || 0;
+    data.paymentMode = data.paymentMode?.trim() || "Cash";
+    data.transactionNo = data.transactionNo?.trim() || "CASH";
+    data.amountReceivedToday = Number(data.amountReceivedToday) || 0;
+    data.paymentDate = data.paymentDate ? new Date(data.paymentDate) : new Date();
+    data.remainingBalance = Number(data.remainingBalance) || 0;
+
     // Auto Company Allocation Engine (Case-insensitive matching for Brand & Company)
     let finalCompany = "Cash";
 

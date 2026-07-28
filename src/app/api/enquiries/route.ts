@@ -16,6 +16,12 @@ export async function POST(req: Request) {
       body.targetBrand = body.targetBrand || user.brandScope;
     }
 
+    // Fallbacks for optional form fields
+    body.studentFullName = body.studentFullName?.trim() || "Lead Student";
+    body.primaryPhoneMobile = body.primaryPhoneMobile?.trim() || "+91 0000000000";
+    body.currentCity = body.currentCity?.trim() || "N/A";
+    body.targetCourse = body.targetCourse?.trim() || "General Course";
+
     // Check for duplicate primary phone number for the target course
     if (body.primaryPhoneMobile && body.targetCourse) {
       const cleanDigits = String(body.primaryPhoneMobile).replace(/\D/g, "").slice(-10);

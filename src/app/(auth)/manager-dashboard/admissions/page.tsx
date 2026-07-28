@@ -132,9 +132,26 @@ export default function BrandManagerAdmissionHub() {
         setIsReceiptModalOpen(true);
     };
 
-    // Derived lists for dropdown filters
-    const uniqueBrands = Array.from(new Set(admissions.map((a) => a.brand).filter(Boolean)));
-    const uniqueCounsellors = Array.from(new Set(admissions.map((a) => a.counsellor).filter(Boolean)));
+    // Derived lists for dropdown filters (case-insensitive deduplication)
+    const uniqueBrands = Array.from<string>(
+        admissions.reduce((map, a) => {
+            if (a.brand && a.brand.trim()) {
+                const key = a.brand.trim().toLowerCase();
+                if (!map.has(key)) map.set(key, a.brand.trim());
+            }
+            return map;
+        }, new Map<string, string>()).values()
+    );
+
+    const uniqueCounsellors = Array.from<string>(
+        admissions.reduce((map, a) => {
+            if (a.counsellor && a.counsellor.trim()) {
+                const key = a.counsellor.trim().toLowerCase();
+                if (!map.has(key)) map.set(key, a.counsellor.trim());
+            }
+            return map;
+        }, new Map<string, string>()).values()
+    );
 
     // Filtered admissions list
     const filteredAdmissions = admissions.filter((adm) => {
@@ -148,7 +165,8 @@ export default function BrandManagerAdmissionHub() {
             (adm.counsellor && adm.counsellor.toLowerCase().includes(query));
 
         const matchesBrand =
-            selectedBrandFilter === "All Brands" || adm.brand === selectedBrandFilter;
+            selectedBrandFilter === "All Brands" ||
+            (adm.brand && adm.brand.toLowerCase().trim() === selectedBrandFilter.toLowerCase().trim());
 
         const matchesStatus =
             selectedStatusFilter === "All Statuses" ||
@@ -156,7 +174,8 @@ export default function BrandManagerAdmissionHub() {
             (selectedStatusFilter === "Pending Balance" && Number(adm.remainingBalance) > 0);
 
         const matchesCounsellor =
-            selectedCounsellorFilter === "All Counsellors" || adm.counsellor === selectedCounsellorFilter;
+            selectedCounsellorFilter === "All Counsellors" ||
+            (adm.counsellor && adm.counsellor.toLowerCase().trim() === selectedCounsellorFilter.toLowerCase().trim());
 
         return matchesSearch && matchesBrand && matchesStatus && matchesCounsellor;
     });

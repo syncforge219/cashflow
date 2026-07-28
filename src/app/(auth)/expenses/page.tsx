@@ -612,12 +612,15 @@ export default function ExpensesPage() {
     return found?.bank || found?.bankName || "";
   };
 
-  const availableCompanyBanks = Array.from(
-    new Set(
-      rawCompanies
-        .map((c) => c.bank || c.bankName)
-        .filter((b) => Boolean(b) && b !== "Not Provided")
-    )
+  const availableCompanyBanks = Array.from<string>(
+    rawCompanies
+      .map((c) => c.bank || c.bankName)
+      .filter((b) => Boolean(b) && b !== "Not Provided")
+      .reduce((map, b) => {
+        const key = b.trim().toLowerCase();
+        if (!map.has(key)) map.set(key, b.trim());
+        return map;
+      }, new Map<string, string>()).values()
   );
 
   const handlePaymentModeChangeInForm = (newMode: string) => {

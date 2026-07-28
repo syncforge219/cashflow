@@ -168,10 +168,36 @@ export default function CourseDisplay() {
     }
   ];
 
-  // Dynamic filter values
-  const uniqueBrands = Array.from(new Set(courses.map((c) => c.brand).filter(Boolean)));
-  const uniqueCategories = Array.from(new Set(courses.map((c) => c.category).filter(Boolean)));
-  const uniqueDurations = Array.from(new Set(courses.map((c) => c.duration).filter(Boolean)));
+  // Dynamic filter values (case-insensitive deduplication)
+  const uniqueBrands = Array.from<string>(
+    courses.reduce((map, c) => {
+      if (c.brand && c.brand.trim()) {
+        const key = c.brand.trim().toLowerCase();
+        if (!map.has(key)) map.set(key, c.brand.trim());
+      }
+      return map;
+    }, new Map<string, string>()).values()
+  );
+
+  const uniqueCategories = Array.from<string>(
+    courses.reduce((map, c) => {
+      if (c.category && c.category.trim()) {
+        const key = c.category.trim().toLowerCase();
+        if (!map.has(key)) map.set(key, c.category.trim());
+      }
+      return map;
+    }, new Map<string, string>()).values()
+  );
+
+  const uniqueDurations = Array.from<string>(
+    courses.reduce((map, c) => {
+      if (c.duration && c.duration.trim()) {
+        const key = c.duration.trim().toLowerCase();
+        if (!map.has(key)) map.set(key, c.duration.trim());
+      }
+      return map;
+    }, new Map<string, string>()).values()
+  );
 
   const filteredCourses = courses.filter((course) => {
     const matchesSearch =
@@ -181,13 +207,16 @@ export default function CourseDisplay() {
       (course.category && course.category.toLowerCase().includes(searchQuery.toLowerCase()));
 
     const matchesBrand =
-      selectedBrand === "All Brands (Super)" || course.brand === selectedBrand;
+      selectedBrand === "All Brands (Super)" ||
+      (course.brand && course.brand.toLowerCase().trim() === selectedBrand.toLowerCase().trim());
 
     const matchesCategory =
-      selectedCategory === "All Categories" || course.category === selectedCategory;
+      selectedCategory === "All Categories" ||
+      (course.category && course.category.toLowerCase().trim() === selectedCategory.toLowerCase().trim());
 
     const matchesDuration =
-      selectedDuration === "All Durations" || course.duration === selectedDuration;
+      selectedDuration === "All Durations" ||
+      (course.duration && course.duration.toLowerCase().trim() === selectedDuration.toLowerCase().trim());
 
     const matchesStatus =
       selectedStatus === "All Statuses" || course.status === selectedStatus;

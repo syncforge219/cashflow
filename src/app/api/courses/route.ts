@@ -34,12 +34,30 @@ export async function POST(req: Request) {
       body.brand = body.brand || user.brandScope;
     }
 
-    // Check if course code already exists
+    // Fallbacks for optional form fields
+    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+    body.name = body.name?.trim() || `New Course ${randomSuffix}`;
+    body.code = body.code?.trim() || `CRS-${randomSuffix}`;
+    body.brand = body.brand?.trim() || "Cadd Mantra";
+    body.category = body.category?.trim() || "General";
+    body.duration = body.duration?.trim() || "6 Months";
+    body.fee = body.fee?.trim() || "₹0";
+
+    // Check if course code or name already exists (case-insensitive)
+    const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const checkConditions: any[] = [];
     if (body.code) {
-      const existingCourse = await Course.findOne({ code: body.code });
+      checkConditions.push({ code: { $regex: new RegExp(`^${escapeRegExp(String(body.code).trim())}$`, "i") } });
+    }
+    if (body.name) {
+      checkConditions.push({ name: { $regex: new RegExp(`^${escapeRegExp(String(body.name).trim())}$`, "i") } });
+    }
+
+    if (checkConditions.length > 0) {
+      const existingCourse = await Course.findOne({ $or: checkConditions });
       if (existingCourse) {
         return NextResponse.json(
-          { success: false, message: `Course with code '${body.code}' already exists.` },
+          { success: false, message: `Course '${existingCourse.name}' (Code: ${existingCourse.code}) already exists.` },
           { status: 400 }
         );
       }

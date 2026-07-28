@@ -154,9 +154,15 @@ export default function CounsellorDisplay() {
     loadCounsellors();
   }, [user]);
 
-  // Unique brands list
-  const uniqueBrands = Array.from(
-    new Set(counsellorList.map((c) => c.scope).filter(Boolean))
+  // Unique brands list (case-insensitive deduplication)
+  const uniqueBrands = Array.from<string>(
+    counsellorList.reduce((map, c) => {
+      if (c.scope && c.scope.trim()) {
+        const key = c.scope.trim().toLowerCase();
+        if (!map.has(key)) map.set(key, c.scope.trim());
+      }
+      return map;
+    }, new Map<string, string>()).values()
   );
 
   // Filtered list based on search and dropdowns

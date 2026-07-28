@@ -15,16 +15,18 @@ export async function GET(req: Request) {
 
     const query: any = {};
 
+    const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
     if (category && category !== "All") {
-      query.category = category;
+      query.category = { $regex: new RegExp(`^${escapeRegExp(category.trim())}$`, "i") };
     }
 
     if (brand && brand !== "All" && brand !== "All Brands") {
-      query.brand = brand;
+      query.brand = { $regex: new RegExp(`^${escapeRegExp(brand.trim())}$`, "i") };
     }
 
     if (company && company !== "All" && company !== "All Companies") {
-      query.company = company;
+      query.company = { $regex: new RegExp(`^${escapeRegExp(company.trim())}$`, "i") };
     }
 
     if (startDate && endDate) {

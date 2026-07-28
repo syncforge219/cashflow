@@ -61,19 +61,18 @@ export async function POST(req: Request) {
       }
     }
 
-    if (!name) {
-      return NextResponse.json({ error: "Company name is required" }, { status: 400 });
-    }
+    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+    const finalName = (name || "").trim() || `New Company ${randomSuffix}`;
 
     const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const existingComp = await Company.findOne({ name: { $regex: new RegExp(`^${escapeRegExp(name.trim())}$`, "i") } });
+    const existingComp = await Company.findOne({ name: { $regex: new RegExp(`^${escapeRegExp(finalName)}$`, "i") } });
     if (existingComp) {
       return NextResponse.json({ error: `Company '${existingComp.name}' already exists in database.` }, { status: 400 });
     }
 
     const newCompany = await Company.create({
-      name,
-      legalName: legalName || name,
+      name: finalName,
+      legalName: legalName || finalName,
       gst: gst || "Not Provided",
       pan: pan || "Not Provided",
       bank: bank || "Bank Of India",

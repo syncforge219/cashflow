@@ -134,19 +134,58 @@ export default function EnquiriesDisplay() {
       .catch(console.error);
   }, []);
 
-  // Compute unique values for dropdowns based on actual database entries
-  const uniqueBrands = Array.from(new Set(enquiries.map(e => e.targetBrand).filter(Boolean)));
-  const uniqueAdvisors = Array.from(
-    new Set(
-      enquiries
-        .filter(e => !brandFilter || e.targetBrand === brandFilter)
-        .map(e => e.assignedCrmAdvisor)
-        .filter(Boolean)
-    )
+  // Compute unique values for dropdowns based on actual database entries (case-insensitive deduplication)
+  const uniqueBrands = Array.from<string>(
+    enquiries.reduce((map, e) => {
+      if (e.targetBrand && e.targetBrand.trim()) {
+        const key = e.targetBrand.trim().toLowerCase();
+        if (!map.has(key)) map.set(key, e.targetBrand.trim());
+      }
+      return map;
+    }, new Map<string, string>()).values()
   );
-  const uniqueSources = Array.from(new Set(enquiries.map(e => e.leadSource).filter(Boolean)));
-  const uniquePriorities = Array.from(new Set(enquiries.map(e => e.priorityLevel).filter(Boolean)));
-  const uniqueStatuses = Array.from(new Set(enquiries.map(e => e.status).filter(Boolean)));
+
+  const uniqueAdvisors = Array.from<string>(
+    enquiries
+      .filter(e => !brandFilter || (e.targetBrand && e.targetBrand.toLowerCase().trim() === brandFilter.toLowerCase().trim()))
+      .reduce((map, e) => {
+        if (e.assignedCrmAdvisor && e.assignedCrmAdvisor.trim()) {
+          const key = e.assignedCrmAdvisor.trim().toLowerCase();
+          if (!map.has(key)) map.set(key, e.assignedCrmAdvisor.trim());
+        }
+        return map;
+      }, new Map<string, string>()).values()
+  );
+
+  const uniqueSources = Array.from<string>(
+    enquiries.reduce((map, e) => {
+      if (e.leadSource && e.leadSource.trim()) {
+        const key = e.leadSource.trim().toLowerCase();
+        if (!map.has(key)) map.set(key, e.leadSource.trim());
+      }
+      return map;
+    }, new Map<string, string>()).values()
+  );
+
+  const uniquePriorities = Array.from<string>(
+    enquiries.reduce((map, e) => {
+      if (e.priorityLevel && e.priorityLevel.trim()) {
+        const key = e.priorityLevel.trim().toLowerCase();
+        if (!map.has(key)) map.set(key, e.priorityLevel.trim());
+      }
+      return map;
+    }, new Map<string, string>()).values()
+  );
+
+  const uniqueStatuses = Array.from<string>(
+    enquiries.reduce((map, e) => {
+      if (e.status && e.status.trim()) {
+        const key = e.status.trim().toLowerCase();
+        if (!map.has(key)) map.set(key, e.status.trim());
+      }
+      return map;
+    }, new Map<string, string>()).values()
+  );
   const isCustomDateRangeActive = startDateFilter !== "" || endDateFilter !== "" || dateFilterMode !== "all";
 
   // Dynamic metric computations calculated on dateFilteredEnquiries

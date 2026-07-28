@@ -31,26 +31,25 @@ export async function POST(req: NextRequest) {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       try {
-        // Required field validation (companyAssigned, paymentMode, transactionNo, paymentDate are optional)
-        const required = ["fullName", "mobileNumber", "city", "state", "pincode", "counsellor", "course", "batch", "duration", "startDate", "academicYear", "admissionDate", "courseFee", "finalFee", "amountReceivedToday", "remainingBalance"];
-        const missing = required.filter((f) => row[f] === undefined || row[f] === null || String(row[f]).trim() === "");
-
-        if (missing.length > 0) {
-          results.push({ index: i, status: "error", error: `Missing required fields: ${missing.join(", ")}` });
-          continue;
-        }
-
-        // Mark as historical import
+        // All fields optional with safe defaults
         const record = {
           ...row,
+          fullName: row.fullName?.trim() || `Student ${i + 1}`,
+          mobileNumber: row.mobileNumber?.trim() || "0000000000",
+          city: row.city?.trim() || "N/A",
+          state: row.state?.trim() || "N/A",
+          pincode: row.pincode?.trim() || "000000",
+          counsellor: row.counsellor?.trim() || user.name || "Counsellor",
+          course: row.course?.trim() || "General Course",
+          batch: row.batch?.trim() || "General Batch",
+          duration: row.duration?.trim() || "6 Months",
+          academicYear: row.academicYear?.trim() || `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
           isHistoricalImport: true,
           importedBy: (user.email ?? user.name ?? "admin") as string,
           importedAt: new Date(),
-          // Optional fields — use sensible defaults if not provided
           companyAssigned: row.companyAssigned?.trim() || "Unallocated",
           paymentMode: row.paymentMode?.trim() || "Cash",
           transactionNo: row.transactionNo?.trim() || `IMPORT-${i + 1}`,
-          // Ensure numeric fields
           courseFee: Number(row.courseFee) || 0,
           finalFee: Number(row.finalFee) || 0,
           amountReceivedToday: Number(row.amountReceivedToday) || 0,
@@ -63,7 +62,6 @@ export async function POST(req: NextRequest) {
           numInstallments: Number(row.numInstallments) || 1,
           installmentAmount: Number(row.installmentAmount) || 0,
           discountApprovalStatus: row.discountApprovalStatus || "Approved",
-          // Parse dates safely
           startDate: row.startDate ? new Date(row.startDate) : new Date(),
           admissionDate: row.admissionDate ? new Date(row.admissionDate) : new Date(),
           paymentDate: row.paymentDate ? new Date(row.paymentDate) : new Date(),

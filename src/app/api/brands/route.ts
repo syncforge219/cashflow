@@ -105,10 +105,25 @@ export async function POST(req: Request) {
   try {
     await dbConnect();
     const body = await req.json();
-    const { name, code, logoUrl, description, phone, email, website, address, companies, receiptTemplateUrl, receiptTerms } = body;
+    let { name, code, logoUrl, description, phone, email, website, address, companies, receiptTemplateUrl, receiptTerms } = body;
 
-    if (!name) {
-      return NextResponse.json({ error: "Brand name is required" }, { status: 400 });
+    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+    name = name?.trim() || `New Brand ${randomSuffix}`;
+    code = code?.trim() || `BRD-${randomSuffix}`;
+
+    const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const existingBrand = await Brand.findOne({
+      $or: [
+        { name: { $regex: new RegExp(`^${escapeRegExp(name.trim())}$`, "i") } },
+        ...(code ? [{ code: { $regex: new RegExp(`^${escapeRegExp(code.trim())}$`, "i") } }] : [])
+      ]
+    });
+
+    if (existingBrand) {
+      return NextResponse.json(
+        { error: `Brand '${existingBrand.name}' already exists in database.` },
+        { status: 400 }
+      );
     }
 
     const newBrand = await Brand.create({
