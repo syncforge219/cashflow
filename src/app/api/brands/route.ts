@@ -82,7 +82,9 @@ export async function GET() {
       ).length;
       const convertedEnquiriesCount = enquiries.filter((e: any) => e.isAdmitted || e.status === "Admitted" || e.status === "Admission" || e.status === "Converted").length;
       const admissionsCount = Math.max(admissions.length, convertedEnquiriesCount);
-      const conversionRate = totalEnquiries > 0 ? ((convertedEnquiriesCount / totalEnquiries) * 100).toFixed(1) : "0.0";
+      const totalLeadsBase = Math.max(totalEnquiries, admissionsCount);
+      const rawConv = totalLeadsBase > 0 ? (admissionsCount / totalLeadsBase) * 100 : 0;
+      const conversionRate = Math.min(100, Math.max(0, Number(rawConv.toFixed(1)))).toFixed(1);
 
       return {
         ...brand,

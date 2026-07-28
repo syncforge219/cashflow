@@ -429,9 +429,14 @@ export async function GET(req: Request) {
     if (brand && brand !== "all" && brand !== "All") {
       enquiryQuery.targetBrand = brand;
     }
-    const totalEnquiries = await Enquiry.countDocuments(enquiryQuery);
+    if (query.createdAt) {
+      enquiryQuery.createdAt = query.createdAt;
+    }
+    const rawEnquiriesCount = await Enquiry.countDocuments(enquiryQuery);
 
     const admissions = await Admission.find(query).sort({ createdAt: -1 });
+    const totalEnquiries = Math.max(rawEnquiriesCount, admissions.length);
+
     return NextResponse.json({ success: true, data: admissions, totalEnquiries });
   } catch (error: any) {
     console.error("Fetch Admissions Error:", error);

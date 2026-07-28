@@ -273,10 +273,11 @@ export async function GET(req: Request) {
     const netProfitNum = totalCollection - totalOutflow;
     const profitMarginPct = totalCollection > 0 ? ((netProfitNum / totalCollection) * 100).toFixed(1) + "%" : "0%";
 
-    const totalLeadsCalculated = totalLeads + unlinkedUpgradesCount;
+    const totalLeadsCalculated = Math.max(totalLeads + unlinkedUpgradesCount, admissionsTotal);
     const totalConvertedCalculated = convertedLeadsCount + unlinkedUpgradesCount;
 
-    const conversionRate = totalLeadsCalculated > 0 ? ((totalConvertedCalculated / totalLeadsCalculated) * 100).toFixed(1) + "%" : "0%";
+    const rawConv = totalLeadsCalculated > 0 ? (totalConvertedCalculated / totalLeadsCalculated) * 100 : 0;
+    const conversionRate = Math.min(100, Math.max(0, Number(rawConv.toFixed(1)))).toFixed(1) + "%";
 
     const formatLakhsOrRupees = (amt: number) => {
       if (Math.abs(amt) >= 100000) return `₹${(amt / 100000).toFixed(2)} L`;
