@@ -271,20 +271,37 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
                 <input type="hidden" name="assignedCrmAdvisor" value={user.name} />
               ) : (
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">
-                    Assigned Sales Executive * {selectedBrand ? `(${filteredCounsellors.length} for ${selectedBrand})` : ""}
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                      Assigned Sales Executive {selectedBrand ? `(${filteredCounsellors.length} for ${selectedBrand})` : ""}
+                    </label>
+                    {user?.name && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedAdvisor(user.name)}
+                        className="text-[10px] font-extrabold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100 hover:bg-indigo-100 transition-colors"
+                      >
+                        ⚡ Assign to Myself ({user.name})
+                      </button>
+                    )}
+                  </div>
                   <select 
                     name="assignedCrmAdvisor" 
-                    required 
                     value={selectedAdvisor}
                     onChange={(e) => setSelectedAdvisor(e.target.value)}
                     className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
                   >
                     <option value="">{selectedBrand ? `-- Select Advisor for ${selectedBrand} --` : "-- Select Advisor --"}</option>
-                    {filteredCounsellors.map(c => (
-                      <option key={c._id} value={c.name}>{c.name} {c.brandScope ? `(${c.brandScope})` : ""}</option>
-                    ))}
+                    {user?.name && (
+                      <option value={user.name}>⭐ Assign to Myself ({user.name})</option>
+                    )}
+                    {filteredCounsellors
+                      .filter((c) => c.name !== user?.name)
+                      .map((c) => (
+                        <option key={c._id} value={c.name}>
+                          {c.name} {c.brandScope ? `(${c.brandScope})` : ""}
+                        </option>
+                      ))}
                   </select>
                 </div>
               )}
