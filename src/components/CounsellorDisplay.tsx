@@ -124,13 +124,15 @@ export default function CounsellorDisplay() {
         // Sort by revenue/conversion rate for performance leaderboard
         list.sort((a: any, b: any) => b.revenueNum - a.revenueNum);
 
-        // Filter for Brand Manager scope if applicable
+        // Filter for Brand scope if user has brandScope restrictions (and is not super admin)
         let finalDisplayList = list;
-        if (user?.role === "brand manager" && user?.brandScope) {
-          const allowedBrands = user.brandScope.split(",").map((b) => b.trim().toLowerCase());
-          finalDisplayList = list.filter((c: any) =>
-            allowedBrands.includes(c.scope.toLowerCase())
-          );
+        if (user?.role !== "super admin" && user?.role !== "admin" && user?.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All") {
+          const allowedBrands = user.brandScope.split(/[,/|]/).map((b) => b.trim().toLowerCase()).filter(Boolean);
+          finalDisplayList = list.filter((c: any) => {
+            const cBrands = (c.scope || "").split(/[,/|]/).map((b: string) => b.trim().toLowerCase()).filter(Boolean);
+            if (cBrands.some((cb: string) => ["all", "all brands", "global", "*"].includes(cb))) return true;
+            return cBrands.some((cb: string) => allowedBrands.includes(cb));
+          });
         }
 
         setCounsellorList(finalDisplayList);
@@ -175,8 +177,11 @@ export default function CounsellorDisplay() {
       c.scope.toLowerCase().includes(query) ||
       c.registryId.toLowerCase().includes(query);
 
+    const targetBrandLower = selectedBrand.toLowerCase().trim();
+    const cBrands = (c.scope || "").split(/[,/|]/).map((b: string) => b.trim().toLowerCase()).filter(Boolean);
     const matchesBrand =
-      selectedBrand === "All Brands" || c.scope.toLowerCase() === selectedBrand.toLowerCase();
+      selectedBrand === "All Brands" ||
+      cBrands.some((cb: string) => cb === targetBrandLower || cb === "all" || cb === "all brands");
 
     const matchesStatus =
       selectedStatus === "All Status" || c.status.toLowerCase() === selectedStatus.toLowerCase();

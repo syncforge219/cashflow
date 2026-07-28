@@ -78,12 +78,12 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
   });
 
   const filteredCounsellors = useMemo(() => {
-    if (!selectedBrand) return counsellors;
+    if (!selectedBrand || selectedBrand === "All Brands" || selectedBrand === "All") return counsellors;
+    const target = selectedBrand.toLowerCase().trim();
     return counsellors.filter((c: any) => {
-      if (!c.brandScope) return true;
+      if (!c.brandScope) return false;
       const scope = String(c.brandScope).toLowerCase().trim();
-      const target = selectedBrand.toLowerCase().trim();
-      if (scope === "all" || scope === "global" || scope === "*") return true;
+      if (scope === "all" || scope === "all brands" || scope === "global" || scope === "*") return true;
       const parts = scope.split(/[,/|]/).map((p: string) => p.trim());
       return parts.some((p: string) => p === target || p.includes(target) || target.includes(p));
     });
