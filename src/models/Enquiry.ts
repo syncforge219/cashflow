@@ -8,12 +8,10 @@ const EnquirySchema = new Schema(
     },
     studentFullName: {
       type: String,
-      required: [true, "Student Full Name is required"],
       trim: true,
     },
     primaryPhoneMobile: {
       type: String,
-      required: [true, "Primary Phone Mobile is required"],
       trim: true,
     },
     parentsFullName: {
@@ -35,15 +33,12 @@ const EnquirySchema = new Schema(
     },
     targetBrand: {
       type: String,
-      required: [true, "Target Brand is required"],
     },
     targetCourse: {
       type: String,
-      required: [true, "Target Course is required"],
     },
     assignedCrmAdvisor: {
       type: String,
-      required: [true, "Assigned CRM Advisor is required"],
     },
     leadSource: {
       type: String,

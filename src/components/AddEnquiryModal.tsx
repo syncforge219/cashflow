@@ -213,23 +213,6 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Parents Full Name</label>
-                <input name="parentsFullName" type="text" placeholder="e.g. Ramesh Sharma" className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50" />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Parents Phone Number</label>
-                <input 
-                  name="parentsPhoneNumber" 
-                  type="tel" 
-                  value={parentsPhone}
-                  onChange={handleParentsPhoneChange}
-                  placeholder="e.g. +91 9876500000" 
-                  pattern="^(\+91 \d{10}|\+91\s?)?$" 
-                  title="Must start with +91 followed by 10 digits if provided" 
-                  className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50" 
-                />
-              </div>
-              <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Email Address</label>
                 <input name="emailAddress" type="email" placeholder="e.g. rahul@domain.com" pattern="^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$" title="Please enter a valid email address" className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50" />
               </div>

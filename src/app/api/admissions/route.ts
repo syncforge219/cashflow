@@ -26,6 +26,10 @@ export async function POST(req: NextRequest) {
     // Fallbacks for optional form fields
     data.fullName = data.fullName?.trim() || "Student";
     data.mobileNumber = data.mobileNumber?.trim() || "0000000000";
+    data.parentsFullName = data.parentsFullName?.trim() || data.parentName?.trim() || "";
+    data.parentsPhoneNumber = data.parentsPhoneNumber?.trim() || data.parentPhone?.trim() || "";
+    data.parentName = data.parentsFullName;
+    data.parentPhone = data.parentsPhoneNumber;
     data.city = data.city?.trim() || "N/A";
     data.state = data.state?.trim() || "N/A";
     data.pincode = data.pincode?.trim() || "000000";
@@ -42,7 +46,8 @@ export async function POST(req: NextRequest) {
     data.transactionNo = data.transactionNo?.trim() || "CASH";
     data.amountReceivedToday = Number(data.amountReceivedToday) || 0;
     data.paymentDate = data.paymentDate ? new Date(data.paymentDate) : new Date();
-    data.remainingBalance = Number(data.remainingBalance) || 0;
+    data.companyAssigned = data.companyAssigned?.trim() || "Cash";
+    data.brand = data.brand?.trim() || "Cadd Mantra";
 
     // Auto Company Allocation Engine (Case-insensitive matching for Brand & Company)
     let finalCompany = "Cash";

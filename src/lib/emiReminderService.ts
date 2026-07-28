@@ -149,9 +149,9 @@ export async function checkAndSendOverdueEmiReminders(options?: { force?: boolea
         console.log(`[EMI REMINDER] Dispatching MSG91 to ${admission.fullName} (${phone}) for ${item.installmentName} ₹${item.amount}, due ${item.dueDate.toISOString().split("T")[0]}...`);
 
         const whatsappRes = await sendWhatsAppEmiReminder({
-          studentName: admission.fullName,
+          studentName: admission.fullName || "Student",
           mobileNumber: phone,
-          courseName: admission.course,
+          courseName: admission.course || "Course",
           amountDue: item.amount,
           dueDate: item.dueDate,
         });
@@ -175,8 +175,8 @@ export async function checkAndSendOverdueEmiReminders(options?: { force?: boolea
                 const cRes = await sendWhatsAppCounsellorEmiReminder({
                   counsellorName,
                   counsellorMobile: counsellorPhone,
-                  studentName: admission.fullName,
-                  courseName: admission.course,
+                  studentName: admission.fullName || "Student",
+                  courseName: admission.course || "Course",
                   studentMobile: phone,
                   studentEmail: String(admission.email || "N/A"),
                   amountDue: item.amount,
@@ -222,9 +222,9 @@ export async function checkAndSendOverdueEmiReminders(options?: { force?: boolea
           }
 
           results.details.push({
-            student: admission.fullName,
+            student: admission.fullName || "Student",
             phone,
-            course: admission.course,
+            course: admission.course || "Course",
             amount: item.amount,
             dueDate: item.dueDate.toLocaleDateString("en-IN"),
             status: `WhatsApp Reminder Sent (${item.installmentName})`,
