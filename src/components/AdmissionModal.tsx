@@ -102,6 +102,102 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
   const [firstDueDate, setFirstDueDate] = useState("");
   const [autoAllocatedCompany, setAutoAllocatedCompany] = useState("");
 
+  interface CustomEmiItem {
+    installmentName: string;
+    dueDate: string;
+    amount: number;
+  }
+
+  const [customEmiItems, setCustomEmiItems] = useState<CustomEmiItem[]>([]);
+
+  const generateDefaultEmiItems = (count: number, balance: number) => {
+    const cnt = Math.max(count || 1, 1);
+    const bal = Math.max(balance || 0, 0);
+    const baseAmt = Math.floor(bal / cnt);
+    const remainder = bal - baseAmt * cnt;
+
+    const items: CustomEmiItem[] = [];
+    const today = new Date();
+
+    for (let i = 0; i < cnt; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() + 30 * (i + 1));
+      const dateStr = d.toISOString().split("T")[0];
+      const itemAmount = i === cnt - 1 ? baseAmt + remainder : baseAmt;
+
+      items.push({
+        installmentName: `Installment ${i + 1}`,
+        dueDate: dateStr,
+        amount: itemAmount,
+      });
+    }
+    return items;
+  };
+
+  useEffect(() => {
+    if (hasEmi) {
+      if (customEmiItems.length !== numInstallments || customEmiItems.length === 0) {
+        setCustomEmiItems(generateDefaultEmiItems(numInstallments, remainingBalance));
+      }
+    } else {
+      setCustomEmiItems([]);
+    }
+  }, [hasEmi, numInstallments, remainingBalance]);
+
+  const handleEmiDateChange = (index: number, dateVal: string) => {
+    setCustomEmiItems((prev) => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], dueDate: dateVal };
+      return copy;
+    });
+  };
+
+  const handleEmiAmountChange = (index: number, amtVal: number) => {
+    setCustomEmiItems((prev) => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], amount: Math.max(amtVal || 0, 0) };
+      return copy;
+    });
+  };
+
+  const addEmiRow = () => {
+    setCustomEmiItems((prev) => {
+      const lastDateStr = prev.length > 0 ? prev[prev.length - 1].dueDate : new Date().toISOString().split("T")[0];
+      const lastDate = new Date(lastDateStr);
+      if (isNaN(lastDate.getTime())) lastDate.setTime(Date.now());
+      lastDate.setDate(lastDate.getDate() + 30);
+
+      const nextIndex = prev.length + 1;
+      const newItem: CustomEmiItem = {
+        installmentName: `Installment ${nextIndex}`,
+        dueDate: lastDate.toISOString().split("T")[0],
+        amount: 0,
+      };
+      const updated = [...prev, newItem];
+      setNumInstallments(updated.length);
+      return updated;
+    });
+  };
+
+  const removeEmiRow = (index: number) => {
+    setCustomEmiItems((prev) => {
+      if (prev.length <= 1) return prev;
+      const updated = prev.filter((_, i) => i !== index).map((item, idx) => ({
+        ...item,
+        installmentName: `Installment ${idx + 1}`,
+      }));
+      setNumInstallments(updated.length);
+      return updated;
+    });
+  };
+
+  const distributeEvenly = () => {
+    setCustomEmiItems(generateDefaultEmiItems(customEmiItems.length || numInstallments, remainingBalance));
+  };
+
+  const scheduledEmiSum = customEmiItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+  const emiDifference = remainingBalance - scheduledEmiSum;
+
   useEffect(() => {
     if (isOpen) {
       if (paymentMode === "Cash") {
@@ -246,12 +342,24 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
   const handleGenerateAdmission = async (generateReceipt = false) => {
     setIsSubmitting(true);
     try {
+      const customEmiPlan = hasEmi
+        ? customEmiItems.map((item, idx) => ({
+            installmentName: item.installmentName || `Installment ${idx + 1}`,
+            dueDate: item.dueDate ? new Date(item.dueDate) : new Date(Date.now() + (idx + 1) * 30 * 24 * 60 * 60 * 1000),
+            amount: Number(item.amount) || 0,
+            isPaid: false,
+          }))
+        : [];
+
       const payload = {
         enquiryId: lead?._id,
         fullName, mobileNumber, email, parentName, parentPhone, parentsFullName: parentName, parentsPhoneNumber: parentPhone, address, city, state, pincode, dob, gender, counsellor, brand,
         course, batch, duration, startDate, academicYear, admissionDate, companyAssigned,
         courseFee, scholarshipType, scholarshipAmount, discountType, discountAmount, additionalDiscount, totalDiscount, finalFee,
-        paymentMode, transactionNo, amountReceivedToday, paymentDate, remainingBalance, hasEmi, numInstallments, installmentAmount
+        paymentMode, transactionNo, amountReceivedToday, paymentDate, remainingBalance, hasEmi,
+        numInstallments: customEmiItems.length || numInstallments,
+        installmentAmount: customEmiItems.length > 0 ? Math.round(scheduledEmiSum / customEmiItems.length) : installmentAmount,
+        customEmiPlan
       };
 
       const res = await fetch("/api/admissions", {
@@ -782,28 +890,143 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
 
                   {hasEmi && (
                     <>
-                      <div className="flex flex-col gap-1.5">
+                      <div className="flex flex-col gap-1.5 md:col-span-2">
                         <label className="text-xs font-bold text-slate-500 h-5 flex items-center">
                           Number of Installments
                         </label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={numInstallments}
-                          onChange={(e) => setNumInstallments(Number(e.target.value))}
-                          className="w-full h-11 px-4 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white"
-                        />
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min="1"
+                            max="24"
+                            value={numInstallments}
+                            onChange={(e) => {
+                              const val = Math.max(Number(e.target.value) || 1, 1);
+                              setNumInstallments(val);
+                            }}
+                            className="w-full h-11 px-4 rounded-xl border border-slate-200 text-sm font-bold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white"
+                          />
+                          <button
+                            type="button"
+                            onClick={distributeEvenly}
+                            className="shrink-0 h-11 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl border border-indigo-200 transition-colors"
+                          >
+                            Distribute Evenly
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-bold text-slate-500 h-5 flex items-center">
-                          Installment Amount (₹)
-                        </label>
-                        <input
-                          type="number"
-                          readOnly
-                          value={installmentAmount}
-                          className="w-full h-11 px-4 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 bg-slate-100 outline-none"
-                        />
+
+                      {/* Customizable EMI Schedule Breakdown */}
+                      <div className="md:col-span-4 mt-2 bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                          <div>
+                            <h4 className="text-xs font-extrabold text-indigo-900 uppercase tracking-wider flex items-center gap-2">
+                              📅 Customizable EMI Schedule & Due Dates
+                            </h4>
+                            <p className="text-[11px] font-medium text-slate-500 mt-0.5">
+                              Customize individual installment amounts and specific due dates for each payment.
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={addEmiRow}
+                              className="px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-bold hover:bg-emerald-100 transition-colors flex items-center gap-1"
+                            >
+                              + Add Installment
+                            </button>
+                            <button
+                              type="button"
+                              onClick={distributeEvenly}
+                              className="px-3 py-1.5 bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-xs font-bold hover:bg-slate-200 transition-colors"
+                            >
+                              Reset Equal Amounts
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Installments Table */}
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left border-collapse">
+                            <thead>
+                              <tr className="border-b border-slate-200 bg-slate-50/70 text-[10px] uppercase font-bold text-slate-500">
+                                <th className="py-2.5 px-3">Installment</th>
+                                <th className="py-2.5 px-3">Due Date (Editable)</th>
+                                <th className="py-2.5 px-3">Amount ₹ (Editable)</th>
+                                <th className="py-2.5 px-3 text-right">Action</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 text-xs">
+                              {customEmiItems.map((item, idx) => (
+                                <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                                  <td className="py-2.5 px-3 font-bold text-slate-700">
+                                    {item.installmentName}
+                                  </td>
+                                  <td className="py-2.5 px-3">
+                                    <input
+                                      type="date"
+                                      value={item.dueDate}
+                                      onChange={(e) => handleEmiDateChange(idx, e.target.value)}
+                                      className="px-3 py-1.5 rounded-lg border border-slate-200 font-semibold text-slate-800 text-xs outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100 bg-white"
+                                    />
+                                  </td>
+                                  <td className="py-2.5 px-3">
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-slate-400 font-bold">₹</span>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        value={item.amount}
+                                        onChange={(e) => handleEmiAmountChange(idx, Number(e.target.value))}
+                                        className="w-32 px-3 py-1.5 rounded-lg border border-slate-200 font-extrabold text-indigo-700 text-xs outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100 bg-white"
+                                      />
+                                    </div>
+                                  </td>
+                                  <td className="py-2.5 px-3 text-right">
+                                    {customEmiItems.length > 1 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => removeEmiRow(idx)}
+                                        className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                                        title="Delete Installment"
+                                      >
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                                        </svg>
+                                      </button>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Sum Validation Banner */}
+                        <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs">
+                          <div className="flex items-center gap-2 font-bold text-slate-700">
+                            <span>Total Scheduled EMI:</span>
+                            <span className="text-sm font-extrabold text-indigo-700">₹{scheduledEmiSum.toLocaleString("en-IN")}</span>
+                          </div>
+                          {scheduledEmiSum === remainingBalance ? (
+                            <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-[11px] flex items-center gap-1">
+                              ✔ EMI sum perfectly matches remaining balance (₹{remainingBalance.toLocaleString("en-IN")})
+                            </span>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <span className="px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-bold text-[11px]">
+                                ⚠ Diff: ₹{Math.abs(emiDifference).toLocaleString("en-IN")} {emiDifference > 0 ? "remaining to schedule" : "exceeds remaining balance"}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={distributeEvenly}
+                                className="px-2.5 py-1 bg-indigo-600 text-white rounded-lg text-[11px] font-bold hover:bg-indigo-700 transition-colors shadow-xs"
+                              >
+                                Auto-Fix Balance
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </>
                   )}
