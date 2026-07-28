@@ -333,42 +333,49 @@ export default function FeeCollectionPage() {
     // Installment plan calculator (dynamic)
     const generateInstallments = () => {
         if (!selectedStudent) return [];
-        const totalInst = selectedStudent.numInstallments || 4;
 
-        // Calculate how much of the fee is actually put into EMIs
-        const initialPayment = selectedStudent.amountReceivedToday || 0;
-        const emiPrincipal = selectedStudent.finalFee - initialPayment;
+        const hasCustomPlan = Array.isArray(selectedStudent.customEmiPlan) && selectedStudent.customEmiPlan.length > 0;
+        const totalInst = hasCustomPlan && selectedStudent.customEmiPlan ? selectedStudent.customEmiPlan.length : (selectedStudent.numInstallments || 4);
 
-        // Base amount is either from DB or calculated
-        const baseAmount = selectedStudent.installmentAmount || Math.floor(emiPrincipal / totalInst);
+        const studentAny = selectedStudent as any;
+        const regAmt = Number(studentAny.registrationAmount ?? studentAny.amountReceivedToday ?? 0);
+        const dpAmt = Number(studentAny.downpaymentAmount ?? 0);
+        const upfrontPayments = regAmt + dpAmt;
 
-        // Amount paid specifically towards EMIs (total paid minus the downpayment)
-        let runningPaid = Math.max(0, totalPaid - initialPayment);
+        const emiPrincipal = Math.max(0, selectedStudent.finalFee - upfrontPayments);
+        const baseAmount = selectedStudent.installmentAmount || Math.floor(emiPrincipal / (totalInst || 1));
+
+        // Amount paid specifically towards EMIs (total paid minus upfront registration & downpayment)
+        let runningPaid = Math.max(0, totalPaid - upfrontPayments);
 
         const installments = [];
         const baseDate = new Date(selectedStudent.admissionDate || new Date());
-        // Start EMIs 1 month after admission
         baseDate.setMonth(baseDate.getMonth() + 1);
 
         for (let i = 1; i <= totalInst; i++) {
-            let instAmount = i === totalInst
-                ? emiPrincipal - baseAmount * (totalInst - 1)
-                : baseAmount;
+            const customEntry = (hasCustomPlan && selectedStudent.customEmiPlan) ? selectedStudent.customEmiPlan[i - 1] : null;
 
-            let dueDate = new Date(baseDate);
-            dueDate.setMonth(baseDate.getMonth() + (i - 1));
+            let instAmount = customEntry
+                ? Number(customEntry.amount || 0)
+                : (i === totalInst ? emiPrincipal - baseAmount * (totalInst - 1) : baseAmount);
 
-            if (selectedStudent.customEmiPlan && selectedStudent.customEmiPlan[i - 1]) {
-                instAmount = selectedStudent.customEmiPlan[i - 1].amount;
-                dueDate = new Date(selectedStudent.customEmiPlan[i - 1].dueDate);
-            }
+            let dueDate = customEntry && customEntry.dueDate
+                ? new Date(customEntry.dueDate)
+                : new Date(baseDate.getFullYear(), baseDate.getMonth() + (i - 1), baseDate.getDate());
 
             let status = "Pending";
             let statusClass = "text-slate-400 bg-slate-100 border-slate-200";
             let bulletClass = "bg-slate-200 border-slate-300";
             let dueAmount = instAmount;
 
-            if (runningPaid >= instAmount) {
+            const customEntryAny = customEntry as any;
+
+            if (customEntryAny && customEntryAny.isPaid === true) {
+                status = "Paid";
+                statusClass = "text-emerald-600 bg-emerald-50 border-emerald-100";
+                bulletClass = "bg-emerald-500 border-emerald-600";
+                dueAmount = 0;
+            } else if (runningPaid >= instAmount) {
                 status = "Paid";
                 statusClass = "text-emerald-600 bg-emerald-50 border-emerald-100";
                 bulletClass = "bg-emerald-500 border-emerald-600";
@@ -389,10 +396,10 @@ export default function FeeCollectionPage() {
             });
 
             installments.push({
-                num: `${i}${i === 1 ? "st" : i === 2 ? "nd" : i === 3 ? "rd" : "th"} Installment`,
+                num: customEntryAny?.installmentName || `${i}${i === 1 ? "st" : i === 2 ? "nd" : i === 3 ? "rd" : "th"} Installment`,
                 amount: instAmount,
                 dueAmount,
-                dateText: status === "Paid" ? `Paid on ${formattedDueDate}` : `Due on ${formattedDueDate}`,
+                dateText: status === "Paid" ? (customEntryAny?.paidDate ? `Paid on ${new Date(customEntryAny.paidDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}` : `Paid on ${formattedDueDate}`) : `Due on ${formattedDueDate}`,
                 rawDate: dueDate,
                 status,
                 statusClass,
