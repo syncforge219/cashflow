@@ -17,6 +17,8 @@ export default function CrmDisplay() {
   const [counsellorToTransfer, setCounsellorToTransfer] = useState<any | null>(null);
   const [counsellorToDelete, setCounsellorToDelete] = useState<{ id: string; name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  
   const [counsellorList, setCounsellorList] = useState<any[]>([]);
   const [rawEnquiries, setRawEnquiries] = useState<any[]>([]);
   const [rawAdmissions, setRawAdmissions] = useState<any[]>([]);
@@ -291,175 +293,206 @@ export default function CrmDisplay() {
     }
   };
 
+  const collectionPercentage = totalFeeShouldBeCollected > 0 
+    ? ((totalCollection / totalFeeShouldBeCollected) * 100).toFixed(1)
+    : "0.0";
+
   return (
     <div className="space-y-6 flex-1 flex flex-col justify-between relative font-sans">
-      <input
-        type="file"
-        ref={fileInputRef}
-        className="hidden"
-      />
+      <input type="file" ref={fileInputRef} className="hidden" />
 
-      {/* Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
+      {/* Header Row with Add CRM Button */}
+      <div className="flex items-center justify-between gap-4 shrink-0 bg-white/60 backdrop-blur-md p-4 px-5 rounded-2xl border border-slate-200/80 shadow-2xs">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
-            CRM Directory & Analytics
+          <h1 className="text-xl font-extrabold tracking-tight text-slate-900">
+            CRM Overview
           </h1>
-          <p className="text-xs text-slate-500 mt-1 max-w-2xl">
-            Supervise CRM advisors, fee collection metrics, pending fee remainders, and registered students across all brands.
+          <p className="text-xs text-slate-500 mt-0.5">
+            Key fee metrics and registered student performance
           </p>
         </div>
-      </div>
 
-      {/* Filter & Controls Bar */}
-      <div className="bg-white/80 backdrop-blur-md border border-slate-200/80 rounded-2xl p-4 shadow-2xs flex flex-wrap items-center justify-between gap-3 shrink-0">
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Time Filter Dropdown */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Period:</span>
-            <select
-              value={timeFilter}
-              onChange={(e: any) => setTimeFilter(e.target.value)}
-              className="text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 cursor-pointer"
-            >
-              <option value="today">Today</option>
-              <option value="week">This Week</option>
-              <option value="month">This Month</option>
-              <option value="year">This Year</option>
-              <option value="all">All Time</option>
-              <option value="custom">Custom Date Range</option>
-            </select>
-          </div>
-
-          {/* Custom Date Range Pickers */}
-          {timeFilter === "custom" && (
-            <div className="flex items-center gap-2">
-              <input
-                type="date"
-                value={customStartDate}
-                onChange={(e) => setCustomStartDate(e.target.value)}
-                className="text-xs font-medium text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
-              />
-              <span className="text-xs text-slate-400">to</span>
-              <input
-                type="date"
-                value={customEndDate}
-                onChange={(e) => setCustomEndDate(e.target.value)}
-                className="text-xs font-medium text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
-              />
-            </div>
-          )}
-
-          {/* Brand Scope Filter */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Brand:</span>
-            <select
-              value={selectedBrand}
-              onChange={(e) => setSelectedBrand(e.target.value)}
-              className="text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 cursor-pointer"
-            >
-              <option value="All Brands">All Brands</option>
-              {uniqueBrands.map((b) => (
-                <option key={b} value={b}>
-                  {b}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Search Bar */}
-        <div className="relative min-w-[240px]">
-          <input
-            type="text"
-            placeholder="Search CRM executive..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all"
-          />
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-            stroke="currentColor"
-            className="h-4 w-4 absolute left-3 top-2.5 text-slate-400"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"
-            />
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl font-bold text-xs shadow-md shadow-indigo-600/20 hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer shrink-0"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
           </svg>
-        </div>
+          <span>+ Add CRM Executive</span>
+        </button>
       </div>
 
-      {/* Top 4 Elevated Stat Blocks */}
+      {/* Top 4 Elevated Stat Blocks ("4 block for") */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 shrink-0">
         {/* Block 1: Total Fee Should Be Collected */}
-        <div className="bg-white/90 backdrop-blur-md border border-slate-200/80 rounded-2xl p-4 shadow-2xs hover:shadow-md transition-all">
+        <div className="bg-white/90 backdrop-blur-md border border-slate-200/80 rounded-2xl p-4 shadow-2xs hover:shadow-md transition-all group">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block select-none">
-              Total Fee Should Be Collected
+              Total Expected Fee
             </span>
-            <div className="h-8 w-8 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-xs">
+            <div className="h-9 w-9 rounded-xl bg-slate-100 group-hover:bg-slate-200/70 text-slate-700 flex items-center justify-center font-bold text-sm transition-colors">
               ₹
             </div>
           </div>
           <span className="text-2xl font-extrabold tracking-tight block mt-2 text-slate-900">
             ₹{totalFeeShouldBeCollected.toLocaleString("en-IN")}
           </span>
-          <p className="text-[10px] text-slate-400 mt-1">Expected course fees in period</p>
+          <div className="flex items-center gap-1.5 mt-2">
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">Period Target</span>
+            <span className="text-[10px] text-slate-400">Course fee totals</span>
+          </div>
         </div>
 
         {/* Block 2: Total Collection */}
-        <div className="bg-white/90 backdrop-blur-md border border-emerald-100/80 rounded-2xl p-4 shadow-2xs hover:shadow-md transition-all">
+        <div className="bg-white/90 backdrop-blur-md border border-emerald-100/90 rounded-2xl p-4 shadow-2xs hover:shadow-md transition-all group">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-emerald-600/80 uppercase tracking-wider block select-none">
+            <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block select-none">
               Total Collection
             </span>
-            <div className="h-8 w-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-xs">
-              ✓
+            <div className="h-9 w-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-sm transition-colors group-hover:bg-emerald-100">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33" />
+              </svg>
             </div>
           </div>
           <span className="text-2xl font-extrabold tracking-tight block mt-2 text-emerald-600">
             ₹{totalCollection.toLocaleString("en-IN")}
           </span>
-          <p className="text-[10px] text-emerald-600/90 mt-1 font-semibold">Actual fees collected</p>
+          <div className="flex items-center gap-1.5 mt-2">
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">
+              {collectionPercentage}% Collected
+            </span>
+            <span className="text-[10px] text-emerald-600/90 font-medium">Realized revenue</span>
+          </div>
         </div>
 
         {/* Block 3: Total Registered Student */}
-        <div className="bg-white/90 backdrop-blur-md border border-indigo-100/80 rounded-2xl p-4 shadow-2xs hover:shadow-md transition-all">
+        <div className="bg-white/90 backdrop-blur-md border border-indigo-100/90 rounded-2xl p-4 shadow-2xs hover:shadow-md transition-all group">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-indigo-600/80 uppercase tracking-wider block select-none">
-              Total Registered Student
+            <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block select-none">
+              Registered Students
             </span>
-            <div className="h-8 w-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs">
-              🎓
+            <div className="h-9 w-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-sm transition-colors group-hover:bg-indigo-100">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.904a48.62 48.62 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342" />
+              </svg>
             </div>
           </div>
           <span className="text-2xl font-extrabold tracking-tight block mt-2 text-indigo-600">
             {totalRegisteredStudents} Students
           </span>
-          <p className="text-[10px] text-indigo-600/90 mt-1 font-semibold">Admissions in selected view</p>
+          <div className="flex items-center gap-1.5 mt-2">
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">
+              {filteredEnquiries.length} Total Leads
+            </span>
+            <span className="text-[10px] text-indigo-600/90 font-medium">Admissions enrolled</span>
+          </div>
         </div>
 
-        {/* Block 4: Fee Remaining */}
-        <div className="bg-white/90 backdrop-blur-md border border-rose-100/80 rounded-2xl p-4 shadow-2xs hover:shadow-md transition-all">
+        {/* Block 4: Fee Remaining & Active Team */}
+        <div className="bg-white/90 backdrop-blur-md border border-rose-100/90 rounded-2xl p-4 shadow-2xs hover:shadow-md transition-all group">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold text-rose-500 uppercase tracking-wider block select-none">
               Fee Remaining
             </span>
-            <div className="h-8 w-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-xs">
-              ⏳
+            <div className="h-9 w-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-sm transition-colors group-hover:bg-rose-100">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+              </svg>
             </div>
           </div>
           <span className="text-2xl font-extrabold tracking-tight block mt-2 text-rose-600">
             ₹{totalFeeRemaining.toLocaleString("en-IN")}
           </span>
-          <p className="text-[10px] text-rose-500 mt-1 font-semibold">Pending fee remainders</p>
+          <div className="flex items-center justify-between mt-2">
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700">Pending Remainder</span>
+            <span className="text-[10px] font-bold text-slate-500">{counsellorList.length} Active Advisors</span>
+          </div>
         </div>
       </div>
+
+      {/* Detail Slide-Over / Modal View */}
+      {isDetailModalOpen && selectedCounsellor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-100 space-y-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-600 text-white font-black text-sm flex items-center justify-center shadow-md">
+                  {selectedCounsellor.initials}
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">{selectedCounsellor.name}</h3>
+                  <p className="text-xs text-slate-500">{selectedCounsellor.email} • {selectedCounsellor.scope}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsDetailModalOpen(false)}
+                className="p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Performance Stats Breakdown Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Assigned Leads</span>
+                <p className="text-lg font-extrabold text-slate-800 mt-1">{selectedCounsellor.assignedLeadsNum}</p>
+              </div>
+              <div className="p-3 bg-indigo-50/70 rounded-2xl border border-indigo-100">
+                <span className="text-[10px] font-bold text-indigo-600 uppercase">Demos Scheduled</span>
+                <p className="text-lg font-extrabold text-indigo-700 mt-1">{selectedCounsellor.demosNum}</p>
+              </div>
+              <div className="p-3 bg-emerald-50/70 rounded-2xl border border-emerald-100">
+                <span className="text-[10px] font-bold text-emerald-600 uppercase">Admissions</span>
+                <p className="text-lg font-extrabold text-emerald-700 mt-1">{selectedCounsellor.admissionsNum}</p>
+              </div>
+              <div className="p-3 bg-amber-50/70 rounded-2xl border border-amber-100">
+                <span className="text-[10px] font-bold text-amber-600 uppercase">Conv. Rate</span>
+                <p className="text-lg font-extrabold text-amber-700 mt-1">{selectedCounsellor.convRate}</p>
+              </div>
+            </div>
+
+            {/* Financial Summary */}
+            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/70 space-y-3">
+              <div className="flex justify-between items-center text-xs font-bold text-slate-700">
+                <span>Revenue vs Annual Target</span>
+                <span className="text-indigo-600">{selectedCounsellor.percentage} Achieved</span>
+              </div>
+              <div className="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-indigo-500 to-emerald-500 rounded-full"
+                  style={{ width: `${selectedCounsellor.percentage}` }}
+                ></div>
+              </div>
+              <div className="flex justify-between text-xs text-slate-500 font-medium pt-1">
+                <span>Collected: {selectedCounsellor.revenueCollected}</span>
+                <span>Target: {selectedCounsellor.annualTarget}</span>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => {
+                  setIsDetailModalOpen(false);
+                  setCounsellorToEdit(selectedCounsellor);
+                  setIsEditModalOpen(true);
+                }}
+                className="px-4 py-2 bg-indigo-50 text-indigo-600 font-bold text-xs rounded-xl hover:bg-indigo-100 transition-colors"
+              >
+                Edit Profile
+              </button>
+              <button
+                onClick={() => setIsDetailModalOpen(false)}
+                className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-slate-200 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modals */}
       <RegisterCounsellorModal
