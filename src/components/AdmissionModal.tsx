@@ -91,10 +91,13 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
   // 4. Payment & EMI
   const [paymentMode, setPaymentMode] = useState("UPI");
   const [transactionNo, setTransactionNo] = useState("");
-  const [amountReceivedToday, setAmountReceivedToday] = useState(0);
+  const [registrationAmount, setRegistrationAmount] = useState(0);
+  const [downpaymentAmount, setDownpaymentAmount] = useState(0);
+  const [downpaymentDueDate, setDownpaymentDueDate] = useState("");
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split("T")[0]);
   
-  const remainingBalance = finalFee - amountReceivedToday;
+  const amountReceivedToday = registrationAmount;
+  const remainingBalance = Math.max(0, finalFee - registrationAmount - downpaymentAmount);
 
   const [hasEmi, setHasEmi] = useState(false);
   const [numInstallments, setNumInstallments] = useState(1);
@@ -243,7 +246,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
 
   useEffect(() => {
     if (!hasEmi && finalFee >= 0) {
-      setAmountReceivedToday(finalFee);
+      setRegistrationAmount(finalFee);
     }
   }, [hasEmi, finalFee]);
 
@@ -335,7 +338,9 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
       setDiscountReason("");
       setPaymentMode("UPI");
       setTransactionNo("");
-      setAmountReceivedToday(0);
+      setRegistrationAmount(0);
+      setDownpaymentAmount(0);
+      setDownpaymentDueDate("");
       setHasEmi(false);
       setNumInstallments(1);
       setInstallmentAmount(0);
@@ -380,7 +385,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
         fullName, mobileNumber, email, parentName, parentPhone, parentsFullName: parentName, parentsPhoneNumber: parentPhone, address, city, state, pincode, dob, gender, counsellor, brand,
         course, batch, duration, startDate, academicYear, admissionDate, companyAssigned,
         courseFee, scholarshipType, scholarshipAmount, discountType, discountAmount, additionalDiscount, totalDiscount, finalFee,
-        paymentMode, transactionNo, amountReceivedToday, paymentDate, remainingBalance, hasEmi,
+        paymentMode, transactionNo, amountReceivedToday: Number(registrationAmount), registrationAmount: Number(registrationAmount), downpaymentAmount: Number(downpaymentAmount), downpaymentDueDate, paymentDate, remainingBalance, hasEmi,
         numInstallments: customEmiItems.length || numInstallments,
         installmentAmount: customEmiItems.length > 0 ? Math.round(scheduledEmiSum / customEmiItems.length) : installmentAmount,
         customEmiPlan
@@ -856,20 +861,47 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-500 h-5 flex items-center truncate">
-                      Amount Received Today (₹) <span className="text-rose-500 ml-1">*</span>
+                    <label className="text-xs font-bold text-slate-500 h-5 flex items-center truncate" title="Amount collected at this very moment">
+                      Registration Amount (₹) <span className="text-rose-500 ml-1">*</span>
                     </label>
                     <input
                       type="number"
                       step="any"
-                      value={amountReceivedToday}
-                      onChange={(e) => setAmountReceivedToday(Number(e.target.value))}
+                      value={registrationAmount}
+                      onChange={(e) => setRegistrationAmount(Number(e.target.value))}
+                      placeholder="Registration fee collected now"
                       className="w-full h-11 px-4 rounded-xl border border-slate-200 text-sm font-extrabold text-indigo-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-indigo-50/70"
                     />
                   </div>
                 </div>
 
                 <div className="p-5 border border-slate-200/80 bg-slate-50/70 rounded-xl grid grid-cols-1 md:grid-cols-4 gap-5 items-center">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-slate-500 h-5 flex items-center">
+                      Downpayment Amount (₹)
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={downpaymentAmount}
+                      onChange={(e) => setDownpaymentAmount(Number(e.target.value))}
+                      placeholder="0"
+                      className="w-full h-11 px-4 rounded-xl border border-slate-200 text-sm font-bold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-slate-500 h-5 flex items-center">
+                      Downpayment Due Date
+                    </label>
+                    <input
+                      type="date"
+                      value={downpaymentDueDate}
+                      onChange={(e) => setDownpaymentDueDate(e.target.value)}
+                      className="w-full h-11 px-4 rounded-xl border border-slate-200 text-sm font-bold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white"
+                    />
+                  </div>
+
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-bold text-slate-500 h-5 flex items-center">
                       EMI / Installment
@@ -890,7 +922,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
                         type="button"
                         onClick={() => {
                           setHasEmi(false);
-                          setAmountReceivedToday(finalFee);
+                          setRegistrationAmount(Math.max(0, finalFee - downpaymentAmount));
                         }}
                         className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border shadow-xs ${
                           !hasEmi

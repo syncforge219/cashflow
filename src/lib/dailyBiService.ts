@@ -215,8 +215,8 @@ export async function getDailyBiReportData(targetDate?: Date): Promise<DailyBiRe
   const todayAdmissionsCount = todayAdmissions.length;
   const yesterdayAdmissionsCount = yesterdayAdmissions.length;
 
-  const todayConvRate = todayLeadsCount > 0 ? (todayAdmissionsCount / todayLeadsCount) * 100 : 0;
-  const yesterdayConvRate = yesterdayLeadsCount > 0 ? (yesterdayAdmissionsCount / yesterdayLeadsCount) * 100 : 0;
+  const todayConvRate = todayLeadsCount > 0 ? Math.min(100, Math.max(0, (todayAdmissionsCount / todayLeadsCount) * 100)) : 0;
+  const yesterdayConvRate = yesterdayLeadsCount > 0 ? Math.min(100, Math.max(0, (yesterdayAdmissionsCount / yesterdayLeadsCount) * 100)) : 0;
 
   const totalOutstandingFees = allAdmissions.reduce((acc, a: any) => acc + (Number(a.remainingBalance) || 0), 0);
 

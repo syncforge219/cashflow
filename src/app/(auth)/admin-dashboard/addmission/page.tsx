@@ -75,8 +75,8 @@ export default function AdminAdmissionHub() {
   }).length;
 
   const salesConversion = totalEnquiries > 0
-    ? ((admissions.length / totalEnquiries) * 100).toFixed(1)
-    : "0";
+    ? Math.min(100, Math.max(0, Number(((admissions.length / totalEnquiries) * 100).toFixed(1)))).toFixed(1)
+    : "0.0";
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;

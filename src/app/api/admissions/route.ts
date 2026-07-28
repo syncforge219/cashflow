@@ -43,8 +43,11 @@ export async function POST(req: NextRequest) {
     data.courseFee = Number(data.courseFee) || 0;
     data.finalFee = Number(data.finalFee) || 0;
     data.paymentMode = data.paymentMode?.trim() || "Cash";
-    data.transactionNo = data.transactionNo?.trim() || "CASH";
-    data.amountReceivedToday = Number(data.amountReceivedToday) || 0;
+    data.registrationAmount = Number(data.registrationAmount || data.amountReceivedToday) || 0;
+    data.amountReceivedToday = data.registrationAmount;
+    data.downpaymentAmount = Number(data.downpaymentAmount) || 0;
+    data.downpaymentDueDate = data.downpaymentDueDate ? new Date(data.downpaymentDueDate) : undefined;
+    data.remainingBalance = Math.max(0, data.finalFee - data.registrationAmount - data.downpaymentAmount);
     data.paymentDate = data.paymentDate ? new Date(data.paymentDate) : new Date();
     data.companyAssigned = data.companyAssigned?.trim() || "Cash";
     data.brand = data.brand?.trim() || "Cadd Mantra";
@@ -429,9 +432,14 @@ export async function GET(req: Request) {
     if (brand && brand !== "all" && brand !== "All") {
       enquiryQuery.targetBrand = brand;
     }
-    const totalEnquiries = await Enquiry.countDocuments(enquiryQuery);
+    if (query.createdAt) {
+      enquiryQuery.createdAt = query.createdAt;
+    }
+    const rawEnquiriesCount = await Enquiry.countDocuments(enquiryQuery);
 
     const admissions = await Admission.find(query).sort({ createdAt: -1 });
+    const totalEnquiries = Math.max(rawEnquiriesCount, admissions.length);
+
     return NextResponse.json({ success: true, data: admissions, totalEnquiries });
   } catch (error: any) {
     console.error("Fetch Admissions Error:", error);

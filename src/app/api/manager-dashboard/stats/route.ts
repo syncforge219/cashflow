@@ -310,8 +310,11 @@ export async function GET(req: Request) {
       }
     }
 
-    const totalLeadsCalculated = totalLeads + unlinkedUpgradesCount;
+    const totalLeadsCalculated = Math.max(totalLeads + unlinkedUpgradesCount, admissionsCount);
     const totalConvertedCalculated = convertedLeads + unlinkedUpgradesCount;
+
+    const rawConv = totalLeadsCalculated > 0 ? (totalConvertedCalculated / totalLeadsCalculated) * 100 : 0;
+    const conversionRateStr = Math.min(100, Math.max(0, Number(rawConv.toFixed(1)))).toFixed(1) + "%";
 
     return NextResponse.json({
       success: true,
@@ -323,7 +326,7 @@ export async function GET(req: Request) {
           newLeads,
           followUpsToday,
           admissions: admissionsCount,
-          conversionRate: totalLeadsCalculated > 0 ? ((totalConvertedCalculated / totalLeadsCalculated) * 100).toFixed(1) + "%" : "0.0%",
+          conversionRate: conversionRateStr,
           revenue: `₹${(totalRevenue / 100000).toFixed(2)} L`,
           collection: `₹${(totalCollection / 100000).toFixed(2)} L`,
           pendingFees: `₹${(totalPendingFees / 100000).toFixed(2)} L`,
