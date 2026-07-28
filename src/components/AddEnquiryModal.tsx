@@ -22,6 +22,7 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
   const [selectedAdvisor, setSelectedAdvisor] = useState("");
   const [expectedCourseFee, setExpectedCourseFee] = useState("₹0");
   const [isDemoScheduled, setIsDemoScheduled] = useState(false);
+  const [isFollowUpScheduled, setIsFollowUpScheduled] = useState(false);
   const [primaryPhone, setPrimaryPhone] = useState("+91 ");
   const [parentsPhone, setParentsPhone] = useState("+91 ");
 
@@ -29,6 +30,7 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
     if (isOpen) {
       setPrimaryPhone("+91 ");
       setParentsPhone("+91 ");
+      setIsFollowUpScheduled(false);
       // Auto-select brand if defaultBrand is provided (sales exec / counsellor scope)
       setSelectedBrand(defaultBrand && defaultBrand !== "All Brands" && defaultBrand !== "All" ? defaultBrand : "");
       setSelectedAdvisor("");
@@ -130,8 +132,9 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
       data.parentsPhoneNumber = cleanParents ? `+91 ${cleanParents}` : "";
     }
 
-    // Ensure boolean value for the toggle
+    // Ensure boolean value for the toggles
     data.isDemoScheduled = isDemoScheduled as any;
+    data.isFollowUpScheduled = isFollowUpScheduled as any;
 
     try {
       const response = await fetch("/api/enquiries", {
@@ -342,42 +345,89 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
           </div>
 
           {/* SECTION 4 */}
-          <div>
-            <h4 className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-4">Section 4: Next Follow-Up</h4>
-            <div className="grid grid-cols-2 gap-4">
+          <div className="border-t border-slate-100 pt-5">
+            <div className="flex items-center justify-between mb-4">
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Follow-up Date *</label>
-                <input name="followUpDate" type="date" required className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50" defaultValue="2026-07-16" />
+                <h4 className="text-xs font-bold text-indigo-600 uppercase tracking-wider">
+                  Section 4: Next Follow-Up Task
+                </h4>
+                <p className="text-[10px] font-semibold text-slate-400 mt-0.5">
+                  Toggle ON to schedule a specific follow-up call & reminder for this enquiry.
+                </p>
               </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Follow-up Time *</label>
-                <input name="followUpTime" type="time" required className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50" defaultValue="10:00" />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Follow-up Type *</label>
-                <select name="followUpType" required className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
-                  <option value="Phone Call">Phone Call</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Follow-up Priority</label>
-                <select name="followUpPriority" className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
-                  <option value="High">High</option>
-                  <option value="Medium" selected>Medium</option>
-                  <option value="Low">Low</option>
-                </select>
-              </div>
-              <div className="col-span-2">
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Reminder</label>
-                <select name="reminder" className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
-                  <option value="None">None</option>
-                </select>
-              </div>
-              <div className="col-span-2">
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Follow-up Notes</label>
-                <textarea name="followUpNotes" placeholder="Discuss fee structure, answer doubts, send brochure, schedule demo class" rows={2} className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 resize-y"></textarea>
-              </div>
+
+              {/* Follow-up Toggle Switch */}
+              <label className="relative inline-flex items-center cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={isFollowUpScheduled}
+                  onChange={(e) => setIsFollowUpScheduled(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                <span className="ml-2.5 text-xs font-bold text-slate-700">
+                  {isFollowUpScheduled ? "Scheduled" : "Off"}
+                </span>
+              </label>
             </div>
+
+            {isFollowUpScheduled && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="grid grid-cols-2 gap-4 bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100/80"
+              >
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Follow-up Date</label>
+                  <input
+                    name="followUpDate"
+                    type="date"
+                    className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                    defaultValue={new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split("T")[0]}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Follow-up Time</label>
+                  <input
+                    name="followUpTime"
+                    type="time"
+                    className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                    defaultValue="10:00"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Follow-up Type</label>
+                  <select name="followUpType" className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
+                    <option value="Phone Call">Phone Call</option>
+                    <option value="WhatsApp Message">WhatsApp Message</option>
+                    <option value="In-Person Meeting">In-Person Meeting</option>
+                    <option value="Email">Email</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Follow-up Priority</label>
+                  <select name="followUpPriority" defaultValue="Medium" className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
+                    <option value="High">High</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Low">Low</option>
+                  </select>
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Reminder</label>
+                  <select name="reminder" className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
+                    <option value="None">None</option>
+                    <option value="15 Minutes Before">15 Minutes Before</option>
+                    <option value="1 Hour Before">1 Hour Before</option>
+                    <option value="1 Day Before">1 Day Before</option>
+                  </select>
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Follow-up Notes</label>
+                  <textarea name="followUpNotes" placeholder="Discuss fee structure, answer doubts, send brochure, schedule demo class" rows={2} className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 resize-y"></textarea>
+                </div>
+              </motion.div>
+            )}
           </div>
 
           {/* SECTION 5 */}
