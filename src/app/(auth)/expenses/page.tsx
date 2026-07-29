@@ -1623,9 +1623,10 @@ export default function ExpensesPage() {
                         type="text"
                         value={formData.company}
                         disabled={formData.paymentMode === "Cash"}
-                        onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                        onChange={(e) => setFormData({ ...formData, company: e.target.value.toUpperCase() })}
                         placeholder="Enter or edit allocated company..."
-                        className="w-full px-3 py-1.5 bg-transparent font-bold text-slate-800 text-xs outline-none placeholder-slate-400 disabled:opacity-50"
+                        className="w-full px-3 py-1.5 bg-transparent font-bold text-slate-800 text-xs outline-none placeholder-slate-400 disabled:opacity-50 uppercase"
+                        style={{ textTransform: "uppercase" }}
                       />
 
                       {/* Suggested Company Badge Chip (Matching Screenshot) */}
