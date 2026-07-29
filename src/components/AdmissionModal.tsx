@@ -192,21 +192,6 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
     setCustomEmiItems((prev) => {
       const copy = [...prev];
       copy[index] = { ...copy[index], dueDate: dateVal };
-
-      // If changing the 1st installment date, recalculate all subsequent installment dates accordingly
-      if (index === 0 && dateVal) {
-        const firstDate = new Date(dateVal);
-        if (!isNaN(firstDate.getTime())) {
-          for (let i = 1; i < copy.length; i++) {
-            const nextDate = addMonthsToDate(firstDate, i);
-            copy[i] = {
-              ...copy[i],
-              dueDate: nextDate.toISOString().split("T")[0],
-            };
-          }
-        }
-      }
-
       return copy;
     });
   };
