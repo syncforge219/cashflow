@@ -464,10 +464,10 @@ export default function FollowupPage() {
       <Sidebar />
 
       {/* Main Container */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
         
         {/* Top Header Controls Bar (Matching Screenshot Layout) */}
-        <div className="bg-white border-b border-slate-200 px-6 py-3.5 flex flex-wrap items-center justify-between gap-4 shadow-xs sticky top-0 z-30">
+        <div className="bg-white border-b border-slate-200 px-6 py-3 flex flex-wrap items-center justify-between gap-4 shadow-xs shrink-0 z-30">
           
           {/* Left Title & Mode Switcher */}
           <div className="flex items-center gap-3">
@@ -567,7 +567,7 @@ export default function FollowupPage() {
         </div>
 
         {/* Search Bar & View Mode Line */}
-        <div className="bg-white border-b border-slate-200/80 px-6 py-3 flex items-center gap-3">
+        <div className="bg-white border-b border-slate-200/80 px-6 py-3 flex items-center gap-3 shrink-0">
           <div className="relative flex-1">
             <input
               type="text"
@@ -594,7 +594,7 @@ export default function FollowupPage() {
         </div>
 
         {/* Tab Navigation Bars */}
-        <div className="bg-white border-b border-slate-200 px-6 pt-3 flex items-center gap-2 overflow-x-auto select-none">
+        <div className="bg-white border-b border-slate-200 px-6 pt-3 flex items-center gap-2 overflow-x-auto select-none shrink-0">
           {activeMode === "enquiry" ? (
             <>
               <button
@@ -722,11 +722,11 @@ export default function FollowupPage() {
         </div>
 
         {/* Table / Grid Area */}
-        <div className="p-6 flex-1 flex flex-col justify-between">
-          <div className="bg-white border border-slate-200/80 rounded-2xl shadow-xs overflow-hidden flex-1 flex flex-col">
+        <div className="p-6 flex-1 flex flex-col min-h-0 overflow-hidden">
+          <div className="bg-white border border-slate-200/80 rounded-2xl shadow-xs overflow-hidden flex-1 flex flex-col min-h-0">
             
             {/* Records Per Page Bar */}
-            <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between text-xs font-semibold text-slate-600">
+            <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between text-xs font-semibold text-slate-600 shrink-0">
               <div className="flex items-center gap-2">
                 <select
                   value={itemsPerPage}
@@ -750,25 +750,25 @@ export default function FollowupPage() {
 
             {/* DATA RENDER: MODE 1 ENQUIRY FOLLOWUP TABLE */}
             {activeMode === "enquiry" ? (
-              <div className="overflow-x-auto flex-1">
+              <div className="overflow-auto flex-1 min-h-0">
                 <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-slate-100/70 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider select-none">
+                  <thead className="sticky top-0 z-10 bg-slate-100/90 backdrop-blur-xs">
+                    <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider select-none">
                       <th className="py-3 px-4 min-w-[120px]">Due Date ▾</th>
                       <th className="py-3 px-4 min-w-[110px]">Enquiry Date ▾</th>
-                      <th className="py-3 px-4 min-w-[130px]">Student ▾</th>
-                      <th className="py-3 px-4 min-w-[120px]">Student Mobile ▾</th>
-                      <th className="py-3 px-4 min-w-[120px]">Primary Mobile ▾</th>
-                      <th className="py-3 px-4 min-w-[120px]">Secondary Mobile</th>
+                      <th className="py-3 px-4 min-w-[150px]">Student ▾</th>
+                      <th className="py-3 px-4 min-w-[130px]">Student Mobile ▾</th>
+                      <th className="py-3 px-4 min-w-[130px]">Primary Mobile ▾</th>
+                      <th className="py-3 px-4 min-w-[130px]">Secondary Mobile</th>
                       <th className="py-3 px-4 min-w-[110px]">Area ▾</th>
-                      <th className="py-3 px-4 min-w-[130px]">Email</th>
-                      <th className="py-3 px-4 min-w-[140px]">Course Package ▾</th>
-                      <th className="py-3 px-4 min-w-[120px]">Followup By ▾</th>
-                      <th className="py-3 px-4 min-w-[100px]">Lead Stage ▾</th>
-                      <th className="py-3 px-4 min-w-[90px]">Lead Type ▾</th>
-                      <th className="py-3 px-4 min-w-[100px]">Lead Source ▾</th>
-                      <th className="py-3 px-4 min-w-[150px]">Last Remark</th>
-                      <th className="py-3 px-4 text-right min-w-[90px]">Action</th>
+                      <th className="py-3 px-4 min-w-[140px]">Email</th>
+                      <th className="py-3 px-4 min-w-[150px]">Course Package ▾</th>
+                      <th className="py-3 px-4 min-w-[130px]">Followup By ▾</th>
+                      <th className="py-3 px-4 min-w-[110px]">Lead Stage ▾</th>
+                      <th className="py-3 px-4 min-w-[100px]">Lead Type ▾</th>
+                      <th className="py-3 px-4 min-w-[110px]">Lead Source ▾</th>
+                      <th className="py-3 px-4 min-w-[160px]">Last Remark</th>
+                      <th className="py-3 px-4 text-right min-w-[110px]">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
@@ -793,14 +793,16 @@ export default function FollowupPage() {
                           <td className="py-3.5 px-4 text-slate-500 whitespace-nowrap">
                             {rec.createdAt ? new Date(rec.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "N/A"}
                           </td>
-                          <td className="py-3.5 px-4 font-extrabold text-slate-900">{rec.studentFullName}</td>
+                          <td className="py-3.5 px-4 font-extrabold text-slate-900 max-w-[170px] truncate" title={rec.studentFullName}>
+                            {rec.studentFullName}
+                          </td>
                           <td className="py-3.5 px-4 font-mono text-slate-600 whitespace-nowrap">{rec.primaryPhoneMobile}</td>
                           <td className="py-3.5 px-4 font-mono text-slate-400 whitespace-nowrap">{rec.parentsPhoneNumber || "-"}</td>
                           <td className="py-3.5 px-4 font-mono text-slate-400 whitespace-nowrap">{rec.secondaryPhone || "-"}</td>
-                          <td className="py-3.5 px-4 text-slate-600">{rec.currentCity || "N/A"}</td>
-                          <td className="py-3.5 px-4 text-slate-500 truncate max-w-[130px]">{rec.emailAddress || "-"}</td>
-                          <td className="py-3.5 px-4 font-bold text-slate-800">{rec.targetCourse}</td>
-                          <td className="py-3.5 px-4 text-slate-700">{rec.assignedCrmAdvisor}</td>
+                          <td className="py-3.5 px-4 text-slate-600 max-w-[130px] truncate">{rec.currentCity || "N/A"}</td>
+                          <td className="py-3.5 px-4 text-slate-500 max-w-[140px] truncate" title={rec.emailAddress}>{rec.emailAddress || "-"}</td>
+                          <td className="py-3.5 px-4 font-bold text-slate-800 max-w-[160px] truncate" title={rec.targetCourse}>{rec.targetCourse}</td>
+                          <td className="py-3.5 px-4 text-slate-700 max-w-[140px] truncate">{rec.assignedCrmAdvisor}</td>
                           <td className="py-3.5 px-4">
                             <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded text-[10px] font-bold uppercase whitespace-nowrap">
                               {rec.status}
@@ -834,18 +836,18 @@ export default function FollowupPage() {
               </div>
             ) : (
               /* DATA RENDER: MODE 2 FEES FOLLOWUP TABLE (Matching Screenshot 2) */
-              <div className="overflow-x-auto flex-1">
+              <div className="overflow-auto flex-1 min-h-0">
                 <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-slate-100/70 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider select-none">
+                  <thead className="sticky top-0 z-10 bg-slate-100/90 backdrop-blur-xs">
+                    <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider select-none">
                       <th className="py-3 px-4 min-w-[130px]">Followup Due Date ▾</th>
                       <th className="py-3 px-4 min-w-[120px]">Fees Due Date ▾</th>
-                      <th className="py-3 px-4 min-w-[140px]">Student ▾</th>
+                      <th className="py-3 px-4 min-w-[150px]">Student ▾</th>
                       <th className="py-3 px-4 min-w-[130px]">Student Mobile No</th>
                       <th className="py-3 px-4 min-w-[120px]">ID Card ▾</th>
-                      <th className="py-3 px-4 min-w-[100px]">Due Amount ▾</th>
+                      <th className="py-3 px-4 min-w-[110px]">Due Amount ▾</th>
                       <th className="py-3 px-4 min-w-[130px]">Followup By ▾</th>
-                      <th className="py-3 px-4 text-right min-w-[110px]">Action</th>
+                      <th className="py-3 px-4 text-right min-w-[120px]">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
@@ -866,11 +868,13 @@ export default function FollowupPage() {
                           <td className="py-3.5 px-4 text-slate-500 whitespace-nowrap">
                             {new Date(rec.feesDueDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
                           </td>
-                          <td className="py-3.5 px-4 font-extrabold text-slate-900">{rec.fullName}</td>
+                          <td className="py-3.5 px-4 font-extrabold text-slate-900 max-w-[170px] truncate" title={rec.fullName}>
+                            {rec.fullName}
+                          </td>
                           <td className="py-3.5 px-4 font-mono text-slate-600 whitespace-nowrap">{rec.mobileNumber}</td>
                           <td className="py-3.5 px-4 font-mono text-slate-500 font-bold whitespace-nowrap">{rec.admissionId}</td>
                           <td className="py-3.5 px-4 font-black text-rose-600 whitespace-nowrap">₹{rec.dueAmount.toLocaleString("en-IN")}</td>
-                          <td className="py-3.5 px-4 text-slate-700">{rec.counsellor}</td>
+                          <td className="py-3.5 px-4 text-slate-700 max-w-[140px] truncate">{rec.counsellor}</td>
                           <td className="py-3.5 px-4 text-right whitespace-nowrap">
                             <button
                               onClick={() => {
