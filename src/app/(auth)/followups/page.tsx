@@ -7,6 +7,7 @@ import { useUser } from "@/app/component/context/user-context";
 import LeadProfile from "@/components/LeadProfile";
 import AddEnquiryModal from "@/components/AddEnquiryModal";
 import AdvancedSearchModal, { AdvancedSearchFilterState } from "@/components/AdvancedSearchModal";
+import AddFollowupModal from "@/components/AddFollowupModal";
 
 interface EnquiryFollowupRecord {
   _id: string;
@@ -985,99 +986,13 @@ export default function FollowupPage() {
         }}
       />
 
-      {/* Quick Add Followup Modal */}
-      {isQuickFollowupModalOpen && activeRecordForFollowup && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                ✏️ Log Follow-up & Remarks
-              </h3>
-              <button onClick={() => setIsQuickFollowupModalOpen(false)} className="text-slate-400 hover:text-slate-600 font-bold text-lg cursor-pointer">
-                ×
-              </button>
-            </div>
-
-            <form onSubmit={handleQuickFollowupSubmit} className="space-y-4 text-xs">
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
-                <div className="font-bold text-slate-900 text-sm">
-                  {activeRecordForFollowup.studentFullName || activeRecordForFollowup.fullName}
-                </div>
-                <div className="text-slate-500 font-mono">
-                  Phone: {activeRecordForFollowup.primaryPhoneMobile || activeRecordForFollowup.mobileNumber}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-600 mb-1">Next Follow-up Date:</label>
-                  <input
-                    type="date"
-                    value={quickDate}
-                    onChange={(e) => setQuickDate(e.target.value)}
-                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold outline-none focus:border-orange-500"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-600 mb-1">Preferred Time:</label>
-                  <input
-                    type="text"
-                    value={quickTime}
-                    onChange={(e) => setQuickTime(e.target.value)}
-                    placeholder="e.g. 11:00 AM"
-                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold outline-none focus:border-orange-500"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-600 mb-1">Lead Stage Status:</label>
-                <select
-                  value={quickStatus}
-                  onChange={(e) => setQuickStatus(e.target.value)}
-                  className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold outline-none focus:border-orange-500"
-                >
-                  <option value="In Progress">In Progress</option>
-                  <option value="Interested">Interested</option>
-                  <option value="Future prospect">Future prospect</option>
-                  <option value="Demo Scheduled">Demo Scheduled</option>
-                  <option value="Lost">Lost Lead</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-600 mb-1">Call Remarks / Outcome:</label>
-                <textarea
-                  rows={3}
-                  value={quickRemarks}
-                  onChange={(e) => setQuickRemarks(e.target.value)}
-                  placeholder="Enter detailed call outcome (e.g. Call cut, asked to call back tomorrow)..."
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold outline-none focus:border-orange-500"
-                  required
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setIsQuickFollowupModalOpen(false)}
-                  className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-slate-200 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSavingQuickFollowup}
-                  className="px-4 py-2 bg-orange-600 text-white font-bold text-xs rounded-xl hover:bg-orange-700 shadow-sm cursor-pointer disabled:opacity-50"
-                >
-                  {isSavingQuickFollowup ? "Saving..." : "Save Follow-up"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Add Followup & History Modal matching Screenshots */}
+      <AddFollowupModal
+        isOpen={isQuickFollowupModalOpen}
+        onClose={() => setIsQuickFollowupModalOpen(false)}
+        record={activeRecordForFollowup}
+        onSuccess={fetchData}
+      />
 
       {/* Full Student Lead Profile Drawer */}
       {selectedLead && (
