@@ -43,7 +43,7 @@ export default function AddFollowupModal({
   const [currentTime, setCurrentTime] = useState(currentTimeStr);
 
   // Dual Transfer List Courses State
-  const [availableCourses, setAvailableCourses] = useState<string[]>(DEFAULT_COURSES);
+  const [availableCourses, setAvailableCourses] = useState<string[]>([]);
   const [selectedCourses, setSelectedCourses] = useState<string[]>([]);
   const [searchAvailable, setSearchAvailable] = useState("");
   const [searchSelected, setSearchSelected] = useState("");
@@ -61,16 +61,39 @@ export default function AddFollowupModal({
   const [historyItemsPerPage, setHistoryItemsPerPage] = useState(5);
   const [historyCurrentPage, setHistoryCurrentPage] = useState(1);
 
+  // Fetch real courses from backend
   useEffect(() => {
-    if (record) {
-      if (record.targetCourse || record.course) {
-        const c = record.targetCourse || record.course;
-        setSelectedCourses([c]);
-        setAvailableCourses(DEFAULT_COURSES.filter((item) => item !== c));
+    const fetchRealCourses = async () => {
+      try {
+        const res = await fetch("/api/courses");
+        const data = await res.json();
+        let courseList: string[] = [];
+        if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+          courseList = data.data.map((c: any) => `${c.name}${c.fee ? `-${c.fee}` : ""}`);
+        } else {
+          courseList = DEFAULT_COURSES;
+        }
+
+        if (record && (record.targetCourse || record.course)) {
+          const selected = record.targetCourse || record.course;
+          setSelectedCourses([selected]);
+          setAvailableCourses(courseList.filter((item) => item !== selected));
+        } else {
+          setAvailableCourses(courseList);
+        }
+      } catch (err) {
+        console.error("Error fetching courses for modal:", err);
+        setAvailableCourses(DEFAULT_COURSES);
       }
-      setLeadType(record.leadType || "walkin");
+    };
+
+    if (isOpen) {
+      fetchRealCourses();
+      if (record) {
+        setLeadType(record.leadType || "walkin");
+      }
     }
-  }, [record]);
+  }, [isOpen, record]);
 
   if (!isOpen || !record) return null;
 
