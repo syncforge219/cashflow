@@ -220,9 +220,8 @@ export default function ManagerSidebar() {
     <aside
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className={`h-screen bg-white border-r border-slate-100 flex flex-col font-sans shrink-0 transition-all duration-300 ease-in-out relative group/sidebar ${
-        effectiveCollapsed ? "w-20" : "w-64 shadow-xl"
-      }`}
+      className={`h-screen bg-white border-r border-slate-100 flex flex-col font-sans shrink-0 transition-all duration-300 ease-in-out relative group/sidebar ${effectiveCollapsed ? "w-20" : "w-64 shadow-xl"
+        }`}
     >
       {/* Pin / Lock Sidebar Toggle Button */}
       <button
@@ -247,13 +246,8 @@ export default function ManagerSidebar() {
         <SidebarBrandHeader isCollapsed={effectiveCollapsed} subtitle="ERP" />
       </div>
 
-<<<<<<< HEAD
-      {/* Lead2Ledger AI Copilot Trigger */}
-      <SidebarAiButton isCollapsed={isCollapsed} />
-=======
       {/* CashFlow AI Copilot Trigger */}
       <SidebarAiButton isCollapsed={effectiveCollapsed} />
->>>>>>> 1916c2d849b1556e6c9fb3e8446a16058ea7d204
 
       {/* Navigation Links */}
       <div className="flex-1 overflow-y-auto py-6 px-4 space-y-8 custom-scrollbar">
