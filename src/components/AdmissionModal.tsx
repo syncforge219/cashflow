@@ -115,6 +115,35 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
   }
 
   const [customEmiItems, setCustomEmiItems] = useState<CustomEmiItem[]>([]);
+  const [selectedMonthlyDueDay, setSelectedMonthlyDueDay] = useState<number>(0);
+
+  const applyMonthlyDueDay = (targetDay: number) => {
+    setCustomEmiItems((prev) => {
+      if (!prev || prev.length === 0) return prev;
+
+      let baseDate = new Date();
+      if (prev[0]?.dueDate) {
+        const parsed = new Date(prev[0].dueDate);
+        if (!isNaN(parsed.getTime())) baseDate = parsed;
+      }
+
+      return prev.map((item, idx) => {
+        const nextMonthDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + idx, 1);
+        const maxDaysInMonth = new Date(nextMonthDate.getFullYear(), nextMonthDate.getMonth() + 1, 0).getDate();
+        const actualDay = Math.min(targetDay, maxDaysInMonth);
+        nextMonthDate.setDate(actualDay);
+
+        const year = nextMonthDate.getFullYear();
+        const month = String(nextMonthDate.getMonth() + 1).padStart(2, "0");
+        const day = String(nextMonthDate.getDate()).padStart(2, "0");
+
+        return {
+          ...item,
+          dueDate: `${year}-${month}-${day}`,
+        };
+      });
+    });
+  };
 
   const addMonthsToDate = (date: Date, months: number) => {
     const d = new Date(date);
@@ -163,21 +192,6 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
     setCustomEmiItems((prev) => {
       const copy = [...prev];
       copy[index] = { ...copy[index], dueDate: dateVal };
-
-      // If changing the 1st installment date, recalculate all subsequent installment dates accordingly
-      if (index === 0 && dateVal) {
-        const firstDate = new Date(dateVal);
-        if (!isNaN(firstDate.getTime())) {
-          for (let i = 1; i < copy.length; i++) {
-            const nextDate = addMonthsToDate(firstDate, i);
-            copy[i] = {
-              ...copy[i],
-              dueDate: nextDate.toISOString().split("T")[0],
-            };
-          }
-        }
-      }
-
       return copy;
     });
   };
@@ -1020,6 +1034,34 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
                               Reset Equal Amounts
                             </button>
                           </div>
+                        </div>
+
+                        {/* Quick Day of Month Selector Bar */}
+                        <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                              🗓️ Set Monthly Due Day for All Installments:
+                            </span>
+                            <select
+                              value={selectedMonthlyDueDay}
+                              onChange={(e) => {
+                                const dayNum = Number(e.target.value);
+                                setSelectedMonthlyDueDay(dayNum);
+                                if (dayNum > 0) applyMonthlyDueDay(dayNum);
+                              }}
+                              className="px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-extrabold text-indigo-950 outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer shadow-xs"
+                            >
+                              <option value={0}>Select Day (e.g. 10th)</option>
+                              {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                                <option key={d} value={d}>
+                                  {d}{d === 1 || d === 21 || d === 31 ? "st" : d === 2 || d === 22 ? "nd" : d === 3 || d === 23 ? "rd" : "th"} Day of Month
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <span className="text-[11px] font-semibold text-slate-400">
+                            (Sets dates to this day of every month — individual dates remain fully editable below)
+                          </span>
                         </div>
 
                         {/* Installments Table */}
