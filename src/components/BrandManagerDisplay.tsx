@@ -218,16 +218,18 @@ export default function BrandManagerDisplay() {
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-3">
-                      <div className={`h-11 w-11 flex items-center justify-center rounded-xl font-extrabold text-base shrink-0 overflow-hidden shadow-xs ${brand.color}`}>
+                      <div className="h-11 w-11 flex items-center justify-center rounded-xl font-extrabold text-base shrink-0 overflow-hidden shadow-2xs border border-slate-200/80 bg-white">
                         {b.logoUrl && !failedLogos[b._id || b.id || b.brandId || brand.id] ? (
                           <img
                             src={b.logoUrl}
                             alt={brand.name}
-                            className="h-full w-full object-cover"
+                            className="h-full w-full object-contain p-1"
                             onError={() => handleLogoError(b._id || b.id || b.brandId || brand.id)}
                           />
                         ) : (
-                          <span className="text-white font-extrabold">{brand.initial}</span>
+                          <div className={`h-full w-full flex items-center justify-center text-white font-extrabold ${brand.color}`}>
+                            {brand.initial}
+                          </div>
                         )}
                       </div>
                       <div>
@@ -275,16 +277,18 @@ export default function BrandManagerDisplay() {
             {/* Header */}
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className={`h-12 w-12 flex items-center justify-center rounded-xl font-extrabold text-lg shadow-xs overflow-hidden ${selectedBrand.color}`}>
+                <div className="h-12 w-12 flex items-center justify-center rounded-xl font-extrabold text-lg shadow-2xs overflow-hidden border border-slate-200/80 bg-white shrink-0">
                   {selectedBrandRaw?.logoUrl && !failedLogos[selectedBrandRaw._id || selectedBrandRaw.id || selectedBrandRaw.brandId || selectedBrand.id] ? (
                     <img
                       src={selectedBrandRaw.logoUrl}
                       alt={selectedBrand.name}
-                      className="h-full w-full object-cover"
+                      className="h-full w-full object-contain p-1"
                       onError={() => handleLogoError(selectedBrandRaw._id || selectedBrandRaw.id || selectedBrandRaw.brandId || selectedBrand.id)}
                     />
                   ) : (
-                    <span className="text-white font-extrabold">{selectedBrand.initial}</span>
+                    <div className={`h-full w-full flex items-center justify-center text-white font-extrabold ${selectedBrand.color}`}>
+                      {selectedBrand.initial}
+                    </div>
                   )}
                 </div>
                 <div>

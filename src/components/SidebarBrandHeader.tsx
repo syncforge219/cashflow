@@ -172,19 +172,21 @@ export default function SidebarBrandHeader({
           type="button"
           onClick={() => fileInputRef.current?.click()}
           title="Click to upload custom Brand Logo (PNG/JPEG)"
-          className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-md shadow-indigo-500/20 shrink-0 overflow-hidden group/logo hover:ring-2 hover:ring-indigo-400 hover:ring-offset-1 transition-all cursor-pointer"
+          className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-white border border-slate-200/80 shadow-2xs shrink-0 overflow-hidden group/logo hover:ring-2 hover:ring-indigo-400 hover:ring-offset-1 transition-all cursor-pointer"
         >
           {brandLogo && !imgError ? (
             <img
               src={brandLogo}
               alt="Brand Logo"
-              className="h-full w-full object-cover"
+              className="h-full w-full object-contain p-1"
               onError={() => setImgError(true)}
             />
           ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-5 w-5 text-white">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.436 60.436 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.9c2.785 0 5.5-.413 8.084-1.205a60.43 60.43 0 0 0-.49-6.347m-15.344 0C4.3 7.299 8 7 12 7s7.7 2.999 7.75 3.147m-15.344 0C3.46 11.584 3 13.088 3 14.7c0 1.71.533 3.32 1.455 4.654M19.75 10.147c.79 1.437 1.25 3.1 1.25 4.853 0 1.612-.46 3.116-1.205 4.454M12 2.25V5.25m0 0a3 3 0 100 6 3 3 0 0 0 0-6Z" />
-            </svg>
+            <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-indigo-500 to-violet-600 text-white font-extrabold text-xs">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-5 w-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.436 60.436 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.9c2.785 0 5.5-.413 8.084-1.205a60.43 60.43 0 0 0-.49-6.347m-15.344 0C4.3 7.299 8 7 12 7s7.7 2.999 7.75 3.147m-15.344 0C3.46 11.584 3 13.088 3 14.7c0 1.71.533 3.32 1.455 4.654M19.75 10.147c.79 1.437 1.25 3.1 1.25 4.853 0 1.612-.46 3.116-1.205 4.454M12 2.25V5.25m0 0a3 3 0 100 6 3 3 0 0 0 0-6Z" />
+              </svg>
+            </div>
           )}
 
           {/* Camera Overlay Icon on Hover */}
