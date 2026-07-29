@@ -32,7 +32,6 @@ export default function AdvancedSearchModal({
   statusOptions = ["Active", "In Progress", "Interested", "Demo Scheduled", "Admitted", "Lost"],
   initialFilters,
 }: AdvancedSearchModalProps) {
-  // Format today's date as DD/MM/YYYY
   const formatTodayDDMMYYYY = () => {
     const today = new Date();
     const dd = String(today.getDate()).padStart(2, "0");
@@ -102,49 +101,52 @@ export default function AdvancedSearchModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-      {/* Main Modal Card (Matching Screenshot Layout) */}
-      <div className="bg-white rounded-lg shadow-2xl w-full max-w-xl overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 bg-slate-900/65 backdrop-blur-md flex items-center justify-center p-4">
+      {/* Main Modal Card */}
+      <div className="bg-white rounded-2xl shadow-2xl shadow-indigo-950/20 w-full max-w-xl overflow-hidden border border-slate-200/80 animate-in fade-in zoom-in-95 duration-200">
         
-        {/* Vibrant Orange Header Banner */}
-        <div className="bg-orange-600 px-6 py-3.5 flex items-center justify-between shadow-xs">
-          <h2 className="text-xl font-bold text-white tracking-wide">
-            Advanced Search
-          </h2>
+        {/* Sleek Indigo/Slate Gradient Header Banner */}
+        <div className="bg-gradient-to-r from-indigo-900 via-slate-900 to-indigo-950 px-6 py-4 flex items-center justify-between shadow-md">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-indigo-600/30 border border-indigo-400/30 flex items-center justify-center text-indigo-300">
+              ⚡
+            </div>
+            <h2 className="text-lg font-black text-white tracking-wide">
+              Advanced Search
+            </h2>
+          </div>
           <button
             onClick={onClose}
-            className="text-white hover:text-orange-200 text-xl font-black transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center font-black text-sm transition-all cursor-pointer"
             title="Close"
           >
-            ✖
+            ✕
           </button>
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleApply} className="p-8 space-y-5 text-sm text-slate-700 font-sans">
+        <form onSubmit={handleApply} className="p-8 space-y-5 text-xs text-slate-700 font-sans">
           
           {/* 1. Todays Date */}
           <div className="grid grid-cols-12 items-center gap-4">
             <div className="col-span-4 text-right pr-2">
-              <label className="block font-semibold text-slate-800 leading-tight">
+              <label className="block font-bold text-slate-800 leading-tight">
                 Todays Date
               </label>
-              <span className="text-[11px] text-slate-400 font-normal">
+              <span className="text-[10px] text-indigo-500 font-semibold">
                 (DD/MM/YYYY)
               </span>
             </div>
             <div className="col-span-8">
-              <div className="flex border border-slate-300 rounded-md overflow-hidden bg-white focus-within:ring-2 focus-within:ring-orange-500/20 focus-within:border-orange-500">
-                <div className="bg-slate-100 px-3 py-2 border-r border-slate-300 text-slate-500 flex items-center justify-center shrink-0">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-5 h-5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
-                  </svg>
+              <div className="flex border border-slate-300 rounded-xl overflow-hidden bg-white shadow-xs focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-600">
+                <div className="bg-slate-100 px-3.5 py-2.5 border-r border-slate-300 text-slate-500 flex items-center justify-center shrink-0">
+                  📅
                 </div>
                 <input
                   type="text"
                   value={todayDate}
                   onChange={(e) => setTodayDate(e.target.value)}
-                  className="w-full px-3 py-2 text-slate-800 font-semibold outline-none bg-white"
+                  className="w-full px-3 py-2 text-slate-800 font-bold outline-none bg-white"
                 />
               </div>
             </div>
@@ -153,7 +155,7 @@ export default function AdvancedSearchModal({
           {/* 2. Course Package */}
           <div className="grid grid-cols-12 items-center gap-4">
             <div className="col-span-4 text-right pr-2">
-              <label className="block font-semibold text-slate-800">
+              <label className="block font-bold text-slate-800">
                 Course Package
               </label>
             </div>
@@ -162,7 +164,7 @@ export default function AdvancedSearchModal({
                 <select
                   value={coursePackage}
                   onChange={(e) => setCoursePackage(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-slate-800 font-medium outline-none bg-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                  className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-slate-800 font-semibold outline-none bg-white shadow-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 cursor-pointer"
                 >
                   <option value="">Select Course Package...</option>
                   {courseOptions.map((c) => (
@@ -175,7 +177,7 @@ export default function AdvancedSearchModal({
                   value={coursePackage}
                   onChange={(e) => setCoursePackage(e.target.value)}
                   placeholder="Enter or search course name..."
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-slate-800 font-medium outline-none bg-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                  className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-slate-800 font-medium outline-none bg-white shadow-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
                 />
               )}
             </div>
@@ -184,7 +186,7 @@ export default function AdvancedSearchModal({
           {/* 3. Student */}
           <div className="grid grid-cols-12 items-center gap-4">
             <div className="col-span-4 text-right pr-2">
-              <label className="block font-semibold text-slate-800">
+              <label className="block font-bold text-slate-800">
                 Student
               </label>
             </div>
@@ -194,7 +196,7 @@ export default function AdvancedSearchModal({
                 value={studentQuery}
                 onChange={(e) => setStudentQuery(e.target.value)}
                 placeholder="Student name, mobile or ID..."
-                className="w-full px-3 py-2 border border-slate-300 rounded-md text-slate-800 font-medium outline-none bg-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-slate-800 font-medium outline-none bg-white shadow-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
               />
             </div>
           </div>
@@ -202,29 +204,28 @@ export default function AdvancedSearchModal({
           {/* 4. Admission Status / Lead Stage */}
           <div className="grid grid-cols-12 items-center gap-4">
             <div className="col-span-4 text-right pr-2">
-              <label className="block font-semibold text-slate-800">
+              <label className="block font-bold text-slate-800">
                 Admission Status
               </label>
             </div>
             <div className="col-span-8">
-              <div className="min-h-[42px] p-2 border border-slate-300 rounded-md bg-white flex flex-wrap items-center gap-1.5 focus-within:ring-2 focus-within:ring-orange-500/20 focus-within:border-orange-500">
+              <div className="min-h-[44px] p-2 border border-slate-300 rounded-xl bg-white flex flex-wrap items-center gap-1.5 shadow-xs focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-600">
                 {selectedStatuses.map((st) => (
                   <span
                     key={st}
-                    className="inline-flex items-center gap-1 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 text-xs font-bold px-2 py-0.5 rounded shadow-xs transition-colors"
+                    className="inline-flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-800 text-xs font-bold px-2.5 py-1 rounded-lg transition-colors shadow-xs"
                   >
                     <button
                       type="button"
                       onClick={() => handleToggleStatus(st)}
-                      className="text-slate-400 hover:text-rose-600 font-bold"
+                      className="text-indigo-400 hover:text-rose-600 font-bold text-xs cursor-pointer"
                     >
-                      ×
+                      ✕
                     </button>
                     <span>{st}</span>
                   </span>
                 ))}
                 
-                {/* Select status dropdown to add more tag badges */}
                 <select
                   value=""
                   onChange={(e) => {
@@ -232,7 +233,7 @@ export default function AdvancedSearchModal({
                       setSelectedStatuses([...selectedStatuses, e.target.value]);
                     }
                   }}
-                  className="text-xs text-slate-500 bg-transparent outline-none cursor-pointer py-1 ml-1"
+                  className="text-xs font-semibold text-slate-500 bg-transparent outline-none cursor-pointer py-1 ml-1"
                 >
                   <option value="">+ Add Status...</option>
                   {statusOptions.map((st) => (
@@ -248,21 +249,21 @@ export default function AdvancedSearchModal({
           {/* 5. Joining From Date */}
           <div className="grid grid-cols-12 items-center gap-4">
             <div className="col-span-4 text-right pr-2">
-              <label className="block font-semibold text-slate-800 leading-tight">
+              <label className="block font-bold text-slate-800 leading-tight">
                 Joining From Date
               </label>
-              <span className="text-[11px] text-slate-400 font-normal">
+              <span className="text-[10px] text-indigo-500 font-semibold">
                 (DD/MM/YYYY)
               </span>
             </div>
             <div className="col-span-8">
-              <div className="flex border border-slate-300 rounded-md overflow-hidden bg-white">
-                <label className="bg-slate-100 px-3 py-2 border-r border-slate-300 flex items-center justify-center cursor-pointer">
+              <div className="flex border border-slate-300 rounded-xl overflow-hidden bg-white shadow-xs">
+                <label className="bg-slate-100 px-3.5 py-2.5 border-r border-slate-300 flex items-center justify-center cursor-pointer">
                   <input
                     type="checkbox"
                     checked={enableFromDate}
                     onChange={(e) => setEnableFromDate(e.target.checked)}
-                    className="w-4 h-4 text-orange-600 rounded focus:ring-orange-500 cursor-pointer"
+                    className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer"
                   />
                 </label>
                 <input
@@ -281,21 +282,21 @@ export default function AdvancedSearchModal({
           {/* 6. Joining Till Date */}
           <div className="grid grid-cols-12 items-center gap-4">
             <div className="col-span-4 text-right pr-2">
-              <label className="block font-semibold text-slate-800 leading-tight">
+              <label className="block font-bold text-slate-800 leading-tight">
                 Joining Till Date
               </label>
-              <span className="text-[11px] text-slate-400 font-normal">
+              <span className="text-[10px] text-indigo-500 font-semibold">
                 (DD/MM/YYYY)
               </span>
             </div>
             <div className="col-span-8">
-              <div className="flex border border-slate-300 rounded-md overflow-hidden bg-white">
-                <label className="bg-slate-100 px-3 py-2 border-r border-slate-300 flex items-center justify-center cursor-pointer">
+              <div className="flex border border-slate-300 rounded-xl overflow-hidden bg-white shadow-xs">
+                <label className="bg-slate-100 px-3.5 py-2.5 border-r border-slate-300 flex items-center justify-center cursor-pointer">
                   <input
                     type="checkbox"
                     checked={enableTillDate}
                     onChange={(e) => setEnableTillDate(e.target.checked)}
-                    className="w-4 h-4 text-orange-600 rounded focus:ring-orange-500 cursor-pointer"
+                    className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer"
                   />
                 </label>
                 <input
@@ -315,14 +316,14 @@ export default function AdvancedSearchModal({
           <div className="flex items-center justify-end gap-3 pt-6 mt-4 border-t border-slate-100">
             <button
               type="submit"
-              className="px-6 py-2.5 bg-orange-600 hover:bg-orange-700 text-white font-bold text-sm rounded-md shadow-md shadow-orange-600/20 transition-all cursor-pointer border-b-2 border-orange-800"
+              className="px-7 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-indigo-600/20 active:scale-95 transition-all cursor-pointer"
             >
               Apply Filter
             </button>
             <button
               type="button"
               onClick={handleClear}
-              className="px-6 py-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold text-sm rounded-md transition-all cursor-pointer"
+              className="px-6 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer"
             >
               Clear Filter
             </button>

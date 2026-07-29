@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 
 interface AddFollowupModalProps {
   isOpen: boolean;
@@ -29,7 +29,6 @@ export default function AddFollowupModal({
 }: AddFollowupModalProps) {
   const [activeTab, setActiveTab] = useState<"add" | "history">("add");
 
-  // Format today date in YYYY-MM-DD for date inputs
   const todayYYYYMMDD = new Date().toISOString().split("T")[0];
   const currentTimeStr = new Date().toLocaleTimeString("en-US", {
     hour: "2-digit",
@@ -171,51 +170,76 @@ export default function AddFollowupModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-      {/* Modal Card Matching Screenshot */}
-      <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 bg-slate-900/65 backdrop-blur-md flex items-center justify-center p-4">
+      {/* Elegant Rounded Card with Soft Indigo Glow */}
+      <div className="bg-white rounded-2xl shadow-2xl shadow-indigo-950/20 w-full max-w-4xl overflow-hidden border border-slate-200/80 animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
         
-        {/* Dual Modal Header Tabs */}
-        <div className="flex border-b border-slate-200 bg-slate-100/70 select-none">
+        {/* Header Bar with Student Summary */}
+        <div className="bg-slate-900 text-white px-6 py-3.5 flex items-center justify-between border-b border-slate-800 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-extrabold text-sm shadow-md">
+              {(record.studentFullName || record.fullName || "S").charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <h3 className="font-extrabold text-white text-base leading-tight">
+                {record.studentFullName || record.fullName}
+              </h3>
+              <p className="text-xs text-slate-400 font-mono">
+                Phone: {record.primaryPhoneMobile || record.mobileNumber || "N/A"}
+              </p>
+            </div>
+          </div>
+
           <button
-            onClick={() => setActiveTab("add")}
-            className={`flex-1 py-3 text-sm font-bold transition-all cursor-pointer text-center relative ${
-              activeTab === "add"
-                ? "bg-white text-orange-600 border-t-2 border-t-orange-600 shadow-xs"
-                : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
-            }`}
+            onClick={onClose}
+            className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center font-black text-sm transition-all cursor-pointer"
+            title="Close"
           >
-            Add Followup
-          </button>
-          <button
-            onClick={() => setActiveTab("history")}
-            className={`flex-1 py-3 text-sm font-bold transition-all cursor-pointer text-center relative ${
-              activeTab === "history"
-                ? "bg-white text-orange-600 border-t-2 border-t-orange-600 shadow-xs"
-                : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
-            }`}
-          >
-            Fees FollowUp History
+            ✕
           </button>
         </div>
 
-        {/* TAB 1: ADD FOLLOWUP FORM (Matching Screenshot 1) */}
+        {/* Dual Segmented Header Tabs */}
+        <div className="flex border-b border-slate-200 bg-slate-100/60 p-1.5 gap-2 select-none shrink-0">
+          <button
+            onClick={() => setActiveTab("add")}
+            className={`flex-1 py-2.5 text-xs font-extrabold rounded-xl transition-all cursor-pointer text-center flex items-center justify-center gap-2 ${
+              activeTab === "add"
+                ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-600/20"
+                : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/70"
+            }`}
+          >
+            <span>✏️ Add Followup</span>
+          </button>
+          <button
+            onClick={() => setActiveTab("history")}
+            className={`flex-1 py-2.5 text-xs font-extrabold rounded-xl transition-all cursor-pointer text-center flex items-center justify-center gap-2 ${
+              activeTab === "history"
+                ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-600/20"
+                : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/70"
+            }`}
+          >
+            <span>📜 FollowUp History ({historyList.length})</span>
+          </button>
+        </div>
+
+        {/* TAB 1: ADD FOLLOWUP FORM */}
         {activeTab === "add" ? (
-          <div className="p-8 overflow-y-auto space-y-5 text-xs text-slate-700 font-sans flex-1">
+          <div className="p-8 overflow-y-auto space-y-6 text-xs text-slate-700 font-sans flex-1">
             
-            {/* 1. Next Follow-up Date */}
+            {/* 1. Next Follow-up Date & Time */}
             <div className="grid grid-cols-12 items-center gap-4">
               <div className="col-span-4 text-right pr-2">
-                <label className="block font-semibold text-slate-800 leading-tight">
+                <label className="block font-bold text-slate-800 leading-tight">
                   Next Follow-up Date
                 </label>
-                <span className="text-[10px] text-slate-400 font-normal">
+                <span className="text-[10px] text-indigo-500 font-semibold">
                   (DD/MM/YYYY)
                 </span>
               </div>
               <div className="col-span-8 flex items-center gap-3">
-                <div className="flex-1 flex border border-slate-300 rounded-md overflow-hidden bg-white">
-                  <div className="bg-slate-100 px-3 py-2 border-r border-slate-300 text-slate-500 flex items-center justify-center shrink-0">
+                <div className="flex-1 flex border border-slate-300 rounded-xl overflow-hidden bg-white shadow-xs focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-600">
+                  <div className="bg-slate-100 px-3.5 py-2.5 border-r border-slate-300 text-slate-500 flex items-center justify-center shrink-0">
                     📅
                   </div>
                   <input
@@ -229,7 +253,7 @@ export default function AddFollowupModal({
                 <select
                   value={nextTime}
                   onChange={(e) => setNextTime(e.target.value)}
-                  className="w-40 px-3 py-2 border border-slate-300 rounded-md text-slate-800 font-semibold outline-none bg-white"
+                  className="w-40 px-3.5 py-2.5 border border-slate-300 rounded-xl text-slate-800 font-semibold outline-none bg-white shadow-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 cursor-pointer"
                 >
                   <option value="10:00 AM">10:00 AM</option>
                   <option value="11:00 AM">11:00 AM</option>
@@ -245,7 +269,7 @@ export default function AddFollowupModal({
             {/* 2. Followup Remark */}
             <div className="grid grid-cols-12 items-start gap-4">
               <div className="col-span-4 text-right pr-2 pt-2">
-                <label className="block font-semibold text-slate-800">
+                <label className="block font-bold text-slate-800">
                   Followup Remark <span className="text-rose-500">*</span>
                 </label>
               </div>
@@ -254,8 +278,8 @@ export default function AddFollowupModal({
                   rows={3}
                   value={followupRemark}
                   onChange={(e) => setFollowupRemark(e.target.value)}
-                  placeholder="Enter call outcome, student response or next action details..."
-                  className="w-full p-3 border border-slate-300 rounded-md text-slate-800 font-medium outline-none bg-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                  placeholder="Enter detailed call outcome (e.g. Student requested callback tomorrow, interested in Graphic Design)..."
+                  className="w-full p-3.5 border border-slate-300 rounded-xl text-slate-800 font-medium outline-none bg-white shadow-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all"
                   required
                 />
               </div>
@@ -264,16 +288,16 @@ export default function AddFollowupModal({
             {/* 3. Follow Up Date */}
             <div className="grid grid-cols-12 items-center gap-4">
               <div className="col-span-4 text-right pr-2">
-                <label className="block font-semibold text-slate-800 leading-tight">
+                <label className="block font-bold text-slate-800 leading-tight">
                   Follow Up Date
                 </label>
-                <span className="text-[10px] text-slate-400 font-normal">
+                <span className="text-[10px] text-indigo-500 font-semibold">
                   (DD/MM/YYYY)
                 </span>
               </div>
               <div className="col-span-8 flex items-center gap-3">
-                <div className="flex-1 flex border border-slate-300 rounded-md overflow-hidden bg-slate-50">
-                  <div className="bg-slate-100 px-3 py-2 border-r border-slate-300 text-slate-500 flex items-center justify-center shrink-0">
+                <div className="flex-1 flex border border-slate-300 rounded-xl overflow-hidden bg-slate-50 shadow-xs">
+                  <div className="bg-slate-100 px-3.5 py-2.5 border-r border-slate-300 text-slate-500 flex items-center justify-center shrink-0">
                     📅
                   </div>
                   <input
@@ -287,7 +311,7 @@ export default function AddFollowupModal({
                 <select
                   value={currentTime}
                   onChange={(e) => setCurrentTime(e.target.value)}
-                  className="w-40 px-3 py-2 border border-slate-300 rounded-md text-slate-800 font-semibold outline-none bg-white"
+                  className="w-40 px-3.5 py-2.5 border border-slate-300 rounded-xl text-slate-800 font-semibold outline-none bg-white shadow-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 cursor-pointer"
                 >
                   <option value="10:00 AM">10:00 AM</option>
                   <option value="11:00 AM">11:00 AM</option>
@@ -300,22 +324,25 @@ export default function AddFollowupModal({
             {/* 4. Course Dual List Selector Box */}
             <div className="grid grid-cols-12 items-start gap-4">
               <div className="col-span-4 text-right pr-2 pt-2">
-                <label className="block font-semibold text-slate-800">
+                <label className="block font-bold text-slate-800">
                   Course
                 </label>
               </div>
               <div className="col-span-8 grid grid-cols-11 gap-2 items-center">
                 
                 {/* Left Available Box */}
-                <div className="col-span-5 border border-slate-300 rounded-md bg-white overflow-hidden">
+                <div className="col-span-5 border border-slate-300 rounded-xl bg-white overflow-hidden shadow-xs">
+                  <div className="bg-slate-100 px-3 py-2 border-b border-slate-200 text-[11px] font-bold text-slate-600 uppercase">
+                    Available Courses
+                  </div>
                   <input
                     type="text"
                     value={searchAvailable}
                     onChange={(e) => setSearchAvailable(e.target.value)}
                     placeholder="Search Course..."
-                    className="w-full px-2.5 py-1.5 border-b border-slate-200 text-xs outline-none bg-slate-50"
+                    className="w-full px-3 py-1.5 border-b border-slate-200 text-xs outline-none bg-slate-50"
                   />
-                  <div className="h-36 overflow-y-auto p-1 divide-y divide-slate-100">
+                  <div className="h-36 overflow-y-auto p-1.5 divide-y divide-slate-100">
                     {availableCourses
                       .filter((c) => c.toLowerCase().includes(searchAvailable.toLowerCase()))
                       .map((c) => (
@@ -328,8 +355,8 @@ export default function AddFollowupModal({
                               setSelectedFromLeft([...selectedFromLeft, c]);
                             }
                           }}
-                          className={`p-1.5 text-[11px] font-medium cursor-pointer rounded transition-colors ${
-                            selectedFromLeft.includes(c) ? "bg-orange-100 text-orange-800 font-bold" : "hover:bg-slate-100"
+                          className={`p-2 text-[11px] font-medium cursor-pointer rounded-lg transition-colors ${
+                            selectedFromLeft.includes(c) ? "bg-indigo-100 text-indigo-800 font-bold" : "hover:bg-slate-100"
                           }`}
                         >
                           {c}
@@ -338,12 +365,12 @@ export default function AddFollowupModal({
                   </div>
                 </div>
 
-                {/* Middle Swap Arrow */}
+                {/* Middle Transfer Arrows Button */}
                 <div className="col-span-1 flex flex-col items-center justify-center gap-2">
                   <button
                     type="button"
                     onClick={moveToRight}
-                    className="p-1.5 bg-slate-100 hover:bg-orange-100 border border-slate-300 text-slate-700 hover:text-orange-700 rounded transition-all cursor-pointer font-black text-sm"
+                    className="w-9 h-9 bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-xl shadow-md flex items-center justify-center font-black text-sm transition-transform active:scale-95 cursor-pointer"
                     title="Move to Selected"
                   >
                     ⇆
@@ -351,15 +378,18 @@ export default function AddFollowupModal({
                 </div>
 
                 {/* Right Selected Box */}
-                <div className="col-span-5 border border-slate-300 rounded-md bg-white overflow-hidden">
+                <div className="col-span-5 border border-slate-300 rounded-xl bg-white overflow-hidden shadow-xs">
+                  <div className="bg-slate-100 px-3 py-2 border-b border-slate-200 text-[11px] font-bold text-indigo-700 uppercase">
+                    Selected Courses ({selectedCourses.length})
+                  </div>
                   <input
                     type="text"
                     value={searchSelected}
                     onChange={(e) => setSearchSelected(e.target.value)}
                     placeholder="Search Course..."
-                    className="w-full px-2.5 py-1.5 border-b border-slate-200 text-xs outline-none bg-slate-50"
+                    className="w-full px-3 py-1.5 border-b border-slate-200 text-xs outline-none bg-slate-50"
                   />
-                  <div className="h-36 overflow-y-auto p-1 divide-y divide-slate-100">
+                  <div className="h-36 overflow-y-auto p-1.5 divide-y divide-slate-100">
                     {selectedCourses
                       .filter((c) => c.toLowerCase().includes(searchSelected.toLowerCase()))
                       .map((c) => (
@@ -372,8 +402,8 @@ export default function AddFollowupModal({
                               setSelectedFromRight([...selectedFromRight, c]);
                             }
                           }}
-                          className={`p-1.5 text-[11px] font-medium cursor-pointer rounded transition-colors ${
-                            selectedFromRight.includes(c) ? "bg-orange-100 text-orange-800 font-bold" : "hover:bg-slate-100 text-slate-800"
+                          className={`p-2 text-[11px] font-bold cursor-pointer rounded-lg transition-colors ${
+                            selectedFromRight.includes(c) ? "bg-rose-100 text-rose-800" : "bg-indigo-50 text-indigo-900 hover:bg-indigo-100"
                           }`}
                         >
                           {c}
@@ -387,7 +417,7 @@ export default function AddFollowupModal({
             {/* 5. Lead Type */}
             <div className="grid grid-cols-12 items-center gap-4">
               <div className="col-span-4 text-right pr-2">
-                <label className="block font-semibold text-slate-800">
+                <label className="block font-bold text-slate-800">
                   Lead Type
                 </label>
               </div>
@@ -395,7 +425,7 @@ export default function AddFollowupModal({
                 <select
                   value={leadType}
                   onChange={(e) => setLeadType(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-slate-800 font-medium outline-none bg-white"
+                  className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-slate-800 font-medium outline-none bg-white shadow-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 cursor-pointer"
                 >
                   <option value="walkin">walkin</option>
                   <option value="telephonic">telephonic</option>
@@ -409,7 +439,7 @@ export default function AddFollowupModal({
             {/* 6. Call Start & Call End */}
             <div className="grid grid-cols-12 items-center gap-4">
               <div className="col-span-4 text-right pr-2">
-                <label className="block font-semibold text-slate-800">
+                <label className="block font-bold text-slate-800">
                   Call Start
                 </label>
               </div>
@@ -418,18 +448,18 @@ export default function AddFollowupModal({
                   type="time"
                   value={callStart}
                   onChange={(e) => setCallStart(e.target.value)}
-                  className="w-40 px-3 py-1.5 border border-slate-300 rounded-md text-slate-800 font-medium outline-none bg-white"
+                  className="w-40 px-3.5 py-2 border border-slate-300 rounded-xl text-slate-800 font-medium outline-none bg-white shadow-xs"
                 />
 
                 <div className="flex items-center gap-3">
-                  <label className="font-semibold text-slate-800">
+                  <label className="font-bold text-slate-800">
                     Call End
                   </label>
                   <input
                     type="time"
                     value={callEnd}
                     onChange={(e) => setCallEnd(e.target.value)}
-                    className="w-40 px-3 py-1.5 border border-slate-300 rounded-md text-slate-800 font-medium outline-none bg-white"
+                    className="w-40 px-3.5 py-2 border border-slate-300 rounded-xl text-slate-800 font-medium outline-none bg-white shadow-xs"
                   />
                 </div>
               </div>
@@ -441,7 +471,7 @@ export default function AddFollowupModal({
                 type="button"
                 onClick={() => handleSaveFollowup(true, false)}
                 disabled={isSubmitting}
-                className="px-5 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-md shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+                className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer flex items-center gap-1.5"
               >
                 <span>WhatsApp</span>
               </button>
@@ -449,7 +479,7 @@ export default function AddFollowupModal({
                 type="button"
                 onClick={() => handleSaveFollowup(false, true)}
                 disabled={isSubmitting}
-                className="px-5 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-md shadow-xs transition-all cursor-pointer"
+                className="px-6 py-2.5 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-sky-500/20 active:scale-95 transition-all cursor-pointer"
               >
                 <span>SMS</span>
               </button>
@@ -457,21 +487,21 @@ export default function AddFollowupModal({
                 type="button"
                 onClick={() => handleSaveFollowup(false, false)}
                 disabled={isSubmitting}
-                className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-md shadow-xs transition-all cursor-pointer"
+                className="px-7 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold text-xs rounded-xl shadow-md shadow-indigo-600/20 active:scale-95 transition-all cursor-pointer"
               >
                 {isSubmitting ? "Saving..." : "Save"}
               </button>
               <button
                 type="button"
                 onClick={onClose}
-                className="px-5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-md transition-all cursor-pointer"
+                className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer"
               >
                 Cancel
               </button>
             </div>
           </div>
         ) : (
-          /* TAB 2: FEES FOLLOWUP HISTORY (Matching Screenshot 2) */
+          /* TAB 2: FOLLOWUP HISTORY */
           <div className="p-6 overflow-y-auto space-y-4 text-xs text-slate-700 font-sans flex-1 flex flex-col">
             
             {/* Top Search & Records Per Page Bar */}
@@ -483,13 +513,13 @@ export default function AddFollowupModal({
                     setHistoryItemsPerPage(Number(e.target.value));
                     setHistoryCurrentPage(1);
                   }}
-                  className="px-2 py-1 border border-slate-300 rounded-md bg-white font-bold text-slate-700"
+                  className="px-3 py-1.5 border border-slate-300 rounded-xl bg-white font-bold text-slate-700 shadow-xs outline-none"
                 >
                   <option value={5}>5</option>
                   <option value={10}>10</option>
                   <option value={25}>25</option>
                 </select>
-                <span>records per page</span>
+                <span className="font-semibold text-slate-500">records per page</span>
               </div>
 
               <input
@@ -500,45 +530,43 @@ export default function AddFollowupModal({
                   setHistoryCurrentPage(1);
                 }}
                 placeholder="Search history..."
-                className="px-3 py-1.5 border border-slate-300 rounded-md text-xs font-semibold outline-none bg-white w-60"
+                className="px-3.5 py-2 border border-slate-300 rounded-xl text-xs font-semibold outline-none bg-white w-64 shadow-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
               />
             </div>
 
             {/* History Table */}
-            <div className="border border-slate-200 rounded-lg overflow-hidden flex-1">
+            <div className="border border-slate-200/80 rounded-xl overflow-hidden flex-1 shadow-xs bg-white">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="bg-slate-100 border-b border-slate-200 text-[10px] font-bold text-slate-600 uppercase tracking-wider select-none">
-                    <th className="py-2.5 px-3 w-12 text-center">Type ▾</th>
-                    <th className="py-2.5 px-3 min-w-[130px]">Followup Date ▾</th>
-                    <th className="py-2.5 px-3 min-w-[110px]">Response Type ▾</th>
-                    <th className="py-2.5 px-3 min-w-[180px]">Followup Remarks ▾</th>
-                    <th className="py-2.5 px-3 min-w-[130px]">Followup By ▾</th>
-                    <th className="py-2.5 px-3 min-w-[80px]">Start Time ▾</th>
-                    <th className="py-2.5 px-3 min-w-[80px]">End Time ▾</th>
-                    <th className="py-2.5 px-3 text-right">Action</th>
+                  <tr className="bg-slate-100/80 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider select-none">
+                    <th className="py-3 px-3.5 w-12 text-center">Type ▾</th>
+                    <th className="py-3 px-3.5 min-w-[130px]">Followup Date ▾</th>
+                    <th className="py-3 px-3.5 min-w-[110px]">Response Type ▾</th>
+                    <th className="py-3 px-3.5 min-w-[180px]">Followup Remarks ▾</th>
+                    <th className="py-3 px-3.5 min-w-[130px]">Followup By ▾</th>
+                    <th className="py-3 px-3.5 min-w-[80px]">Start Time ▾</th>
+                    <th className="py-3 px-3.5 min-w-[80px]">End Time ▾</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
                   {paginatedHistory.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-10 text-center text-slate-400">No follow-up history logged yet.</td>
+                      <td colSpan={7} className="py-12 text-center text-slate-400">No follow-up history logged yet.</td>
                     </tr>
                   ) : (
                     paginatedHistory.map((item: any, idx: number) => (
-                      <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                        <td className="py-3 px-3 text-center">
-                          <span className="inline-flex items-center justify-center w-6 h-6 bg-amber-500 text-white font-black text-xs rounded">
+                      <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-3 px-3.5 text-center">
+                          <span className="inline-flex items-center justify-center w-6 h-6 bg-gradient-to-br from-amber-500 to-orange-600 text-white font-black text-xs rounded-md shadow-xs">
                             {item.type}
                           </span>
                         </td>
-                        <td className="py-3 px-3 whitespace-nowrap text-slate-800">{item.followupDate}</td>
-                        <td className="py-3 px-3 capitalize text-slate-500">{item.responseType}</td>
-                        <td className="py-3 px-3 text-slate-800 font-normal">{item.remarks}</td>
-                        <td className="py-3 px-3 font-bold text-slate-900">{item.followupBy}</td>
-                        <td className="py-3 px-3 font-mono text-slate-500">{item.startTime}</td>
-                        <td className="py-3 px-3 font-mono text-slate-500">{item.endTime}</td>
-                        <td className="py-3 px-3 text-right text-slate-400">-</td>
+                        <td className="py-3 px-3.5 whitespace-nowrap text-indigo-950 font-bold">{item.followupDate}</td>
+                        <td className="py-3 px-3.5 capitalize text-slate-500">{item.responseType}</td>
+                        <td className="py-3 px-3.5 text-slate-800 font-normal">{item.remarks}</td>
+                        <td className="py-3 px-3.5 font-bold text-slate-900">{item.followupBy}</td>
+                        <td className="py-3 px-3.5 font-mono text-slate-500">{item.startTime}</td>
+                        <td className="py-3 px-3.5 font-mono text-slate-500">{item.endTime}</td>
                       </tr>
                     ))
                   )}
@@ -547,16 +575,16 @@ export default function AddFollowupModal({
             </div>
 
             {/* Pagination Bar */}
-            <div className="flex items-center justify-between pt-2 text-xs text-slate-500">
+            <div className="flex items-center justify-between pt-2 text-xs font-semibold text-slate-500">
               <span>
                 Showing {filteredHistory.length > 0 ? historyStartIdx + 1 : 0} to {Math.min(historyStartIdx + historyItemsPerPage, filteredHistory.length)} of {filteredHistory.length} entries
               </span>
 
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => setHistoryCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={historyCurrentPage === 1}
-                  className="px-2.5 py-1 bg-white border border-slate-300 rounded hover:bg-slate-50 disabled:opacity-40 font-bold"
+                  className="px-3 py-1.5 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-40 font-bold shadow-xs cursor-pointer"
                 >
                   &lt;
                 </button>
@@ -564,9 +592,9 @@ export default function AddFollowupModal({
                   <button
                     key={p}
                     onClick={() => setHistoryCurrentPage(p)}
-                    className={`px-2.5 py-1 rounded font-bold transition-all ${
+                    className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
                       historyCurrentPage === p
-                        ? "bg-orange-600 text-white"
+                        ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-xs"
                         : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"
                     }`}
                   >
@@ -576,7 +604,7 @@ export default function AddFollowupModal({
                 <button
                   onClick={() => setHistoryCurrentPage((p) => Math.min(totalHistoryPages, p + 1))}
                   disabled={historyCurrentPage === totalHistoryPages}
-                  className="px-2.5 py-1 bg-white border border-slate-300 rounded hover:bg-slate-50 disabled:opacity-40 font-bold"
+                  className="px-3 py-1.5 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-40 font-bold shadow-xs cursor-pointer"
                 >
                   &gt;
                 </button>
