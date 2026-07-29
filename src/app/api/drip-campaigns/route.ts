@@ -13,21 +13,34 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const brandFilter = searchParams.get("brand");
 
-    let query: any = {};
+    let query: any = { campaignId: { $ne: "SYSTEM_SEEDED_MARKER" } };
     if (brandFilter && brandFilter !== "All Brands" && brandFilter !== "ALL BRANDS" && brandFilter !== "All") {
-      query.$or = [
-        { brandScope: { $regex: new RegExp(`^${brandFilter.trim()}$`, "i") } },
-        { brandScope: "ALL BRANDS" }
-      ];
+      query = {
+        campaignId: { $ne: "SYSTEM_SEEDED_MARKER" },
+        $or: [
+          { brandScope: { $regex: new RegExp(`^${brandFilter.trim()}$`, "i") } },
+          { brandScope: "ALL BRANDS" }
+        ]
+      };
     } else if (user && user.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "ALL BRANDS" && user.brandScope !== "All") {
-      query.$or = [{ brandScope: user.brandScope.toUpperCase() }, { brandScope: "ALL BRANDS" }];
+      query = {
+        campaignId: { $ne: "SYSTEM_SEEDED_MARKER" },
+        $or: [{ brandScope: user.brandScope.toUpperCase() }, { brandScope: "ALL BRANDS" }]
+      };
     }
 
     let campaigns = await DripCampaign.find(query).sort({ createdAt: -1 });
+    const hasBeenSeeded = await DripCampaign.exists({ campaignId: "SYSTEM_SEEDED_MARKER" });
 
-    // Seed default working Drip Campaigns if database is empty
-    if (campaigns.length === 0) {
+    // Seed default working Drip Campaigns ONLY ONCE on initial system setup
+    if (!hasBeenSeeded && campaigns.length === 0) {
       const defaultCampaigns = [
+        {
+          campaignId: "SYSTEM_SEEDED_MARKER",
+          campaignName: "SYSTEM_SEEDED_MARKER",
+          targetAudience: "All Leads",
+          status: "Draft",
+        },
         {
           campaignName: "7-DAY NEW LEAD NURTURING SEQUENCE",
           targetAudience: "New Enquiries",
