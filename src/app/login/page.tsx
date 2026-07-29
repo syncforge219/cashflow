@@ -68,19 +68,30 @@ export default function LoginPage() {
       } else {
         setIsSuccess(true);
         // Redirect to role-based dashboard
-        if (data.user?.role === "counsellor") {
-          window.location.href = "/counsellor-dashboard";
-        } else if (data.user?.role === "brand manager" || data.user?.role === "centre head") {
-          window.location.href = "/manager-dashboard";
-        } else if (data.user?.role === "teacher") {
-          window.location.href = "/teacher-dashboard";
-        } else if (data.user?.role === "cfo" || data.user?.role === "finance manager" || data.user?.role === "finance executive") {
-          window.location.href = "/cfo-dashboard";
+        const userRole = (data.user?.role || "").toLowerCase().trim();
 
-        } else if (data.user?.role === "crm" || data.user?.role === "crm executive" || data.user?.role === "crm advisor") {
+        if (userRole.includes("marketing")) {
+          setErrors({ email: "Access denied. Marketing accounts have been decommissioned." });
+          setIsSuccess(false);
+          return;
+        }
+
+        if (userRole === "counsellor") {
+          window.location.href = "/counsellor-dashboard";
+        } else if (userRole === "brand manager" || userRole === "centre head") {
+          window.location.href = "/manager-dashboard";
+        } else if (userRole === "teacher") {
+          window.location.href = "/teacher-dashboard";
+        } else if (userRole === "cfo" || userRole === "finance manager" || userRole === "finance executive") {
+          window.location.href = "/cfo-dashboard";
+        } else if (userRole === "crm" || userRole === "crm executive" || userRole === "crm advisor") {
           window.location.href = "/crm-dashboard";
-        } else {
+        } else if (userRole === "admin" || userRole === "super admin" || userRole === "director") {
           window.location.href = "/admin-dashboard";
+        } else {
+          setErrors({ email: "Access denied. Unrecognized or unauthorized user role." });
+          setIsSuccess(false);
+          return;
         }
       }
     } catch (err) {

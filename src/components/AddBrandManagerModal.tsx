@@ -224,8 +224,6 @@ export default function AddBrandManagerModal({ isOpen, onClose, onSuccess }: Add
                 required
               >
                 <option value="cfo">💼 Chief Financial Officer (CFO / Finance Manager)</option>
-                <option value="marketing lead">🚀 Marketing Lead / Marketing Manager</option>
-                <option value="digital marketer">🎯 Digital Marketer / Campaign Specialist</option>
                 <option value="centre head">🏢 Centre Head / Brand Manager</option>
               </select>
             </div>
