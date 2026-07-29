@@ -939,19 +939,22 @@ export default function ExpensesPage() {
 
   const totalRecurringExpenses = expenses.filter((e) => e.isRecurring).length;
 
-  // Pagination State
+  // Pagination & Sorting State
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [dateSort, setDateSort] = useState<"desc" | "asc">("desc");
 
   // Reset to page 1 on filter or search changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedCategory, selectedBrand, selectedCompany, itemsPerPage]);
+  }, [searchQuery, selectedCategory, selectedBrand, selectedCompany, itemsPerPage, dateSort]);
 
-  // Sort expenses date-wise (descending - newest expenses first)
-  const sortedExpenses = [...expenses].sort(
-    (a, b) => new Date(b.expenseDate).getTime() - new Date(a.expenseDate).getTime()
-  );
+  // Sort expenses date-wise according to dateSort
+  const sortedExpenses = [...expenses].sort((a, b) => {
+    const timeA = new Date(a.expenseDate).getTime();
+    const timeB = new Date(b.expenseDate).getTime();
+    return dateSort === "desc" ? timeB - timeA : timeA - timeB;
+  });
 
   const totalPages = Math.max(1, Math.ceil(sortedExpenses.length / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -1157,6 +1160,18 @@ export default function ExpensesPage() {
                 ))}
               </select>
             </div>
+
+            <div className="flex items-center gap-2 shrink-0 bg-slate-50 border border-slate-200/80 px-3 py-1.5 rounded-xl">
+              <span className="text-xs font-bold text-slate-500 shrink-0">Date Order:</span>
+              <select
+                value={dateSort}
+                onChange={(e) => setDateSort(e.target.value as "desc" | "asc")}
+                className="bg-transparent text-xs font-bold text-slate-700 focus:outline-none cursor-pointer"
+              >
+                <option value="desc">Newest First</option>
+                <option value="asc">Oldest First</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -1258,11 +1273,11 @@ export default function ExpensesPage() {
 
               <div className="flex items-center gap-1.5">
                 <button
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
                   className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all disabled:opacity-40 cursor-pointer"
                 >
-                  ← Previous
+                  ← Previous Date
                 </button>
                 
                 <div className="flex items-center gap-1">
@@ -1289,11 +1304,11 @@ export default function ExpensesPage() {
                 </div>
 
                 <button
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
                   className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all disabled:opacity-40 cursor-pointer"
                 >
-                  Next →
+                  Next Date →
                 </button>
               </div>
             </div>
