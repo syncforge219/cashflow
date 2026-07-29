@@ -91,6 +91,9 @@ export default function CrmDashboardPage() {
                   src={user.photoUrl}
                   alt={user.name || "Profile"}
                   className="h-8 w-8 rounded-lg object-cover ring-2 ring-indigo-500/20 group-hover:ring-indigo-500 transition-all shadow-2xs"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).style.display = 'none';
+                  }}
                 />
               ) : (
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-tr from-indigo-600 to-violet-600 text-white font-extrabold text-xs shadow-2xs">

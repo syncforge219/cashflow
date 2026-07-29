@@ -12,6 +12,13 @@ export default function BrandManagerDisplay() {
   const [brandToDelete, setBrandToDelete] = useState<any | null>(null);
   const [brandsList, setBrandsList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [failedLogos, setFailedLogos] = useState<Record<string, boolean>>({});
+
+  const handleLogoError = (id: string) => {
+    if (id) {
+      setFailedLogos((prev) => ({ ...prev, [id]: true }));
+    }
+  };
 
   const [enquiriesList, setEnquiriesList] = useState<any[]>([]);
 
@@ -212,10 +219,15 @@ export default function BrandManagerDisplay() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-3">
                       <div className={`h-11 w-11 flex items-center justify-center rounded-xl font-extrabold text-base shrink-0 overflow-hidden shadow-xs ${brand.color}`}>
-                        {b.logoUrl ? (
-                          <img src={b.logoUrl} alt={brand.name} className="h-full w-full object-cover" />
+                        {b.logoUrl && !failedLogos[b._id || b.id || b.brandId || brand.id] ? (
+                          <img
+                            src={b.logoUrl}
+                            alt={brand.name}
+                            className="h-full w-full object-cover"
+                            onError={() => handleLogoError(b._id || b.id || b.brandId || brand.id)}
+                          />
                         ) : (
-                          brand.initial
+                          <span className="text-white font-extrabold">{brand.initial}</span>
                         )}
                       </div>
                       <div>
@@ -264,10 +276,15 @@ export default function BrandManagerDisplay() {
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <div className={`h-12 w-12 flex items-center justify-center rounded-xl font-extrabold text-lg shadow-xs overflow-hidden ${selectedBrand.color}`}>
-                  {selectedBrandRaw?.logoUrl ? (
-                    <img src={selectedBrandRaw.logoUrl} alt={selectedBrand.name} className="h-full w-full object-cover" />
+                  {selectedBrandRaw?.logoUrl && !failedLogos[selectedBrandRaw._id || selectedBrandRaw.id || selectedBrandRaw.brandId || selectedBrand.id] ? (
+                    <img
+                      src={selectedBrandRaw.logoUrl}
+                      alt={selectedBrand.name}
+                      className="h-full w-full object-cover"
+                      onError={() => handleLogoError(selectedBrandRaw._id || selectedBrandRaw.id || selectedBrandRaw.brandId || selectedBrand.id)}
+                    />
                   ) : (
-                    selectedBrand.initial
+                    <span className="text-white font-extrabold">{selectedBrand.initial}</span>
                   )}
                 </div>
                 <div>

@@ -265,7 +265,14 @@ export default function CounsellorDashboardPage() {
             <div className="flex items-center gap-3 border-l border-slate-200 pl-4 cursor-pointer" onClick={() => setIsProfileOpen(true)}>
               <div className="h-9 w-9 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center justify-center shadow-sm overflow-hidden">
                 {user.photoUrl ? (
-                  <img src={user.photoUrl} alt={displayName} className="h-full w-full object-cover" />
+                  <img
+                    src={user.photoUrl}
+                    alt={displayName}
+                    className="h-full w-full object-cover"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
                 ) : (
                   <span>{initialLetter}</span>
                 )}
