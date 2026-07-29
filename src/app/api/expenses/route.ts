@@ -29,12 +29,18 @@ export async function GET(req: Request) {
       query.company = { $regex: new RegExp(`^${escapeRegExp(company.trim())}$`, "i") };
     }
 
-    if (startDate && endDate) {
-      const s = new Date(startDate);
-      s.setHours(0, 0, 0, 0);
-      const e = new Date(endDate);
-      e.setHours(23, 59, 59, 999);
-      query.expenseDate = { $gte: s, $lte: e };
+    if (startDate || endDate) {
+      query.expenseDate = {};
+      if (startDate) {
+        const s = new Date(startDate);
+        s.setHours(0, 0, 0, 0);
+        query.expenseDate.$gte = s;
+      }
+      if (endDate) {
+        const e = new Date(endDate);
+        e.setHours(23, 59, 59, 999);
+        query.expenseDate.$lte = e;
+      }
     }
 
     if (search) {

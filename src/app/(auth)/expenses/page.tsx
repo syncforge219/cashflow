@@ -176,6 +176,53 @@ export default function ExpensesPage() {
   const [companies, setCompanies] = useState<string[]>([]);
   const [rawBrands, setRawBrands] = useState<any[]>([]);
   const [rawCompanies, setRawCompanies] = useState<any[]>([]);
+  const [datePreset, setDatePreset] = useState("all");
+  const [startDateFilter, setStartDateFilter] = useState("");
+  const [endDateFilter, setEndDateFilter] = useState("");
+
+  const handleDatePresetChange = (preset: string) => {
+    setDatePreset(preset);
+    const now = new Date();
+    const formatDate = (d: Date) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    };
+
+    if (preset === "all") {
+      setStartDateFilter("");
+      setEndDateFilter("");
+    } else if (preset === "today") {
+      const todayStr = formatDate(now);
+      setStartDateFilter(todayStr);
+      setEndDateFilter(todayStr);
+    } else if (preset === "yesterday") {
+      const yesterday = new Date(now);
+      yesterday.setDate(now.getDate() - 1);
+      const yestStr = formatDate(yesterday);
+      setStartDateFilter(yestStr);
+      setEndDateFilter(yestStr);
+    } else if (preset === "this_week") {
+      const dayOfWeek = now.getDay();
+      const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - diffToMonday);
+      setStartDateFilter(formatDate(monday));
+      setEndDateFilter(formatDate(now));
+    } else if (preset === "this_month") {
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      setStartDateFilter(formatDate(firstDay));
+      setEndDateFilter(formatDate(now));
+    } else if (preset === "last_month") {
+      const firstDayLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const lastDayLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+      setStartDateFilter(formatDate(firstDayLastMonth));
+      setEndDateFilter(formatDate(lastDayLastMonth));
+    } else if (preset === "custom") {
+      // keep user selected custom values
+    }
+  };
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -836,6 +883,8 @@ export default function ExpensesPage() {
       if (selectedCategory && selectedCategory !== "All") params.append("category", selectedCategory);
       if (selectedBrand && selectedBrand !== "All Brands" && selectedBrand !== "All") params.append("brand", selectedBrand);
       if (selectedCompany && selectedCompany !== "All Companies" && selectedCompany !== "All") params.append("company", selectedCompany);
+      if (startDateFilter) params.append("startDate", startDateFilter);
+      if (endDateFilter) params.append("endDate", endDateFilter);
       if (searchQuery) params.append("search", searchQuery);
       if (params.toString()) url += `?${params.toString()}`;
 
@@ -853,7 +902,7 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     fetchExpenses();
-  }, [selectedCategory, selectedBrand, selectedCompany]);
+  }, [selectedCategory, selectedBrand, selectedCompany, startDateFilter, endDateFilter]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -947,7 +996,7 @@ export default function ExpensesPage() {
   // Reset to page 1 on filter or search changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedCategory, selectedBrand, selectedCompany, itemsPerPage, dateSort]);
+  }, [searchQuery, selectedCategory, selectedBrand, selectedCompany, startDateFilter, endDateFilter, itemsPerPage, dateSort]);
 
   // Sort expenses date-wise according to dateSort
   const sortedExpenses = [...expenses].sort((a, b) => {
@@ -1172,6 +1221,62 @@ export default function ExpensesPage() {
                 <option value="asc">Oldest First</option>
               </select>
             </div>
+
+            <div className="flex items-center gap-2 shrink-0 bg-slate-50 border border-slate-200/80 px-3 py-1.5 rounded-xl">
+              <span className="text-xs font-bold text-slate-500 shrink-0">Date Range:</span>
+              <select
+                value={datePreset}
+                onChange={(e) => handleDatePresetChange(e.target.value)}
+                className="bg-transparent text-xs font-bold text-slate-700 focus:outline-none cursor-pointer"
+              >
+                <option value="all">All Dates</option>
+                <option value="today">Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="this_week">This Week</option>
+                <option value="this_month">This Month</option>
+                <option value="last_month">Last Month</option>
+                <option value="custom">Custom Range</option>
+              </select>
+            </div>
+
+            {(datePreset === "custom" || startDateFilter || endDateFilter) && (
+              <div className="flex items-center gap-2 shrink-0 bg-slate-50 border border-slate-200/80 px-3 py-1.5 rounded-xl">
+                <span className="text-xs font-bold text-slate-500">From:</span>
+                <input
+                  type="date"
+                  value={startDateFilter}
+                  onChange={(e) => {
+                    setDatePreset("custom");
+                    setStartDateFilter(e.target.value);
+                  }}
+                  className="bg-transparent text-xs font-bold text-slate-700 focus:outline-none cursor-pointer"
+                />
+                <span className="text-xs font-bold text-slate-500">To:</span>
+                <input
+                  type="date"
+                  value={endDateFilter}
+                  onChange={(e) => {
+                    setDatePreset("custom");
+                    setEndDateFilter(e.target.value);
+                  }}
+                  className="bg-transparent text-xs font-bold text-slate-700 focus:outline-none cursor-pointer"
+                />
+                {(startDateFilter || endDateFilter) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDatePreset("all");
+                      setStartDateFilter("");
+                      setEndDateFilter("");
+                    }}
+                    className="text-xs font-bold text-rose-500 hover:text-rose-700 ml-1 cursor-pointer"
+                    title="Clear Date Filter"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
