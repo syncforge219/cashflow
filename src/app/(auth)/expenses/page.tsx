@@ -939,6 +939,24 @@ export default function ExpensesPage() {
 
   const totalRecurringExpenses = expenses.filter((e) => e.isRecurring).length;
 
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // Reset to page 1 on filter or search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedCategory, selectedBrand, selectedCompany, itemsPerPage]);
+
+  // Sort expenses date-wise (descending - newest expenses first)
+  const sortedExpenses = [...expenses].sort(
+    (a, b) => new Date(b.expenseDate).getTime() - new Date(a.expenseDate).getTime()
+  );
+
+  const totalPages = Math.max(1, Math.ceil(sortedExpenses.length / itemsPerPage));
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedExpenses = sortedExpenses.slice(startIndex, startIndex + itemsPerPage);
+
   // Floating Hover Tooltip State
   const [hoveredTooltip, setHoveredTooltip] = useState<TooltipItem | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
@@ -1138,7 +1156,7 @@ export default function ExpensesPage() {
         </div>
 
         {/* Expenses Table */}
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs flex-1">
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs flex-1 flex flex-col justify-between">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
@@ -1150,8 +1168,8 @@ export default function ExpensesPage() {
                   <th className="pb-3 pr-3 min-w-[90px]">Bank</th>
                   <th className="pb-3 pr-3 min-w-[72px]">Nature</th>
                   <th className="pb-3 px-3 min-w-[90px] text-right">Amount</th>
-                  <th className="pb-3 pl-4 min-w-[100px]">Payment Mode</th>
-                  <th className="pb-3 pr-3 min-w-[85px]">Date</th>
+                  <th className="pb-3 px-3 min-w-[110px] whitespace-nowrap">Payment Mode</th>
+                  <th className="pb-3 px-3 min-w-[100px] whitespace-nowrap">Date</th>
                   <th className="pb-3 text-right min-w-[100px]">Actions</th>
                 </tr>
               </thead>
@@ -1162,14 +1180,14 @@ export default function ExpensesPage() {
                       Loading expenses...
                     </td>
                   </tr>
-                ) : expenses.length === 0 ? (
+                ) : sortedExpenses.length === 0 ? (
                   <tr>
                     <td colSpan={10} className="py-8 text-center text-slate-400">
                       No expense records found. Click &quot;Record Expense&quot; to add one.
                     </td>
                   </tr>
                 ) : (
-                  expenses.map((e) => (
+                  paginatedExpenses.map((e) => (
                     <tr key={e._id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-3 pr-4 font-bold text-slate-900">{e.title}</td>
                       <td className="pr-4">
@@ -1186,8 +1204,8 @@ export default function ExpensesPage() {
                         </span>
                       </td>
                       <td className="px-3 text-right font-black text-rose-600 whitespace-nowrap">₹{e.amount.toLocaleString("en-IN")}</td>
-                      <td className="pl-4 pr-3 text-slate-500 whitespace-nowrap">{e.paymentMode}</td>
-                      <td className="pr-3 text-slate-500 text-[11px] whitespace-nowrap">
+                      <td className="px-3 text-slate-500 whitespace-nowrap">{e.paymentMode}</td>
+                      <td className="px-3 text-slate-500 text-[11px] whitespace-nowrap">
                         {new Date(e.expenseDate).toLocaleDateString("en-IN", {
                           day: "numeric",
                           month: "short",
@@ -1214,6 +1232,67 @@ export default function ExpensesPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Date-Wise Pagination Bar */}
+          {sortedExpenses.length > 0 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 mt-4 border-t border-slate-100 text-xs font-semibold text-slate-600">
+              <div className="flex items-center gap-2">
+                <span>Show</span>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                  className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-700 focus:outline-none cursor-pointer"
+                >
+                  <option value={10}>10 per page</option>
+                  <option value={25}>25 per page</option>
+                  <option value={50}>50 per page</option>
+                  <option value={100}>100 per page</option>
+                </select>
+                <span>entries (Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, sortedExpenses.length)} of {sortedExpenses.length} date-wise expenses)</span>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all disabled:opacity-40 cursor-pointer"
+                >
+                  ← Previous
+                </button>
+                
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter((page) => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1)
+                    .map((page, idx, arr) => {
+                      const showDots = idx > 0 && page - arr[idx - 1] > 1;
+                      return (
+                        <React.Fragment key={page}>
+                          {showDots && <span className="px-1.5 text-slate-400 font-bold">...</span>}
+                          <button
+                            onClick={() => setCurrentPage(page)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                              currentPage === page
+                                ? "bg-rose-600 text-white shadow-sm"
+                                : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        </React.Fragment>
+                      );
+                    })}
+                </div>
+
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all disabled:opacity-40 cursor-pointer"
+                >
+                  Next →
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Modal: Add or Edit Expense */}
