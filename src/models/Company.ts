@@ -47,6 +47,10 @@ const CompanySchema = new Schema(
       type: [String],
       default: [],
     },
+    qrCodeUrl: {
+      type: String,
+      default: "",
+    },
     status: {
       type: String,
       default: "ACTIVE",
