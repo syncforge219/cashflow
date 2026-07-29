@@ -183,7 +183,8 @@ export default function DripMarketingPage() {
 
   // Open Modal for Edit
   const handleOpenEditModal = (item: DripCampaignItem) => {
-    setEditingCampaignId(item._id);
+    const targetId = item._id || item.campaignId;
+    setEditingCampaignId(targetId);
     setFormData({
       campaignName: item.campaignName,
       targetAudience: item.targetAudience,
@@ -207,9 +208,10 @@ export default function DripMarketingPage() {
 
   // Toggle Active / Paused Status
   const handleToggleStatus = async (item: DripCampaignItem) => {
+    const targetId = item._id || item.campaignId;
     const nextStatus = item.status === "Active" ? "Paused" : "Active";
     try {
-      const res = await fetch(`/api/drip-campaigns/${item._id}`, {
+      const res = await fetch(`/api/drip-campaigns/${targetId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: nextStatus }),
@@ -223,10 +225,11 @@ export default function DripMarketingPage() {
   };
 
   // Delete Campaign
-  const handleDeleteCampaign = async (id: string) => {
+  const handleDeleteCampaign = async (item: DripCampaignItem) => {
+    const targetId = item._id || item.campaignId;
     if (!confirm("Are you sure you want to delete this drip campaign sequence?")) return;
     try {
-      const res = await fetch(`/api/drip-campaigns/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/drip-campaigns/${targetId}`, { method: "DELETE" });
       if (res.ok) {
         fetchCampaigns();
       }
@@ -237,10 +240,11 @@ export default function DripMarketingPage() {
 
   // Execute Sequence Now Trigger
   const handleExecuteNow = async (item: DripCampaignItem) => {
-    setExecutingCampaignId(item._id);
+    const targetId = item._id || item.campaignId;
+    setExecutingCampaignId(targetId);
     setExecutionNotice(null);
     try {
-      const res = await fetch(`/api/drip-campaigns/${item._id}/trigger`, {
+      const res = await fetch(`/api/drip-campaigns/${targetId}/trigger`, {
         method: "POST",
       });
       const data = await res.json();
@@ -576,7 +580,7 @@ export default function DripMarketingPage() {
                       </button>
 
                       <button
-                        onClick={() => handleDeleteCampaign(item._id)}
+                        onClick={() => handleDeleteCampaign(item)}
                         className="px-2.5 py-1.5 text-rose-500 hover:text-rose-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
                       >
                         Delete

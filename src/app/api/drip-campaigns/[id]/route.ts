@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import DripCampaign from "@/models/DripCampaign";
+import mongoose from "mongoose";
 
 export async function PUT(
   req: NextRequest,
@@ -11,7 +12,11 @@ export async function PUT(
     const { id } = await params;
     const body = await req.json();
 
-    const updated = await DripCampaign.findByIdAndUpdate(id, body, { new: true });
+    const query = mongoose.Types.ObjectId.isValid(id)
+      ? { $or: [{ _id: id }, { campaignId: id }] }
+      : { campaignId: id };
+
+    const updated = await DripCampaign.findOneAndUpdate(query, body, { new: true });
     if (!updated) {
       return NextResponse.json({ success: false, message: "Campaign not found" }, { status: 404 });
     }
@@ -31,7 +36,11 @@ export async function DELETE(
     await dbConnect();
     const { id } = await params;
 
-    const deleted = await DripCampaign.findByIdAndDelete(id);
+    const query = mongoose.Types.ObjectId.isValid(id)
+      ? { $or: [{ _id: id }, { campaignId: id }] }
+      : { campaignId: id };
+
+    const deleted = await DripCampaign.findOneAndDelete(query);
     if (!deleted) {
       return NextResponse.json({ success: false, message: "Campaign not found" }, { status: 404 });
     }

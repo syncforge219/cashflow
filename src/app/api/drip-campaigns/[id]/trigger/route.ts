@@ -5,6 +5,8 @@ import Enquiry from "@/models/Enquiry";
 import Admission from "@/models/Admission";
 import { sendWhatsAppEnquiryWelcome } from "@/lib/msg91";
 
+import mongoose from "mongoose";
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -13,7 +15,11 @@ export async function POST(
     await dbConnect();
     const { id } = await params;
 
-    const campaign = await DripCampaign.findById(id);
+    const query = mongoose.Types.ObjectId.isValid(id)
+      ? { $or: [{ _id: id }, { campaignId: id }] }
+      : { campaignId: id };
+
+    const campaign = await DripCampaign.findOne(query);
     if (!campaign) {
       return NextResponse.json({ success: false, message: "Drip campaign not found" }, { status: 404 });
     }
