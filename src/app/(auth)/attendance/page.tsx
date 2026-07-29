@@ -16,7 +16,7 @@ export default function AttendancePage() {
       {isTeacher ? <TeacherSidebar /> : <Sidebar />}
 
       {/* Main Attendance Management Area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto px-6 py-6">
+      <div className="flex-1 h-screen overflow-y-auto min-w-0 px-6 py-6 pb-32">
         <AttendanceDisplay />
       </div>
     </div>
