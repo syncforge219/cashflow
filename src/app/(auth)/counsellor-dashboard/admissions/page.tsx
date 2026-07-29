@@ -6,6 +6,7 @@ import LeadProfile from "@/components/LeadProfile";
 import AdmissionModal from "@/components/AdmissionModal";
 import AdmissionDetailModal from "@/components/AdmissionDetailModal";
 import PaymentReceiptModal from "@/components/PaymentReceiptModal";
+import Student360Modal from "@/components/Student360Modal";
 import CounsellorSidebar from "@/components/CounsellorSidebar";
 import { useUser } from "../../../component/context/user-context";
 
@@ -25,6 +26,10 @@ export default function AdmissionHub() {
     const [totalEnquiries, setTotalEnquiries] = useState(0);
     const [isLoadingAdmissions, setIsLoadingAdmissions] = useState(true);
     const [selectedAdmissionDetail, setSelectedAdmissionDetail] = useState<any | null>(null);
+
+    // Student 360 Modal State
+    const [selected360StudentId, setSelected360StudentId] = useState<string | null>(null);
+    const [is360Open, setIs360Open] = useState(false);
 
     // Receipt Modal States
     const [selectedStudentForReceipt, setSelectedStudentForReceipt] = useState<any | null>(null);
@@ -547,12 +552,24 @@ export default function AdmissionHub() {
                                                     </p>
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); handlePrintSlip(adm, e); }}
-                                                        className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors border border-indigo-100"
-                                                    >
-                                                        Print Slip
-                                                    </button>
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setSelected360StudentId(adm._id);
+                                                                setIs360Open(true);
+                                                            }}
+                                                            className="text-xs font-bold text-purple-600 hover:text-purple-800 bg-purple-50 hover:bg-purple-100 px-3 py-1.5 rounded-lg transition-colors border border-purple-100 cursor-pointer"
+                                                        >
+                                                            360 View
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); handlePrintSlip(adm, e); }}
+                                                            className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors border border-indigo-100 cursor-pointer"
+                                                        >
+                                                            Print Slip
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))}
@@ -652,6 +669,17 @@ export default function AdmissionHub() {
                     receipt={selectedReceipt}
                     student={selectedStudentForReceipt}
                     paymentsHistory={paymentsHistory}
+                />
+            )}
+
+            {is360Open && selected360StudentId && (
+                <Student360Modal
+                    isOpen={is360Open}
+                    onClose={() => {
+                        setIs360Open(false);
+                        setSelected360StudentId(null);
+                    }}
+                    admissionId={selected360StudentId}
                 />
             )}
         </div>

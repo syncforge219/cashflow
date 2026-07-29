@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
 import ManagerSidebar from "@/components/ManagerSidebar";
+import CounsellorSidebar from "@/components/CounsellorSidebar";
 import ProfileDisplay from "@/components/ProfileDisplay";
 import { useUser } from "@/app/component/context/user-context";
 import Student360Modal from "@/components/Student360Modal";
@@ -28,6 +29,12 @@ export default function Student360PortalPage() {
 
   // Role validation
   const userRole = (user?.role || "").toLowerCase();
+  const isCounsellor =
+    userRole === "counsellor" ||
+    userRole === "counselor" ||
+    userRole.includes("counsellor") ||
+    userRole.includes("counselor");
+
   const isAuthorized =
     userRole === "admin" ||
     userRole === "super admin" ||
@@ -41,7 +48,8 @@ export default function Student360PortalPage() {
     userRole === "center head" ||
     userRole === "center_head" ||
     userRole === "branch head" ||
-    userRole === "branch_head";
+    userRole === "branch_head" ||
+    isCounsellor;
 
   const isBrandManager = userRole === "brand_manager" || userRole === "brand-manager" || userRole === "brand manager";
 
@@ -133,6 +141,9 @@ export default function Student360PortalPage() {
   const renderSidebar = () => {
     if (userRole === "admin" || userRole === "super admin" || userRole === "super_admin") {
       return <Sidebar />;
+    }
+    if (isCounsellor) {
+      return <CounsellorSidebar />;
     }
     return <ManagerSidebar />;
   };
