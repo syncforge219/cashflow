@@ -23,7 +23,11 @@ interface SidebarGroup {
 
 export default function CounsellorSidebar() {
   const pathname = usePathname();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isPinned, setIsPinned] = useState(false);
+
+  const effectiveCollapsed = isPinned ? false : isCollapsed && !isHovered;
   const { logout } = useUser();
 
   const groups: SidebarGroup[] = [
@@ -129,20 +133,41 @@ export default function CounsellorSidebar() {
 
   return (
     <aside
-      className={`bg-white border-r border-slate-200/80 h-screen flex flex-col py-6 font-sans transition-all duration-300 shrink-0 ${isCollapsed ? "w-20 px-3" : "w-64 px-4"
-        }`}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className={`bg-white border-r border-slate-200/80 h-screen flex flex-col py-6 font-sans transition-all duration-300 ease-in-out shrink-0 relative group/sidebar ${
+        effectiveCollapsed ? "w-20 px-3" : "w-64 px-4 shadow-xl"
+      }`}
     >
+      {/* Pin / Lock Sidebar Toggle Button */}
+      <button
+        onClick={() => setIsPinned(!isPinned)}
+        className="absolute right-2 top-3 p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-slate-100 transition-all opacity-0 group-hover/sidebar:opacity-100 z-50 cursor-pointer"
+        title={isPinned ? "Unpin sidebar (Auto-collapse on mouse exit)" : "Pin sidebar expanded"}
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill={isPinned ? "currentColor" : "none"}
+          stroke="currentColor"
+          strokeWidth="2"
+          className={`w-4 h-4 transition-transform ${isPinned ? "text-emerald-600 rotate-45" : "text-slate-400"}`}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+      </button>
+
       {/* Brand Header */}
-      <SidebarBrandHeader isCollapsed={isCollapsed} subtitle="Counsellor Portal" />
+      <SidebarBrandHeader isCollapsed={effectiveCollapsed} subtitle="Counsellor Portal" />
 
       {/* CashFlow AI Copilot Trigger */}
-      <SidebarAiButton isCollapsed={isCollapsed} />
+      <SidebarAiButton isCollapsed={effectiveCollapsed} />
 
       {/* Navigation Groups */}
       <nav className="flex-1 space-y-6 overflow-y-auto pr-1">
         {groups.map((group) => (
           <div key={group.category} className="space-y-2">
-            {!isCollapsed ? (
+            {!effectiveCollapsed ? (
               <h3 className="px-3 text-[10px] font-bold tracking-widest text-slate-400/90 uppercase select-none">
                 {group.category}
               </h3>
@@ -161,11 +186,11 @@ export default function CounsellorSidebar() {
                     <Link
                       href={item.href}
                       onClick={item.onClick ? (e) => { e.preventDefault(); item.onClick!(); } : undefined}
-                      className={`group flex items-center ${isCollapsed ? "justify-center" : "gap-3 px-3"} py-2.5 text-xs font-bold rounded-xl transition-all duration-200 relative ${isActive
+                      className={`group flex items-center ${effectiveCollapsed ? "justify-center" : "gap-3 px-3"} py-2.5 text-xs font-bold rounded-xl transition-all duration-200 relative ${isActive
                         ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/20"
                         : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
                         }`}
-                      title={isCollapsed ? item.name : undefined}
+                      title={effectiveCollapsed ? item.name : undefined}
                     >
                       <span className={`${isActive ? "text-white" : "text-slate-400 group-hover:text-slate-700 transition-colors"} relative`}>
                         {item.icon}
@@ -173,13 +198,13 @@ export default function CounsellorSidebar() {
                           <span className="absolute -top-0.5 -right-0.5 h-2 w-2 bg-rose-500 rounded-full border border-white"></span>
                         )}
                       </span>
-                      {!isCollapsed && <span>{item.name}</span>}
+                      {!effectiveCollapsed && <span>{item.name}</span>}
                     </Link>
                   </motion.li>
                 );
               })}
             </ul>
-            {!isCollapsed && group.category !== "Tools" && (
+            {!effectiveCollapsed && group.category !== "Tools" && (
               <div className="pt-2 border-b border-slate-200/50 mx-3"></div>
             )}
           </div>
