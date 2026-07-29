@@ -585,7 +585,7 @@ export default function CfoDashboardPage() {
     { name: "Cash Balance", value: Math.max(1, summary.cashReserves), color: "#f59e0b" },
   ];
 
-  const categoryDonutData = (categoryBreakdown || []).slice(0, 6).map((c: any, idx: number) => ({
+  const categoryDonutData = (categoryBreakdown || []).map((c: any, idx: number) => ({
     name: c.name,
     value: c.value,
     color: COLORS[idx % COLORS.length],
