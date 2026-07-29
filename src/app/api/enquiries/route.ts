@@ -16,8 +16,15 @@ export async function POST(req: Request) {
       body.targetBrand = body.targetBrand || user.brandScope;
     }
 
-    // Fallbacks for optional form fields
-    body.studentFullName = body.studentFullName?.trim() || "Lead Student";
+    // Fallbacks and mandatory field validations
+    const fullName = body.studentFullName?.trim();
+    if (!fullName) {
+      return NextResponse.json(
+        { success: false, message: "Student full name is required." },
+        { status: 400 }
+      );
+    }
+    body.studentFullName = fullName;
     body.primaryPhoneMobile = body.primaryPhoneMobile?.trim() || "+91 0000000000";
     body.currentCity = body.currentCity?.trim() || "N/A";
     body.targetCourse = body.targetCourse?.trim() || "General Course";

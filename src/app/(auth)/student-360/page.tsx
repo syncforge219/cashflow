@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
 import ManagerSidebar from "@/components/ManagerSidebar";
+import CounsellorSidebar from "@/components/CounsellorSidebar";
 import ProfileDisplay from "@/components/ProfileDisplay";
 import { useUser } from "@/app/component/context/user-context";
 import Student360Modal from "@/components/Student360Modal";
@@ -41,7 +42,9 @@ export default function Student360PortalPage() {
     userRole === "center head" ||
     userRole === "center_head" ||
     userRole === "branch head" ||
-    userRole === "branch_head";
+    userRole === "branch_head" ||
+    userRole === "counsellor" ||
+    userRole === "counselor";
 
   const isBrandManager = userRole === "brand_manager" || userRole === "brand-manager" || userRole === "brand manager";
 
@@ -133,6 +136,9 @@ export default function Student360PortalPage() {
   const renderSidebar = () => {
     if (userRole === "admin" || userRole === "super admin" || userRole === "super_admin") {
       return <Sidebar />;
+    }
+    if (userRole === "counsellor" || userRole === "counselor") {
+      return <CounsellorSidebar />;
     }
     return <ManagerSidebar />;
   };

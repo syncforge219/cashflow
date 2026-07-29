@@ -121,8 +121,14 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
 
     const formData = new FormData(e.currentTarget);
     const data = Object.fromEntries(formData.entries());
-    
-    // Format phone numbers with +91 prefix
+
+    const studentFullName = String(data.studentFullName || "").trim();
+    if (!studentFullName) {
+      alert("Student Full Name is required.");
+      return;
+    }
+
+    setIsSubmitting(true);
     if (data.primaryPhoneMobile) {
       const cleanPrimary = String(data.primaryPhoneMobile).trim().replace(/^\+?91\s?/, '');
       data.primaryPhoneMobile = cleanPrimary ? `+91 ${cleanPrimary}` : "";
@@ -201,8 +207,10 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
             <h4 className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-4">Section 1: Demographics</h4>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Student Full Name</label>
-                <input name="studentFullName" type="text" placeholder="e.g. Rahul Sharma" className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50" />
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">
+                  Student Full Name <span className="text-rose-500">*</span>
+                </label>
+                <input name="studentFullName" type="text" required placeholder="e.g. Rahul Sharma" className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50" />
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Primary Phone Mobile</label>
