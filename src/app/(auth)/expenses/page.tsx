@@ -1084,26 +1084,31 @@ export default function ExpensesPage() {
           )}        </div>
 
         {/* Filter & Search Bar */}
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 mb-6 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
-          <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 w-full sm:w-80">
-            <input
-              type="text"
-              placeholder="Search expenses by description or remarks..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-slate-700"
-            />
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 mb-6 shadow-xs flex flex-col xl:flex-row items-center justify-between gap-4">
+          <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 w-full xl:w-72 shrink-0">
+            <div className="relative w-full">
+              <input
+                type="text"
+                placeholder="Search expenses by description..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-slate-700 font-medium"
+              />
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.637 10.637z" />
+              </svg>
+            </div>
             <button
               type="submit"
-              className="px-3 py-1.5 bg-slate-800 text-white text-xs font-bold rounded-xl hover:bg-slate-900 transition-colors"
+              className="px-3.5 py-1.5 bg-slate-800 text-white text-xs font-bold rounded-xl hover:bg-slate-900 transition-colors shrink-0 cursor-pointer"
             >
               Search
             </button>
           </form>
 
-          <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="text-xs font-bold text-slate-500">Brand:</span>
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full xl:w-auto overflow-x-auto">
+            <div className="flex items-center gap-2 shrink-0 bg-slate-50 border border-slate-200/80 px-3 py-1.5 rounded-xl">
+              <span className="text-xs font-bold text-slate-500 shrink-0">Brand:</span>
               <select
                 value={selectedBrand}
                 onChange={(e) => {
@@ -1114,7 +1119,7 @@ export default function ExpensesPage() {
                     setSelectedCompany("All Companies");
                   }
                 }}
-                className="px-3 py-1.5 text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-slate-700 cursor-pointer"
+                className="bg-transparent text-xs font-bold text-slate-700 focus:outline-none cursor-pointer max-w-[130px] truncate"
               >
                 <option value="All Brands">All Brands</option>
                 {brands.map((b) => (
@@ -1123,12 +1128,12 @@ export default function ExpensesPage() {
               </select>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="text-xs font-bold text-slate-500">Company:</span>
+            <div className="flex items-center gap-2 shrink-0 bg-slate-50 border border-slate-200/80 px-3 py-1.5 rounded-xl">
+              <span className="text-xs font-bold text-slate-500 shrink-0">Company:</span>
               <select
                 value={selectedCompany}
                 onChange={(e) => setSelectedCompany(e.target.value)}
-                className="px-3 py-1.5 text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-slate-700 cursor-pointer"
+                className="bg-transparent text-xs font-bold text-slate-700 focus:outline-none cursor-pointer max-w-[140px] truncate"
               >
                 <option value="All Companies">All Companies</option>
                 {availableFilterCompanies.map((c) => (
@@ -1137,12 +1142,12 @@ export default function ExpensesPage() {
               </select>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="text-xs font-bold text-slate-500">Category:</span>
+            <div className="flex items-center gap-2 shrink-0 bg-slate-50 border border-slate-200/80 px-3 py-1.5 rounded-xl">
+              <span className="text-xs font-bold text-slate-500 shrink-0">Category:</span>
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="px-3 py-1.5 text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-slate-700 cursor-pointer"
+                className="bg-transparent text-xs font-bold text-slate-700 focus:outline-none cursor-pointer max-w-[140px] truncate"
               >
                 <option value="All">All Categories</option>
                 {EXPENSE_CATEGORIES.map((cat) => (
