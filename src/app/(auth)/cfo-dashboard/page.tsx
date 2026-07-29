@@ -956,53 +956,7 @@ export default function CfoDashboardPage() {
                 </table>
               </div>
             </div>
-          </div>
-
-          {/* 5. EXPENSE CATEGORY DONUT & TABLE */}
-          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-5">
-            <div className="border-b border-slate-100 pb-3">
-              <h3 className="text-base font-extrabold text-slate-800">🍩 5. Where Expenses Go (Categories)</h3>
-              <p className="text-xs text-slate-400 font-medium">Category breakdown of operational expenditures</p>
-            </div>
-
-            {categoryDonutData.length === 0 ? (
-              <div className="py-12 text-xs font-semibold text-slate-400 text-center">No expense records found</div>
-            ) : (
-              <SvgDonutChart data={categoryDonutData} size={210} onHover={handleHover} onLeave={handleLeave} />
-            )}
-
-            <div className="pt-2 border-t border-slate-100">
-              <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">📋 Category Numbers Table</h4>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs font-semibold border border-slate-200/60 rounded-xl overflow-hidden shadow-xs">
-                  <thead className="bg-slate-100/80 text-slate-600 uppercase text-[10px]">
-                    <tr>
-                      <th className="py-2.5 px-3">Category Name</th>
-                      <th className="py-2.5 px-3">Spent Amount (₹)</th>
-                      <th className="py-2.5 px-3 text-right">Share (%)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-slate-700">
-                    {categoryBreakdown.map((c: any, idx: number) => {
-                      const totalExp = summary.totalExpenses || 1;
-                      const pct = ((c.value / totalExp) * 100).toFixed(1);
-                      return (
-                        <tr key={c.name} className="hover:bg-slate-50 transition-colors">
-                          <td className="py-2.5 px-3 font-bold flex items-center gap-2">
-                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
-                            <span>{c.name}</span>
-                          </td>
-                          <td className="py-2.5 px-3 font-bold text-rose-600">₹{c.value.toLocaleString("en-IN")}</td>
-                          <td className="py-2.5 px-3 text-right font-extrabold text-slate-700">{pct}%</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
+          </div>        </div>
 
         {/* 6 & 7. COMPANY & BRAND HORIZONTAL BAR GRAPHS WITH FULL UNTRUNCATED NAMES & NET BADGES */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

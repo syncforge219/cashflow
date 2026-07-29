@@ -76,6 +76,87 @@ const EXPENSE_CATEGORIES = [
   "Legal",
 ];
 
+interface TooltipItem {
+  name: string;
+  value: number;
+  pct?: string;
+  category?: string;
+}
+
+function SvgDonutChart({
+  data,
+  size = 210,
+  innerRadiusRatio = 0.65,
+  onHover,
+  onLeave,
+}: {
+  data: { name: string; value: number; color: string }[];
+  size?: number;
+  innerRadiusRatio?: number;
+  onHover: (item: TooltipItem, e: React.MouseEvent) => void;
+  onLeave: () => void;
+}) {
+  const total = data.reduce((sum, d) => sum + Math.max(0, d.value), 0) || 1;
+  let accumulatedAngle = 0;
+
+  const radius = size / 2 - 10;
+  const innerRadius = radius * innerRadiusRatio;
+  const center = size / 2;
+
+  const slices = data.map((d) => {
+    const angle = (Math.max(0, d.value) / total) * 360;
+    const startAngle = accumulatedAngle;
+    const endAngle = accumulatedAngle + angle;
+    accumulatedAngle += angle;
+
+    const startRad = (startAngle - 90) * (Math.PI / 180);
+    const endRad = (endAngle - 90) * (Math.PI / 180);
+
+    const x1Out = center + radius * Math.cos(startRad);
+    const y1Out = center + radius * Math.sin(startRad);
+    const x2Out = center + radius * Math.cos(endRad);
+    const y2Out = center + radius * Math.sin(endRad);
+
+    const x1In = center + innerRadius * Math.cos(endRad);
+    const y1In = center + innerRadius * Math.sin(endRad);
+    const x2In = center + innerRadius * Math.cos(startRad);
+    const y2In = center + innerRadius * Math.sin(startRad);
+
+    const largeArcFlag = angle > 180 ? 1 : 0;
+
+    const pathData =
+      angle >= 359.9
+        ? `M ${center - radius}, ${center} A ${radius},${radius} 0 1,0 ${center + radius},${center} A ${radius},${radius} 0 1,0 ${center - radius},${center}`
+        : `M ${x1Out},${y1Out} A ${radius},${radius} 0 ${largeArcFlag},1 ${x2Out},${y2Out} L ${x1In},${y1In} A ${innerRadius},${innerRadius} 0 ${largeArcFlag},0 ${x2In},${y2In} Z`;
+
+    return { ...d, pathData, pct: ((d.value / total) * 100).toFixed(1) };
+  });
+
+  return (
+    <div className="flex flex-col items-center gap-4">
+      <div className="relative flex items-center justify-center">
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="drop-shadow-md">
+          {slices.map((slice, idx) => (
+            <path
+              key={idx}
+              d={slice.pathData}
+              fill={slice.color}
+              className="transition-all duration-200 hover:opacity-80 hover:scale-105 transform origin-center cursor-pointer"
+              onMouseEnter={(e) => onHover({ name: slice.name, value: slice.value, pct: slice.pct, category: "ALLOCATION" }, e)}
+              onMouseMove={(e) => onHover({ name: slice.name, value: slice.value, pct: slice.pct, category: "ALLOCATION" }, e)}
+              onMouseLeave={onLeave}
+            />
+          ))}
+        </svg>
+        <div className="absolute flex flex-col items-center justify-center pointer-events-none text-center">
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TOTAL</span>
+          <span className="text-sm font-black text-indigo-600">₹{(total / 100000).toFixed(1)}L</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ExpensesPage() {
   const { user, logout } = useUser();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -858,10 +939,60 @@ export default function ExpensesPage() {
 
   const totalRecurringExpenses = expenses.filter((e) => e.isRecurring).length;
 
+  // Floating Hover Tooltip State
+  const [hoveredTooltip, setHoveredTooltip] = useState<TooltipItem | null>(null);
+  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+
+  const handleHover = (item: TooltipItem, e: React.MouseEvent) => {
+    setHoveredTooltip(item);
+    setTooltipPos({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleLeave = () => {
+    setHoveredTooltip(null);
+  };
+
+  const COLORS = ["#4f46e5", "#10b981", "#8b5cf6", "#f59e0b", "#ef4444", "#06b6d4", "#ec4899", "#3b82f6", "#f97316", "#14b8a6"];
+
+  const categoryMap: Record<string, number> = {};
+  expenses.forEach((e) => {
+    const cat = e.category || "Misc";
+    categoryMap[cat] = (categoryMap[cat] || 0) + (Number(e.amount) || 0);
+  });
+
+  const categoryBreakdown = Object.entries(categoryMap)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
+
+  const categoryDonutData = categoryBreakdown.map((c, idx) => ({
+    name: c.name,
+    value: c.value,
+    color: COLORS[idx % COLORS.length],
+  }));
+
   return (
     <CfoSecurityGuard>
-      <div className="flex h-screen bg-[#f8faff] text-slate-800 overflow-hidden font-sans">
+      <div className="flex h-screen bg-[#f8faff] text-slate-800 overflow-hidden font-sans relative">
       <Sidebar />
+
+      {/* FLOATING HOVER TOOLTIP */}
+      {hoveredTooltip && (
+        <div
+          className="fixed z-50 pointer-events-none bg-slate-900/95 text-white text-xs font-bold px-3.5 py-2.5 rounded-xl shadow-2xl border border-slate-700 backdrop-blur-md transform -translate-x-1/2 -translate-y-full transition-all duration-100"
+          style={{ left: tooltipPos.x, top: tooltipPos.y - 12 }}
+        >
+          <div className="text-[10px] text-indigo-300 font-extrabold uppercase mb-0.5">{hoveredTooltip.category || "DETAILS"}</div>
+          <div className="text-sm font-black text-white">{hoveredTooltip.name}</div>
+          <div className="flex items-center justify-between gap-4 mt-1 pt-1 border-t border-slate-800 text-[11px]">
+            <span className="text-emerald-400 font-extrabold">Amount: ₹{Number(hoveredTooltip.value).toLocaleString("en-IN")}</span>
+            {hoveredTooltip.pct !== undefined && (
+              <span className="text-slate-300 font-bold bg-slate-800 px-1.5 py-0.5 rounded">
+                Share: {hoveredTooltip.pct}%
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto px-6 py-6">
         {/* Header */}
@@ -918,6 +1049,51 @@ export default function ExpensesPage() {
             <span className="text-[10px] font-bold text-slate-400 uppercase">Recurring Expenses</span>
             <div className="text-2xl font-black text-purple-600 mt-1">{totalRecurringExpenses} Active</div>
             <span className="text-[10px] font-semibold text-slate-400">Software, Rent & Subscriptions</span>
+          </div>
+        </div>
+
+        {/* WHERE EXPENSES GO (CATEGORIES) DONUT & NUMBERS TABLE */}
+        <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm mb-6 space-y-5">
+          <div className="border-b border-slate-100 pb-3">
+            <h3 className="text-base font-extrabold text-slate-800">🍩 Where Expenses Go (Categories)</h3>
+            <p className="text-xs text-slate-400 font-medium">Category breakdown of operational expenditures</p>
+          </div>
+
+          {categoryDonutData.length === 0 ? (
+            <div className="py-12 text-xs font-semibold text-slate-400 text-center">No expense records found</div>
+          ) : (
+            <SvgDonutChart data={categoryDonutData} size={210} onHover={handleHover} onLeave={handleLeave} />
+          )}
+
+          <div className="pt-2 border-t border-slate-100">
+            <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">📋 Category Numbers Table</h4>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs font-semibold border border-slate-200/60 rounded-xl overflow-hidden shadow-xs">
+                <thead className="bg-slate-100/80 text-slate-600 uppercase text-[10px]">
+                  <tr>
+                    <th className="py-2.5 px-3">Category Name</th>
+                    <th className="py-2.5 px-3">Spent Amount (₹)</th>
+                    <th className="py-2.5 px-3 text-right">Share (%)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-700">
+                  {categoryBreakdown.map((c, idx) => {
+                    const totalExp = totalExpenseSum || 1;
+                    const pct = ((c.value / totalExp) * 100).toFixed(1);
+                    return (
+                      <tr key={c.name} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-2.5 px-3 font-bold flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
+                          <span>{c.name}</span>
+                        </td>
+                        <td className="py-2.5 px-3 font-bold text-rose-600">₹{c.value.toLocaleString("en-IN")}</td>
+                        <td className="py-2.5 px-3 text-right font-extrabold text-slate-700">{pct}%</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
