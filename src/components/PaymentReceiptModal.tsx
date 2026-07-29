@@ -465,7 +465,7 @@ export default function PaymentReceiptModal({
                     <tr>
                       <td className="p-2">566</td>
                       <td className="p-2 font-semibold text-slate-900">{student.course}</td>
-                      <td className="p-2 font-bold text-indigo-900">Registration Amount (Collected Today)</td>
+                      <td className="p-2 font-bold text-indigo-900">Course Fee / Payment Received Today</td>
                       <td className="p-2">{paymentDateFormatted}</td>
                       <td className="p-2 text-right">{finalFee.toLocaleString("en-IN")}</td>
                       <td className="p-2 text-right font-bold text-emerald-700">₹{(regAmount || currentPayment).toLocaleString("en-IN")}</td>
