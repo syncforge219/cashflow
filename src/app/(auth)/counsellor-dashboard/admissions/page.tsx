@@ -79,12 +79,33 @@ export default function AdmissionHub() {
             const json = await res.json();
             if (json.success && Array.isArray(json.data)) {
                 const uName = ((user as any)?.name || (user as any)?.fullName || (user as any)?.username || "").trim().toLowerCase();
-                const myAdmissions = json.data.filter((a: any) => {
-                    const cName = (a.counsellor || "").trim().toLowerCase();
-                    if (!uName || !cName) return true;
-                    return cName === uName || cName.includes(uName) || uName.includes(cName);
-                });
-                setAdmissions(myAdmissions);
+                const uBrand = (user?.brandScope || "").trim().toLowerCase();
+
+                const isMatch = (dbVal: string, bVal?: string) => {
+                    const val = (dbVal || "").trim().toLowerCase();
+                    const brand = (bVal || "").trim().toLowerCase();
+
+                    if (!val || val === "staff" || val === "counsellor" || val === "unassigned" || val === "n/a") return true;
+                    if (!uName) return true;
+                    if (val === uName || val.includes(uName) || uName.includes(val)) return true;
+
+                    const dbTokens = val.split(/\s+/);
+                    const uTokens = uName.split(/\s+/);
+                    if (dbTokens.some(dt => dt.length > 2 && uTokens.some(ut => ut.length > 2 && (dt.includes(ut) || ut.includes(dt))))) {
+                        return true;
+                    }
+
+                    if (uBrand && uBrand !== "all" && uBrand !== "all brands" && brand && (brand === uBrand || brand.includes(uBrand) || uBrand.includes(brand))) {
+                        return true;
+                    }
+
+                    return false;
+                };
+
+                const myAdmissions = json.data.filter((a: any) => isMatch(a.counsellor || a.assignedCrmAdvisor, a.brand));
+                const finalAdmissions = myAdmissions.length > 0 ? myAdmissions : json.data;
+
+                setAdmissions(finalAdmissions);
                 if (json.totalEnquiries !== undefined) {
                     setTotalEnquiries(json.totalEnquiries);
                 }
