@@ -86,6 +86,15 @@ export async function POST(request: Request) {
       );
     }
 
+    const cleanRole = (user.role || "").toLowerCase().trim();
+    if (cleanRole.includes("marketing")) {
+      console.warn(`[Login 403] Attempted login by decommissioned marketing user: "${cleanEmail}"`);
+      return NextResponse.json(
+        { error: "Access denied. Marketing accounts have been decommissioned." },
+        { status: 403, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
     const tokenPayload = {
       id: user._id.toString(),
       email: user.email,

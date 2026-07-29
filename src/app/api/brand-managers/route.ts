@@ -13,9 +13,6 @@ export async function GET() {
           "centre head",
           "cfo",
           "finance manager",
-          "marketing lead",
-          "marketing manager",
-          "digital marketer",
         ],
       },
     }).sort({ createdAt: -1 });
