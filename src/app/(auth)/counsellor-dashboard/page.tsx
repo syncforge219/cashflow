@@ -88,7 +88,7 @@ export default function CounsellorDashboardPage() {
 
           const dbTokens = val.split(/\s+/);
           const uTokens = uName.split(/\s+/);
-          if (dbTokens.some(dt => dt.length > 2 && uTokens.some(ut => ut.length > 2 && (dt.includes(ut) || ut.includes(dt))))) {
+          if (dbTokens.some((dt: string) => dt.length > 2 && uTokens.some((ut: string) => ut.length > 2 && (dt.includes(ut) || ut.includes(dt))))) {
             return true;
           }
 
