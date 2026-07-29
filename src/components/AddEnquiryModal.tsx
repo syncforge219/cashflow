@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUser } from "@/app/component/context/user-context";
+import LeadSourceManagerModal from "@/components/LeadSourceManagerModal";
 
 interface AddEnquiryModalProps {
   isOpen: boolean;
@@ -18,6 +19,9 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
   const [courses, setCourses] = useState<any[]>([]);
   const [brands, setBrands] = useState<any[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
+  const [leadSources, setLeadSources] = useState<any[]>([]);
+  const [selectedLeadSource, setSelectedLeadSource] = useState<string>("Google Ads");
+  const [isLeadSourceModalOpen, setIsLeadSourceModalOpen] = useState(false);
   const [selectedBrand, setSelectedBrand] = useState<string>("");
   const [selectedAdvisor, setSelectedAdvisor] = useState("");
   const [expectedCourseFee, setExpectedCourseFee] = useState("₹0");
@@ -67,6 +71,15 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
         .then(data => {
           if (data.success) {
             setTeachers(data.teachers || data.data || []);
+          }
+        })
+        .catch(console.error);
+
+      fetch("/api/lead-sources")
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && Array.isArray(data.data)) {
+            setLeadSources(data.data);
           }
         })
         .catch(console.error);
@@ -315,18 +328,42 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
                 </div>
               )}
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Lead Source</label>
-                <select name="leadSource" className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
-                  <option value="Google Ads">Google Ads</option>
-                  <option value="Meta Ads">Meta Ads</option>
-                  <option value="Website">Website</option>
-                  <option value="Seminar">Seminar</option>
-                  <option value="Hoarding">Hoarding</option>
-                  <option value="Reference">Reference</option>
-                  <option value="Paper Ads">Paper Ads</option>
-                  <option value="Internet Search">Internet Search</option>
-                  <option value="Direct Walkin">Direct Walkin</option>
-                  <option value="Call on Database">Call on Database</option>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">Lead Source</label>
+                  <button
+                    type="button"
+                    onClick={() => setIsLeadSourceModalOpen(true)}
+                    className="text-[10px] font-extrabold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100 hover:bg-indigo-100 transition-colors cursor-pointer"
+                  >
+                    + Add Source
+                  </button>
+                </div>
+                <select
+                  name="leadSource"
+                  value={selectedLeadSource}
+                  onChange={(e) => setSelectedLeadSource(e.target.value)}
+                  className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                >
+                  {leadSources.length > 0 ? (
+                    leadSources.map((ls) => (
+                      <option key={ls._id || ls.name} value={ls.name}>
+                        {ls.name}
+                      </option>
+                    ))
+                  ) : (
+                    <>
+                      <option value="Google Ads">Google Ads</option>
+                      <option value="Meta Ads">Meta Ads</option>
+                      <option value="Website">Website</option>
+                      <option value="Seminar">Seminar</option>
+                      <option value="Hoarding">Hoarding</option>
+                      <option value="Reference">Reference</option>
+                      <option value="Paper Ads">Paper Ads</option>
+                      <option value="Internet Search">Internet Search</option>
+                      <option value="Direct Walkin">Direct Walkin</option>
+                      <option value="Call on Database">Call on Database</option>
+                    </>
+                  )}
                 </select>
               </div>
               <div>
@@ -537,6 +574,18 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
           </motion.form>
         </motion.div>
       )}
+
+      <LeadSourceManagerModal
+        isOpen={isLeadSourceModalOpen}
+        onClose={() => setIsLeadSourceModalOpen(false)}
+        onSourceAdded={(newSrc) => {
+          setLeadSources((prev) => {
+            if (prev.some((s) => s.name.toLowerCase() === newSrc.toLowerCase())) return prev;
+            return [...prev, { name: newSrc }];
+          });
+          setSelectedLeadSource(newSrc);
+        }}
+      />
     </AnimatePresence>
   );
 }

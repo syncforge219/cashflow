@@ -5,16 +5,19 @@ import AddEnquiryModal from "./AddEnquiryModal";
 import LeadProfile from "./LeadProfile";
 import ImportLeadsModal from "./ImportLeadsModal";
 import GoogleFormIntegrationModal from "./GoogleFormIntegrationModal";
+import LeadSourceManagerModal from "./LeadSourceManagerModal";
 
 export default function EnquiriesDisplay() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isLeadSourceModalOpen, setIsLeadSourceModalOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<any | null>(null);
 
   const [enquiries, setEnquiries] = useState<any[]>([]);
   const [counsellorsList, setCounsellorsList] = useState<any[]>([]);
   const [brandsList, setBrandsList] = useState<any[]>([]);
+  const [dbLeadSources, setDbLeadSources] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [dateOffset, setDateOffset] = useState(0);
@@ -134,6 +137,15 @@ export default function EnquiriesDisplay() {
         if (data.success) setBrandsList(data.brands || []);
       })
       .catch(console.error);
+
+    fetch("/api/lead-sources")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.data)) {
+          setDbLeadSources(data.data);
+        }
+      })
+      .catch(console.error);
   }, []);
 
   // Compute unique values for dropdowns based on actual database entries (case-insensitive deduplication)
@@ -160,10 +172,13 @@ export default function EnquiriesDisplay() {
   );
 
   const uniqueSources = Array.from<string>(
-    enquiries.reduce((map, e) => {
-      if (e.leadSource && e.leadSource.trim()) {
-        const key = e.leadSource.trim().toLowerCase();
-        if (!map.has(key)) map.set(key, e.leadSource.trim());
+    [
+      ...dbLeadSources.map((s: any) => s.name),
+      ...enquiries.map((e: any) => e.leadSource).filter(Boolean),
+    ].reduce((map, src) => {
+      if (src && typeof src === "string" && src.trim()) {
+        const key = src.trim().toLowerCase();
+        if (!map.has(key)) map.set(key, src.trim());
       }
       return map;
     }, new Map<string, string>()).values()
@@ -293,6 +308,15 @@ export default function EnquiriesDisplay() {
             className="flex items-center gap-1.5 text-xs font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 rounded-xl px-4 py-2 shadow-xs transition-all cursor-pointer"
           >
             <span>📝 Google Forms & Links</span>
+          </button>
+          <button
+            onClick={() => setIsLeadSourceModalOpen(true)}
+            className="flex items-center gap-1.5 text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:text-slate-900 rounded-xl px-4 py-2 shadow-xs transition-all cursor-pointer"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4 text-indigo-600">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            Lead Sources
           </button>
           <button
             onClick={() => setIsImportModalOpen(true)}
@@ -720,6 +744,17 @@ export default function EnquiriesDisplay() {
       <GoogleFormIntegrationModal
         isOpen={isGoogleFormModalOpen}
         onClose={() => setIsGoogleFormModalOpen(false)}
+      />
+
+      <LeadSourceManagerModal
+        isOpen={isLeadSourceModalOpen}
+        onClose={() => setIsLeadSourceModalOpen(false)}
+        onSourceAdded={(newSrc) => {
+          setDbLeadSources((prev) => {
+            if (prev.some((s) => s.name.toLowerCase() === newSrc.toLowerCase())) return prev;
+            return [...prev, { name: newSrc }];
+          });
+        }}
       />
 
     </div>

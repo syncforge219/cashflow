@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { useUser } from "@/app/component/context/user-context";
+import LeadSourceManagerModal from "@/components/LeadSourceManagerModal";
 
 interface EditEnquiryModalProps {
   isOpen: boolean;
@@ -14,6 +15,8 @@ export default function EditEnquiryModal({ isOpen, onClose, onSuccess, lead }: E
   const { user } = useUser();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [counsellors, setCounsellors] = useState<any[]>([]);
+  const [leadSources, setLeadSources] = useState<any[]>([]);
+  const [isLeadSourceModalOpen, setIsLeadSourceModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     studentFullName: "",
     primaryPhoneMobile: "",
@@ -39,6 +42,15 @@ export default function EditEnquiryModal({ isOpen, onClose, onSuccess, lead }: E
         .then((data) => {
           if (data.success && data.counsellors) {
             setCounsellors(data.counsellors);
+          }
+        })
+        .catch(console.error);
+
+      fetch("/api/lead-sources")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && Array.isArray(data.data)) {
+            setLeadSources(data.data);
           }
         })
         .catch(console.error);
@@ -204,18 +216,40 @@ export default function EditEnquiryModal({ isOpen, onClose, onSuccess, lead }: E
               </select>
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-500 mb-1.5">Lead Source</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold text-slate-500">Lead Source</label>
+                <button
+                  type="button"
+                  onClick={() => setIsLeadSourceModalOpen(true)}
+                  className="text-[10px] font-extrabold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100 hover:bg-indigo-100 transition-colors cursor-pointer"
+                >
+                  + Add Source
+                </button>
+              </div>
               <select name="leadSource" value={formData.leadSource} onChange={handleChange} className="w-full text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50">
-                <option value="Google Ads">Google Ads</option>
-                <option value="Meta Ads">Meta Ads</option>
-                <option value="Website">Website</option>
-                <option value="Seminar">Seminar</option>
-                <option value="Hoarding">Hoarding</option>
-                <option value="Reference">Reference</option>
-                <option value="Paper Ads">Paper Ads</option>
-                <option value="Internet Search">Internet Search</option>
-                <option value="Direct Walkin">Direct Walkin</option>
-                <option value="Call on Database">Call on Database</option>
+                {leadSources.length > 0 ? (
+                  leadSources.map((ls) => (
+                    <option key={ls._id || ls.name} value={ls.name}>
+                      {ls.name}
+                    </option>
+                  ))
+                ) : (
+                  <>
+                    <option value="Google Ads">Google Ads</option>
+                    <option value="Meta Ads">Meta Ads</option>
+                    <option value="Website">Website</option>
+                    <option value="Seminar">Seminar</option>
+                    <option value="Hoarding">Hoarding</option>
+                    <option value="Reference">Reference</option>
+                    <option value="Paper Ads">Paper Ads</option>
+                    <option value="Internet Search">Internet Search</option>
+                    <option value="Direct Walkin">Direct Walkin</option>
+                    <option value="Call on Database">Call on Database</option>
+                  </>
+                )}
+                {formData.leadSource && !leadSources.some(ls => ls.name === formData.leadSource) && (
+                  <option value={formData.leadSource}>{formData.leadSource}</option>
+                )}
               </select>
             </div>
             <div>
@@ -261,6 +295,18 @@ export default function EditEnquiryModal({ isOpen, onClose, onSuccess, lead }: E
           </button>
         </div>
       </form>
+
+      <LeadSourceManagerModal
+        isOpen={isLeadSourceModalOpen}
+        onClose={() => setIsLeadSourceModalOpen(false)}
+        onSourceAdded={(newSrc) => {
+          setLeadSources((prev) => {
+            if (prev.some((s) => s.name.toLowerCase() === newSrc.toLowerCase())) return prev;
+            return [...prev, { name: newSrc }];
+          });
+          setFormData((prev) => ({ ...prev, leadSource: newSrc }));
+        }}
+      />
     </div>
   );
 }

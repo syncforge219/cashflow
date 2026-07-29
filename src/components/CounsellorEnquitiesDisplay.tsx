@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import AddEnquiryModal from "./AddEnquiryModal";
 import ImportLeadsModal from "./ImportLeadsModal";
 import LeadProfile from "./LeadProfile";
+import LeadSourceManagerModal from "./LeadSourceManagerModal";
 import { useUser } from "@/app/component/context/user-context";
 
 export default function CounsellorEnquiriesDisplay() {
@@ -11,9 +12,11 @@ export default function CounsellorEnquiriesDisplay() {
     const [searchQuery, setSearchQuery] = useState("");
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+    const [isLeadSourceModalOpen, setIsLeadSourceModalOpen] = useState(false);
     const [selectedLead, setSelectedLead] = useState<any | null>(null);
 
     const [enquiries, setEnquiries] = useState<any[]>([]);
+    const [dbLeadSources, setDbLeadSources] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
     const [dateOffset, setDateOffset] = useState(0);
@@ -121,10 +124,23 @@ export default function CounsellorEnquiriesDisplay() {
 
     useEffect(() => {
         fetchEnquiries();
+        fetch("/api/lead-sources")
+            .then((res) => res.json())
+            .then((data) => {
+                if (data.success && Array.isArray(data.data)) {
+                    setDbLeadSources(data.data);
+                }
+            })
+            .catch(console.error);
     }, []);
 
     // Compute unique values for dropdowns based on all database entries
-    const uniqueSources = Array.from(new Set(enquiries.map(e => e.leadSource).filter(Boolean)));
+    const uniqueSources = Array.from(
+        new Set([
+            ...dbLeadSources.map((s: any) => s.name),
+            ...enquiries.map((e: any) => e.leadSource).filter(Boolean),
+        ])
+    );
     const uniquePriorities = Array.from(new Set(enquiries.map(e => e.priorityLevel).filter(Boolean)));
     const uniqueStatuses = Array.from(new Set(enquiries.map(e => e.status).filter(Boolean)));
     const isCustomDateRangeActive = startDateFilter !== "" || endDateFilter !== "" || dateFilterMode !== "all";
@@ -223,6 +239,15 @@ export default function CounsellorEnquiriesDisplay() {
 
                 {/* Buttons */}
                 <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => setIsLeadSourceModalOpen(true)}
+                        className="flex items-center gap-1.5 text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:text-slate-900 rounded-xl px-4 py-2 shadow-xs transition-all cursor-pointer"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4 text-emerald-600">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                        </svg>
+                        Lead Sources
+                    </button>
                     <button
                         onClick={() => setIsImportModalOpen(true)}
                         className="flex items-center gap-1.5 text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:text-slate-900 rounded-xl px-4 py-2 shadow-sm transition-all"
@@ -597,6 +622,17 @@ export default function CounsellorEnquiriesDisplay() {
                 lead={selectedLead}
                 onClose={() => setSelectedLead(null)}
                 onSuccess={() => fetchEnquiries()}
+            />
+
+            <LeadSourceManagerModal
+                isOpen={isLeadSourceModalOpen}
+                onClose={() => setIsLeadSourceModalOpen(false)}
+                onSourceAdded={(newSrc) => {
+                    setDbLeadSources((prev) => {
+                        if (prev.some((s) => s.name.toLowerCase() === newSrc.toLowerCase())) return prev;
+                        return [...prev, { name: newSrc }];
+                    });
+                }}
             />
         </div>
     );
