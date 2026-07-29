@@ -909,54 +909,52 @@ export default function CfoDashboardPage() {
           </div>
         </div>
 
-        {/* 4 & 5. QUARTERLY BARS & CATEGORY DONUT WITH TABLES */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* 4. QUARTERLY PERFORMANCE BARS & TABLE */}
-          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-5">
-            <div className="border-b border-slate-100 pb-3">
-              <h3 className="text-base font-extrabold text-slate-800">📊 4. Quarterly Performance</h3>
-              <p className="text-xs text-slate-400 font-medium">Comparison across Q1, Q2, Q3, and Q4 periods</p>
-            </div>
+        {/* 4. QUARTERLY PERFORMANCE BARS & TABLE */}
+        <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-5">
+          <div className="border-b border-slate-100 pb-3">
+            <h3 className="text-base font-extrabold text-slate-800">📊 4. Quarterly Performance</h3>
+            <p className="text-xs text-slate-400 font-medium">Comparison across Q1, Q2, Q3, and Q4 periods</p>
+          </div>
 
-            <SvgBarGraph
-              data={quarterlyBarData}
-              height={230}
-              color1="#4f46e5"
-              color2="#ef4444"
-              label1="Money In"
-              label2="Money Out"
-              onHover={handleHover}
-              onLeave={handleLeave}
-            />
+          <SvgBarGraph
+            data={quarterlyBarData}
+            height={230}
+            color1="#4f46e5"
+            color2="#ef4444"
+            label1="Money In"
+            label2="Money Out"
+            onHover={handleHover}
+            onLeave={handleLeave}
+          />
 
-            <div className="pt-2 border-t border-slate-100">
-              <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">📋 Quarterly Numbers Table</h4>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs font-semibold border border-slate-200/60 rounded-xl overflow-hidden shadow-xs">
-                  <thead className="bg-slate-100/80 text-slate-600 uppercase text-[10px]">
-                    <tr>
-                      <th className="py-2.5 px-3">Quarter</th>
-                      <th className="py-2.5 px-3">Money In (₹)</th>
-                      <th className="py-2.5 px-3">Money Out (₹)</th>
-                      <th className="py-2.5 px-3 text-right">Net Savings</th>
+          <div className="pt-2 border-t border-slate-100">
+            <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">📋 Quarterly Numbers Table</h4>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs font-semibold border border-slate-200/60 rounded-xl overflow-hidden shadow-xs">
+                <thead className="bg-slate-100/80 text-slate-600 uppercase text-[10px]">
+                  <tr>
+                    <th className="py-2.5 px-3">Quarter</th>
+                    <th className="py-2.5 px-3">Money In (₹)</th>
+                    <th className="py-2.5 px-3">Money Out (₹)</th>
+                    <th className="py-2.5 px-3 text-right">Net Savings</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-700">
+                  {quarterlyTrends.map((q: any) => (
+                    <tr key={q.quarter} className="hover:bg-slate-50 transition-colors">
+                      <td className="py-2.5 px-3 font-bold text-slate-900">{q.quarter}</td>
+                      <td className="py-2.5 px-3 font-bold text-emerald-600">₹{q.revenue.toLocaleString("en-IN")}</td>
+                      <td className="py-2.5 px-3 font-bold text-rose-600">₹{q.expense.toLocaleString("en-IN")}</td>
+                      <td className={`py-2.5 px-3 text-right font-black ${q.netProfit >= 0 ? "text-indigo-600" : "text-rose-600"}`}>
+                        ₹{q.netProfit.toLocaleString("en-IN")}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-slate-700">
-                    {quarterlyTrends.map((q: any) => (
-                      <tr key={q.quarter} className="hover:bg-slate-50 transition-colors">
-                        <td className="py-2.5 px-3 font-bold text-slate-900">{q.quarter}</td>
-                        <td className="py-2.5 px-3 font-bold text-emerald-600">₹{q.revenue.toLocaleString("en-IN")}</td>
-                        <td className="py-2.5 px-3 font-bold text-rose-600">₹{q.expense.toLocaleString("en-IN")}</td>
-                        <td className={`py-2.5 px-3 text-right font-black ${q.netProfit >= 0 ? "text-indigo-600" : "text-rose-600"}`}>
-                          ₹{q.netProfit.toLocaleString("en-IN")}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          </div>        </div>
+          </div>
+        </div>
 
         {/* 6 & 7. COMPANY & BRAND HORIZONTAL BAR GRAPHS WITH FULL UNTRUNCATED NAMES & NET BADGES */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
