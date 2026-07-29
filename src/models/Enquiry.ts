@@ -100,7 +100,43 @@ const EnquirySchema = new Schema(
     status: {
       type: String,
       default: "New",
-    }
+    },
+    // Marketing Suite & Lead Management Enhancements
+    leadScore: {
+      type: Number,
+      default: 50,
+    },
+    leadTags: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
+    utmSource: {
+      type: String,
+      trim: true,
+    },
+    utmMedium: {
+      type: String,
+      trim: true,
+    },
+    utmCampaign: {
+      type: String,
+      trim: true,
+    },
+    campaignId: {
+      type: String,
+      trim: true,
+    },
+    lostReason: {
+      type: String,
+      trim: true,
+    },
+    reEngagementStatus: {
+      type: String,
+      default: "None",
+      trim: true,
+    },
   },
   {
     timestamps: true,

@@ -1007,3 +1007,129 @@ export async function sendWhatsAppCompanyCapacityAlert(params: CompanyCapacityAl
   }
 }
 
+export interface BrandWelcomeWhatsAppParams {
+  studentName?: string | null;
+  mobileNumber: string;
+  courseName?: string | null;
+  brandName?: string | null;
+  counsellorName?: string | null;
+  admissionId?: string | null;
+}
+
+/**
+ * Dispatch MSG91 WhatsApp Welcome Message to Student upon Admission Creation
+ * Sends a warm, official welcome message from the brand celebrating their enrollment.
+ */
+export async function sendWhatsAppBrandWelcome(params: BrandWelcomeWhatsAppParams) {
+  try {
+    const authKey = process.env.MSG91_AUTHKEY || "478610A465a065I869fed7fdP1";
+    const integratedNumber = process.env.MSG91_INTEGRATED_NUMBER || "919335913286";
+
+    const formattedPhone = formatPhoneNumber(params.mobileNumber);
+    if (!formattedPhone) {
+      console.warn("MSG91 Welcome WhatsApp Warning: Invalid mobile number.");
+      return { success: false, error: "Invalid mobile number." };
+    }
+
+    const brand = params.brandName || "Cadd Mantra";
+    const student = params.studentName || "Student";
+    const course = params.courseName || "Course";
+    const counsellor = params.counsellorName || "Advisor";
+
+    // Primary Template Payload
+    const payload = {
+      integrated_number: integratedNumber,
+      content_type: "template",
+      payload: {
+        messaging_product: "whatsapp",
+        type: "template",
+        template: {
+          name: "welcome_onboarding",
+          language: { code: "en", policy: "deterministic" },
+          to_and_components: [
+            {
+              to: [formattedPhone],
+              components: {
+                body_1: { type: "text", value: student },
+                body_2: { type: "text", value: course },
+                body_3: { type: "text", value: brand },
+                body_4: { type: "text", value: counsellor },
+              },
+            },
+          ],
+        },
+      },
+    };
+
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (authKey) headers["authkey"] = authKey;
+
+    console.log(`MSG91 WhatsApp Sending Brand Welcome Message to ${formattedPhone} from ${brand}...`);
+
+    const response = await fetch(
+      "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/",
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload),
+      }
+    );
+
+    const resText = await response.text();
+    let resJson: any = null;
+    try { resJson = JSON.parse(resText); } catch (_) {}
+
+    if (response.ok) {
+      return { success: true, data: resJson || resText };
+    } else {
+      console.warn("Primary 'welcome_onboarding' template notice, attempting approved template fallback...");
+      // Fallback with approved template "feeremainderstudent" / "fee"
+      const fallbackPayload = {
+        integrated_number: integratedNumber,
+        content_type: "template",
+        payload: {
+          messaging_product: "whatsapp",
+          type: "template",
+          template: {
+            name: "feeremainderstudent",
+            language: { code: "en", policy: "deterministic" },
+            namespace: "610ca09d_29b3_4193_8bab_18e0fab26f84",
+            to_and_components: [
+              {
+                to: [formattedPhone],
+                components: {
+                  body_1: { type: "text", value: student },
+                  body_2: { type: "text", value: `${course} (${brand})` },
+                  body_3: { type: "text", value: "Welcome Enrolled" },
+                  body_4: { type: "text", value: new Date().toLocaleDateString("en-IN") },
+                },
+              },
+            ],
+          },
+        },
+      };
+
+      const fallbackRes = await fetch(
+        "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/",
+        { method: "POST", headers, body: JSON.stringify(fallbackPayload) }
+      );
+
+      const fallbackText = await fallbackRes.text();
+      let fallbackJson: any = null;
+      try { fallbackJson = JSON.parse(fallbackText); } catch (_) {}
+
+      if (fallbackRes.ok) {
+        return { success: true, data: fallbackJson || fallbackText };
+      }
+
+      return {
+        success: false,
+        error: resJson?.message || fallbackJson?.message || resText || "Failed to send welcome WhatsApp message.",
+      };
+    }
+  } catch (error: any) {
+    console.error("MSG91 Welcome WhatsApp Error:", error);
+    return { success: false, error: error.message || "Network error during welcome WhatsApp dispatch." };
+  }
+}
+

@@ -8,8 +8,6 @@ import { useUser } from "../app/component/context/user-context";
 import Sidebar from "@/components/Sidebar";
 import ManagerSidebar from "@/components/ManagerSidebar";
 import ProfileDisplay from "@/components/ProfileDisplay";
-import DailyBiDashboard from "@/components/DailyBiDashboard";
-
 interface ReportsPageContentProps {
   role: "admin" | "manager";
 }
@@ -1928,10 +1926,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
         </header>
 
         <div className="p-8 space-y-8 max-w-6xl mx-auto w-full">
-          {/* Executive Daily Business Intelligence Dashboard */}
-          <DailyBiDashboard />
-
-          <div className="pt-6 border-t border-slate-200">
+          <div>
             <h2 className="text-2xl font-black text-[#1e293b] tracking-tight">Excel Workbooks & WhatsApp Dispatch Center</h2>
             <p className="text-slate-500 font-medium mt-1">Export multi-sheet Excel workbooks or trigger instant WhatsApp PDF reports.</p>
           </div>

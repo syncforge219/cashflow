@@ -10,7 +10,7 @@ import Task from "@/models/Task";
 import Course from "@/models/Course";
 import Notification from "@/models/Notification";
 import { getUserFromCookies } from "@/lib/helper";
-import { sendWhatsAppFeeReceipt } from "@/lib/msg91";
+import { sendWhatsAppFeeReceipt, sendWhatsAppBrandWelcome } from "@/lib/msg91";
 import { sendAdmissionConfirmationEmail } from "@/lib/emailService";
 
 export async function POST(req: NextRequest) {
@@ -388,6 +388,20 @@ export async function POST(req: NextRequest) {
         .catch((err) => console.error("[Admission API] Admission email error:", err));
     } else {
       console.warn(`[Admission API] No student email provided for ${admission.fullName} (${admission.admissionId}). Email not sent.`);
+    }
+
+    // Trigger MSG91 Brand Welcome WhatsApp Message directly to Student's Mobile
+    if (admission.mobileNumber) {
+      sendWhatsAppBrandWelcome({
+        studentName: admission.fullName,
+        mobileNumber: admission.mobileNumber,
+        courseName: admission.course,
+        brandName: admission.brand,
+        counsellorName: admission.counsellor,
+        admissionId: admission.admissionId,
+      })
+        .then((res) => console.log(`[Admission API] Brand welcome WhatsApp sent to ${admission.mobileNumber}. Res:`, res))
+        .catch((err) => console.error("[Admission API] Brand welcome WhatsApp error:", err));
     }
 
     return NextResponse.json(

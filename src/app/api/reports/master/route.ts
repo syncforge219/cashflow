@@ -16,26 +16,50 @@ export async function GET(req: Request) {
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
 
-    let dateQuery: any = {};
+    let enquiryQuery: any = {};
+    let admissionQuery: any = {};
+    let paymentQuery: any = {};
+    let expenseQuery: any = {};
+
     if (startDate || endDate) {
-      dateQuery.createdAt = {};
-      if (startDate) dateQuery.createdAt.$gte = new Date(startDate);
+      const gteDate = startDate ? new Date(startDate) : undefined;
+      let lteDate: Date | undefined;
+
       if (endDate) {
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        dateQuery.createdAt.$lte = end;
+        lteDate = new Date(endDate);
+        lteDate.setHours(23, 59, 59, 999);
+      }
+
+      if (gteDate || lteDate) {
+        enquiryQuery.createdAt = {};
+        admissionQuery.createdAt = {};
+        paymentQuery.paymentDate = {};
+        expenseQuery.expenseDate = {};
+
+        if (gteDate) {
+          enquiryQuery.createdAt.$gte = gteDate;
+          admissionQuery.createdAt.$gte = gteDate;
+          paymentQuery.paymentDate.$gte = gteDate;
+          expenseQuery.expenseDate.$gte = gteDate;
+        }
+        if (lteDate) {
+          enquiryQuery.createdAt.$lte = lteDate;
+          admissionQuery.createdAt.$lte = lteDate;
+          paymentQuery.paymentDate.$lte = lteDate;
+          expenseQuery.expenseDate.$lte = lteDate;
+        }
       }
     }
 
     const [enquiries, admissions, payments, users, counsellorsModel, brands, companies, expenses] = await Promise.all([
-      Enquiry.find(dateQuery).sort({ createdAt: -1 }).lean(),
-      Admission.find({}).sort({ createdAt: -1 }).lean(),
-      Payment.find({}).sort({ createdAt: -1 }).lean(),
+      Enquiry.find(enquiryQuery).sort({ createdAt: -1 }).lean(),
+      Admission.find(admissionQuery).sort({ createdAt: -1 }).lean(),
+      Payment.find(paymentQuery).populate("admissionId").sort({ paymentDate: -1, createdAt: -1 }).lean(),
       User.find({}).lean(),
       Counsellor.find({}).lean(),
       Brand.find({}).lean(),
       Company.find({}).lean(),
-      Expense.find({}).sort({ expenseDate: -1 }).lean(),
+      Expense.find(expenseQuery).sort({ expenseDate: -1 }).lean(),
     ]);
 
     const counsellors = users.filter(u => u.role === "counsellor" || u.role === "counselor");
