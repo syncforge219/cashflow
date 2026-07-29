@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import PaymentReceiptModal from "./PaymentReceiptModal";
+import { useUser } from "@/app/component/context/user-context";
 
 interface AdmissionModalProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ interface AdmissionModalProps {
 }
 
 export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defaultBrand }: AdmissionModalProps) {
+  const { user } = useUser();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [courses, setCourses] = useState<any[]>([]);
   const [batchesList, setBatchesList] = useState<any[]>([]);
@@ -35,7 +37,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
   const [pincode, setPincode] = useState("");
   const [dob, setDob] = useState("");
   const [gender, setGender] = useState("");
-  const [counsellor, setCounsellor] = useState(lead?.assignedCrmAdvisor || "");
+  const [counsellor, setCounsellor] = useState(lead?.assignedCrmAdvisor || lead?.counsellor || user?.name || "");
   // Auto-select brand: use lead brand first, then defaultBrand prop, then empty
   const resolvedDefaultBrand = lead?.targetBrand || (defaultBrand && defaultBrand !== "All Brands" && defaultBrand !== "All" ? defaultBrand : "");
   const [brand, setBrand] = useState(resolvedDefaultBrand);
@@ -296,74 +298,80 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
   }, [isOpen]);
 
   useEffect(() => {
-    if (isOpen && lead) {
-      setFullName(lead.studentFullName || lead.fullName || "");
-      setMobileNumber(lead.primaryPhoneMobile || lead.mobileNumber || "");
-      setEmail(lead.emailAddress || lead.email || "");
-      setCounsellor(lead.assignedCrmAdvisor || lead.counsellor || "");
-      setBrand(lead.targetBrand || lead.brand || "");
-      setCourse(lead.targetCourse || lead.course || "");
-      const feeVal = lead.expectedCourseFee || lead.courseFee || "0";
-      setCourseFee(
-        typeof feeVal === "number"
-          ? feeVal
-          : Math.floor(Number(String(feeVal).replace(/[^0-9.]/g, ""))) || 0
-      );
+    if (isOpen) {
+      if (lead) {
+        setFullName(lead.studentFullName || lead.fullName || "");
+        setMobileNumber(lead.primaryPhoneMobile || lead.mobileNumber || "");
+        setEmail(lead.emailAddress || lead.email || "");
+        setCounsellor(lead.assignedCrmAdvisor || lead.counsellor || user?.name || "");
+        setBrand(lead.targetBrand || lead.brand || "");
+        setCourse(lead.targetCourse || lead.course || "");
+        const feeVal = lead.expectedCourseFee || lead.courseFee || "0";
+        setCourseFee(
+          typeof feeVal === "number"
+            ? feeVal
+            : Math.floor(Number(String(feeVal).replace(/[^0-9.]/g, ""))) || 0
+        );
 
-      setParentName(lead.parentName || "");
-      setAddress(lead.address || "");
-      setCity(lead.currentCity || lead.city || "");
-      setState(lead.state || "");
-      setPincode(lead.pincode || "");
-      setDob(lead.dob || "");
-      setGender(lead.gender || "");
-      setBatch("");
+        setParentName(lead.parentName || "");
+        setAddress(lead.address || "");
+        setCity(lead.currentCity || lead.city || "");
+        setState(lead.state || "");
+        setPincode(lead.pincode || "");
+        setDob(lead.dob || "");
+        setGender(lead.gender || "");
+        setBatch("");
 
-      const targetCourseName = lead.targetCourse || lead.course || "";
-      const foundCourseObj = courses.find(
-        (c) => c.name?.trim().toLowerCase() === targetCourseName.trim().toLowerCase()
-      );
-      if (foundCourseObj && foundCourseObj.duration) {
-        setDuration(foundCourseObj.duration);
-        if (foundCourseObj.fee) {
-          const numFee = Math.floor(Number(String(foundCourseObj.fee).replace(/[^0-9.]/g, ""))) || 0;
-          if (numFee > 0) setCourseFee(numFee);
+        const targetCourseName = lead.targetCourse || lead.course || "";
+        const foundCourseObj = courses.find(
+          (c) => c.name?.trim().toLowerCase() === targetCourseName.trim().toLowerCase()
+        );
+        if (foundCourseObj && foundCourseObj.duration) {
+          setDuration(foundCourseObj.duration);
+          if (foundCourseObj.fee) {
+            const numFee = Math.floor(Number(String(foundCourseObj.fee).replace(/[^0-9.]/g, ""))) || 0;
+            if (numFee > 0) setCourseFee(numFee);
+          }
+        } else if (targetCourseName) {
+          const nameUpper = targetCourseName.toUpperCase();
+          if (
+            nameUpper.includes("BVOC") ||
+            nameUpper.includes("DEGREE") ||
+            nameUpper.includes("BSC") ||
+            nameUpper.includes("BACHELOR")
+          ) {
+            setDuration("36 Months");
+          } else if (nameUpper.includes("ADVANCE") || nameUpper.includes("DIPLOMA")) {
+            setDuration("12 Months");
+          } else {
+            setDuration("6 Months");
+          }
         }
-      } else if (targetCourseName) {
-        const nameUpper = targetCourseName.toUpperCase();
-        if (
-          nameUpper.includes("BVOC") ||
-          nameUpper.includes("DEGREE") ||
-          nameUpper.includes("BSC") ||
-          nameUpper.includes("BACHELOR")
-        ) {
-          setDuration("36 Months");
-        } else if (nameUpper.includes("ADVANCE") || nameUpper.includes("DIPLOMA")) {
-          setDuration("12 Months");
-        } else {
-          setDuration("6 Months");
+
+        setStartDate(new Date().toISOString().split("T")[0]);
+        setCompanyAssigned("");
+        setScholarshipType("None");
+        setScholarshipAmount(0);
+        setDiscountType("None");
+        setDiscountAmount(0);
+        setAdditionalDiscount(0);
+        setDiscountReason("");
+        setPaymentMode("UPI");
+        setTransactionNo("");
+        setRegistrationAmount(0);
+        setDownpaymentAmount(0);
+        setDownpaymentDueDate("");
+        setHasEmi(false);
+        setNumInstallments(1);
+        setInstallmentAmount(0);
+        setFirstDueDate("");
+      } else {
+        if (!counsellor && user?.name) {
+          setCounsellor(user.name);
         }
       }
-
-      setStartDate(new Date().toISOString().split("T")[0]);
-      setCompanyAssigned("");
-      setScholarshipType("None");
-      setScholarshipAmount(0);
-      setDiscountType("None");
-      setDiscountAmount(0);
-      setAdditionalDiscount(0);
-      setDiscountReason("");
-      setPaymentMode("UPI");
-      setTransactionNo("");
-      setRegistrationAmount(0);
-      setDownpaymentAmount(0);
-      setDownpaymentDueDate("");
-      setHasEmi(false);
-      setNumInstallments(1);
-      setInstallmentAmount(0);
-      setFirstDueDate("");
     }
-  }, [lead, isOpen]);
+  }, [lead, isOpen, user]);
 
   // Auto-sync course fee & duration whenever course or fetched courses list updates
   useEffect(() => {
