@@ -1170,8 +1170,9 @@ export async function sendWhatsAppEnquiryWelcome(params: EnquiryWelcomeWhatsAppP
         messaging_product: "whatsapp",
         type: "template",
         template: {
-          name: "enquiry_welcome",
+          name: "welcome_enquery",
           language: { code: "en", policy: "deterministic" },
+          namespace: null,
           to_and_components: [
             {
               to: [formattedPhone],
@@ -1208,7 +1209,7 @@ export async function sendWhatsAppEnquiryWelcome(params: EnquiryWelcomeWhatsAppP
     if (response.ok) {
       return { success: true, data: resJson || resText };
     } else {
-      console.warn("[MSG91] Primary 'enquiry_welcome' template notice, triggering approved fallback template...");
+      console.warn("[MSG91] Primary 'welcome_enquery' template notice, triggering approved fallback template...");
       // Fallback with universal approved template "feeremainderstudent"
       const fallbackPayload = {
         integrated_number: integratedNumber,
