@@ -10,7 +10,7 @@ envFile.split('\n').forEach(line => {
 async function testMsg91() {
   const authKey = envVars.MSG91_AUTHKEY || "478610A465a065I869fed7fdP1";
   const integratedNumber = envVars.MSG91_INTEGRATED_NUMBER || "919335913286";
-  const publicAppUrl = envVars.PUBLIC_APP_URL || "https://cashflow-git-734957305541.asia-south2.run.app";
+  const publicAppUrl = envVars.PUBLIC_APP_URL || "https://lead2ledger-git-734957305541.asia-south2.run.app";
 
   const pdfUrl = `${publicAppUrl}/api/receipts/REC-2026-00014/pdf`;
 

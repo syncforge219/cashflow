@@ -65,7 +65,7 @@ export default function CrmSidebar() {
         <SidebarBrandHeader isCollapsed={false} />
       </div>
 
-      {/* CashFlow AI Copilot Trigger */}
+      {/* Lead2Ledger AI Copilot Trigger */}
       <SidebarAiButton isCollapsed={false} />
 
       {/* Navigation Group Items */}

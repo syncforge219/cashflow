@@ -213,7 +213,7 @@ export default function ManagerSidebar() {
         <SidebarBrandHeader isCollapsed={isCollapsed} subtitle="ERP" />
       </div>
 
-      {/* CashFlow AI Copilot Trigger */}
+      {/* Lead2Ledger AI Copilot Trigger */}
       <SidebarAiButton isCollapsed={isCollapsed} />
 
       {/* Navigation Links */}

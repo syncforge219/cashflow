@@ -126,7 +126,7 @@ export default function CounsellorSidebar() {
       {/* Brand Header */}
       <SidebarBrandHeader isCollapsed={isCollapsed} subtitle="Counsellor Portal" />
 
-      {/* CashFlow AI Copilot Trigger */}
+      {/* Lead2Ledger AI Copilot Trigger */}
       <SidebarAiButton isCollapsed={isCollapsed} />
 
       {/* Navigation Groups */}

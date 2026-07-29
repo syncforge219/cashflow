@@ -105,19 +105,22 @@ export async function POST(request: Request) {
     // Sign JWT token
     const token = await signJWT(tokenPayload);
 
-    const response = NextResponse.json(
-      {
-        success: true,
-        user: {
-          id: user._id.toString(),
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          customAppName: (user as any).customAppName || "Coach",
-        },
+    const responseBody = {
+      success: true,
+      token: token,          // Always include token for mobile/native clients
+      user: {
+        id: user._id.toString(),
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        customAppName: (user as any).customAppName || "Coach",
       },
-      { status: 200, headers: { "Content-Type": "application/json" } }
-    );
+    };
+
+    const response = NextResponse.json(responseBody, {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
 
     // Set HTTP-only cookie on response
     response.cookies.set("token", token, {

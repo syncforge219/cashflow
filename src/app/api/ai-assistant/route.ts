@@ -17,7 +17,7 @@ import Attendance from "@/models/Attendance";
 
 // ─── INTENT TAXONOMY ────────────────────────────────────────
 const INTENTS = {
-  FINANCIAL_DEEP: ["profit", "revenue", "margin", "loss", "roi", "cac", "cost", "income", "cash flow", "cashflow", "earning", "earning", "payroll", "salary", "expense", "overhead", "outflow", "inflow", "burn", "break even"],
+  FINANCIAL_DEEP: ["profit", "revenue", "margin", "loss", "roi", "cac", "cost", "income", "cash flow", "lead2ledger", "earning", "earning", "payroll", "salary", "expense", "overhead", "outflow", "inflow", "burn", "break even"],
   CONVERSION_FUNNEL: ["conversion", "convert", "funnel", "drop", "dropout", "lost", "churned", "bottleneck", "stuck", "pipeline health", "stage", "closure", "closing", "win rate"],
   FORECASTING: ["forecast", "predict", "next month", "next week", "projection", "target", "goal", "estimate", "likely", "trend", "future", "expected", "by end of month"],
   LEAD_HEALTH: ["lead", "student", "enquiry", "enquiries", "prospect", "potential", "new", "uncontacted", "fresh", "contact", "all students"],

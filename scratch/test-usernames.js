@@ -11,7 +11,7 @@ const usernames = [
   "syncforgesolutions",
   "syncforge",
   "admin",
-  "cashflow"
+  "lead2ledger"
 ];
 
 async function run() {

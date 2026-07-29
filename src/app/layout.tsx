@@ -4,8 +4,8 @@ import UserProvider from "./component/context/user-context";
 import ThemeInitializer from "@/components/ThemeInitializer";
 
 export const metadata: Metadata = {
-  title: "CashFlow Management | Modern CRM & Financial Intelligence",
-  description: "Enterprise CashFlow & Lead Intelligence Management System",
+  title: "Lead2Ledger Management | Modern CRM & Financial Intelligence",
+  description: "Enterprise Lead2Ledger & Lead Intelligence Management System",
   icons: {
     icon: "/favicon.ico",
   },

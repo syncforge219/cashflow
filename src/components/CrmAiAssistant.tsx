@@ -172,7 +172,7 @@ export default function CrmAiAssistant() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-extrabold tracking-tight">CashFlow AI Assistant</h3>
+                    <h3 className="text-sm font-extrabold tracking-tight">Lead2Ledger AI Assistant</h3>
                     <span className="bg-emerald-500/20 text-emerald-300 text-[10px] px-2 py-0.5 rounded-full font-bold border border-emerald-500/30 shadow-xs">
                       {roleLabel} Scope
                     </span>

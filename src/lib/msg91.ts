@@ -59,7 +59,7 @@ export function formatPhoneNumber(phone: string): string {
   return cleaned;
 }
 
-const PUBLIC_PRODUCTION_URL = "https://cashflow-git-734957305541.asia-south2.run.app";
+const PUBLIC_PRODUCTION_URL = "https://lead2ledger-git-734957305541.asia-south2.run.app";
 
 export function getPublicPdfBaseUrl(): string {
   const envUrl = process.env.PUBLIC_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "";

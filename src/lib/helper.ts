@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { verifyJWT } from "@/lib/jwt";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
@@ -6,7 +6,16 @@ import User from "@/models/User";
 export async function getUserFromCookies() {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get("token")?.value;
+    let token = cookieStore.get("token")?.value;
+
+    if (!token) {
+      const headersList = await headers();
+      const authHeader = headersList.get("authorization");
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        token = authHeader.substring(7);
+      }
+    }
+
     if (!token) return null;
 
     const decoded = await verifyJWT(token);

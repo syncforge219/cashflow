@@ -387,7 +387,7 @@ export default function Sidebar() {
       {/* Brand Header */}
       <SidebarBrandHeader isCollapsed={isCollapsed} />
 
-      {/* CashFlow AI Copilot Trigger */}
+      {/* Lead2Ledger AI Copilot Trigger */}
       <SidebarAiButton isCollapsed={isCollapsed} />
 
       {/* Navigation Groups */}

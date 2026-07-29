@@ -86,10 +86,10 @@ export default function WelcomePage() {
     },
     {
       id: "ai",
-      label: "🤖 CashFlow AI Assistant",
+      label: "🤖 Lead2Ledger AI Assistant",
       icon: "🤖",
       badge: "24/7 Intelligence",
-      title: "CashFlow AI Assistant & Executive Command Center",
+      title: "Lead2Ledger AI Assistant & Executive Command Center",
       desc: "Ask questions in plain English to inspect lead pipelines, conversion rates, and revenue collection. The AI assistant respects user brand scopes and enforces role-based security.",
       bullets: [
         "Draggable floating AI window accessible across all portal screens",
@@ -178,7 +178,7 @@ export default function WelcomePage() {
       ]
     },
     {
-      title: "5. Floating CashFlow AI Executive Assistant",
+      title: "5. Floating Lead2Ledger AI Executive Assistant",
       badge: "Natural Language AI",
       icon: "🤖",
       color: "border-blue-200 bg-blue-50/40 text-blue-700",
@@ -406,7 +406,7 @@ export default function WelcomePage() {
                   🤖
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-white">CashFlow AI Intelligence Bar</p>
+                  <p className="text-xs font-bold text-white">Lead2Ledger AI Intelligence Bar</p>
                   <p className="text-[11px] text-slate-400">"All GST thresholds healthy. Sales Executives converted 42 new admissions today."</p>
                 </div>
               </div>

@@ -22,7 +22,7 @@ export default function SidebarAiButton({ isCollapsed = false }: SidebarAiButton
         className={`w-full group relative flex items-center ${
           isCollapsed ? "justify-center px-0 py-2.5" : "gap-3 px-3 py-2.5"
         } bg-gradient-to-r from-purple-600 via-indigo-600 to-indigo-700 hover:from-purple-700 hover:to-indigo-800 text-white rounded-2xl shadow-md shadow-indigo-500/25 border border-purple-300/40 cursor-pointer transition-all duration-200`}
-        title="✨ Open CashFlow AI Assistant"
+        title="✨ Open Lead2Ledger AI Assistant"
       >
         <div className="relative flex items-center justify-center shrink-0">
           <svg
@@ -48,7 +48,7 @@ export default function SidebarAiButton({ isCollapsed = false }: SidebarAiButton
         {!isCollapsed && (
           <div className="flex items-center justify-between flex-1 min-w-0">
             <span className="text-xs font-black tracking-wider uppercase truncate">
-              ✨ CashFlow AI
+              ✨ Lead2Ledger AI
             </span>
             <span className="bg-white/20 text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded text-white tracking-widest">
               AI
