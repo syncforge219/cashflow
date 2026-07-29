@@ -39,7 +39,7 @@ export default function BackgroundPatterns() {
 
     window.addEventListener("resize", handleResize);
 
-    const particleCount = Math.min(85, Math.floor((width * height) / 14000));
+    const particleCount = Math.min(180, Math.floor((width * height) / 7500));
     const particles: Particle[] = [];
 
     for (let i = 0; i < particleCount; i++) {
@@ -48,8 +48,8 @@ export default function BackgroundPatterns() {
         y: Math.random() * height,
         vx: (Math.random() - 0.5) * 0.8,
         vy: (Math.random() - 0.5) * 0.8,
-        radius: Math.random() * 2.2 + 1.2,
-        alpha: Math.random() * 0.5 + 0.35,
+        radius: Math.random() * 2.8 + 1.8,
+        alpha: Math.random() * 0.5 + 0.45,
       });
     }
 
@@ -63,7 +63,7 @@ export default function BackgroundPatterns() {
 
     window.addEventListener("mousemove", handleMouseMove);
 
-    const maxDistance = 145;
+    const maxDistance = 175;
 
     const render = () => {
       ctx.clearRect(0, 0, width, height);
@@ -88,12 +88,12 @@ export default function BackgroundPatterns() {
           const dist = Math.sqrt(dx * dx + dy * dy);
 
           if (dist < maxDistance) {
-            const lineAlpha = (1 - dist / maxDistance) * 0.38;
+            const lineAlpha = (1 - dist / maxDistance) * 0.55;
             ctx.beginPath();
             ctx.moveTo(p.x, p.y);
             ctx.lineTo(p2.x, p2.y);
             ctx.strokeStyle = `rgba(99, 102, 241, ${lineAlpha})`;
-            ctx.lineWidth = 1;
+            ctx.lineWidth = 1.2;
             ctx.stroke();
           }
         }
@@ -103,13 +103,13 @@ export default function BackgroundPatterns() {
           const mdy = p.y - mouseY;
           const mdist = Math.sqrt(mdx * mdx + mdy * mdy);
 
-          if (mdist < 165) {
-            const mAlpha = (1 - mdist / 165) * 0.5;
+          if (mdist < 200) {
+            const mAlpha = (1 - mdist / 200) * 0.65;
             ctx.beginPath();
             ctx.moveTo(p.x, p.y);
             ctx.lineTo(mouseX, mouseY);
             ctx.strokeStyle = `rgba(79, 70, 229, ${mAlpha})`;
-            ctx.lineWidth = 1.2;
+            ctx.lineWidth = 1.5;
             ctx.stroke();
           }
         }

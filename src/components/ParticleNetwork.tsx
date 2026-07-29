@@ -33,18 +33,18 @@ export default function ParticleNetwork() {
 
     window.addEventListener("resize", handleResize);
 
-    // Generate Particles
-    const particleCount = Math.min(80, Math.floor((width * height) / 15000));
+    // Generate Particles (Increased density & count for a richer network pattern)
+    const particleCount = Math.min(180, Math.floor((width * height) / 7500));
     const particles: Particle[] = [];
 
     for (let i = 0; i < particleCount; i++) {
       particles.push({
         x: Math.random() * width,
         y: Math.random() * height,
-        vx: (Math.random() - 0.5) * 0.7,
-        vy: (Math.random() - 0.5) * 0.7,
-        radius: Math.random() * 2 + 1.5,
-        alpha: Math.random() * 0.5 + 0.3,
+        vx: (Math.random() - 0.5) * 0.8,
+        vy: (Math.random() - 0.5) * 0.8,
+        radius: Math.random() * 2.8 + 1.8,
+        alpha: Math.random() * 0.5 + 0.45,
       });
     }
 
@@ -65,7 +65,7 @@ export default function ParticleNetwork() {
     window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("mouseleave", handleMouseLeave);
 
-    const maxDistance = 140;
+    const maxDistance = 175;
 
     const render = () => {
       ctx.clearRect(0, 0, width, height);
@@ -95,12 +95,12 @@ export default function ParticleNetwork() {
           const dist = Math.sqrt(dx * dx + dy * dy);
 
           if (dist < maxDistance) {
-            const lineAlpha = (1 - dist / maxDistance) * 0.35;
+            const lineAlpha = (1 - dist / maxDistance) * 0.55;
             ctx.beginPath();
             ctx.moveTo(p.x, p.y);
             ctx.lineTo(p2.x, p2.y);
             ctx.strokeStyle = `rgba(99, 102, 241, ${lineAlpha})`;
-            ctx.lineWidth = 1;
+            ctx.lineWidth = 1.2;
             ctx.stroke();
           }
         }
@@ -111,13 +111,13 @@ export default function ParticleNetwork() {
           const mdy = p.y - mouseY;
           const mdist = Math.sqrt(mdx * mdx + mdy * mdy);
 
-          if (mdist < 160) {
-            const mAlpha = (1 - mdist / 160) * 0.45;
+          if (mdist < 200) {
+            const mAlpha = (1 - mdist / 200) * 0.65;
             ctx.beginPath();
             ctx.moveTo(p.x, p.y);
             ctx.lineTo(mouseX, mouseY);
             ctx.strokeStyle = `rgba(79, 70, 229, ${mAlpha})`;
-            ctx.lineWidth = 1.2;
+            ctx.lineWidth = 1.5;
             ctx.stroke();
           }
         }
