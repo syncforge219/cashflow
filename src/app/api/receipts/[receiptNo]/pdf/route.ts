@@ -5,6 +5,7 @@ import dbConnect from "@/lib/db";
 import Payment from "@/models/Payment";
 import Admission from "@/models/Admission";
 import Brand from "@/models/Brand";
+import Company from "@/models/Company";
 import { generateReceiptPdfBuffer } from "@/lib/pdfGenerator";
 
 export async function GET(
@@ -67,11 +68,23 @@ export async function GET(
       }
     }
 
-    const rawCompany = payment?.company || admission?.companyAssigned;
-    const companyName =
-      rawCompany && rawCompany !== "Cash" && rawCompany !== "Unallocated"
-        ? rawCompany
-        : brand?.companies?.[0] || "M/s CT ENTERPRISES";
+    const rawCompany = payment?.company || admission?.companyAssigned || brand?.companies?.[0];
+    let companyObj: any = null;
+    if (rawCompany && rawCompany !== "Cash" && rawCompany !== "Unallocated") {
+      companyObj = await Company.findOne({
+        $or: [
+          { name: { $regex: new RegExp(`^${rawCompany.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") } },
+          { legalName: { $regex: new RegExp(`^${rawCompany.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") } },
+        ],
+      }).lean();
+    }
+
+    if (!companyObj) {
+      companyObj = await Company.findOne().lean();
+    }
+
+    const companyName = companyObj?.legalName || companyObj?.name || rawCompany || "INSTITUTE OF CREATIVE STUDIES";
+    const companyAddress = companyObj?.address || brand?.address || "No listed street, No City, No State, PIN";
 
     const pdfBuffer = generateReceiptPdfBuffer({
       receiptNo,
@@ -85,6 +98,7 @@ export async function GET(
       brandName: targetBrandName,
       brandAddress: brand?.address || undefined,
       companyName,
+      companyAddress,
       totalFee: finalFee,
       totalPaidToDate,
       remainingBalance,
