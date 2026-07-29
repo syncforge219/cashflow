@@ -112,21 +112,6 @@ export default function CrmSidebar() {
               })}
             </div>
           </div>
-        ))}
-      </div>
-
-      {/* Footer Role Tag */}
-      <div className="p-3.5 m-3 border border-slate-200/60 rounded-2xl bg-gradient-to-b from-slate-50/80 to-slate-100/50 shadow-2xs">
-        <div className="flex items-center gap-2.5">
-          <span className="relative flex h-2.5 w-2.5 shrink-0">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-          </span>
-          <div>
-            <p className="text-[10px] font-extrabold text-slate-800 uppercase tracking-wider leading-none">CRM Portal Active</p>
-            <p className="text-[9px] font-semibold text-slate-400 mt-0.5">Realtime Data Sync</p>
-          </div>
-        </div>
       </div>
     </aside>
   );
