@@ -782,33 +782,34 @@ export default function FollowupPage() {
             {activeMode === "enquiry" ? (
               <div className="overflow-auto flex-1 min-h-0">
                 <table className="w-full text-left text-xs border-collapse">
-                  <thead className="sticky top-0 z-10 bg-slate-100/90 backdrop-blur-xs">
-                    <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider select-none">
-                      <th className="py-3 px-4 min-w-[120px]">Due Date ▾</th>
-                      <th className="py-3 px-4 min-w-[110px]">Enquiry Date ▾</th>
-                      <th className="py-3 px-4 min-w-[150px]">Student ▾</th>
-                      <th className="py-3 px-4 min-w-[130px]">Student Mobile ▾</th>
-                      <th className="py-3 px-4 min-w-[130px]">Primary Mobile ▾</th>
-                      <th className="py-3 px-4 min-w-[130px]">Secondary Mobile</th>
-                      <th className="py-3 px-4 min-w-[110px]">Area ▾</th>
-                      <th className="py-3 px-4 min-w-[140px]">Email</th>
-                      <th className="py-3 px-4 min-w-[150px]">Course Package ▾</th>
-                      <th className="py-3 px-4 min-w-[130px]">Followup By ▾</th>
-                      <th className="py-3 px-4 min-w-[110px]">Lead Stage ▾</th>
-                      <th className="py-3 px-4 min-w-[100px]">Lead Type ▾</th>
-                      <th className="py-3 px-4 min-w-[110px]">Lead Source ▾</th>
-                      <th className="py-3 px-4 min-w-[160px]">Last Remark</th>
-                      <th className="py-3 px-4 text-right min-w-[110px]">Action</th>
+                  <thead className="sticky top-0 z-10 bg-slate-100/95 backdrop-blur-xs shadow-2xs">
+                    <tr className="border-b border-slate-200 text-[10px] font-black text-slate-600 uppercase tracking-wider select-none">
+                      <th className="py-3 px-4 min-w-[125px]">DUE DATE ▾</th>
+                      <th className="py-3 px-4 min-w-[145px]">ENQUIRY/WALKIN DATE ▾</th>
+                      <th className="py-3 px-4 min-w-[150px]">STUDENT ▾</th>
+                      <th className="py-3 px-4 min-w-[140px]">STUDENT MOBILE NO ▾</th>
+                      <th className="py-3 px-4 min-w-[140px]">PRIMARY MOBILE NO ▾</th>
+                      <th className="py-3 px-4 min-w-[140px]">SECONDARY MOBILE NO ▾</th>
+                      <th className="py-3 px-4 min-w-[110px]">AREA ▾</th>
+                      <th className="py-3 px-4 min-w-[140px]">EMAIL ▾</th>
+                      <th className="py-3 px-4 min-w-[150px]">COURSE PACKAGE ▾</th>
+                      <th className="py-3 px-4 min-w-[130px]">FOLLOWUP BY ▾</th>
+                      <th className="py-3 px-4 min-w-[110px]">LEAD STAGE ▾</th>
+                      <th className="py-3 px-4 min-w-[100px]">LEAD TYPE ▾</th>
+                      <th className="py-3 px-4 min-w-[110px]">LEAD SOURCE ▾</th>
+                      <th className="py-3 px-4 min-w-[160px]">LAST REMARK ▾</th>
+                      <th className="py-3 px-4 min-w-[110px]">STATUS ▾</th>
+                      <th className="py-3 px-4 text-right min-w-[120px]">ACTION ▾</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
                     {isLoading ? (
                       <tr>
-                        <td colSpan={15} className="py-12 text-center text-slate-400">Loading enquiry follow-ups...</td>
+                        <td colSpan={16} className="py-12 text-center text-slate-400">Loading enquiry follow-ups...</td>
                       </tr>
                     ) : paginatedEnquiryRecords.length === 0 ? (
                       <tr>
-                        <td colSpan={15} className="py-12 text-center text-slate-400">No enquiry follow-up records found matching filters.</td>
+                        <td colSpan={16} className="py-12 text-center text-slate-400">No enquiry follow-up records found matching filters.</td>
                       </tr>
                     ) : (
                       paginatedEnquiryRecords.map((rec: EnquiryFollowupRecord) => (
@@ -817,7 +818,7 @@ export default function FollowupPage() {
                           onClick={() => setSelectedLead(rec)}
                           className="hover:bg-slate-50/80 transition-colors cursor-pointer"
                         >
-                          <td className="py-3.5 px-4 font-bold text-orange-600 whitespace-nowrap">
+                          <td className="py-3.5 px-4 font-bold text-indigo-600 whitespace-nowrap">
                             {rec.dueDateStr ? new Date(rec.dueDateStr).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Today"}
                           </td>
                           <td className="py-3.5 px-4 text-slate-500 whitespace-nowrap">
@@ -834,18 +835,23 @@ export default function FollowupPage() {
                           <td className="py-3.5 px-4 font-bold text-slate-800 max-w-[160px] truncate" title={rec.targetCourse}>{rec.targetCourse}</td>
                           <td className="py-3.5 px-4 text-slate-700 max-w-[140px] truncate">{rec.assignedCrmAdvisor}</td>
                           <td className="py-3.5 px-4">
-                            <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded text-[10px] font-bold uppercase whitespace-nowrap">
-                              {rec.status}
+                            <span className="px-2.5 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200/80 rounded-lg text-[10px] font-extrabold uppercase whitespace-nowrap shadow-2xs">
+                              {rec.status || "In Progress"}
                             </span>
                           </td>
-                          <td className="py-3.5 px-4 text-slate-500 capitalize whitespace-nowrap">{rec.leadType || "Telephonic"}</td>
+                          <td className="py-3.5 px-4 text-slate-600 capitalize whitespace-nowrap">{rec.leadType || "Telephonic"}</td>
                           <td className="py-3.5 px-4">
                             <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-[10px] font-bold whitespace-nowrap">
                               {rec.leadSource || "Direct"}
                             </span>
                           </td>
                           <td className="py-3.5 px-4 text-slate-500 max-w-[180px] truncate" title={rec.lastRemarkStr}>
-                            {rec.lastRemarkStr}
+                            {rec.lastRemarkStr || "-"}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-[10px] font-extrabold uppercase whitespace-nowrap">
+                              Active
+                            </span>
                           </td>
                           <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                             <button
