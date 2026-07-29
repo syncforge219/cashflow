@@ -205,7 +205,7 @@ export default function TeacherDashboard() {
       <TeacherSidebar />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto px-6 py-6">
+      <div className="flex-1 h-screen overflow-y-auto min-w-0 px-6 py-6 pb-32">
         {/* Top Header */}
         <header className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-200/80 pb-4 mb-6 shrink-0">
           <div>

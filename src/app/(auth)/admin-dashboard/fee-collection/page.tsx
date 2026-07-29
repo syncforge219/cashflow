@@ -230,24 +230,14 @@ export default function FeeCollectionPage() {
     }
   };
 
-  // Live Math calculations (guaranteed numbers to prevent toLocaleString error)
+  // Live Math calculations (Entire fee considered as one unified package)
   const totalFees = selectedStudent ? (Number(selectedStudent.finalFee ?? selectedStudent.totalCourseFee ?? 0) || 0) : 0;
   const currentDue = selectedStudent ? (Number(selectedStudent.remainingBalance ?? 0) || 0) : 0;
   const totalPaid = selectedStudent ? Math.max(0, totalFees - currentDue) : 0;
 
-  const registrationFee = selectedStudent ? Math.min(1000, totalFees) : 0;
-  const courseFee = selectedStudent ? Math.max(0, totalFees - registrationFee) : 0;
-  const examFee = 0;
-
-  // Distribute payments across categories (Registration -> Course)
-  const regPaid = Math.min(registrationFee, totalPaid);
-  const coursePaid = Math.max(0, totalPaid - regPaid);
-  const examPaid = 0;
-
-  // Dues
-  const regDue = registrationFee - regPaid;
-  const courseDue = courseFee - coursePaid;
-  const examDue = 0;
+  const courseFee = totalFees;
+  const coursePaid = totalPaid;
+  const courseDue = currentDue;
 
   // Input adjustments
   const inputAmtVal = parseFloat(amountReceived) || 0;
@@ -663,23 +653,10 @@ export default function FeeCollectionPage() {
                       </thead>
                       <tbody className="divide-y divide-slate-50 text-slate-600">
                         <tr>
-                          <td className="py-2.5 text-slate-800">Course Fee</td>
-                          <td className="py-2.5 text-right">{courseFee.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                          <td className="py-2.5 text-right text-slate-500">{coursePaid.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                          <td className="py-2.5 text-right text-rose-500">{courseDue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                        </tr>
-                        <tr>
-                          <td className="py-2.5 text-slate-800">Registration Fee</td>
-                          <td className="py-2.5 text-right">{registrationFee.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                          <td className="py-2.5 text-right text-slate-500">{regPaid.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                          <td className="py-2.5 text-right text-rose-500">{regDue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                        </tr>
-
-                        <tr>
-                          <td className="py-2.5 text-slate-800">Exam Fee</td>
-                          <td className="py-2.5 text-right">{examFee.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                          <td className="py-2.5 text-right text-slate-500">{examPaid.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                          <td className="py-2.5 text-right text-rose-500">{examDue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                          <td className="py-2.5 text-slate-800 font-bold">Course Fee (Agreed Total Package)</td>
+                          <td className="py-2.5 text-right font-bold">{courseFee.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                          <td className="py-2.5 text-right text-emerald-600 font-bold">{coursePaid.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                          <td className="py-2.5 text-right text-rose-500 font-bold">{courseDue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                         </tr>
                         <tr className="font-extrabold text-slate-800 bg-slate-50/50">
                           <td className="py-3 px-2 rounded-l-xl">Total</td>

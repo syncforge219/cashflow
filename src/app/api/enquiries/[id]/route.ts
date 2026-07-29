@@ -46,6 +46,18 @@ export async function PATCH(
       }
     }
 
+    if (statusVal === "Lost") {
+      const existingEnquiry = await Enquiry.findById(id);
+      if (existingEnquiry && existingEnquiry.status !== "Lost") {
+        const todayStr = new Date().toISOString().split("T")[0];
+        await LostLeadCounter.findOneAndUpdate(
+          { date: todayStr },
+          { $inc: { count: 1 } },
+          { upsert: true, new: true }
+        );
+      }
+    }
+
     const updatedEnquiry = await Enquiry.findByIdAndUpdate(
       id,
       updateQuery,

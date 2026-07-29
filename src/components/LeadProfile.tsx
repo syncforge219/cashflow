@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from "react";
 import EditEnquiryModal from "./EditEnquiryModal";
 import AdmissionModal from "./AdmissionModal";
-import DeleteConfirmModal from "./DeleteConfirmModal";
 
 interface LeadProfileProps {
   lead: any;
@@ -18,8 +17,10 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
   const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(defaultOpenTaskModal);
   const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
   const [isAdmissionModalOpen, setIsAdmissionModalOpen] = useState(false);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [isDeletingLead, setIsDeletingLead] = useState(false);
+  const [isLostModalOpen, setIsLostModalOpen] = useState(false);
+  const [isMarkingLost, setIsMarkingLost] = useState(false);
+  const [lostReason, setLostReason] = useState("");
+  const [lostNotes, setLostNotes] = useState("");
   const [localLead, setLocalLead] = useState<any>(lead);
 
   // Form states
@@ -185,6 +186,21 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
       });
     }
 
+    // 6. Lost Lead
+    if (localLead.status === "Lost") {
+      events.push({
+        id: "lost-lead",
+        title: "Lead Marked as Lost",
+        badge: "Lost",
+        badgeColor: "bg-rose-50 text-rose-700 border-rose-200",
+        icon: "🚫",
+        description: localLead.followUpNotes || localLead.remarks || "Lead marked as lost.",
+        loggedBy: localLead.assignedCrmAdvisor || "Counselor",
+        timestamp: Date.now() + 20000,
+        dateStr: "Marked Lost",
+      });
+    }
+
     // Sort timeline chronologically (latest event first)
     return events.sort((a, b) => b.timestamp - a.timestamp);
   }, [localLead]);
@@ -226,25 +242,49 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
     }
   };
 
-  const confirmDeleteLead = async () => {
-    setIsDeletingLead(true);
+  const handleMarkAsLostSubmit = async () => {
+    if (!lostReason) {
+      return alert("Please select a reason for marking this lead as lost.");
+    }
+    setIsMarkingLost(true);
     try {
+      const formattedRemarks = `[Marked as Lost - Reason: ${lostReason}] ${lostNotes ? `Notes: ${lostNotes}` : ""}`.trim();
+      const updatedRemarks = localLead.remarks ? `${localLead.remarks}\n${formattedRemarks}` : formattedRemarks;
+
       const response = await fetch(`/api/enquiries/${localLead._id}`, {
-        method: "DELETE",
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "Lost",
+          priorityLevel: "Low",
+          remarks: updatedRemarks,
+          followUpNotes: formattedRemarks,
+        }),
       });
+
       const data = await response.json();
-      if (data.success) {
-        setIsDeleteModalOpen(false);
-        onSuccess?.();
-        onClose();
+      if (data.success || data.enquiry) {
+        const updated = data.enquiry || {
+          ...localLead,
+          status: "Lost",
+          priorityLevel: "Low",
+          remarks: updatedRemarks,
+          followUpNotes: formattedRemarks,
+        };
+        setLocalLead(updated);
+        setIsLostModalOpen(false);
+        setLostReason("");
+        setLostNotes("");
+        if (onSuccess) onSuccess();
+        alert("Lead has been marked as Lost successfully.");
       } else {
-        alert("Failed to delete lead: " + data.message);
+        alert("Failed to mark lead as lost: " + (data.message || data.error));
       }
     } catch (e) {
       console.error(e);
-      alert("Error deleting lead.");
+      alert("Error marking lead as lost.");
     } finally {
-      setIsDeletingLead(false);
+      setIsMarkingLost(false);
     }
   };
 
@@ -608,10 +648,19 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
               </svg>
               Convert to Admission
             </button>
-            <button onClick={() => setIsDeleteModalOpen(true)} title="Delete Lead" className="flex items-center justify-center p-2 text-rose-500 bg-white border border-rose-200 rounded-xl hover:bg-rose-50 transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4.5 h-4.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+            <button
+              onClick={() => setIsLostModalOpen(true)}
+              disabled={localLead.status === "Lost" || localLead.status === "Admitted"}
+              className={`flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl transition-colors ${
+                localLead.status === "Lost"
+                  ? "text-slate-400 bg-slate-100 border border-slate-200 cursor-not-allowed"
+                  : "text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100 cursor-pointer shadow-xs"
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
               </svg>
+              {localLead.status === "Lost" ? "Marked as Lost" : "Mark as Lost"}
             </button>
           </div>
         </div>
@@ -1553,6 +1602,89 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
                 className="px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
               >
                 {isSubmittingDemoAttendance ? "Saving..." : "Mark Attended & Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MARK LEAD AS LOST MODAL OVERLAY */}
+      {isLostModalOpen && (
+        <div className="fixed inset-0 z-[75] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-rose-50/70">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 bg-rose-100 rounded-full flex items-center justify-center text-rose-600 font-bold shrink-0">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-800">Mark Lead as Lost</h3>
+                  <p className="text-xs font-semibold text-rose-600">For {localLead.studentFullName}</p>
+                </div>
+              </div>
+              <button onClick={() => setIsLostModalOpen(false)} className="text-slate-400 hover:text-slate-700 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Form Body */}
+            <div className="px-6 py-6 overflow-y-auto max-h-[75vh] flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Reason for Lost Lead *
+                </label>
+                <select
+                  value={lostReason}
+                  onChange={(e) => setLostReason(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100 transition-all bg-white"
+                >
+                  <option value="">Select reason...</option>
+                  <option value="Fee too high / Budget constraint">Fee too high / Budget constraint</option>
+                  <option value="Joined competitor institute">Joined competitor institute</option>
+                  <option value="Location / Distance / Commute issue">Location / Distance / Commute issue</option>
+                  <option value="Course / Batch timing mismatch">Course / Batch timing mismatch</option>
+                  <option value="Not interested / Changed mind">Not interested / Changed mind</option>
+                  <option value="Unreachable / Invalid contact number">Unreachable / Invalid contact number</option>
+                  <option value="Other reason">Other reason</option>
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Detailed Notes / Feedback
+                </label>
+                <textarea
+                  value={lostNotes}
+                  onChange={(e) => setLostNotes(e.target.value)}
+                  rows={3}
+                  placeholder="Additional context or comments (e.g. Joined Allen Institute, phone switched off)..."
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100 transition-all resize-none bg-white"
+                />
+              </div>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                disabled={isMarkingLost}
+                onClick={() => setIsLostModalOpen(false)}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200 transition-colors border border-slate-200 bg-white cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isMarkingLost}
+                onClick={handleMarkAsLostSubmit}
+                className="px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
+              >
+                {isMarkingLost ? "Updating..." : "Confirm & Mark as Lost"}
               </button>
             </div>
           </div>

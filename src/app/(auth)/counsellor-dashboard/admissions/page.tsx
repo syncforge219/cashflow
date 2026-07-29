@@ -6,6 +6,7 @@ import LeadProfile from "@/components/LeadProfile";
 import AdmissionModal from "@/components/AdmissionModal";
 import AdmissionDetailModal from "@/components/AdmissionDetailModal";
 import PaymentReceiptModal from "@/components/PaymentReceiptModal";
+import Student360Modal from "@/components/Student360Modal";
 import CounsellorSidebar from "@/components/CounsellorSidebar";
 import { useUser } from "../../../component/context/user-context";
 
@@ -25,6 +26,10 @@ export default function AdmissionHub() {
     const [totalEnquiries, setTotalEnquiries] = useState(0);
     const [isLoadingAdmissions, setIsLoadingAdmissions] = useState(true);
     const [selectedAdmissionDetail, setSelectedAdmissionDetail] = useState<any | null>(null);
+
+    // Student 360 Modal State
+    const [selected360StudentId, setSelected360StudentId] = useState<string | null>(null);
+    const [is360Open, setIs360Open] = useState(false);
 
     // Receipt Modal States
     const [selectedStudentForReceipt, setSelectedStudentForReceipt] = useState<any | null>(null);
@@ -74,12 +79,33 @@ export default function AdmissionHub() {
             const json = await res.json();
             if (json.success && Array.isArray(json.data)) {
                 const uName = ((user as any)?.name || (user as any)?.fullName || (user as any)?.username || "").trim().toLowerCase();
-                const myAdmissions = json.data.filter((a: any) => {
-                    const cName = (a.counsellor || "").trim().toLowerCase();
-                    if (!uName || !cName) return true;
-                    return cName === uName || cName.includes(uName) || uName.includes(cName);
-                });
-                setAdmissions(myAdmissions);
+                const uBrand = (user?.brandScope || "").trim().toLowerCase();
+
+                const isMatch = (dbVal: string, bVal?: string) => {
+                    const val = (dbVal || "").trim().toLowerCase();
+                    const brand = (bVal || "").trim().toLowerCase();
+
+                    if (!val || val === "staff" || val === "counsellor" || val === "unassigned" || val === "n/a") return true;
+                    if (!uName) return true;
+                    if (val === uName || val.includes(uName) || uName.includes(val)) return true;
+
+                    const dbTokens = val.split(/\s+/);
+                    const uTokens = uName.split(/\s+/);
+                    if (dbTokens.some((dt: string) => dt.length > 2 && uTokens.some((ut: string) => ut.length > 2 && (dt.includes(ut) || ut.includes(dt))))) {
+                        return true;
+                    }
+
+                    if (uBrand && uBrand !== "all" && uBrand !== "all brands" && brand && (brand === uBrand || brand.includes(uBrand) || uBrand.includes(brand))) {
+                        return true;
+                    }
+
+                    return false;
+                };
+
+                const myAdmissions = json.data.filter((a: any) => isMatch(a.counsellor || a.assignedCrmAdvisor, a.brand));
+                const finalAdmissions = myAdmissions.length > 0 ? myAdmissions : json.data;
+
+                setAdmissions(finalAdmissions);
                 if (json.totalEnquiries !== undefined) {
                     setTotalEnquiries(json.totalEnquiries);
                 }
@@ -547,12 +573,24 @@ export default function AdmissionHub() {
                                                     </p>
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); handlePrintSlip(adm, e); }}
-                                                        className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors border border-indigo-100"
-                                                    >
-                                                        Print Slip
-                                                    </button>
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setSelected360StudentId(adm._id);
+                                                                setIs360Open(true);
+                                                            }}
+                                                            className="text-xs font-bold text-purple-600 hover:text-purple-800 bg-purple-50 hover:bg-purple-100 px-3 py-1.5 rounded-lg transition-colors border border-purple-100 cursor-pointer"
+                                                        >
+                                                            360 View
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); handlePrintSlip(adm, e); }}
+                                                            className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors border border-indigo-100 cursor-pointer"
+                                                        >
+                                                            Print Slip
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))}
@@ -652,6 +690,17 @@ export default function AdmissionHub() {
                     receipt={selectedReceipt}
                     student={selectedStudentForReceipt}
                     paymentsHistory={paymentsHistory}
+                />
+            )}
+
+            {is360Open && selected360StudentId && (
+                <Student360Modal
+                    isOpen={is360Open}
+                    onClose={() => {
+                        setIs360Open(false);
+                        setSelected360StudentId(null);
+                    }}
+                    admissionId={selected360StudentId}
                 />
             )}
         </div>

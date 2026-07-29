@@ -29,6 +29,12 @@ export default function Student360PortalPage() {
 
   // Role validation
   const userRole = (user?.role || "").toLowerCase();
+  const isCounsellor =
+    userRole === "counsellor" ||
+    userRole === "counselor" ||
+    userRole.includes("counsellor") ||
+    userRole.includes("counselor");
+
   const isAuthorized =
     userRole === "admin" ||
     userRole === "super admin" ||
@@ -43,8 +49,7 @@ export default function Student360PortalPage() {
     userRole === "center_head" ||
     userRole === "branch head" ||
     userRole === "branch_head" ||
-    userRole === "counsellor" ||
-    userRole === "counselor";
+    isCounsellor;
 
   const isBrandManager = userRole === "brand_manager" || userRole === "brand-manager" || userRole === "brand manager";
 
@@ -137,7 +142,7 @@ export default function Student360PortalPage() {
     if (userRole === "admin" || userRole === "super admin" || userRole === "super_admin") {
       return <Sidebar />;
     }
-    if (userRole === "counsellor" || userRole === "counselor") {
+    if (isCounsellor) {
       return <CounsellorSidebar />;
     }
     return <ManagerSidebar />;
@@ -399,9 +404,8 @@ export default function Student360PortalPage() {
                             </div>
                             <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
                               <div
-                                className={`h-full transition-all rounded-full ${
-                                  pct >= 100 ? "bg-emerald-500" : pct >= 50 ? "bg-blue-500" : "bg-rose-500"
-                                }`}
+                                className={`h-full transition-all rounded-full ${pct >= 100 ? "bg-emerald-500" : pct >= 50 ? "bg-blue-500" : "bg-rose-500"
+                                  }`}
                                 style={{ width: `${pct}%` }}
                               ></div>
                             </div>

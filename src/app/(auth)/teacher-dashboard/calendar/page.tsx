@@ -137,9 +137,9 @@ export default function TeacherCalendarPage() {
     <div className="flex h-screen bg-[#f8faff] text-slate-800 overflow-hidden font-sans">
       <TeacherSidebar />
 
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+      <div className="flex-1 h-screen overflow-y-auto min-w-0 pb-32">
         <motion.div
-          className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto w-full"
+          className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto w-full pb-32"
           variants={containerVariants}
           initial="hidden"
           animate="show"
