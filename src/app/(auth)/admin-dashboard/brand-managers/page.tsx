@@ -45,7 +45,11 @@ export default function BrandManagersPage() {
           joined: new Date(user.createdAt).toLocaleDateString(),
           status: "ACTIVE",
           role: user.role,
-          claim: (user.role === "cfo" || user.role === "finance manager") ? "CFO / FINANCE MANAGER" : "BRAND_MANAGER",
+          claim: (user.role === "cfo" || user.role === "finance manager") 
+            ? "CFO / FINANCE MANAGER" 
+            : (user.role === "marketing lead" || user.role === "marketing manager" || user.role === "digital marketer")
+            ? "MARKETING LEAD"
+            : "BRAND_MANAGER",
           sync: "DB synchronized",
         }));
         setManagersList(formattedData);

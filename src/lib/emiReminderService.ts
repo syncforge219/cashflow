@@ -86,17 +86,28 @@ export async function checkAndSendOverdueEmiReminders(options?: { force?: boolea
           const dueDate = new Date(entry.dueDate);
           const dueStart = new Date(dueDate);
           dueStart.setHours(0, 0, 0, 0);
-          const isDueOrOverdue = dueStart <= todayStart;
+
+          // Calculate exact days difference between due date and today
+          const timeDiffMs = dueStart.getTime() - todayStart.getTime();
+          const daysDifference = Math.round(timeDiffMs / (1000 * 60 * 60 * 24));
+
+          // Trigger conditions:
+          // 1) 3 days prior to due date (daysDifference === 3)
+          // 2) Due today or overdue (daysDifference <= 0)
+          const is3DaysPrior = daysDifference === 3;
+          const isDueOrOverdue = daysDifference <= 0;
+          const shouldSendReminder = is3DaysPrior || isDueOrOverdue;
 
           const lastSentDateStr = entry.reminderSentAt
             ? new Date(entry.reminderSentAt).toDateString()
             : null;
 
-          console.log(`[EMI REMINDER] ${admission.fullName} | Inst ${i + 1}: dueDate=${dueDate.toISOString().split("T")[0]}, isDueOrOverdue=${isDueOrOverdue}, lastSent=${lastSentDateStr}`);
+          console.log(`[EMI REMINDER] ${admission.fullName} | Inst ${i + 1}: dueDate=${dueDate.toISOString().split("T")[0]}, daysUntilDue=${daysDifference}, shouldSend=${shouldSendReminder}, lastSent=${lastSentDateStr}`);
 
-          if (isDueOrOverdue) {
+          if (shouldSendReminder) {
             if (force || lastSentDateStr !== todayStr) {
-              const instLabel = `${i + 1}${i + 1 === 1 ? "st" : i + 1 === 2 ? "nd" : i + 1 === 3 ? "rd" : "th"} Installment`;
+              const statusTag = is3DaysPrior ? " (Due in 3 Days)" : isDueOrOverdue ? " (Overdue/Due Today)" : "";
+              const instLabel = `${i + 1}${i + 1 === 1 ? "st" : i + 1 === 2 ? "nd" : i + 1 === 3 ? "rd" : "th"} Installment${statusTag}`;
               overdueItems.push({
                 installmentName: instLabel,
                 amount: Number(entry.amount) || remainingBalance,
@@ -108,7 +119,7 @@ export async function checkAndSendOverdueEmiReminders(options?: { force?: boolea
         }
       } else {
         // ────────────────────────────────────────────────────────────────────
-        // CASE 2: No EMI plan — check if 30 days since admission has passed
+        // CASE 2: No EMI plan — check if 30 days since admission has passed (or 3 days prior)
         // ────────────────────────────────────────────────────────────────────
         const admissionDate = new Date(admission.admissionDate || admission.createdAt || now);
         const dueDate = new Date(admissionDate);
@@ -116,17 +127,24 @@ export async function checkAndSendOverdueEmiReminders(options?: { force?: boolea
 
         const dueStart = new Date(dueDate);
         dueStart.setHours(0, 0, 0, 0);
-        const isDueOrOverdue = dueStart <= todayStart;
+
+        const timeDiffMs = dueStart.getTime() - todayStart.getTime();
+        const daysDifference = Math.round(timeDiffMs / (1000 * 60 * 60 * 24));
+
+        const is3DaysPrior = daysDifference === 3;
+        const isDueOrOverdue = daysDifference <= 0;
+        const shouldSendReminder = is3DaysPrior || isDueOrOverdue;
 
         const lastSentDateStr = admission.lastEmiReminderSentAt
           ? new Date(admission.lastEmiReminderSentAt).toDateString()
           : null;
 
-        console.log(`[EMI REMINDER] ${admission.fullName} | (No EMI) remaining=₹${remainingBalance}, dueDate=${dueDate.toISOString().split("T")[0]}, isDueOrOverdue=${isDueOrOverdue}, lastSent=${lastSentDateStr}`);
+        console.log(`[EMI REMINDER] ${admission.fullName} | (No EMI) remaining=₹${remainingBalance}, dueDate=${dueDate.toISOString().split("T")[0]}, daysUntilDue=${daysDifference}, shouldSend=${shouldSendReminder}, lastSent=${lastSentDateStr}`);
 
-        if (isDueOrOverdue && (force || lastSentDateStr !== todayStr)) {
+        if (shouldSendReminder && (force || lastSentDateStr !== todayStr)) {
+          const statusTag = is3DaysPrior ? " (Due in 3 Days)" : " (Overdue/Due Today)";
           overdueItems.push({
-            installmentName: "Outstanding Balance",
+            installmentName: `Outstanding Balance${statusTag}`,
             amount: remainingBalance,
             dueDate,
             installmentIndex: 0,

@@ -6,7 +6,19 @@ import bcrypt from "bcryptjs";
 export async function GET() {
   try {
     await dbConnect();
-    const brandManagers = await User.find({ role: { $in: ["brand manager", "centre head", "cfo", "finance manager"] } }).sort({ createdAt: -1 });
+    const brandManagers = await User.find({
+      role: {
+        $in: [
+          "brand manager",
+          "centre head",
+          "cfo",
+          "finance manager",
+          "marketing lead",
+          "marketing manager",
+          "digital marketer",
+        ],
+      },
+    }).sort({ createdAt: -1 });
     return NextResponse.json({ success: true, data: brandManagers });
   } catch (error: any) {
     console.error("Error fetching managers:", error);

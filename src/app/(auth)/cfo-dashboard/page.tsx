@@ -585,7 +585,7 @@ export default function CfoDashboardPage() {
     { name: "Cash Balance", value: Math.max(1, summary.cashReserves), color: "#f59e0b" },
   ];
 
-  const categoryDonutData = (categoryBreakdown || []).slice(0, 6).map((c: any, idx: number) => ({
+  const categoryDonutData = (categoryBreakdown || []).map((c: any, idx: number) => ({
     name: c.name,
     value: c.value,
     color: COLORS[idx % COLORS.length],
@@ -909,97 +909,49 @@ export default function CfoDashboardPage() {
           </div>
         </div>
 
-        {/* 4 & 5. QUARTERLY BARS & CATEGORY DONUT WITH TABLES */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* 4. QUARTERLY PERFORMANCE BARS & TABLE */}
-          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-5">
-            <div className="border-b border-slate-100 pb-3">
-              <h3 className="text-base font-extrabold text-slate-800">📊 4. Quarterly Performance</h3>
-              <p className="text-xs text-slate-400 font-medium">Comparison across Q1, Q2, Q3, and Q4 periods</p>
-            </div>
-
-            <SvgBarGraph
-              data={quarterlyBarData}
-              height={230}
-              color1="#4f46e5"
-              color2="#ef4444"
-              label1="Money In"
-              label2="Money Out"
-              onHover={handleHover}
-              onLeave={handleLeave}
-            />
-
-            <div className="pt-2 border-t border-slate-100">
-              <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">📋 Quarterly Numbers Table</h4>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs font-semibold border border-slate-200/60 rounded-xl overflow-hidden shadow-xs">
-                  <thead className="bg-slate-100/80 text-slate-600 uppercase text-[10px]">
-                    <tr>
-                      <th className="py-2.5 px-3">Quarter</th>
-                      <th className="py-2.5 px-3">Money In (₹)</th>
-                      <th className="py-2.5 px-3">Money Out (₹)</th>
-                      <th className="py-2.5 px-3 text-right">Net Savings</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-slate-700">
-                    {quarterlyTrends.map((q: any) => (
-                      <tr key={q.quarter} className="hover:bg-slate-50 transition-colors">
-                        <td className="py-2.5 px-3 font-bold text-slate-900">{q.quarter}</td>
-                        <td className="py-2.5 px-3 font-bold text-emerald-600">₹{q.revenue.toLocaleString("en-IN")}</td>
-                        <td className="py-2.5 px-3 font-bold text-rose-600">₹{q.expense.toLocaleString("en-IN")}</td>
-                        <td className={`py-2.5 px-3 text-right font-black ${q.netProfit >= 0 ? "text-indigo-600" : "text-rose-600"}`}>
-                          ₹{q.netProfit.toLocaleString("en-IN")}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+        {/* 4. QUARTERLY PERFORMANCE BARS & TABLE */}
+        <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-5">
+          <div className="border-b border-slate-100 pb-3">
+            <h3 className="text-base font-extrabold text-slate-800">📊 4. Quarterly Performance</h3>
+            <p className="text-xs text-slate-400 font-medium">Comparison across Q1, Q2, Q3, and Q4 periods</p>
           </div>
 
-          {/* 5. EXPENSE CATEGORY DONUT & TABLE */}
-          <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-5">
-            <div className="border-b border-slate-100 pb-3">
-              <h3 className="text-base font-extrabold text-slate-800">🍩 5. Where Expenses Go (Categories)</h3>
-              <p className="text-xs text-slate-400 font-medium">Category breakdown of operational expenditures</p>
-            </div>
+          <SvgBarGraph
+            data={quarterlyBarData}
+            height={230}
+            color1="#4f46e5"
+            color2="#ef4444"
+            label1="Money In"
+            label2="Money Out"
+            onHover={handleHover}
+            onLeave={handleLeave}
+          />
 
-            {categoryDonutData.length === 0 ? (
-              <div className="py-12 text-xs font-semibold text-slate-400 text-center">No expense records found</div>
-            ) : (
-              <SvgDonutChart data={categoryDonutData} size={210} onHover={handleHover} onLeave={handleLeave} />
-            )}
-
-            <div className="pt-2 border-t border-slate-100">
-              <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">📋 Category Numbers Table</h4>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs font-semibold border border-slate-200/60 rounded-xl overflow-hidden shadow-xs">
-                  <thead className="bg-slate-100/80 text-slate-600 uppercase text-[10px]">
-                    <tr>
-                      <th className="py-2.5 px-3">Category Name</th>
-                      <th className="py-2.5 px-3">Spent Amount (₹)</th>
-                      <th className="py-2.5 px-3 text-right">Share (%)</th>
+          <div className="pt-2 border-t border-slate-100">
+            <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">📋 Quarterly Numbers Table</h4>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs font-semibold border border-slate-200/60 rounded-xl overflow-hidden shadow-xs">
+                <thead className="bg-slate-100/80 text-slate-600 uppercase text-[10px]">
+                  <tr>
+                    <th className="py-2.5 px-3">Quarter</th>
+                    <th className="py-2.5 px-3">Money In (₹)</th>
+                    <th className="py-2.5 px-3">Money Out (₹)</th>
+                    <th className="py-2.5 px-3 text-right">Net Savings</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-700">
+                  {quarterlyTrends.map((q: any) => (
+                    <tr key={q.quarter} className="hover:bg-slate-50 transition-colors">
+                      <td className="py-2.5 px-3 font-bold text-slate-900">{q.quarter}</td>
+                      <td className="py-2.5 px-3 font-bold text-emerald-600">₹{q.revenue.toLocaleString("en-IN")}</td>
+                      <td className="py-2.5 px-3 font-bold text-rose-600">₹{q.expense.toLocaleString("en-IN")}</td>
+                      <td className={`py-2.5 px-3 text-right font-black ${q.netProfit >= 0 ? "text-indigo-600" : "text-rose-600"}`}>
+                        ₹{q.netProfit.toLocaleString("en-IN")}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-slate-700">
-                    {categoryBreakdown.map((c: any, idx: number) => {
-                      const totalExp = summary.totalExpenses || 1;
-                      const pct = ((c.value / totalExp) * 100).toFixed(1);
-                      return (
-                        <tr key={c.name} className="hover:bg-slate-50 transition-colors">
-                          <td className="py-2.5 px-3 font-bold flex items-center gap-2">
-                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
-                            <span>{c.name}</span>
-                          </td>
-                          <td className="py-2.5 px-3 font-bold text-rose-600">₹{c.value.toLocaleString("en-IN")}</td>
-                          <td className="py-2.5 px-3 text-right font-extrabold text-slate-700">{pct}%</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
