@@ -44,11 +44,15 @@ export async function GET(req: Request) {
     }
 
     if (search) {
+      const sRegex = { $regex: search, $options: "i" };
       query.$or = [
-        { title: { $regex: search, $options: "i" } },
-        { remarks: { $regex: search, $options: "i" } },
-        { brand: { $regex: search, $options: "i" } },
-        { company: { $regex: search, $options: "i" } },
+        { title: sRegex },
+        { category: sRegex },
+        { remarks: sRegex },
+        { brand: sRegex },
+        { company: sRegex },
+        { paymentMode: sRegex },
+        { bank: sRegex },
       ];
     }
 

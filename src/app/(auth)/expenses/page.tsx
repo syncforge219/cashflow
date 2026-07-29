@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 import Sidebar from "@/components/Sidebar";
@@ -902,7 +902,7 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     fetchExpenses();
-  }, [selectedCategory, selectedBrand, selectedCompany, startDateFilter, endDateFilter]);
+  }, [selectedCategory, selectedBrand, selectedCompany, startDateFilter, endDateFilter, searchQuery]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -976,17 +976,74 @@ export default function ExpensesPage() {
     }
   };
 
-  // Summary Metrics
-  const totalExpenseSum = expenses.reduce((acc, cur) => acc + cur.amount, 0);
+  // Filter expenses locally for real-time live search & filtering
+  const filteredExpenses = useMemo(() => {
+    return expenses.filter((e) => {
+      // 1. Search Query Filter (checks title, category, brand, company, paymentMode, bank, remarks, amount)
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchTitle = (e.title || "").toLowerCase().includes(q);
+        const matchCategory = (e.category || "").toLowerCase().includes(q);
+        const matchBrand = (e.brand || "").toLowerCase().includes(q);
+        const matchCompany = (e.company || "").toLowerCase().includes(q);
+        const matchPayment = (e.paymentMode || "").toLowerCase().includes(q);
+        const matchBank = (e.bank || "").toLowerCase().includes(q);
+        const matchRemarks = (e.remarks || "").toLowerCase().includes(q);
+        const matchAmount = String(e.amount || "").includes(q);
 
-  const maintenanceExpenseSum = expenses
+        if (!matchTitle && !matchCategory && !matchBrand && !matchCompany && !matchPayment && !matchBank && !matchRemarks && !matchAmount) {
+          return false;
+        }
+      }
+
+      // 2. Category Filter
+      if (selectedCategory && selectedCategory !== "All") {
+        if ((e.category || "").toLowerCase() !== selectedCategory.toLowerCase()) {
+          return false;
+        }
+      }
+
+      // 3. Brand Filter
+      if (selectedBrand && selectedBrand !== "All Brands" && selectedBrand !== "All") {
+        if ((e.brand || "").toLowerCase() !== selectedBrand.toLowerCase()) {
+          return false;
+        }
+      }
+
+      // 4. Company Filter
+      if (selectedCompany && selectedCompany !== "All Companies" && selectedCompany !== "All") {
+        if ((e.company || "").toLowerCase() !== selectedCompany.toLowerCase()) {
+          return false;
+        }
+      }
+
+      // 5. Date Range Filter
+      if (startDateFilter) {
+        const expenseTime = new Date(e.expenseDate).setHours(0, 0, 0, 0);
+        const startTime = new Date(startDateFilter).setHours(0, 0, 0, 0);
+        if (expenseTime < startTime) return false;
+      }
+      if (endDateFilter) {
+        const expenseTime = new Date(e.expenseDate).setHours(23, 59, 59, 999);
+        const endTime = new Date(endDateFilter).setHours(23, 59, 59, 999);
+        if (expenseTime > endTime) return false;
+      }
+
+      return true;
+    });
+  }, [expenses, searchQuery, selectedCategory, selectedBrand, selectedCompany, startDateFilter, endDateFilter]);
+
+  // Summary Metrics
+  const totalExpenseSum = filteredExpenses.reduce((acc, cur) => acc + cur.amount, 0);
+
+  const maintenanceExpenseSum = filteredExpenses
     .filter((e) => {
       const cat = (e.category || "").toLowerCase();
       return cat.includes("maintenance") || cat.includes("repair");
     })
     .reduce((acc, cur) => acc + cur.amount, 0);
 
-  const totalRecurringExpenses = expenses.filter((e) => e.isRecurring).length;
+  const totalRecurringExpenses = filteredExpenses.filter((e) => e.isRecurring).length;
 
   // Pagination & Sorting State
   const [currentPage, setCurrentPage] = useState(1);
@@ -999,11 +1056,13 @@ export default function ExpensesPage() {
   }, [searchQuery, selectedCategory, selectedBrand, selectedCompany, startDateFilter, endDateFilter, itemsPerPage, dateSort]);
 
   // Sort expenses date-wise according to dateSort
-  const sortedExpenses = [...expenses].sort((a, b) => {
-    const timeA = new Date(a.expenseDate).getTime();
-    const timeB = new Date(b.expenseDate).getTime();
-    return dateSort === "desc" ? timeB - timeA : timeA - timeB;
-  });
+  const sortedExpenses = useMemo(() => {
+    return [...filteredExpenses].sort((a, b) => {
+      const timeA = new Date(a.expenseDate).getTime();
+      const timeB = new Date(b.expenseDate).getTime();
+      return dateSort === "desc" ? timeB - timeA : timeA - timeB;
+    });
+  }, [filteredExpenses, dateSort]);
 
   const totalPages = Math.max(1, Math.ceil(sortedExpenses.length / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;

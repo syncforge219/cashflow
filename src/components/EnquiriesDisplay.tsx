@@ -596,16 +596,17 @@ export default function EnquiriesDisplay() {
                 <th className="py-3 px-6">Advisor</th>
                 <th className="py-3 px-6">Source</th>
                 <th className="py-3 px-6">Status</th>
+                <th className="py-3 px-6 text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-semibold text-slate-600">
               {isLoading ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-xs text-slate-500">Loading enquiries...</td>
+                  <td colSpan={8} className="py-8 text-center text-xs text-slate-500">Loading enquiries...</td>
                 </tr>
               ) : filteredEnquiries.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-xs text-slate-500">No enquiries found.</td>
+                  <td colSpan={8} className="py-8 text-center text-xs text-slate-500">No enquiries found.</td>
                 </tr>
               ) : (
                 filteredEnquiries.map((lead, idx) => (
@@ -621,18 +622,28 @@ export default function EnquiriesDisplay() {
 
                     {/* Basic Details */}
                     <td className="py-4 px-6">
-                      <span className="text-slate-800 font-bold block">{lead.studentFullName}</span>
-                      <span className="text-[10px] text-slate-400 block mt-0.5">{lead.primaryPhoneMobile} • {lead.emailAddress}</span>
+                      <div className="font-bold text-slate-900">{lead.studentFullName}</div>
+                      <div className="text-[11px] text-slate-400 font-mono flex items-center gap-2 mt-0.5">
+                        <span>{lead.primaryPhoneMobile}</span>
+                        {lead.emailAddress && (
+                          <>
+                            <span>•</span>
+                            <span className="truncate max-w-[140px]">{lead.emailAddress}</span>
+                          </>
+                        )}
+                      </div>
                     </td>
 
                     {/* Course requested */}
-                    <td className="py-4 px-6 font-mono text-[10px] text-slate-500">
-                      {lead.targetCourse}
+                    <td className="py-4 px-6 font-semibold text-slate-700">
+                      {lead.targetCourse || "-"}
                     </td>
 
                     {/* Brand */}
-                    <td className="py-4 px-6 text-slate-700">
-                      {lead.targetBrand}
+                    <td className="py-4 px-6">
+                      <span className="inline-flex items-center text-[10px] font-bold bg-slate-100 text-slate-700 rounded-md px-2 py-0.5 border border-slate-200">
+                        {lead.targetBrand || "Default Brand"}
+                      </span>
                     </td>
 
                     {/* Advisor dropdown */}
@@ -677,6 +688,38 @@ export default function EnquiriesDisplay() {
                       <span className="inline-flex items-center text-[9px] font-bold bg-blue-50 text-blue-600 rounded-md px-2 py-0.5 border border-blue-100 uppercase group-hover:bg-indigo-50 group-hover:text-indigo-600 group-hover:border-indigo-100 transition-colors">
                         {lead.status}
                       </span>
+                    </td>
+
+                    {/* Action */}
+                    <td className="py-4 px-6 text-right" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (lead.status === "Admitted" || lead.isAdmitted) {
+                            alert("Cannot delete an admitted student's enquiry record.");
+                            return;
+                          }
+                          if (confirm(`Are you sure you want to delete enquiry "${lead.studentFullName}" (${lead.enquiryId})?`)) {
+                            try {
+                              const res = await fetch(`/api/enquiries/${lead._id}`, { method: "DELETE" });
+                              const data = await res.json();
+                              if (res.ok && data.success) {
+                                fetchEnquiries();
+                              } else {
+                                alert(data.error || "Failed to delete enquiry.");
+                              }
+                            } catch (err) {
+                              console.error(err);
+                            }
+                          }
+                        }}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                        title="Delete Enquiry"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" className="w-4 h-4">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                        </svg>
+                      </button>
                     </td>
                   </tr>
                 ))
