@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { useUser } from "@/app/component/context/user-context";
 import SidebarBrandHeader from "@/components/SidebarBrandHeader";
+import SidebarAiButton from "@/components/SidebarAiButton";
 
 interface SidebarItem {
   name: string;
@@ -63,6 +64,9 @@ export default function CrmSidebar() {
       <div className="pt-4 px-4 pb-2">
         <SidebarBrandHeader isCollapsed={false} />
       </div>
+
+      {/* CashFlow AI Copilot Trigger */}
+      <SidebarAiButton isCollapsed={false} />
 
       {/* Navigation Group Items */}
       <div className="flex-1 overflow-y-auto px-3.5 py-4 space-y-6 scrollbar-none">

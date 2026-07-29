@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useUser } from "@/app/component/context/user-context";
 import { extractDominantColor, applyBrandTheme } from "@/lib/theme";
 import SidebarBrandHeader from "@/components/SidebarBrandHeader";
+import SidebarAiButton from "@/components/SidebarAiButton";
 
 interface SidebarItem {
   name: string;
@@ -385,6 +386,9 @@ export default function Sidebar() {
     >
       {/* Brand Header */}
       <SidebarBrandHeader isCollapsed={isCollapsed} />
+
+      {/* CashFlow AI Copilot Trigger */}
+      <SidebarAiButton isCollapsed={isCollapsed} />
 
       {/* Navigation Groups */}
       <nav className="flex-1 space-y-6 overflow-y-auto pr-1">

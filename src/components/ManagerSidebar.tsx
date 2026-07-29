@@ -4,7 +4,8 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useUser } from "@/app/component/context/user-context";
-import SidebarBrandHeader from "@/components/SidebarBrandHeader";
+import SidebarBrandHeader from "./SidebarBrandHeader";
+import SidebarAiButton from "./SidebarAiButton";
 
 interface SidebarItem {
   name: string;
@@ -220,6 +221,9 @@ export default function ManagerSidebar() {
       <div className="py-4 px-4 border-b border-slate-100 shrink-0">
         <SidebarBrandHeader isCollapsed={isCollapsed} subtitle="ERP" />
       </div>
+
+      {/* CashFlow AI Copilot Trigger */}
+      <SidebarAiButton isCollapsed={isCollapsed} />
 
       {/* Navigation Links */}
       <div className="flex-1 overflow-y-auto py-6 px-4 space-y-8 custom-scrollbar">

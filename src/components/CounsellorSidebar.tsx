@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { usePathname } from "next/navigation";
 import { useUser } from "@/app/component/context/user-context";
 import SidebarBrandHeader from "@/components/SidebarBrandHeader";
+import SidebarAiButton from "@/components/SidebarAiButton";
 
 interface SidebarItem {
   name: string;
@@ -123,7 +124,10 @@ export default function CounsellorSidebar() {
         }`}
     >
       {/* Brand Header */}
-      <SidebarBrandHeader isCollapsed={isCollapsed} subtitle="ERP" />
+      <SidebarBrandHeader isCollapsed={isCollapsed} subtitle="Counsellor Portal" />
+
+      {/* CashFlow AI Copilot Trigger */}
+      <SidebarAiButton isCollapsed={isCollapsed} />
 
       {/* Navigation Groups */}
       <nav className="flex-1 space-y-6 overflow-y-auto pr-1">

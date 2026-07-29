@@ -47,6 +47,17 @@ export default function CrmAiAssistant() {
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const handleOpen = () => setIsOpen(true);
+    const handleToggle = () => setIsOpen((prev) => !prev);
+    window.addEventListener("open-ai-assistant", handleOpen);
+    window.addEventListener("toggle-ai-assistant", handleToggle);
+    return () => {
+      window.removeEventListener("open-ai-assistant", handleOpen);
+      window.removeEventListener("toggle-ai-assistant", handleToggle);
+    };
+  }, []);
+
+  useEffect(() => {
     if (isOpen) {
       chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
@@ -138,38 +149,6 @@ export default function CrmAiAssistant() {
 
   return (
     <>
-      {/* FLOATING DRAGGABLE LAUNCHER BUTTON */}
-      <motion.div 
-        drag
-        dragMomentum={false}
-        className="fixed bottom-6 right-6 z-50 cursor-grab active:cursor-grabbing touch-none select-none"
-      >
-        <motion.button
-          whileHover={{ scale: 1.06 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => setIsOpen(!isOpen)}
-          className="group relative flex items-center gap-3 bg-gradient-to-r from-purple-600 via-indigo-600 to-indigo-700 hover:from-purple-700 hover:to-indigo-800 text-white px-5 py-3.5 rounded-full shadow-[0_12px_35px_rgba(99,102,241,0.45)] hover:shadow-[0_15px_45px_rgba(99,102,241,0.6)] transition-all duration-300 border border-purple-300/40 cursor-pointer"
-        >
-          {/* Drag Handle Indicator */}
-          <div className="text-purple-300 opacity-60 group-hover:opacity-100 text-xs font-mono select-none mr-0.5">
-            ⠿
-          </div>
-
-          <div className="relative flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-purple-200 group-hover:rotate-12 transition-transform duration-300">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z" />
-            </svg>
-            <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
-            </span>
-          </div>
-          <span className="text-xs font-black tracking-wider uppercase select-none">
-            {isOpen ? "Close AI Copilot" : "✨ CashFlow AI"}
-          </span>
-        </motion.button>
-      </motion.div>
-
       {/* FLOATING MODERN DRAGGABLE GLASSMORPHIC AI TAB WINDOW */}
       <AnimatePresence>
         {isOpen && (
