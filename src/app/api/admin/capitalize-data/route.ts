@@ -40,7 +40,7 @@ export async function GET() {
     // 3. CAPITALIZE ENQUIRIES
     const enquiries = await Enquiry.find({});
     let updatedEnquiries = 0;
-    for (const enq of enquiries) {
+    for (const enq of enquiries as any[]) {
       if (enq.targetBrand) enq.targetBrand = String(enq.targetBrand).toUpperCase().trim();
       if (enq.companyAssigned) enq.companyAssigned = String(enq.companyAssigned).toUpperCase().trim();
       await enq.save();
@@ -50,7 +50,7 @@ export async function GET() {
     // 4. CAPITALIZE ADMISSIONS
     const admissions = await Admission.find({});
     let updatedAdmissions = 0;
-    for (const adm of admissions) {
+    for (const adm of admissions as any[]) {
       if (adm.brand) adm.brand = String(adm.brand).toUpperCase().trim();
       if (adm.brandName) adm.brandName = String(adm.brandName).toUpperCase().trim();
       if (adm.company) adm.company = String(adm.company).toUpperCase().trim();
@@ -62,7 +62,7 @@ export async function GET() {
     // 5. CAPITALIZE EXPENSES
     const expenses = await Expense.find({});
     let updatedExpenses = 0;
-    for (const exp of expenses) {
+    for (const exp of expenses as any[]) {
       if (exp.brand) exp.brand = String(exp.brand).toUpperCase().trim();
       if (exp.company) exp.company = String(exp.company).toUpperCase().trim();
       await exp.save();
@@ -72,7 +72,7 @@ export async function GET() {
     // 6. CAPITALIZE PAYMENTS
     const payments = await Payment.find({});
     let updatedPayments = 0;
-    for (const pay of payments) {
+    for (const pay of payments as any[]) {
       if (pay.brand) pay.brand = String(pay.brand).toUpperCase().trim();
       if (pay.company) pay.company = String(pay.company).toUpperCase().trim();
       await pay.save();
