@@ -6,6 +6,7 @@ import ProfileDisplay from "@/components/ProfileDisplay";
 import { useUser } from "@/app/component/context/user-context";
 import LeadProfile from "@/components/LeadProfile";
 import AddEnquiryModal from "@/components/AddEnquiryModal";
+import AdvancedSearchModal, { AdvancedSearchFilterState } from "@/components/AdvancedSearchModal";
 
 interface EnquiryFollowupRecord {
   _id: string;
@@ -76,6 +77,7 @@ export default function FollowupPage() {
 
   // Filter Drawer / Modal State
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [advancedFilters, setAdvancedFilters] = useState<AdvancedSearchFilterState | null>(null);
   const [filterBrand, setFilterBrand] = useState("All");
   const [filterAdvisor, setFilterAdvisor] = useState("All");
   const [filterCourse, setFilterCourse] = useState("All");
@@ -235,6 +237,33 @@ export default function FollowupPage() {
       if (filterCourse !== "All" && (rec.targetCourse || "").toLowerCase() !== filterCourse.toLowerCase()) return false;
       if (filterStage !== "All" && (rec.status || "").toLowerCase() !== filterStage.toLowerCase()) return false;
 
+      // Advanced Search Modal Criteria
+      if (advancedFilters) {
+        if (advancedFilters.coursePackage && !(rec.targetCourse || "").toLowerCase().includes(advancedFilters.coursePackage.toLowerCase())) {
+          return false;
+        }
+        if (advancedFilters.studentQuery) {
+          const sq = advancedFilters.studentQuery.toLowerCase().trim();
+          const matchName = rec.studentFullName.toLowerCase().includes(sq);
+          const matchPhone = rec.primaryPhoneMobile.includes(sq);
+          const matchId = rec.enquiryId.toLowerCase().includes(sq);
+          if (!matchName && !matchPhone && !matchId) return false;
+        }
+        if (advancedFilters.status && advancedFilters.status.length > 0 && !advancedFilters.status.includes("All")) {
+          const recSt = (rec.status || "").toLowerCase();
+          const matchSt = advancedFilters.status.some(st => recSt.includes(st.toLowerCase()) || (st === "Active" && !recSt.includes("lost")));
+          if (!matchSt) return false;
+        }
+        if (advancedFilters.enableFromDate && advancedFilters.fromDate) {
+          const fromTime = new Date(advancedFilters.fromDate).getTime();
+          if (recTime < fromTime) return false;
+        }
+        if (advancedFilters.enableTillDate && advancedFilters.tillDate) {
+          const tillTime = new Date(advancedFilters.tillDate).setHours(23, 59, 59, 999);
+          if (recTime > tillTime) return false;
+        }
+      }
+
       // Global Search Query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
@@ -254,7 +283,7 @@ export default function FollowupPage() {
 
       return true;
     });
-  }, [processedEnquiryFollowups, enquiryTab, searchQuery, filterBrand, filterAdvisor, filterCourse, filterStage]);
+  }, [processedEnquiryFollowups, enquiryTab, searchQuery, filterBrand, filterAdvisor, filterCourse, filterStage, advancedFilters]);
 
   // Tab Counters for Enquiry Mode
   const enquiryCounts = useMemo(() => {
@@ -935,105 +964,26 @@ export default function FollowupPage() {
         </div>
       </div>
 
-      {/* Advanced Filter Modal Drawer */}
-      {isFilterModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                ⚡ Advanced Follow-up Filter
-              </h3>
-              <button onClick={() => setIsFilterModalOpen(false)} className="text-slate-400 hover:text-slate-600 font-bold text-lg cursor-pointer">
-                ×
-              </button>
-            </div>
-
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block font-bold text-slate-600 mb-1">Filter by Brand:</label>
-                <select
-                  value={filterBrand}
-                  onChange={(e) => setFilterBrand(e.target.value)}
-                  className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold outline-none focus:border-orange-500"
-                >
-                  <option value="All">All Brands</option>
-                  {uniqueBrands.map((b) => (
-                    <option key={b} value={b}>{b}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-600 mb-1">Filter by Counsellor / Advisor:</label>
-                <select
-                  value={filterAdvisor}
-                  onChange={(e) => setFilterAdvisor(e.target.value)}
-                  className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold outline-none focus:border-orange-500"
-                >
-                  <option value="All">All Advisors</option>
-                  {uniqueAdvisors.map((a) => (
-                    <option key={a} value={a}>{a}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-600 mb-1">Filter by Course Package:</label>
-                <select
-                  value={filterCourse}
-                  onChange={(e) => setFilterCourse(e.target.value)}
-                  className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold outline-none focus:border-orange-500"
-                >
-                  <option value="All">All Courses</option>
-                  {uniqueCourses.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-600 mb-1">Filter by Lead Stage:</label>
-                <select
-                  value={filterStage}
-                  onChange={(e) => setFilterStage(e.target.value)}
-                  className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold outline-none focus:border-orange-500"
-                >
-                  <option value="All">All Stages</option>
-                  <option value="New Lead">New Lead</option>
-                  <option value="In Progress">In Progress</option>
-                  <option value="Interested">Interested</option>
-                  <option value="Demo Scheduled">Demo Scheduled</option>
-                  <option value="Demo Attended">Demo Attended</option>
-                  <option value="Lost">Lost</option>
-                  <option value="Admitted">Admitted</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => {
-                  setFilterBrand("All");
-                  setFilterAdvisor("All");
-                  setFilterCourse("All");
-                  setFilterStage("All");
-                }}
-                className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-slate-200 cursor-pointer"
-              >
-                Reset Filters
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsFilterModalOpen(false)}
-                className="px-4 py-2 bg-orange-600 text-white font-bold text-xs rounded-xl hover:bg-orange-700 shadow-sm cursor-pointer"
-              >
-                Apply Filters
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Advanced Search Modal matching Screenshot */}
+      <AdvancedSearchModal
+        isOpen={isFilterModalOpen}
+        onClose={() => setIsFilterModalOpen(false)}
+        courseOptions={uniqueCourses}
+        statusOptions={["Active", "In Progress", "Interested", "Demo Scheduled", "Demo Attended", "Admitted", "Lost"]}
+        initialFilters={advancedFilters || undefined}
+        onApply={(filters) => {
+          setAdvancedFilters(filters);
+          setCurrentPage(1);
+        }}
+        onClear={() => {
+          setAdvancedFilters(null);
+          setFilterBrand("All");
+          setFilterAdvisor("All");
+          setFilterCourse("All");
+          setFilterStage("All");
+          setCurrentPage(1);
+        }}
+      />
 
       {/* Quick Add Followup Modal */}
       {isQuickFollowupModalOpen && activeRecordForFollowup && (
