@@ -1603,26 +1603,65 @@ export default function ExpensesPage() {
                   </select>
                 </div>
 
+                {/* Company Allocation (Matching Screenshot Design) */}
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-slate-600 font-semibold text-xs">Company Tag</label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-slate-700 font-extrabold text-xs">
+                      Company Allocation
+                    </label>
                     {formData.paymentMode === "Cash" && (
-                      <span className="text-[10px] font-extrabold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                      <span className="text-[10px] font-extrabold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
                         N/A for Cash Payment
                       </span>
                     )}
                   </div>
-                  <select
-                    value={formData.company}
-                    disabled={formData.paymentMode === "Cash"}
-                    onChange={(e) => handleCompanyChangeInForm(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-xs font-semibold text-slate-800 bg-white cursor-pointer disabled:opacity-50 disabled:bg-slate-100"
-                  >
-                    <option value="All Companies">None / Unallocated</option>
-                    {availableFormCompanies.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
+
+                  <div className="space-y-2">
+                    {/* Editable Company Input Box with Suggested Badge Pill */}
+                    <div className="relative flex items-center bg-slate-50/90 border border-slate-200/90 rounded-2xl p-1.5 transition-all focus-within:bg-white focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500 shadow-xs">
+                      <input
+                        type="text"
+                        value={formData.company}
+                        disabled={formData.paymentMode === "Cash"}
+                        onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                        placeholder="Enter or edit allocated company..."
+                        className="w-full px-3 py-1.5 bg-transparent font-bold text-slate-800 text-xs outline-none placeholder-slate-400 disabled:opacity-50"
+                      />
+
+                      {/* Suggested Company Badge Chip (Matching Screenshot) */}
+                      {formData.company && formData.company !== "All Companies" && (
+                        <div className="flex items-center gap-1.5 bg-emerald-50/90 text-emerald-800 border border-emerald-200/80 px-3 py-1.5 rounded-xl text-xs font-black shrink-0 whitespace-nowrap shadow-2xs">
+                          <span className="max-w-[150px] truncate uppercase tracking-tight">
+                            {formData.company}
+                          </span>
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-emerald-500 shrink-0">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Company Suggestions Quick Pills */}
+                    {formData.paymentMode !== "Cash" && (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] font-bold text-slate-400">Suggestions:</span>
+                        {["SLING SHOT TECHNOLOGIES", ...availableFormCompanies.filter(c => c !== "SLING SHOT TECHNOLOGIES")].slice(0, 4).map((c) => (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => setFormData({ ...formData, company: c })}
+                            className={`px-2.5 py-1 rounded-xl text-[11px] font-extrabold transition-all cursor-pointer border ${
+                              formData.company === c
+                                ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300"
+                            }`}
+                          >
+                            {c}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
