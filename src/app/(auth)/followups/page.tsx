@@ -868,16 +868,16 @@ export default function FollowupPage() {
               /* DATA RENDER: MODE 2 FEES FOLLOWUP TABLE */
               <div className="overflow-auto flex-1 min-h-0">
                 <table className="w-full text-left text-xs border-collapse">
-                  <thead className="sticky top-0 z-10 bg-slate-100/90 backdrop-blur-xs">
-                    <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider select-none">
-                      <th className="py-3 px-4 min-w-[130px]">Followup Due Date ▾</th>
-                      <th className="py-3 px-4 min-w-[120px]">Fees Due Date ▾</th>
-                      <th className="py-3 px-4 min-w-[150px]">Student ▾</th>
-                      <th className="py-3 px-4 min-w-[130px]">Student Mobile No</th>
-                      <th className="py-3 px-4 min-w-[120px]">ID Card ▾</th>
-                      <th className="py-3 px-4 min-w-[110px]">Due Amount ▾</th>
-                      <th className="py-3 px-4 min-w-[130px]">Followup By ▾</th>
-                      <th className="py-3 px-4 text-right min-w-[120px]">Action</th>
+                  <thead className="sticky top-0 z-10 bg-slate-100/95 backdrop-blur-xs shadow-2xs">
+                    <tr className="border-b border-slate-200 text-[10px] font-black text-slate-600 uppercase tracking-wider select-none">
+                      <th className="py-3 px-4 min-w-[140px]">FOLLOWUP DUE DATE ▾</th>
+                      <th className="py-3 px-4 min-w-[125px]">FEES DUE DATE ▾</th>
+                      <th className="py-3 px-4 min-w-[150px]">STUDENT ▾</th>
+                      <th className="py-3 px-4 min-w-[140px]">STUDENT MOBILE NO ▾</th>
+                      <th className="py-3 px-4 min-w-[120px]">ID CARD ▾</th>
+                      <th className="py-3 px-4 min-w-[120px]">DUE AMOUNT ▾</th>
+                      <th className="py-3 px-4 min-w-[130px]">FOLLOWUP BY ▾</th>
+                      <th className="py-3 px-4 text-right min-w-[120px]">ACTION ▾</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
