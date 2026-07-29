@@ -37,6 +37,8 @@ export default function DripMarketingPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [channelFilter, setChannelFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
+  const [brandFilter, setBrandFilter] = useState("ALL BRANDS");
+  const [brandsList, setBrandsList] = useState<string[]>(["ALL BRANDS"]);
   const [audienceStats, setAudienceStats] = useState({
     totalLeads: 0,
     totalAdmissions: 0,
@@ -70,10 +72,27 @@ export default function DripMarketingPage() {
     ] as DripStep[],
   });
 
+  const fetchBrands = async () => {
+    try {
+      const res = await fetch("/api/brands");
+      const data = await res.json();
+      if (res.ok && Array.isArray(data.brands)) {
+        const names = data.brands.map((b: any) => String(b.name || "").toUpperCase().trim()).filter(Boolean);
+        const uniqueBrands = Array.from(new Set(["ALL BRANDS", ...names]));
+        setBrandsList(uniqueBrands);
+      }
+    } catch (err) {
+      console.error("Failed fetching brands:", err);
+    }
+  };
+
   const fetchCampaigns = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch("/api/drip-campaigns");
+      const url = brandFilter && brandFilter !== "ALL BRANDS" && brandFilter !== "All"
+        ? `/api/drip-campaigns?brand=${encodeURIComponent(brandFilter)}`
+        : "/api/drip-campaigns";
+      const res = await fetch(url);
       const data = await res.json();
       if (data.success && Array.isArray(data.data)) {
         setCampaigns(data.data);
@@ -89,24 +108,33 @@ export default function DripMarketingPage() {
   };
 
   useEffect(() => {
-    fetchCampaigns();
+    fetchBrands();
   }, []);
+
+  useEffect(() => {
+    fetchCampaigns();
+  }, [brandFilter]);
 
   // Filtered Campaigns List
   const filteredCampaigns = useMemo(() => {
     return campaigns.filter((item) => {
       if (channelFilter !== "All" && item.channel !== channelFilter) return false;
       if (statusFilter !== "All" && item.status !== statusFilter) return false;
+      if (brandFilter !== "ALL BRANDS" && brandFilter !== "All") {
+        const itemBrand = String(item.brandScope || "").toUpperCase().trim();
+        if (itemBrand !== "ALL BRANDS" && itemBrand !== brandFilter.toUpperCase().trim()) return false;
+      }
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const matchName = item.campaignName.toLowerCase().includes(q);
         const matchAudience = item.targetAudience.toLowerCase().includes(q);
         const matchCourse = item.targetCourse.toLowerCase().includes(q);
-        if (!matchName && !matchAudience && !matchCourse) return false;
+        const matchBrand = (item.brandScope || "").toLowerCase().includes(q);
+        if (!matchName && !matchAudience && !matchCourse && !matchBrand) return false;
       }
       return true;
     });
-  }, [campaigns, searchQuery, channelFilter, statusFilter]);
+  }, [campaigns, searchQuery, channelFilter, statusFilter, brandFilter]);
 
   // Aggregate KPI Numbers
   const totalMessagesSent = useMemo(() => {
@@ -397,6 +425,18 @@ export default function DripMarketingPage() {
 
             <div className="flex items-center gap-3 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
               <select
+                value={brandFilter}
+                onChange={(e) => setBrandFilter(e.target.value)}
+                className="bg-indigo-50 border border-indigo-200 text-xs font-black text-indigo-900 px-3 py-2 rounded-xl focus:outline-none cursor-pointer"
+              >
+                {brandsList.map((b) => (
+                  <option key={b} value={b}>
+                    🏷️ Brand: {b}
+                  </option>
+                ))}
+              </select>
+
+              <select
                 value={channelFilter}
                 onChange={(e) => setChannelFilter(e.target.value)}
                 className="bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 px-3 py-2 rounded-xl focus:outline-none cursor-pointer"
@@ -603,7 +643,22 @@ export default function DripMarketingPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-extrabold text-xs mb-1">Target Brand</label>
+                  <select
+                    value={formData.brandScope}
+                    onChange={(e) => setFormData({ ...formData, brandScope: e.target.value })}
+                    className="w-full px-3 py-2 border border-indigo-200 bg-indigo-50/50 rounded-xl focus:outline-none text-xs font-black text-indigo-900 cursor-pointer"
+                  >
+                    {brandsList.map((b) => (
+                      <option key={b} value={b}>
+                        {b}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <div>
                   <label className="block text-slate-700 font-semibold text-xs mb-1">Target Audience</label>
                   <select

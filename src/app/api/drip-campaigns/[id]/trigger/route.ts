@@ -20,8 +20,17 @@ export async function POST(
 
     // 1. Resolve Target Audience Leads from MongoDB
     let targetLeads: any[] = [];
+    const isGlobalBrand = !campaign.brandScope || campaign.brandScope === "ALL BRANDS" || campaign.brandScope === "All Brands" || campaign.brandScope === "All";
+
     if (campaign.targetAudience === "Fee Pending Students") {
-      const admissions = await Admission.find({ remainingBalance: { $gt: 0 } }).lean();
+      let admissionQuery: any = { remainingBalance: { $gt: 0 } };
+      if (!isGlobalBrand) {
+        admissionQuery.$or = [
+          { brand: { $regex: new RegExp(`^${campaign.brandScope.trim()}$`, "i") } },
+          { brandName: { $regex: new RegExp(`^${campaign.brandScope.trim()}$`, "i") } }
+        ];
+      }
+      const admissions = await Admission.find(admissionQuery).lean();
       targetLeads = admissions.map((a: any) => ({
         studentName: a.fullName || "Student",
         mobileNumber: a.mobileNumber || a.parentsPhoneNumber || "",
@@ -39,6 +48,10 @@ export async function POST(
 
       if (campaign.targetCourse && campaign.targetCourse !== "All Courses") {
         enquiryQuery.targetCourse = { $regex: new RegExp(`^${campaign.targetCourse}$`, "i") };
+      }
+
+      if (!isGlobalBrand) {
+        enquiryQuery.targetBrand = { $regex: new RegExp(`^${campaign.brandScope.trim()}$`, "i") };
       }
 
       const enquiries = await Enquiry.find(enquiryQuery).lean();

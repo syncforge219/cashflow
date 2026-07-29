@@ -10,8 +10,16 @@ export async function GET(req: Request) {
     await dbConnect();
     const user = await getUserFromCookies();
 
+    const { searchParams } = new URL(req.url);
+    const brandFilter = searchParams.get("brand");
+
     let query: any = {};
-    if (user && user.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "ALL BRANDS" && user.brandScope !== "All") {
+    if (brandFilter && brandFilter !== "All Brands" && brandFilter !== "ALL BRANDS" && brandFilter !== "All") {
+      query.$or = [
+        { brandScope: { $regex: new RegExp(`^${brandFilter.trim()}$`, "i") } },
+        { brandScope: "ALL BRANDS" }
+      ];
+    } else if (user && user.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "ALL BRANDS" && user.brandScope !== "All") {
       query.$or = [{ brandScope: user.brandScope.toUpperCase() }, { brandScope: "ALL BRANDS" }];
     }
 
