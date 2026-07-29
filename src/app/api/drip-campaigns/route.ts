@@ -176,11 +176,24 @@ export async function GET(req: Request) {
       campaigns = await DripCampaign.find(query).sort({ createdAt: -1 });
     }
 
-    // Calculate real audience numbers from MongoDB
+    // Calculate real brand-filtered audience numbers from MongoDB
+    let enquiryBrandQuery: any = {};
+    let admissionBrandQuery: any = {};
+
+    if (brandFilter && brandFilter !== "All Brands" && brandFilter !== "ALL BRANDS" && brandFilter !== "All") {
+      const brandRegex = new RegExp(`^${brandFilter.trim()}$`, "i");
+      enquiryBrandQuery = { targetBrand: brandRegex };
+      admissionBrandQuery = { $or: [{ brand: brandRegex }, { brandName: brandRegex }] };
+    } else if (user && user.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "ALL BRANDS" && user.brandScope !== "All") {
+      const brandRegex = new RegExp(`^${user.brandScope.trim()}$`, "i");
+      enquiryBrandQuery = { targetBrand: brandRegex };
+      admissionBrandQuery = { $or: [{ brand: brandRegex }, { brandName: brandRegex }] };
+    }
+
     const [enqCount, admCount, pendingCount] = await Promise.all([
-      Enquiry.countDocuments({}),
-      Admission.countDocuments({}),
-      Admission.countDocuments({ remainingBalance: { $gt: 0 } }),
+      Enquiry.countDocuments(enquiryBrandQuery),
+      Admission.countDocuments(admissionBrandQuery),
+      Admission.countDocuments({ ...admissionBrandQuery, remainingBalance: { $gt: 0 } }),
     ]);
 
     return NextResponse.json({

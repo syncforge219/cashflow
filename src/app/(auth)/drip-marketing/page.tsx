@@ -136,18 +136,19 @@ export default function DripMarketingPage() {
     });
   }, [campaigns, searchQuery, channelFilter, statusFilter, brandFilter]);
 
-  // Aggregate KPI Numbers
+  // Dynamic Aggregate KPI Numbers based on filtered campaigns & real database records
   const totalMessagesSent = useMemo(() => {
-    return campaigns.reduce((acc, curr) => acc + (curr.totalMessagesSent || 0), 0);
-  }, [campaigns]);
+    return filteredCampaigns.reduce((acc, curr) => acc + (curr.totalMessagesSent || 0), 0);
+  }, [filteredCampaigns]);
 
   const activeCampaignsCount = useMemo(() => {
-    return campaigns.filter((c) => c.status === "Active").length;
-  }, [campaigns]);
+    return filteredCampaigns.filter((c) => c.status === "Active").length;
+  }, [filteredCampaigns]);
 
   const totalConvertedCount = useMemo(() => {
-    return campaigns.reduce((acc, curr) => acc + (curr.convertedCount || 0), 0);
-  }, [campaigns]);
+    const campaignConverted = filteredCampaigns.reduce((acc, curr) => acc + (curr.convertedCount || 0), 0);
+    return Math.max(campaignConverted, audienceStats.totalAdmissions || 0);
+  }, [filteredCampaigns, audienceStats.totalAdmissions]);
 
   // Open Modal for Create
   const handleOpenCreateModal = () => {
@@ -374,7 +375,7 @@ export default function DripMarketingPage() {
             <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
               <div>
                 <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Active Campaigns</p>
-                <h3 className="text-2xl font-black text-slate-900 mt-1">{activeCampaignsCount} <span className="text-xs font-semibold text-slate-400">/ {campaigns.length} total</span></h3>
+                <h3 className="text-2xl font-black text-slate-900 mt-1">{activeCampaignsCount} <span className="text-xs font-semibold text-slate-400">/ {filteredCampaigns.length} total</span></h3>
               </div>
               <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
                 🚀
