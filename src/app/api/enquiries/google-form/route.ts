@@ -3,6 +3,7 @@ import dbConnect from "@/lib/db";
 import Enquiry from "@/models/Enquiry";
 import User from "@/models/User";
 import Task from "@/models/Task";
+import { sendWhatsAppEnquiryWelcome } from "@/lib/msg91";
 
 // Handling OPTIONS request for CORS preflight
 export async function OPTIONS() {
@@ -146,7 +147,7 @@ export async function POST(req: Request) {
       status: "New",
     });
 
-    // 4. Create Task for Assigned Advisor
+    // 4. Create Task for Assigned Advisor & Send WhatsApp Welcome
     try {
       const dueDate = new Date();
       dueDate.setDate(dueDate.getDate() + 1);
@@ -161,8 +162,20 @@ export async function POST(req: Request) {
         status: "Pending",
         dueDate,
       });
+
+      // AUTO WHATSAPP ENQUIRY WELCOME TO STUDENT
+      if (primaryPhoneMobile && !primaryPhoneMobile.includes("0000000000")) {
+        sendWhatsAppEnquiryWelcome({
+          studentName: studentFullName,
+          mobileNumber: primaryPhoneMobile,
+          targetCourse,
+          brandName: targetBrand,
+          assignedAdvisor,
+          enquiryId: newEnquiry.enquiryId || newEnquiry._id.toString(),
+        }).catch((waErr) => console.error("Google Form auto WhatsApp Enquiry Welcome error:", waErr));
+      }
     } catch (taskErr) {
-      console.error("Failed creating Google Form lead task:", taskErr);
+      console.error("Failed creating Google Form lead task/WhatsApp:", taskErr);
     }
 
     return NextResponse.json(

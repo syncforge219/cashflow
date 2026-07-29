@@ -12,6 +12,7 @@ export interface ReceiptPdfData {
   brandName?: string;
   brandAddress?: string;
   companyName?: string;
+  companyAddress?: string;
   totalFee?: number | string;
   totalPaidToDate?: number | string;
   remainingBalance?: number | string;
@@ -36,7 +37,8 @@ export function generateReceiptPdfBuffer(data: ReceiptPdfData): Buffer {
   const brandAddress = (data.brandAddress || "G 11 , Murli Bhawan , 10- A, Ashok Marg , Lucknow").replace(/[()]/g, "");
   const student = (data.studentName || "Student").replace(/[()]/g, "");
   const course = (data.courseName || "Course").replace(/[()]/g, "");
-  const company = (data.companyName || "M/s CT ENTERPRISES").replace(/[()]/g, "");
+  const company = (data.companyName || "INSTITUTE OF CREATIVE STUDIES").replace(/[()]/g, "");
+  const companyAddress = (data.companyAddress || "No listed street, No City, No State, PIN").replace(/[()]/g, "");
   const mode = (data.paymentMode || "Online").replace(/[()]/g, "");
   const ref = (data.referenceNo || "N/A").replace(/[()]/g, "");
   const receiptNo = (data.receiptNo || "CM/CTE/2024/1230").replace(/[()]/g, "");
@@ -56,8 +58,8 @@ export function generateReceiptPdfBuffer(data: ReceiptPdfData): Buffer {
     `BT /F2 8.5 Tf 0.1 0.1 0.1 rg 50 750 Td (${brand}) Tj ET`,
 
     `BT /F2 12 Tf 0.1 0.1 0.1 rg 135 778 Td (${company}) Tj ET`,
-    `BT /F2 9 Tf 0.1 0.5 0.2 rg 135 764 Td (${brand}) Tj ET`,
-    `BT /F1 7.5 Tf 0.4 0.4 0.4 rg 135 752 Td (${brandAddress}) Tj ET`,
+    `BT /F1 7.5 Tf 0.3 0.3 0.3 rg 135 765 Td (Company Addr: ${companyAddress}) Tj ET`,
+    `BT /F2 8.5 Tf 0.1 0.5 0.2 rg 135 752 Td (Brand: ${brand}) Tj ET`,
 
     // Header Right
     `BT /F2 11 Tf 0.1 0.6 0.2 rg 360 780 Td (Receipt # ${receiptNo}) Tj ET`,

@@ -200,9 +200,11 @@ export default function PaymentReceiptModal({
   const dpDueDateFormatted = dpDueDateRaw ? new Date(dpDueDateRaw).toLocaleDateString("en-IN") : null;
 
   const [matchedBrand, setMatchedBrand] = React.useState<any>(null);
+  const [matchedCompany, setMatchedCompany] = React.useState<any>(null);
 
   const rawCompany = matchedBrand?.companies?.[0] || (receipt.company && receipt.company !== "Cash" && receipt.company !== "Unallocated" ? receipt.company : null) || (student.companyAssigned && student.companyAssigned !== "Cash" && student.companyAssigned !== "Unallocated" ? student.companyAssigned : null);
-  const companyName = rawCompany || "M/s CT ENTERPRISES";
+  const companyName = matchedCompany?.legalName || matchedCompany?.name || rawCompany || "INSTITUTE OF CREATIVE STUDIES";
+  const companyAddress = matchedCompany?.address || "No listed street, No City, No State, PIN";
   const brandName = matchedBrand?.name || student.brand || student.brandName || receipt.brand || receipt.brandName || "CADD MANTRA";
   const brandAddress = matchedBrand?.address || "G 11 , Murli Bhawan , 10- A, Ashok Marg , Lucknow";
   
@@ -213,6 +215,7 @@ export default function PaymentReceiptModal({
 
   React.useEffect(() => {
     if (isOpen) {
+      // Fetch Brands
       fetch("/api/brands")
         .then((r) => r.json())
         .then((data) => {
@@ -239,8 +242,38 @@ export default function PaymentReceiptModal({
             if (found) {
               setMatchedBrand(found);
             } else if (data.brands.length === 1) {
-              // Fallback to sole active brand if only 1 exists
               setMatchedBrand(data.brands[0]);
+            }
+          }
+        })
+        .catch(console.error);
+
+      // Fetch Companies
+      fetch("/api/companies")
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.success && Array.isArray(data.companies) && data.companies.length > 0) {
+            const targetComp = (
+              receipt.company ||
+              student.companyAssigned ||
+              student.company ||
+              ""
+            ).toString().toLowerCase().trim();
+
+            const foundComp = data.companies.find((c: any) => {
+              const name = (c.name || "").toLowerCase().trim();
+              const legal = (c.legalName || "").toLowerCase().trim();
+              return (
+                (targetComp && name.includes(targetComp)) ||
+                (targetComp && targetComp.includes(name)) ||
+                (targetComp && legal.includes(targetComp))
+              );
+            });
+
+            if (foundComp) {
+              setMatchedCompany(foundComp);
+            } else if (data.companies.length > 0) {
+              setMatchedCompany(data.companies[0]);
             }
           }
         })
@@ -373,14 +406,15 @@ export default function PaymentReceiptModal({
                   <CaddMantraLogo />
                 )}
                 <div>
-                  <h1 className="text-sm font-bold text-slate-900 leading-tight">
+                  <h1 className="text-sm font-black text-slate-900 leading-tight uppercase">
                     {companyName}
                   </h1>
-                  <p className="text-xs font-semibold text-emerald-700 mt-0.5">
-                    {brandName}
+                  <p className="text-[11px] font-bold text-slate-700 mt-0.5 flex items-center gap-1">
+                    <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wide">Company Address:</span>
+                    <span>{companyAddress}</span>
                   </p>
-                  <p className="text-[11px] text-slate-600 font-normal mt-0.5">
-                    {brandAddress}
+                  <p className="text-xs font-extrabold text-emerald-700 mt-0.5">
+                    Brand: {brandName} {brandAddress && `(${brandAddress})`}
                   </p>
                 </div>
               </div>

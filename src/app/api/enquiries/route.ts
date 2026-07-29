@@ -3,7 +3,7 @@ import dbConnect from "@/lib/db";
 import Enquiry from "@/models/Enquiry";
 import Task from "@/models/Task";
 import { getUserFromCookies } from "@/lib/helper";
-import { sendWhatsAppDemoReminder } from "@/lib/msg91";
+import { sendWhatsAppDemoReminder, sendWhatsAppEnquiryWelcome } from "@/lib/msg91";
 
 export async function POST(req: Request) {
   try {
@@ -75,6 +75,23 @@ export async function POST(req: Request) {
         ],
         autoTriggerSource: "Auto Event: Lead Registered"
       });
+
+      // AUTO WHATSAPP ENQUIRY WELCOME: Send confirmation WhatsApp message to student
+      try {
+        const studentMobile = newEnquiry.primaryPhoneMobile || newEnquiry.parentsPhoneNumber || "";
+        if (studentMobile && !studentMobile.includes("0000000000")) {
+          sendWhatsAppEnquiryWelcome({
+            studentName: newEnquiry.studentFullName,
+            mobileNumber: studentMobile,
+            targetCourse: newEnquiry.targetCourse,
+            brandName: newEnquiry.targetBrand,
+            assignedAdvisor: newEnquiry.assignedCrmAdvisor,
+            enquiryId: newEnquiry.enquiryId || newEnquiry._id.toString(),
+          }).catch((waErr) => console.error("Auto WhatsApp Enquiry Welcome error:", waErr));
+        }
+      } catch (waErr) {
+        console.error("Auto WhatsApp Enquiry Welcome trigger failed:", waErr);
+      }
 
       // AUTO WHATSAPP DEMO REMINDER: If demo scheduled on creation
       if (body.isDemoScheduled && body.demoDate) {

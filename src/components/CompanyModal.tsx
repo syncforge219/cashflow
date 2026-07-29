@@ -26,6 +26,7 @@ export default function CompanyModal({
     annualCapacityCap: 1949999,
     address: "No listed street, No City, No State, PIN",
     brands: [] as string[],
+    qrCodeUrl: "",
   });
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -53,6 +54,7 @@ export default function CompanyModal({
         annualCapacityCap: company.capNum ?? 1949999,
         address: company.address || "No listed street, No City, No State, PIN",
         brands: company.brands || (company.brand ? [company.brand] : []),
+        qrCodeUrl: company.qrCodeUrl || "",
       });
     } else {
       setFormData({
@@ -64,9 +66,29 @@ export default function CompanyModal({
         annualCapacityCap: 1949999,
         address: "No listed street, No City, No State, PIN",
         brands: [],
+        qrCodeUrl: "",
       });
     }
   }, [company, isOpen]);
+
+  const handleQrImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert("File size exceeds 5MB limit. Please upload a smaller QR Code image.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      if (result) {
+        setFormData((prev) => ({ ...prev, qrCodeUrl: result }));
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   if (!isOpen) return null;
 
@@ -278,6 +300,57 @@ export default function CompanyModal({
               placeholder="No listed street, No City, No State, PIN"
               className="w-full text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
             />
+          </div>
+
+          {/* Bank / Payment QR Code Upload */}
+          <div>
+            <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
+              Bank / UPI QR Code (For Fee Collections)
+            </label>
+            
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center gap-4">
+              {formData.qrCodeUrl ? (
+                <div className="relative group w-24 h-24 rounded-xl overflow-hidden border border-slate-300 bg-white shrink-0 flex items-center justify-center">
+                  <img
+                    src={formData.qrCodeUrl}
+                    alt="Company QR Code"
+                    className="w-full h-full object-contain p-1"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setFormData((prev) => ({ ...prev, qrCodeUrl: "" }))}
+                    className="absolute inset-0 bg-slate-900/70 text-white font-bold text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <div className="w-24 h-24 rounded-xl border-2 border-dashed border-slate-300 bg-white shrink-0 flex flex-col items-center justify-center text-slate-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-7 h-7 mb-1 text-slate-400">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z" />
+                  </svg>
+                  <span className="text-[9px] font-bold">No QR Code</span>
+                </div>
+              )}
+
+              <div className="flex-1 space-y-1.5">
+                <label className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-extrabold text-xs rounded-xl border border-indigo-200 cursor-pointer transition-all">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                  </svg>
+                  <span>{formData.qrCodeUrl ? "Replace QR Code Image" : "Upload QR Code Image"}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleQrImageUpload}
+                    className="hidden"
+                  />
+                </label>
+                <p className="text-[10px] text-slate-400 font-medium leading-relaxed">
+                  Upload UPI / Bank QR code image (PNG, JPG, WEBP). This QR image will be displayed during student fee collections.
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Associated Brands */}

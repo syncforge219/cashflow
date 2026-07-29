@@ -23,7 +23,11 @@ interface SidebarGroup {
 export default function ManagerSidebar() {
   const pathname = usePathname();
   const { user, logout } = useUser();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isPinned, setIsPinned] = useState(false);
+
+  const effectiveCollapsed = isPinned ? false : isCollapsed && !isHovered;
 
   const isCfoUser =
     user?.role === "cfo" ||
@@ -49,6 +53,15 @@ export default function ManagerSidebar() {
           icon: (
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+            </svg>
+          ),
+        },
+        {
+          name: "Follow-ups",
+          href: "/followups",
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           ),
         },
@@ -205,22 +218,48 @@ export default function ManagerSidebar() {
 
   return (
     <aside
-      className={`h-screen bg-white border-r border-slate-100 flex flex-col font-sans shrink-0 ${isCollapsed ? "w-20" : "w-64"
-        }`}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className={`h-screen bg-white border-r border-slate-100 flex flex-col font-sans shrink-0 transition-all duration-300 ease-in-out relative group/sidebar ${
+        effectiveCollapsed ? "w-20" : "w-64 shadow-xl"
+      }`}
     >
+      {/* Pin / Lock Sidebar Toggle Button */}
+      <button
+        onClick={() => setIsPinned(!isPinned)}
+        className="absolute right-2 top-3 p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 transition-all opacity-0 group-hover/sidebar:opacity-100 z-50 cursor-pointer"
+        title={isPinned ? "Unpin sidebar (Auto-collapse on mouse exit)" : "Pin sidebar expanded"}
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill={isPinned ? "currentColor" : "none"}
+          stroke="currentColor"
+          strokeWidth="2"
+          className={`w-4 h-4 transition-transform ${isPinned ? "text-indigo-600 rotate-45" : "text-slate-400"}`}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+      </button>
+
       {/* Brand / Logo Area */}
       <div className="py-4 px-4 border-b border-slate-100 shrink-0">
-        <SidebarBrandHeader isCollapsed={isCollapsed} subtitle="ERP" />
+        <SidebarBrandHeader isCollapsed={effectiveCollapsed} subtitle="ERP" />
       </div>
 
+<<<<<<< HEAD
       {/* Lead2Ledger AI Copilot Trigger */}
       <SidebarAiButton isCollapsed={isCollapsed} />
+=======
+      {/* CashFlow AI Copilot Trigger */}
+      <SidebarAiButton isCollapsed={effectiveCollapsed} />
+>>>>>>> 1916c2d849b1556e6c9fb3e8446a16058ea7d204
 
       {/* Navigation Links */}
       <div className="flex-1 overflow-y-auto py-6 px-4 space-y-8 custom-scrollbar">
         {displayedGroups.map((group, idx) => (
           <div key={idx} className="space-y-3">
-            {!isCollapsed && (
+            {!effectiveCollapsed && (
               <div className="flex items-center gap-4">
                 <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest shrink-0 px-2">
                   {group.category}
@@ -242,17 +281,10 @@ export default function ManagerSidebar() {
                       <div className="shrink-0 text-rose-500 group-hover:text-rose-700 transition-colors">
                         {item.icon}
                       </div>
-                      {!isCollapsed && (
+                      {!effectiveCollapsed && (
                         <span className="text-sm font-semibold truncate text-rose-600 group-hover:text-rose-700 font-bold">
                           {item.name}
                         </span>
-                      )}
-
-                      {/* Tooltip for collapsed state */}
-                      {isCollapsed && (
-                        <div className="absolute left-full ml-4 px-2 py-1 bg-slate-800 text-white text-xs font-semibold rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50">
-                          {item.name}
-                        </div>
                       )}
                     </button>
                   );
@@ -273,14 +305,14 @@ export default function ManagerSidebar() {
                     >
                       {item.icon}
                     </div>
-                    {!isCollapsed && (
+                    {!effectiveCollapsed && (
                       <span className={`text-sm font-semibold truncate ${isActive ? "text-white font-bold" : ""}`}>
                         {item.name}
                       </span>
                     )}
 
                     {/* Tooltip for collapsed state */}
-                    {isCollapsed && (
+                    {effectiveCollapsed && (
                       <div className="absolute left-full ml-4 px-2 py-1 bg-slate-800 text-white text-xs font-semibold rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50">
                         {item.name}
                       </div>

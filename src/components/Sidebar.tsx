@@ -24,7 +24,11 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { user, login, logout } = useUser();
 
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isPinned, setIsPinned] = useState(false);
+
+  const effectiveCollapsed = isPinned ? false : isCollapsed && !isHovered;
   const [localLogo, setLocalLogo] = useState<string>("");
   const [imgError, setImgError] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -130,6 +134,15 @@ export default function Sidebar() {
           ),
         },
         {
+          name: "Follow-ups",
+          href: "/followups",
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          ),
+        },
+        {
           name: "Admissions",
           href: "/admin-dashboard/addmission",
           icon: (
@@ -144,6 +157,16 @@ export default function Sidebar() {
           icon: (
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+            </svg>
+          ),
+        },
+        {
+          name: "Drip Marketing",
+          href: "/drip-marketing",
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6a7.5 7.5 0 1 0 7.5 7.5h-7.5V6Z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0 0 13.5 3v7.5Z" />
             </svg>
           ),
         },
@@ -381,20 +404,40 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`bg-slate-50/70 border-r border-slate-200/60 h-screen flex flex-col py-6 font-sans backdrop-blur-md transition-all duration-300 ${isCollapsed ? "w-20 px-3" : "w-64 px-4"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className={`bg-slate-50/90 border-r border-slate-200/80 h-screen flex flex-col py-5 font-sans backdrop-blur-md transition-all duration-300 ease-in-out shrink-0 z-40 relative group/sidebar ${effectiveCollapsed ? "w-20 px-3" : "w-64 px-4 shadow-xl"
         }`}
     >
-      {/* Brand Header */}
-      <SidebarBrandHeader isCollapsed={isCollapsed} />
+      {/* Pin / Lock Sidebar Toggle Button */}
+      <button
+        onClick={() => setIsPinned(!isPinned)}
+        className="absolute right-2 top-3 p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-200/60 transition-all opacity-0 group-hover/sidebar:opacity-100 z-50 cursor-pointer"
+        title={isPinned ? "Unpin sidebar (Auto-collapse on mouse exit)" : "Pin sidebar expanded"}
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill={isPinned ? "currentColor" : "none"}
+          stroke="currentColor"
+          strokeWidth="2"
+          className={`w-4 h-4 transition-transform ${isPinned ? "text-indigo-600 rotate-45" : "text-slate-400"}`}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+      </button>
 
-      {/* Lead2Ledger AI Copilot Trigger */}
-      <SidebarAiButton isCollapsed={isCollapsed} />
+      {/* Brand Header */}
+      <SidebarBrandHeader isCollapsed={effectiveCollapsed} />
+
+      {/* CashFlow AI Copilot Trigger */}
+      <SidebarAiButton isCollapsed={effectiveCollapsed} />
 
       {/* Navigation Groups */}
-      <nav className="flex-1 space-y-6 overflow-y-auto pr-1">
+      <nav className="flex-1 space-y-6 overflow-y-auto pr-1 mt-2">
         {displayedGroups.map((group) => (
           <div key={group.category} className="space-y-2">
-            {!isCollapsed ? (
+            {!effectiveCollapsed ? (
               <h3 className="px-3 text-[10px] font-bold tracking-widest text-slate-400/90 uppercase select-none">
                 {group.category}
               </h3>
@@ -410,13 +453,13 @@ export default function Sidebar() {
                     <li key={item.name}>
                       <button
                         onClick={logout}
-                        className={`w-full group flex items-center ${isCollapsed ? "justify-center" : "gap-3 px-3"} py-2.5 text-sm font-semibold rounded-xl transition-all duration-200 text-rose-500 hover:bg-rose-50 hover:text-rose-600`}
-                        title={isCollapsed ? item.name : undefined}
+                        className={`w-full group flex items-center ${effectiveCollapsed ? "justify-center" : "gap-3 px-3"} py-2.5 text-sm font-semibold rounded-xl transition-all duration-200 text-rose-500 hover:bg-rose-50 hover:text-rose-600`}
+                        title={effectiveCollapsed ? item.name : undefined}
                       >
                         <span className="text-rose-400 group-hover:text-rose-600 transition-colors">
                           {item.icon}
                         </span>
-                        {!isCollapsed && <span>{item.name}</span>}
+                        {!effectiveCollapsed && <span>{item.name}</span>}
                       </button>
                     </li>
                   );
@@ -426,22 +469,22 @@ export default function Sidebar() {
                   <li key={item.name}>
                     <Link
                       href={item.href}
-                      className={`group flex items-center ${isCollapsed ? "justify-center" : "gap-3 px-3"} py-2.5 text-sm font-semibold rounded-xl transition-all duration-200 ${isActive
-                          ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20"
-                          : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                      className={`group flex items-center ${effectiveCollapsed ? "justify-center" : "gap-3 px-3"} py-2.5 text-sm font-semibold rounded-xl transition-all duration-200 ${isActive
+                        ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20"
+                        : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
                         }`}
-                      title={isCollapsed ? item.name : undefined}
+                      title={effectiveCollapsed ? item.name : undefined}
                     >
                       <span className={`${isActive ? "text-white" : "text-slate-400 group-hover:text-slate-700 transition-colors"}`}>
                         {item.icon}
                       </span>
-                      {!isCollapsed && <span>{item.name}</span>}
+                      {!effectiveCollapsed && <span>{item.name}</span>}
                     </Link>
                   </li>
                 );
               })}
             </ul>
-            {!isCollapsed && group.category !== "Admin" && (
+            {!effectiveCollapsed && group.category !== "Admin" && (
               <div className="pt-2 border-b border-slate-200/50 mx-3"></div>
             )}
           </div>
