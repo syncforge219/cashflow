@@ -112,6 +112,7 @@ export default function CrmSidebar() {
               })}
             </div>
           </div>
+        ))}
       </div>
     </aside>
   );
