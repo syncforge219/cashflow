@@ -105,9 +105,9 @@ export default function AddFollowupModal({
 
         let courseList: string[] = [];
         if (cRes.success && Array.isArray(cRes.data) && cRes.data.length > 0) {
-          courseList = cRes.data.map((c: any) => `${c.name}${c.fee ? `-${c.fee}` : ""}`);
+          courseList = Array.from(new Set(cRes.data.map((c: any) => `${c.name}${c.fee ? `-${c.fee}` : ""}`)));
         } else {
-          courseList = DEFAULT_COURSES;
+          courseList = Array.from(new Set(DEFAULT_COURSES));
         }
 
         if (counsRes.success && Array.isArray(counsRes.data)) {
@@ -115,16 +115,16 @@ export default function AddFollowupModal({
         }
 
         if (respRes.success && Array.isArray(respRes.data) && respRes.data.length > 0) {
-          const names = respRes.data.map((t: any) => t.name);
+          const names: string[] = Array.from(new Set(respRes.data.map((t: any) => String(t.name))));
           setResponseTypes(names);
         }
 
         if (record && (record.targetCourse || record.course)) {
           const selected = record.targetCourse || record.course;
-          setSelectedCourses([selected]);
-          setAvailableCourses(courseList.filter((item) => item !== selected));
+          setSelectedCourses(Array.from(new Set([selected])));
+          setAvailableCourses(Array.from(new Set(courseList.filter((item) => item !== selected))));
         } else {
-          setAvailableCourses(courseList);
+          setAvailableCourses(Array.from(new Set(courseList)));
         }
       } catch (err) {
         console.error("Error loading modal dropdown data:", err);
@@ -495,9 +495,9 @@ export default function AddFollowupModal({
                   <div className="h-36 overflow-y-auto p-1.5 divide-y divide-slate-100">
                     {availableCourses
                       .filter((c) => c.toLowerCase().includes(searchAvailable.toLowerCase()))
-                      .map((c) => (
+                      .map((c, idx) => (
                         <div
-                          key={c}
+                          key={`avail-${c}-${idx}`}
                           onClick={() => {
                             if (selectedFromLeft.includes(c)) {
                               setSelectedFromLeft(selectedFromLeft.filter((item) => item !== c));
@@ -542,9 +542,9 @@ export default function AddFollowupModal({
                   <div className="h-36 overflow-y-auto p-1.5 divide-y divide-slate-100">
                     {selectedCourses
                       .filter((c) => c.toLowerCase().includes(searchSelected.toLowerCase()))
-                      .map((c) => (
+                      .map((c, idx) => (
                         <div
-                          key={c}
+                          key={`sel-${c}-${idx}`}
                           onClick={() => {
                             if (selectedFromRight.includes(c)) {
                               setSelectedFromRight(selectedFromRight.filter((item) => item !== c));
@@ -577,8 +577,8 @@ export default function AddFollowupModal({
                   onChange={(e) => setResponseType(e.target.value)}
                   className="flex-1 px-3.5 py-2.5 border border-slate-300 rounded-xl text-slate-800 font-bold outline-none bg-white shadow-xs focus:ring-2 focus:ring-orange-500/20 focus:border-orange-600 cursor-pointer"
                 >
-                  {responseTypes.map((t) => (
-                    <option key={t} value={t}>
+                  {responseTypes.map((t, idx) => (
+                    <option key={`resp-${t}-${idx}`} value={t}>
                       {t}
                     </option>
                   ))}
