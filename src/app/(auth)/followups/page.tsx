@@ -331,7 +331,7 @@ export default function FollowupPage() {
         if (statusLower.includes("lost") || statusLower.includes("admitted") || statusLower.includes("do not")) return false;
         if (!rec.hasScheduledFollowup || recTime <= todayTime) return false; // Future due
       } else if (enquiryTab === "donot") {
-        if (!statusLower.includes("lost") && !statusLower.includes("admitted") && !statusLower.includes("do not")) return false;
+        if (!statusLower.includes("lost") && !statusLower.includes("do not")) return false;
       }
 
       // Advanced Modal Filters
@@ -406,7 +406,7 @@ export default function FollowupPage() {
         newLeads++;
       }
 
-      if (statusLower.includes("lost") || statusLower.includes("admitted") || statusLower.includes("do not")) {
+      if (statusLower.includes("lost") || statusLower.includes("do not")) {
         donot++;
       } else if (rec.hasScheduledFollowup) {
         if (rec.dueDateStr === todayStr) {
