@@ -550,17 +550,15 @@ export default function Student360Modal({
               </>
             )}
 
-            {/* Upgrade Course Action Button (ADMIN ONLY) */}
-            {isUserAdmin && (
-              <button
-                type="button"
-                onClick={handleOpenUpgradeModal}
-                className="h-9 px-3.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-orange-500/20 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
-                title="Upgrade student to a new course"
-              >
-                <span>⚡ Upgrade Course</span>
-              </button>
-            )}
+            {/* Upgrade Course Action Button (Available to all users) */}
+            <button
+              type="button"
+              onClick={handleOpenUpgradeModal}
+              className="h-9 px-3.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-orange-500/20 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+              title="Upgrade student to a new course"
+            >
+              <span>⚡ Upgrade Course</span>
+            </button>
 
             {canEdit && (
               <>

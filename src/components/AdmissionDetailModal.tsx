@@ -229,115 +229,113 @@ export default function AdmissionDetailModal({
             </div>
           </div>
 
-          {/* Brand Courses Dropdown & Upgrade Action (ADMIN ONLY) */}
-          {isUserAdmin && (
-            <div className="space-y-3">
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                All Courses Under "{admission.brand || "Brand"}"
-              </label>
-              {isLoadingCourses ? (
-                <div className="flex items-center gap-2 py-3 px-4 bg-slate-50 rounded-xl border border-slate-200">
+          {/* Brand Courses Dropdown & Upgrade Action (Available to all users) */}
+          <div className="space-y-3">
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              All Courses Under "{admission.brand || "Brand"}"
+            </label>
+            {isLoadingCourses ? (
+              <div className="flex items-center gap-2 py-3 px-4 bg-slate-50 rounded-xl border border-slate-200">
+                <svg
+                  className="animate-spin h-4 w-4 text-indigo-500"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  />
+                </svg>
+                <span className="text-xs font-semibold text-slate-500">
+                  Loading courses...
+                </span>
+              </div>
+            ) : brandCourses.length === 0 ? (
+              <div className="py-3 px-4 bg-slate-50 rounded-xl border border-slate-200 text-xs font-semibold text-slate-400">
+                No courses found for this brand.
+              </div>
+            ) : (
+              <select
+                value={selectedCourse}
+                onChange={(e) => setSelectedCourse(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all cursor-pointer appearance-none"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19.5 8.25l-7.5 7.5-7.5-7.5'/%3E%3C/svg%3E")`,
+                  backgroundRepeat: "no-repeat",
+                  backgroundPosition: "right 12px center",
+                  backgroundSize: "16px",
+                }}
+              >
+                <option value="" disabled>
+                  -- Select another course to upgrade --
+                </option>
+                {brandCourses.map((c: any, idx: number) => {
+                  const isEnrolled =
+                    c.name?.trim().toLowerCase() ===
+                    admission.course?.trim().toLowerCase();
+                  return (
+                    <option
+                      key={c._id || idx}
+                      value={c.name}
+                      disabled={isEnrolled}
+                    >
+                      {c.name} — ₹{c.fee || "N/A"}
+                      {isEnrolled ? " (Currently Enrolled)" : ""}
+                    </option>
+                  );
+                })}
+              </select>
+            )}
+
+            {/* Banner when a course is selected for upgrade */}
+            {selectedCourse && (
+              <div className="p-3.5 bg-gradient-to-r from-indigo-50 via-purple-50 to-violet-50 rounded-xl border border-indigo-200/80 flex items-center justify-between animate-in fade-in duration-200">
+                <div>
+                  <p className="text-[10px] font-extrabold text-indigo-600 uppercase tracking-wider">
+                    Selected Upgrade Course
+                  </p>
+                  <p className="text-xs font-bold text-slate-800 mt-0.5">
+                    {selectedCourse}{" "}
+                    {selectedCourseObj?.fee ? (
+                      <span className="text-indigo-600">
+                        (₹{selectedCourseObj.fee})
+                      </span>
+                    ) : null}
+                  </p>
+                </div>
+                <button
+                  onClick={handleUpgradeClick}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg transition-all shadow-sm shadow-indigo-600/20 flex items-center gap-1.5 cursor-pointer shrink-0"
+                >
                   <svg
-                    className="animate-spin h-4 w-4 text-indigo-500"
                     xmlns="http://www.w3.org/2000/svg"
                     fill="none"
                     viewBox="0 0 24 24"
+                    strokeWidth={2.5}
+                    stroke="currentColor"
+                    className="w-3.5 h-3.5"
                   >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
                     <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M4.5 12.75l6 6 9-13.5"
                     />
                   </svg>
-                  <span className="text-xs font-semibold text-slate-500">
-                    Loading courses...
-                  </span>
-                </div>
-              ) : brandCourses.length === 0 ? (
-                <div className="py-3 px-4 bg-slate-50 rounded-xl border border-slate-200 text-xs font-semibold text-slate-400">
-                  No courses found for this brand.
-                </div>
-              ) : (
-                <select
-                  value={selectedCourse}
-                  onChange={(e) => setSelectedCourse(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all cursor-pointer appearance-none"
-                  style={{
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19.5 8.25l-7.5 7.5-7.5-7.5'/%3E%3C/svg%3E")`,
-                    backgroundRepeat: "no-repeat",
-                    backgroundPosition: "right 12px center",
-                    backgroundSize: "16px",
-                  }}
-                >
-                  <option value="" disabled>
-                    -- Select another course to upgrade --
-                  </option>
-                  {brandCourses.map((c: any, idx: number) => {
-                    const isEnrolled =
-                      c.name?.trim().toLowerCase() ===
-                      admission.course?.trim().toLowerCase();
-                    return (
-                      <option
-                        key={c._id || idx}
-                        value={c.name}
-                        disabled={isEnrolled}
-                      >
-                        {c.name} — ₹{c.fee || "N/A"}
-                        {isEnrolled ? " (Currently Enrolled)" : ""}
-                      </option>
-                    );
-                  })}
-                </select>
-              )}
-
-              {/* Banner when a course is selected for upgrade */}
-              {selectedCourse && (
-                <div className="p-3.5 bg-gradient-to-r from-indigo-50 via-purple-50 to-violet-50 rounded-xl border border-indigo-200/80 flex items-center justify-between animate-in fade-in duration-200">
-                  <div>
-                    <p className="text-[10px] font-extrabold text-indigo-600 uppercase tracking-wider">
-                      Selected Upgrade Course
-                    </p>
-                    <p className="text-xs font-bold text-slate-800 mt-0.5">
-                      {selectedCourse}{" "}
-                      {selectedCourseObj?.fee ? (
-                        <span className="text-indigo-600">
-                          (₹{selectedCourseObj.fee})
-                        </span>
-                      ) : null}
-                    </p>
-                  </div>
-                  <button
-                    onClick={handleUpgradeClick}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg transition-all shadow-sm shadow-indigo-600/20 flex items-center gap-1.5 cursor-pointer shrink-0"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={2.5}
-                      stroke="currentColor"
-                      className="w-3.5 h-3.5"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M4.5 12.75l6 6 9-13.5"
-                      />
-                    </svg>
-                    Upgrade Now
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+                  Upgrade Now
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Footer */}
