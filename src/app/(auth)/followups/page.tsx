@@ -8,6 +8,8 @@ import LeadProfile from "@/components/LeadProfile";
 import AddEnquiryModal from "@/components/AddEnquiryModal";
 import AdvancedSearchModal, { AdvancedSearchFilterState } from "@/components/AdvancedSearchModal";
 import AddFollowupModal from "@/components/AddFollowupModal";
+import FollowupTimelineModal from "@/components/FollowupTimelineModal";
+import FollowupPerformanceModal from "@/components/FollowupPerformanceModal";
 
 interface EnquiryFollowupRecord {
   _id: string;
@@ -22,6 +24,7 @@ interface EnquiryFollowupRecord {
   targetBrand?: string;
   assignedCrmAdvisor?: string;
   status: string;
+  priorityLevel?: string;
   leadSource?: string;
   leadType?: string;
   remarks?: string;
@@ -32,13 +35,20 @@ interface EnquiryFollowupRecord {
     priority?: string;
     typeOfContact?: string;
     remarks?: string;
+    nextAction?: string;
+    assignedTo?: string;
     status?: string;
     isCompleted?: boolean;
+    isRecurring?: boolean;
+    recurringRule?: string;
+    escalatedToManager?: boolean;
     plannedBy?: string;
   }>;
   dueDateStr?: string;
   dueDateObj?: Date;
   lastRemarkStr?: string;
+  isOverdue?: boolean;
+  isEscalated?: boolean;
 }
 
 interface FeesFollowupRecord {
@@ -84,6 +94,11 @@ export default function FollowupPage() {
   const [filterCourse, setFilterCourse] = useState("All");
   const [filterStage, setFilterStage] = useState("All");
 
+  // Timeline & Performance Modals State
+  const [isTimelineOpen, setIsTimelineOpen] = useState(false);
+  const [timelineRecord, setTimelineRecord] = useState<any | null>(null);
+  const [isPerformanceModalOpen, setIsPerformanceModalOpen] = useState(false);
+
   // Data Loading States
   const [enquiries, setEnquiries] = useState<any[]>([]);
   const [admissions, setAdmissions] = useState<any[]>([]);
@@ -100,6 +115,8 @@ export default function FollowupPage() {
   const [quickTime, setQuickTime] = useState("11:00 AM");
   const [quickRemarks, setQuickRemarks] = useState("");
   const [quickStatus, setQuickStatus] = useState("In Progress");
+  const [quickPriority, setQuickPriority] = useState("Medium");
+  const [quickAssignedTo, setQuickAssignedTo] = useState("");
   const [isSavingQuickFollowup, setIsSavingQuickFollowup] = useState(false);
 
   // Fetch Data
@@ -181,6 +198,8 @@ export default function FollowupPage() {
       }
 
       const dueDateTime = new Date(dueDateStr).getTime();
+      const isOverdue = dueDateTime < todayTime;
+      const isEscalated = rawFollowups.some((f: any) => f.escalatedToManager) || (isOverdue && (todayTime - dueDateTime) > 86400000);
 
       list.push({
         _id: e._id,
@@ -195,6 +214,7 @@ export default function FollowupPage() {
         targetBrand: e.targetBrand || "Cadd Mantra",
         assignedCrmAdvisor: e.assignedCrmAdvisor || "Unassigned",
         status: e.status || "New Lead",
+        priorityLevel: e.priorityLevel || lastFollowup?.priority || "Medium",
         leadSource: e.leadSource || "Direct",
         leadType: e.leadType || "Telephonic",
         remarks: e.remarks || "",
@@ -203,6 +223,8 @@ export default function FollowupPage() {
         dueDateStr,
         dueDateObj: new Date(dueDateStr),
         lastRemarkStr,
+        isOverdue,
+        isEscalated,
       });
     });
 
@@ -570,6 +592,14 @@ export default function FollowupPage() {
               </span>
             </div>
 
+            {/* Performance Reports Button */}
+            <button
+              onClick={() => setIsPerformanceModalOpen(true)}
+              className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-emerald-600/20 transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+            >
+              <span>📊 Performance Reports</span>
+            </button>
+
             {/* Advanced Filter Button */}
             <button
               onClick={() => setIsFilterModalOpen(true)}
@@ -785,41 +815,63 @@ export default function FollowupPage() {
                   <thead className="sticky top-0 z-10 bg-slate-100/95 backdrop-blur-xs shadow-2xs">
                     <tr className="border-b border-slate-200 text-[10px] font-black text-slate-600 uppercase tracking-wider select-none">
                       <th className="py-3 px-4 min-w-[125px]">DUE DATE ▾</th>
+                      <th className="py-3 px-4 min-w-[100px]">PRIORITY ▾</th>
                       <th className="py-3 px-4 min-w-[145px]">ENQUIRY/WALKIN DATE ▾</th>
                       <th className="py-3 px-4 min-w-[150px]">STUDENT ▾</th>
                       <th className="py-3 px-4 min-w-[140px]">STUDENT MOBILE NO ▾</th>
                       <th className="py-3 px-4 min-w-[140px]">PRIMARY MOBILE NO ▾</th>
-                      <th className="py-3 px-4 min-w-[140px]">SECONDARY MOBILE NO ▾</th>
                       <th className="py-3 px-4 min-w-[110px]">AREA ▾</th>
-                      <th className="py-3 px-4 min-w-[140px]">EMAIL ▾</th>
                       <th className="py-3 px-4 min-w-[150px]">COURSE PACKAGE ▾</th>
                       <th className="py-3 px-4 min-w-[130px]">FOLLOWUP BY ▾</th>
                       <th className="py-3 px-4 min-w-[110px]">LEAD STAGE ▾</th>
                       <th className="py-3 px-4 min-w-[100px]">LEAD TYPE ▾</th>
-                      <th className="py-3 px-4 min-w-[110px]">LEAD SOURCE ▾</th>
                       <th className="py-3 px-4 min-w-[160px]">LAST REMARK ▾</th>
-                      <th className="py-3 px-4 min-w-[110px]">STATUS ▾</th>
-                      <th className="py-3 px-4 text-right min-w-[120px]">ACTION ▾</th>
+                      <th className="py-3 px-4 text-right min-w-[200px]">ACTION ▾</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
                     {isLoading ? (
                       <tr>
-                        <td colSpan={16} className="py-12 text-center text-slate-400">Loading enquiry follow-ups...</td>
+                        <td colSpan={13} className="py-12 text-center text-slate-400">Loading enquiry follow-ups...</td>
                       </tr>
                     ) : paginatedEnquiryRecords.length === 0 ? (
                       <tr>
-                        <td colSpan={16} className="py-12 text-center text-slate-400">No enquiry follow-up records found matching filters.</td>
+                        <td colSpan={13} className="py-12 text-center text-slate-400">No enquiry follow-up records found matching filters.</td>
                       </tr>
                     ) : (
                       paginatedEnquiryRecords.map((rec: EnquiryFollowupRecord) => (
                         <tr
                           key={rec._id}
                           onClick={() => setSelectedLead(rec)}
-                          className="hover:bg-slate-50/80 transition-colors cursor-pointer"
+                          className={`transition-colors cursor-pointer ${
+                            rec.isOverdue
+                              ? "bg-rose-50/70 hover:bg-rose-100/80 border-l-4 border-l-rose-500"
+                              : "hover:bg-slate-50/80"
+                          }`}
                         >
-                          <td className="py-3.5 px-4 font-bold text-indigo-600 whitespace-nowrap">
-                            {rec.dueDateStr ? new Date(rec.dueDateStr).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Today"}
+                          <td className="py-3.5 px-4 font-bold whitespace-nowrap">
+                            <div className="flex flex-col">
+                              <span className={rec.isOverdue ? "text-rose-700 font-black" : "text-indigo-600"}>
+                                {rec.dueDateStr ? new Date(rec.dueDateStr).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Today"}
+                              </span>
+                              {rec.isOverdue && (
+                                <span className="text-[9px] font-black text-rose-600 tracking-wider animate-pulse">🚨 OVERDUE</span>
+                              )}
+                              {rec.isEscalated && (
+                                <span className="text-[9px] font-black text-purple-700 tracking-wider">⚡ ESCALATED TO MGR</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            {rec.priorityLevel === "Urgent" ? (
+                              <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 font-black text-[10px]">🔴 URGENT</span>
+                            ) : rec.priorityLevel === "High" ? (
+                              <span className="px-2 py-0.5 rounded-md bg-orange-100 text-orange-700 font-black text-[10px]">🟠 HIGH</span>
+                            ) : rec.priorityLevel === "Low" ? (
+                              <span className="px-2 py-0.5 rounded-md bg-sky-100 text-sky-700 font-black text-[10px]">🔵 LOW</span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-700 font-black text-[10px]">🟡 MEDIUM</span>
+                            )}
                           </td>
                           <td className="py-3.5 px-4 text-slate-500 whitespace-nowrap">
                             {rec.createdAt ? new Date(rec.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "N/A"}
@@ -829,9 +881,7 @@ export default function FollowupPage() {
                           </td>
                           <td className="py-3.5 px-4 font-mono text-slate-600 whitespace-nowrap">{rec.primaryPhoneMobile}</td>
                           <td className="py-3.5 px-4 font-mono text-slate-400 whitespace-nowrap">{rec.parentsPhoneNumber || "-"}</td>
-                          <td className="py-3.5 px-4 font-mono text-slate-400 whitespace-nowrap">{rec.secondaryPhone || "-"}</td>
                           <td className="py-3.5 px-4 text-slate-600 max-w-[130px] truncate">{rec.currentCity || "N/A"}</td>
-                          <td className="py-3.5 px-4 text-slate-500 max-w-[140px] truncate" title={rec.emailAddress}>{rec.emailAddress || "-"}</td>
                           <td className="py-3.5 px-4 font-bold text-slate-800 max-w-[160px] truncate" title={rec.targetCourse}>{rec.targetCourse}</td>
                           <td className="py-3.5 px-4 text-slate-700 max-w-[140px] truncate">{rec.assignedCrmAdvisor}</td>
                           <td className="py-3.5 px-4">
@@ -840,20 +890,20 @@ export default function FollowupPage() {
                             </span>
                           </td>
                           <td className="py-3.5 px-4 text-slate-600 capitalize whitespace-nowrap">{rec.leadType || "Telephonic"}</td>
-                          <td className="py-3.5 px-4">
-                            <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-[10px] font-bold whitespace-nowrap">
-                              {rec.leadSource || "Direct"}
-                            </span>
-                          </td>
                           <td className="py-3.5 px-4 text-slate-500 max-w-[180px] truncate" title={rec.lastRemarkStr}>
                             {rec.lastRemarkStr || "-"}
                           </td>
-                          <td className="py-3.5 px-4">
-                            <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-[10px] font-extrabold uppercase whitespace-nowrap">
-                              Active
-                            </span>
-                          </td>
-                          <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          <td className="py-3.5 px-4 text-right whitespace-nowrap space-x-2" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              onClick={() => {
+                                setTimelineRecord(rec);
+                                setIsTimelineOpen(true);
+                              }}
+                              className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-xl text-[11px] font-bold transition-all cursor-pointer"
+                              title="View Interaction Timeline"
+                            >
+                              🕒 Timeline
+                            </button>
                             <button
                               onClick={() => {
                                 setActiveRecordForFollowup(rec);
@@ -998,6 +1048,19 @@ export default function FollowupPage() {
         onClose={() => setIsQuickFollowupModalOpen(false)}
         record={activeRecordForFollowup}
         onSuccess={fetchData}
+      />
+
+      {/* Timeline Modal */}
+      <FollowupTimelineModal
+        isOpen={isTimelineOpen}
+        onClose={() => setIsTimelineOpen(false)}
+        record={timelineRecord}
+      />
+
+      {/* Performance Reports Modal */}
+      <FollowupPerformanceModal
+        isOpen={isPerformanceModalOpen}
+        onClose={() => setIsPerformanceModalOpen(false)}
       />
 
       {/* Full Student Lead Profile Drawer */}

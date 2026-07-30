@@ -71,12 +71,21 @@ const EnquirySchema = new Schema(
       {
         date: String,
         time: String,
-        priority: String,
-        typeOfContact: String,
+        priority: { type: String, default: "Medium" }, // Urgent, High, Medium, Low
+        typeOfContact: String, // Telephonic, WhatsApp, Email, Walkin, Campus Visit
         remarks: String,
-        status: { type: String, default: "Pending" },
+        nextAction: String,
+        assignedTo: String,
+        status: { type: String, default: "Pending" }, // Pending, Completed, Rescheduled, Missed, Cancelled, In Progress
         plannedBy: String,
         isCompleted: { type: Boolean, default: false },
+        isRecurring: { type: Boolean, default: false },
+        recurringRule: String, // e.g. "3_days", "7_days", "14_days", "30_days"
+        escalatedToManager: { type: Boolean, default: false },
+        escalatedAt: Date,
+        completedAt: Date,
+        callStart: String,
+        callEnd: String,
         createdAt: { type: Date, default: Date.now },
       },
     ],

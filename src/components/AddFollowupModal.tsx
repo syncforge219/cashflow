@@ -50,6 +50,14 @@ export default function AddFollowupModal({
   const [selectedFromLeft, setSelectedFromLeft] = useState<string[]>([]);
   const [selectedFromRight, setSelectedFromRight] = useState<string[]>([]);
 
+  // Additional Follow-up Features State
+  const [priority, setPriority] = useState<string>(record?.priorityLevel || record?.priority || "Medium");
+  const [assignedTo, setAssignedTo] = useState<string>(record?.assignedCrmAdvisor || record?.counsellor || "");
+  const [nextAction, setNextAction] = useState<string>("");
+  const [status, setStatus] = useState<string>("Pending");
+  const [recurringRule, setRecurringRule] = useState<string>("none");
+  const [counsellorsList, setCounsellorsList] = useState<any[]>([]);
+
   // Lead Type & Call Duration
   const [leadType, setLeadType] = useState(record?.leadType || "walkin");
   const [callStart, setCallStart] = useState("");
@@ -61,17 +69,24 @@ export default function AddFollowupModal({
   const [historyItemsPerPage, setHistoryItemsPerPage] = useState(5);
   const [historyCurrentPage, setHistoryCurrentPage] = useState(1);
 
-  // Fetch real courses from backend
+  // Fetch real courses and counsellors from backend
   useEffect(() => {
-    const fetchRealCourses = async () => {
+    const fetchRealData = async () => {
       try {
-        const res = await fetch("/api/courses");
-        const data = await res.json();
+        const [cRes, counsRes] = await Promise.all([
+          fetch("/api/courses").then(r => r.json().catch(() => ({}))),
+          fetch("/api/counsellors").then(r => r.json().catch(() => ({}))),
+        ]);
+
         let courseList: string[] = [];
-        if (data.success && Array.isArray(data.data) && data.data.length > 0) {
-          courseList = data.data.map((c: any) => `${c.name}${c.fee ? `-${c.fee}` : ""}`);
+        if (cRes.success && Array.isArray(cRes.data) && cRes.data.length > 0) {
+          courseList = cRes.data.map((c: any) => `${c.name}${c.fee ? `-${c.fee}` : ""}`);
         } else {
           courseList = DEFAULT_COURSES;
+        }
+
+        if (counsRes.success && Array.isArray(counsRes.data)) {
+          setCounsellorsList(counsRes.data);
         }
 
         if (record && (record.targetCourse || record.course)) {
@@ -82,15 +97,17 @@ export default function AddFollowupModal({
           setAvailableCourses(courseList);
         }
       } catch (err) {
-        console.error("Error fetching courses for modal:", err);
+        console.error("Error fetching options for modal:", err);
         setAvailableCourses(DEFAULT_COURSES);
       }
     };
 
     if (isOpen) {
-      fetchRealCourses();
+      fetchRealData();
       if (record) {
         setLeadType(record.leadType || "walkin");
+        setAssignedTo(record.assignedCrmAdvisor || record.counsellor || "");
+        setPriority(record.priorityLevel || record.priority || "Medium");
       }
     }
   }, [isOpen, record]);
@@ -155,14 +172,19 @@ export default function AddFollowupModal({
       const payload = {
         date: nextDate,
         time: nextTime,
+        priority,
+        assignedTo,
         remarks: followupRemark,
+        nextAction,
         currentDate,
         currentTime,
         typeOfContact: leadType,
         selectedCourses,
         callStart,
         callEnd,
-        status: "In Progress",
+        status,
+        isRecurring: recurringRule !== "none",
+        recurringRule,
       };
 
       const res = await fetch(`/api/enquiries/${record._id}/tasks`, {
@@ -250,7 +272,41 @@ export default function AddFollowupModal({
         {activeTab === "add" ? (
           <div className="p-8 overflow-y-auto space-y-6 text-xs text-slate-700 font-sans flex-1">
             
-            {/* 1. Next Follow-up Date & Time */}
+            {/* 1. Priority & Assignment Row */}
+            <div className="grid grid-cols-12 items-center gap-4">
+              <div className="col-span-4 text-right pr-2">
+                <label className="block font-bold text-slate-800">
+                  Priority & Assignee
+                </label>
+              </div>
+              <div className="col-span-8 grid grid-cols-2 gap-3">
+                <select
+                  value={priority}
+                  onChange={(e) => setPriority(e.target.value)}
+                  className="px-3.5 py-2.5 border border-slate-300 rounded-xl text-slate-800 font-bold outline-none bg-white shadow-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 cursor-pointer"
+                >
+                  <option value="Urgent">🔴 Urgent Priority</option>
+                  <option value="High">🟠 High Priority</option>
+                  <option value="Medium">🟡 Medium Priority</option>
+                  <option value="Low">🔵 Low Priority</option>
+                </select>
+
+                <select
+                  value={assignedTo}
+                  onChange={(e) => setAssignedTo(e.target.value)}
+                  className="px-3.5 py-2.5 border border-slate-300 rounded-xl text-slate-800 font-bold outline-none bg-white shadow-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 cursor-pointer"
+                >
+                  <option value="">-- Assign Counsellor / Rep --</option>
+                  {counsellorsList.map((c) => (
+                    <option key={c._id || c.name} value={c.name}>
+                      👤 {c.name} {c.brand ? `(${c.brand})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* 2. Next Follow-up Date & Time */}
             <div className="grid grid-cols-12 items-center gap-4">
               <div className="col-span-4 text-right pr-2">
                 <label className="block font-bold text-slate-800 leading-tight">
@@ -289,14 +345,49 @@ export default function AddFollowupModal({
               </div>
             </div>
 
-            {/* 2. Followup Remark */}
+            {/* 3. Recurring Follow-up & Touchpoint Status */}
+            <div className="grid grid-cols-12 items-center gap-4">
+              <div className="col-span-4 text-right pr-2">
+                <label className="block font-bold text-slate-800">
+                  Status & Auto-Recurring
+                </label>
+              </div>
+              <div className="col-span-8 grid grid-cols-2 gap-3">
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                  className="px-3.5 py-2.5 border border-slate-300 rounded-xl text-slate-800 font-bold outline-none bg-white shadow-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 cursor-pointer"
+                >
+                  <option value="Pending">⏳ Pending</option>
+                  <option value="In Progress">🔄 In Progress</option>
+                  <option value="Completed">✓ Completed</option>
+                  <option value="Rescheduled">📅 Rescheduled</option>
+                  <option value="Missed">🚨 Missed</option>
+                </select>
+
+                <select
+                  value={recurringRule}
+                  onChange={(e) => setRecurringRule(e.target.value)}
+                  className="px-3.5 py-2.5 border border-slate-300 rounded-xl text-slate-800 font-bold outline-none bg-white shadow-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 cursor-pointer"
+                >
+                  <option value="none">🔁 Auto-Recurring: None</option>
+                  <option value="1_day">🔁 Every 1 Day (+1d)</option>
+                  <option value="3_days">🔁 Every 3 Days (+3d)</option>
+                  <option value="7_days">🔁 Every 7 Days (+7d)</option>
+                  <option value="14_days">🔁 Every 14 Days (+14d)</option>
+                  <option value="30_days">🔁 Monthly (+30d)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* 4. Followup Remark & Next Action Step */}
             <div className="grid grid-cols-12 items-start gap-4">
               <div className="col-span-4 text-right pr-2 pt-2">
                 <label className="block font-bold text-slate-800">
-                  Followup Remark <span className="text-rose-500">*</span>
+                  Remarks & Next Action <span className="text-rose-500">*</span>
                 </label>
               </div>
-              <div className="col-span-8">
+              <div className="col-span-8 space-y-2">
                 <textarea
                   rows={3}
                   value={followupRemark}
@@ -304,6 +395,13 @@ export default function AddFollowupModal({
                   placeholder="Enter detailed call outcome (e.g. Student requested callback tomorrow, interested in Graphic Design)..."
                   className="w-full p-3.5 border border-slate-300 rounded-xl text-slate-800 font-medium outline-none bg-white shadow-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all"
                   required
+                />
+                <input
+                  type="text"
+                  value={nextAction}
+                  onChange={(e) => setNextAction(e.target.value)}
+                  placeholder="Target next action step (e.g. Send fee breakdown PDF & confirm campus demo visit)..."
+                  className="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-slate-800 font-medium outline-none bg-white shadow-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
                 />
               </div>
             </div>
