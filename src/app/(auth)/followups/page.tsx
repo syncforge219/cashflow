@@ -73,8 +73,63 @@ export default function FollowupPage() {
   // Main Mode: "enquiry" | "fees"
   const [activeMode, setActiveMode] = useState<"enquiry" | "fees">("enquiry");
 
-  // Notifications Toggle State
+  // Notifications & Sound System State
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [soundActivated, setSoundActivated] = useState(false);
+
+  // Web Audio Synthesizer Engine for Crystal Clear System Sounds
+  const playChimeSound = (type: "notification" | "alert" | "success" = "notification") => {
+    if (typeof window === "undefined") return;
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
+      if (ctx.state === "suspended") {
+        ctx.resume();
+      }
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      const now = ctx.currentTime;
+
+      if (type === "alert") {
+        // Warning alert tone (E5 -> A5)
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(659.25, now);
+        osc.frequency.setValueAtTime(880, now + 0.15);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+        osc.start(now);
+        osc.stop(now + 0.5);
+      } else if (type === "success") {
+        // Success chord (C5 -> E5 -> G5)
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(523.25, now);
+        osc.frequency.setValueAtTime(659.25, now + 0.12);
+        osc.frequency.setValueAtTime(783.99, now + 0.24);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+        osc.start(now);
+        osc.stop(now + 0.45);
+      } else {
+        // Crystal notification chime (G5 -> C6)
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(783.99, now);
+        osc.frequency.setValueAtTime(1046.50, now + 0.12);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+        osc.start(now);
+        osc.stop(now + 0.4);
+      }
+      setSoundActivated(true);
+    } catch (err) {
+      console.error("Failed to play system chime:", err);
+    }
+  };
 
   // Search and View Mode
   const [searchQuery, setSearchQuery] = useState("");
@@ -527,13 +582,19 @@ export default function FollowupPage() {
               {activeMode === "enquiry" ? "Enquiry Followup" : "Fees Followup"}
               <button
                 onClick={() => {
-                  const audio = new Audio("https://actions.google.com/sounds/v1/notifications/beep_short.ogg");
-                  audio.play().catch(() => {});
+                  playChimeSound("notification");
                 }}
-                className="text-indigo-600 hover:text-indigo-700 transition-transform hover:scale-110 cursor-pointer"
-                title="Play Notification Sound"
+                className={`p-1.5 rounded-xl border transition-all duration-300 active:scale-90 cursor-pointer flex items-center gap-1 ${
+                  soundEnabled
+                    ? "bg-indigo-50 border-indigo-200 text-indigo-600 hover:bg-indigo-100 shadow-xs"
+                    : "bg-slate-100 border-slate-200 text-slate-400 hover:bg-slate-200"
+                }`}
+                title="Click to Test & Activate Sound System"
               >
-                🔊
+                <span className="text-base animate-pulse">🔊</span>
+                <span className="text-[10px] font-black uppercase text-indigo-700 tracking-wider">
+                  {soundActivated ? "ACTIVE" : "TEST SOUND"}
+                </span>
               </button>
             </h1>
 
@@ -568,9 +629,36 @@ export default function FollowupPage() {
             </div>
           </div>
 
-          {/* Right Controls: Desktop Notification Toggle, Advanced Filter, Add New */}
+          {/* Right Controls: Desktop Notification Toggle, Audio Chime Toggle, Advanced Filter, Add New */}
           <div className="flex flex-wrap items-center gap-3">
             
+            {/* Audio Alerts Toggle Switch */}
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 px-3 py-1.5 rounded-xl shadow-xs">
+              <span className="text-xs font-extrabold text-slate-700 flex items-center gap-1">
+                <span>🔊 Audio System</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  const nextState = !soundEnabled;
+                  setSoundEnabled(nextState);
+                  if (nextState) playChimeSound("notification");
+                }}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  soundEnabled ? "bg-indigo-600" : "bg-slate-300"
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                    soundEnabled ? "translate-x-4" : "translate-x-0"
+                  }`}
+                />
+              </button>
+              <span className="text-[10px] font-black text-slate-500 uppercase">
+                {soundEnabled ? "ON" : "OFF"}
+              </span>
+            </div>
+
             {/* Desktop Notification Toggle Switch */}
             <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 px-3 py-1.5 rounded-xl shadow-xs">
               <span className="text-xs font-extrabold text-indigo-700">Desktop Notification</span>
