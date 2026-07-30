@@ -705,3 +705,295 @@ function buildEnhancedBiReportPdfBuffer(data: DailyBiReportData): Buffer {
 
   return Buffer.from(header + body + xref + `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${offset}\n%%EOF\n`, "utf-8");
 }
+
+export interface ExpensePdfData {
+  expenses: any[];
+  filters: {
+    category?: string;
+    brand?: string;
+    company?: string;
+    startDate?: string;
+    endDate?: string;
+    search?: string;
+  };
+  generatedAtStr?: string;
+}
+
+export function generateExpensePdfBuffer(data: ExpensePdfData): Buffer {
+  const expenses = data.expenses || [];
+  const filters = data.filters || {};
+
+  const totalAmount = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+  const totalCount = expenses.length;
+
+  const variableTotal = expenses
+    .filter((e) => (e.expenseType || "variable").toLowerCase() === "variable")
+    .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+  const fixedTotal = expenses
+    .filter((e) => (e.expenseType || "").toLowerCase() === "fixed")
+    .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
+  const cashTotal = expenses
+    .filter((e) => (e.paymentMode || "").toLowerCase() === "cash")
+    .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+  const bankTotal = Math.max(0, totalAmount - cashTotal);
+
+  const fmt = (n: number) => Math.round(n).toLocaleString("en-IN");
+
+  // ── PAGE 1 CONTENT STREAM ──
+  const p1Lines: string[] = [];
+
+  // Header Banner (Y: 760..820)
+  p1Lines.push(fillRoundedRect("0.12 0.10 0.29", 20, 760, 555, 60, 6));
+  p1Lines.push(`BT /F2 13 Tf 1 1 1 rg 35 798 Td (COACHFLOW ERP  \xb7  FINANCIAL INTELLIGENCE SUITE) Tj ET`);
+  p1Lines.push(`BT /F2 9.5 Tf 0.8 0.85 0.98 rg 35 778 Td (OPERATIONAL EXPENSE EXECUTIVE REPORT) Tj ET`);
+  p1Lines.push(`BT /F1 7.5 Tf 0.7 0.8 0.95 rg 400 798 Td (Generated: ${escapePdfText(data.generatedAtStr || new Date().toLocaleDateString("en-IN"))}) Tj ET`);
+  p1Lines.push(`BT /F1 7.5 Tf 0.7 0.8 0.95 rg 400 778 Td (Total Records: ${totalCount}) Tj ET`);
+
+  // Sub-header Filter Strip (Y: 732..752)
+  p1Lines.push(fillRoundedRect("0.95 0.96 0.98", 20, 732, 555, 20, 4));
+  p1Lines.push(`BT /F2 7.5 Tf 0.2 0.25 0.35 rg 30 738 Td (FILTERS: Brand: ${escapePdfText((filters.brand || "All Brands").slice(0, 15))}) Tj ET`);
+  p1Lines.push(`BT /F2 7.5 Tf 0.2 0.25 0.35 rg 210 738 Td (Company: ${escapePdfText((filters.company || "All Companies").slice(0, 15))}) Tj ET`);
+  p1Lines.push(`BT /F2 7.5 Tf 0.2 0.25 0.35 rg 390 738 Td (Category: ${escapePdfText((filters.category || "All").slice(0, 15))}) Tj ET`);
+
+  // KPI Scorecards (Y: 660..720)
+  // Card 1: Total Spend
+  p1Lines.push(fillRoundedRect("1.0 0.95 0.96", 20, 660, 132, 60, 6));
+  p1Lines.push(fillRoundedRect("0.88 0.11 0.28", 20, 660, 4, 60, 2));
+  p1Lines.push(`BT /F2 7 Tf 0.6 0.1 0.2 rg 30 705 Td (TOTAL SPEND) Tj ET`);
+  p1Lines.push(`BT /F2 10.5 Tf 0.75 0.07 0.23 rg 30 688 Td (Rs.${fmt(totalAmount)}) Tj ET`);
+  p1Lines.push(`BT /F1 6.5 Tf 0.5 0.5 0.5 rg 30 672 Td (${totalCount} Vouchers) Tj ET`);
+
+  // Card 2: Variable Spend
+  p1Lines.push(fillRoundedRect("0.98 0.95 1.0", 161, 660, 132, 60, 6));
+  p1Lines.push(fillRoundedRect("0.58 0.2 0.92", 161, 660, 4, 60, 2));
+  p1Lines.push(`BT /F2 7 Tf 0.4 0.1 0.6 rg 171 705 Td (VARIABLE SPEND) Tj ET`);
+  p1Lines.push(`BT /F2 10.5 Tf 0.49 0.13 0.82 rg 171 688 Td (Rs.${fmt(variableTotal)}) Tj ET`);
+  p1Lines.push(`BT /F1 6.5 Tf 0.5 0.5 0.5 rg 171 672 Td (${totalAmount > 0 ? ((variableTotal / totalAmount) * 100).toFixed(1) : 0}% Share) Tj ET`);
+
+  // Card 3: Fixed Spend
+  p1Lines.push(fillRoundedRect("0.93 0.95 1.0", 302, 660, 132, 60, 6));
+  p1Lines.push(fillRoundedRect("0.31 0.27 0.9", 302, 660, 4, 60, 2));
+  p1Lines.push(`BT /F2 7 Tf 0.2 0.2 0.6 rg 312 705 Td (FIXED SPEND) Tj ET`);
+  p1Lines.push(`BT /F2 10.5 Tf 0.26 0.22 0.79 rg 312 688 Td (Rs.${fmt(fixedTotal)}) Tj ET`);
+  p1Lines.push(`BT /F1 6.5 Tf 0.5 0.5 0.5 rg 312 672 Td (${totalAmount > 0 ? ((fixedTotal / totalAmount) * 100).toFixed(1) : 0}% Share) Tj ET`);
+
+  // Card 4: Digital Ratio
+  p1Lines.push(fillRoundedRect("0.92 0.99 0.96", 443, 660, 132, 60, 6));
+  p1Lines.push(fillRoundedRect("0.02 0.59 0.41", 443, 660, 4, 60, 2));
+  p1Lines.push(`BT /F2 7 Tf 0.0 0.4 0.3 rg 453 705 Td (BANK / CASH RATIO) Tj ET`);
+  p1Lines.push(`BT /F2 10.5 Tf 0.02 0.47 0.34 rg 453 688 Td (${totalAmount > 0 ? ((bankTotal / totalAmount) * 100).toFixed(0) : 0}% Digital) Tj ET`);
+  p1Lines.push(`BT /F1 6.5 Tf 0.5 0.5 0.5 rg 453 672 Td (Cash: Rs.${fmt(cashTotal)}) Tj ET`);
+
+  // Visual Analytics Section Divider (Y: 636)
+  p1Lines.push(fillRoundedRect("0.06 0.09 0.16", 20, 636, 555, 18, 4));
+  p1Lines.push(`BT /F2 8.5 Tf 1 1 1 rg 30 641 Td (FINANCIAL INSIGHT GRAPH ANALYTICS & BREAKDOWN CHARTS) Tj ET`);
+
+  // ── GRAPH 1: Category Spend Breakdown (Y: 480..626) ──
+  p1Lines.push(fillRoundedRect("1 1 1", 20, 480, 270, 146, 6));
+  p1Lines.push(strokeRoundedRect("0.85 0.88 0.92", 20, 480, 270, 146, 6));
+  p1Lines.push(`BT /F2 8.5 Tf 0.12 0.16 0.23 rg 30 612 Td (GRAPH 1: TOP CATEGORY ALLOCATION) Tj ET`);
+
+  const categoryMap: Record<string, number> = {};
+  expenses.forEach((e) => {
+    const cat = e.category || "Misc";
+    categoryMap[cat] = (categoryMap[cat] || 0) + (Number(e.amount) || 0);
+  });
+  const topCategories = Object.entries(categoryMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const maxCatVal = Math.max(...topCategories.map((c) => c[1]), 1);
+
+  let cY = 590;
+  const barColors = ["0.31 0.27 0.9", "0.88 0.11 0.28", "0.58 0.2 0.92", "0.02 0.59 0.41", "0.96 0.62 0.04"];
+  topCategories.forEach(([catName, amt], idx) => {
+    const barW = Math.max((amt / maxCatVal) * 105, 5);
+    const col = barColors[idx % barColors.length];
+    const pct = totalAmount > 0 ? ((amt / totalAmount) * 100).toFixed(1) : "0.0";
+
+    p1Lines.push(`BT /F2 7 Tf 0.25 0.28 0.35 rg 30 ${cY} Td (${escapePdfText(catName.slice(0, 14))}) Tj ET`);
+    p1Lines.push(fillRoundedRect(col, 115, cY - 2, barW, 9, 2));
+    p1Lines.push(`BT /F2 6.5 Tf 0.1 0.1 0.2 rg ${120 + barW} ${cY} Td (Rs.${fmt(amt)} [${pct}%]) Tj ET`);
+    cY -= 20;
+  });
+
+  // ── GRAPH 2: Payment Mode Breakdown (Y: 480..626) ──
+  p1Lines.push(fillRoundedRect("1 1 1", 305, 480, 270, 146, 6));
+  p1Lines.push(strokeRoundedRect("0.85 0.88 0.92", 305, 480, 270, 146, 6));
+  p1Lines.push(`BT /F2 8.5 Tf 0.12 0.16 0.23 rg 315 612 Td (GRAPH 2: PAYMENT MODE BREAKDOWN) Tj ET`);
+
+  const paymentMap: Record<string, number> = {};
+  expenses.forEach((e) => {
+    const mode = e.paymentMode || "Cash";
+    paymentMap[mode] = (paymentMap[mode] || 0) + (Number(e.amount) || 0);
+  });
+  const paymentModes = Object.entries(paymentMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+  let pY = 590;
+  const pColors = ["0.02 0.59 0.41", "0.96 0.62 0.04", "0.23 0.51 0.96", "0.55 0.36 0.96", "0.93 0.28 0.6"];
+  paymentModes.forEach(([mode, amt], idx) => {
+    const col = pColors[idx % pColors.length];
+    const pct = totalAmount > 0 ? ((amt / totalAmount) * 100).toFixed(1) : "0.0";
+
+    p1Lines.push(fillRoundedRect(col, 315, pY - 1, 8, 8, 2));
+    p1Lines.push(`BT /F2 7.5 Tf 0.2 0.25 0.35 rg 328 ${pY} Td (${escapePdfText(mode)}) Tj ET`);
+    p1Lines.push(`BT /F2 7.5 Tf 0.1 0.1 0.2 rg 450 ${pY} Td (Rs.${fmt(amt)} [${pct}%]) Tj ET`);
+    pY -= 20;
+  });
+
+  // ── GRAPH 3: Variable vs Fixed Nature Comparison (Y: 360..468) ──
+  p1Lines.push(fillRoundedRect("1 1 1", 20, 360, 270, 108, 6));
+  p1Lines.push(strokeRoundedRect("0.85 0.88 0.92", 20, 360, 270, 108, 6));
+  p1Lines.push(`BT /F2 8.5 Tf 0.12 0.16 0.23 rg 30 452 Td (GRAPH 3: COST NATURE COMPARISON) Tj ET`);
+
+  const varPct = totalAmount > 0 ? Math.round((variableTotal / totalAmount) * 100) : 0;
+  const fixPct = totalAmount > 0 ? Math.round((fixedTotal / totalAmount) * 100) : 0;
+
+  p1Lines.push(`BT /F2 7.5 Tf 0.49 0.13 0.82 rg 30 432 Td (Variable Spend: Rs.${fmt(variableTotal)} [${varPct}%]) Tj ET`);
+  p1Lines.push(fillRoundedRect("0.58 0.2 0.92", 30, 418, Math.max((varPct / 100) * 240, 5), 10, 3));
+
+  p1Lines.push(`BT /F2 7.5 Tf 0.26 0.22 0.79 rg 30 400 Td (Fixed Overhead: Rs.${fmt(fixedTotal)} [${fixPct}%]) Tj ET`);
+  p1Lines.push(fillRoundedRect("0.31 0.27 0.9", 30, 386, Math.max((fixPct / 100) * 240, 5), 10, 3));
+
+  // ── GRAPH 4: Brand Allocation Breakdown (Y: 360..468) ──
+  p1Lines.push(fillRoundedRect("1 1 1", 305, 360, 270, 108, 6));
+  p1Lines.push(strokeRoundedRect("0.85 0.88 0.92", 305, 360, 270, 108, 6));
+  p1Lines.push(`BT /F2 8.5 Tf 0.12 0.16 0.23 rg 315 452 Td (GRAPH 4: BRAND SPEND ALLOCATION) Tj ET`);
+
+  const brandMap: Record<string, number> = {};
+  expenses.forEach((e) => {
+    const b = e.brand && e.brand !== "All Brands" ? e.brand : "Unassigned";
+    brandMap[b] = (brandMap[b] || 0) + (Number(e.amount) || 0);
+  });
+  const brandModes = Object.entries(brandMap).sort((a, b) => b[1] - a[1]).slice(0, 4);
+  const maxBrandVal = Math.max(...brandModes.map((b) => b[1]), 1);
+
+  let bY = 432;
+  brandModes.forEach(([bName, amt]) => {
+    const bW = Math.max((amt / maxBrandVal) * 105, 5);
+    p1Lines.push(`BT /F2 7 Tf 0.25 0.28 0.35 rg 315 ${bY} Td (${escapePdfText(bName.slice(0, 14))}) Tj ET`);
+    p1Lines.push(fillRoundedRect("0.01 0.52 0.78", 390, bY - 2, bW, 8, 2));
+    p1Lines.push(`BT /F2 6.5 Tf 0.1 0.1 0.2 rg ${394 + bW} ${bY} Td (Rs.${fmt(amt)}) Tj ET`);
+    bY -= 18;
+  });
+
+  // Table Preview Section Header (Y: 334)
+  p1Lines.push(fillRoundedRect("0.12 0.16 0.23", 20, 334, 555, 18, 4));
+  p1Lines.push(`BT /F2 8.5 Tf 1 1 1 rg 30 339 Td (EXPENSE REGISTER VOUCHERS AUDIT TRAIL) Tj ET`);
+
+  // Table Header Row Page 1 (Y: 312)
+  p1Lines.push(fillRoundedRect("0.2 0.25 0.35", 20, 312, 555, 18, 2));
+  p1Lines.push(`BT /F2 7.5 Tf 1 1 1 rg 25 317 Td (#) Tj ET`);
+  p1Lines.push(`BT /F2 7.5 Tf 1 1 1 rg 50 317 Td (Date) Tj ET`);
+  p1Lines.push(`BT /F2 7.5 Tf 1 1 1 rg 110 317 Td (Category) Tj ET`);
+  p1Lines.push(`BT /F2 7.5 Tf 1 1 1 rg 200 317 Td (Title / Description) Tj ET`);
+  p1Lines.push(`BT /F2 7.5 Tf 1 1 1 rg 330 317 Td (Amount) Tj ET`);
+  p1Lines.push(`BT /F2 7.5 Tf 1 1 1 rg 390 317 Td (Mode) Tj ET`);
+  p1Lines.push(`BT /F2 7.5 Tf 1 1 1 rg 440 317 Td (Brand) Tj ET`);
+  p1Lines.push(`BT /F2 7.5 Tf 1 1 1 rg 510 317 Td (Nature) Tj ET`);
+
+  // Render Page 1 First 12 Rows
+  let rY = 295;
+  const page1Rows = expenses.slice(0, 12);
+  page1Rows.forEach((exp, idx) => {
+    if (idx % 2 === 1) p1Lines.push(fillRoundedRect("0.96 0.97 0.98", 20, rY - 2, 555, 15, 0));
+
+    const dateStr = exp.expenseDate ? new Date(exp.expenseDate).toLocaleDateString("en-IN") : "-";
+    p1Lines.push(`BT /F1 7 Tf 0.3 0.3 0.4 rg 25 ${rY} Td (${idx + 1}) Tj ET`);
+    p1Lines.push(`BT /F1 7 Tf 0.1 0.1 0.2 rg 50 ${rY} Td (${escapePdfText(dateStr)}) Tj ET`);
+    p1Lines.push(`BT /F2 7 Tf 0.7 0.1 0.2 rg 110 ${rY} Td (${escapePdfText((exp.category || "Misc").slice(0, 15))}) Tj ET`);
+    p1Lines.push(`BT /F1 7 Tf 0.1 0.1 0.2 rg 200 ${rY} Td (${escapePdfText((exp.title || "").slice(0, 24))}) Tj ET`);
+    p1Lines.push(`BT /F2 7 Tf 0.7 0.05 0.2 rg 330 ${rY} Td (Rs.${fmt(Number(exp.amount) || 0)}) Tj ET`);
+    p1Lines.push(`BT /F1 7 Tf 0.3 0.3 0.4 rg 390 ${rY} Td (${escapePdfText((exp.paymentMode || "Cash").slice(0, 8))}) Tj ET`);
+    p1Lines.push(`BT /F1 7 Tf 0.3 0.3 0.4 rg 440 ${rY} Td (${escapePdfText((exp.brand || "-").slice(0, 10))}) Tj ET`);
+    p1Lines.push(`BT /F1 7 Tf 0.3 0.3 0.4 rg 510 ${rY} Td (${escapePdfText((exp.expenseType || "variable").slice(0, 9))}) Tj ET`);
+
+    rY -= 17;
+  });
+
+  // Page 1 Footer
+  p1Lines.push(fillRoundedRect("0.82 0.82 0.85", 20, 35, 555, 1, 0));
+  p1Lines.push(`BT /F1 7 Tf 0.5 0.5 0.5 rg 22 22 Td (CoachFlow ERP  \xb7  Operational Expense Report  \xb7  Confidential) Tj ET`);
+  p1Lines.push(`BT /F1 7 Tf 0.5 0.5 0.5 rg 488 22 Td (Page 1 of 2) Tj ET`);
+
+  // ── PAGE 2 CONTENT STREAM ──
+  const p2Lines: string[] = [];
+
+  // Page 2 Header Bar
+  p2Lines.push(fillRoundedRect("0.12 0.10 0.29", 20, 780, 555, 40, 4));
+  p2Lines.push(`BT /F2 12 Tf 1 1 1 rg 35 798 Td (OPERATIONAL EXPENSE DETAILED REGISTER) Tj ET`);
+  p2Lines.push(`BT /F1 8 Tf 0.8 0.85 0.98 rg 35 785 Td (Vouchers Register & Audit Continuation Sheet) Tj ET`);
+
+  // Table Header Row Page 2 (Y: 755)
+  p2Lines.push(fillRoundedRect("0.2 0.25 0.35", 20, 755, 555, 18, 2));
+  p2Lines.push(`BT /F2 7.5 Tf 1 1 1 rg 25 760 Td (#) Tj ET`);
+  p2Lines.push(`BT /F2 7.5 Tf 1 1 1 rg 50 760 Td (Date) Tj ET`);
+  p2Lines.push(`BT /F2 7.5 Tf 1 1 1 rg 110 760 Td (Category) Tj ET`);
+  p2Lines.push(`BT /F2 7.5 Tf 1 1 1 rg 200 760 Td (Title / Description) Tj ET`);
+  p2Lines.push(`BT /F2 7.5 Tf 1 1 1 rg 330 760 Td (Amount) Tj ET`);
+  p2Lines.push(`BT /F2 7.5 Tf 1 1 1 rg 390 760 Td (Mode) Tj ET`);
+  p2Lines.push(`BT /F2 7.5 Tf 1 1 1 rg 440 760 Td (Brand) Tj ET`);
+  p2Lines.push(`BT /F2 7.5 Tf 1 1 1 rg 510 760 Td (Nature) Tj ET`);
+
+  // Render Remaining Rows on Page 2
+  let p2Y = 735;
+  const remainingRows = expenses.slice(12, 50);
+
+  if (remainingRows.length === 0) {
+    p2Lines.push(`BT /F1 8 Tf 0.5 0.5 0.5 rg 200 ${p2Y} Td (All expense vouchers listed on Page 1.) Tj ET`);
+  } else {
+    remainingRows.forEach((exp, idx) => {
+      const globalIdx = 13 + idx;
+      if (idx % 2 === 1) p2Lines.push(fillRoundedRect("0.96 0.97 0.98", 20, p2Y - 2, 555, 15, 0));
+
+      const dateStr = exp.expenseDate ? new Date(exp.expenseDate).toLocaleDateString("en-IN") : "-";
+      p2Lines.push(`BT /F1 7 Tf 0.3 0.3 0.4 rg 25 ${p2Y} Td (${globalIdx}) Tj ET`);
+      p2Lines.push(`BT /F1 7 Tf 0.1 0.1 0.2 rg 50 ${p2Y} Td (${escapePdfText(dateStr)}) Tj ET`);
+      p2Lines.push(`BT /F2 7 Tf 0.7 0.1 0.2 rg 110 ${p2Y} Td (${escapePdfText((exp.category || "Misc").slice(0, 15))}) Tj ET`);
+      p2Lines.push(`BT /F1 7 Tf 0.1 0.1 0.2 rg 200 ${p2Y} Td (${escapePdfText((exp.title || "").slice(0, 24))}) Tj ET`);
+      p2Lines.push(`BT /F2 7 Tf 0.7 0.05 0.2 rg 330 ${p2Y} Td (Rs.${fmt(Number(exp.amount) || 0)}) Tj ET`);
+      p2Lines.push(`BT /F1 7 Tf 0.3 0.3 0.4 rg 390 ${p2Y} Td (${escapePdfText((exp.paymentMode || "Cash").slice(0, 8))}) Tj ET`);
+      p2Lines.push(`BT /F1 7 Tf 0.3 0.3 0.4 rg 440 ${p2Y} Td (${escapePdfText((exp.brand || "-").slice(0, 10))}) Tj ET`);
+      p2Lines.push(`BT /F1 7 Tf 0.3 0.3 0.4 rg 510 ${p2Y} Td (${escapePdfText((exp.expenseType || "variable").slice(0, 9))}) Tj ET`);
+
+      p2Y -= 16;
+    });
+  }
+
+  // Grand Total Summary Box on Page 2 Footer (Y: 60..90)
+  p2Lines.push(fillRoundedRect("0.06 0.09 0.16", 20, 60, 555, 30, 4));
+  p2Lines.push(`BT /F2 9 Tf 1 1 1 rg 30 72 Td (GRAND TOTAL OPERATIONAL EXPENDITURE) Tj ET`);
+  p2Lines.push(`BT /F2 10 Tf 0.2 0.8 0.6 rg 325 72 Td (Rs.${fmt(totalAmount)}) Tj ET`);
+  p2Lines.push(`BT /F1 7.5 Tf 0.8 0.8 0.9 rg 440 72 Td (${totalCount} Total Transactions) Tj ET`);
+
+  // Page 2 Footer
+  p2Lines.push(fillRoundedRect("0.82 0.82 0.85", 20, 35, 555, 1, 0));
+  p2Lines.push(`BT /F1 7 Tf 0.5 0.5 0.5 rg 22 22 Td (CoachFlow ERP  \xb7  Operational Expense Report  \xb7  Confidential) Tj ET`);
+  p2Lines.push(`BT /F1 7 Tf 0.5 0.5 0.5 rg 488 22 Td (Page 2 of 2) Tj ET`);
+
+  // ── Assemble PDF Streams ──
+  const p1Text = p1Lines.join("\n");
+  const p2Text = p2Lines.join("\n");
+
+  const objects: string[] = [];
+  objects.push(`1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj`);
+  objects.push(`2 0 obj\n<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>\nendobj`);
+  objects.push(`3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 7 0 R >>\nendobj`);
+  objects.push(`4 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 8 0 R >>\nendobj`);
+  objects.push(`5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj`);
+  objects.push(`6 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>\nendobj`);
+  objects.push(`7 0 obj\n<< /Length ${Buffer.byteLength(p1Text)} >>\nstream\n${p1Text}\nendstream\nendobj`);
+  objects.push(`8 0 obj\n<< /Length ${Buffer.byteLength(p2Text)} >>\nstream\n${p2Text}\nendstream\nendobj`);
+
+  let headerStr = "%PDF-1.4\n";
+  let bodyStr = "";
+  let xrefStr = `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  let offsetVal = Buffer.byteLength(headerStr);
+
+  for (let i = 0; i < objects.length; i++) {
+    const objStr = objects[i] + "\n";
+    xrefStr += `${String(offsetVal).padStart(10, "0")} 00000 n \n`;
+    bodyStr += objStr;
+    offsetVal += Buffer.byteLength(objStr);
+  }
+
+  return Buffer.from(headerStr + bodyStr + xrefStr + `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${offsetVal}\n%%EOF\n`, "utf-8");
+}
