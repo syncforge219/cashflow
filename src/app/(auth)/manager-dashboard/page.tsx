@@ -109,7 +109,7 @@ export default function ManagerDashboard() {
   }, []);
 
   const displayName = user?.name || "Loading...";
-  const displayRole = user?.role === "brand manager" ? "Centre Head" : user?.role || "Centre Head";
+  const displayRole = user?.role === "brand manager" ? "Brand Manager" : user?.role || "Brand Manager";
   const initialLetter = user?.name
     ? user.name.split(" ").map((n: string) => n[0]).join("").substring(0, 2).toUpperCase()
     : "U";
@@ -180,9 +180,31 @@ export default function ManagerDashboard() {
         <header className="h-20 px-8 flex items-center justify-between bg-white/50 backdrop-blur-md sticky top-0 z-10 border-b border-slate-100 shrink-0">
           <div className="flex items-center gap-4">
             <h2 className="text-xl font-extrabold text-slate-800 tracking-tight">Dashboard</h2>
+            {selectedBrand && selectedBrand !== "all" && (
+              <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-lg border border-indigo-100">
+                🎯 {selectedBrand}
+              </span>
+            )}
           </div>
 
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4">
+            {/* Brand Filter Dropdown for Brand Manager */}
+            {stats?.availableBrands && stats.availableBrands.length > 0 && (
+              <div className="relative">
+                <select
+                  value={selectedBrand}
+                  onChange={(e) => setSelectedBrand(e.target.value)}
+                  className="px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all cursor-pointer shadow-sm"
+                >
+                  <option value="all">🏢 All Brands Scope</option>
+                  {stats.availableBrands.map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
 
             <button

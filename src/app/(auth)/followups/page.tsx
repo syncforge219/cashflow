@@ -73,8 +73,19 @@ export default function FollowupPage() {
   const [currentPage, setCurrentPage] = useState(1);
 
   // Tab Selection
-  const [enquiryTab, setEnquiryTab] = useState<"today" | "pending" | "upcoming" | "donot">("today");
+  const [enquiryTab, setEnquiryTab] = useState<"today" | "new" | "pending" | "upcoming" | "donot">("today");
   const [feesTab, setFeesTab] = useState<"today" | "overdue" | "upcoming">("today");
+
+  // Helper for local YYYY-MM-DD date string
+  const getLocalDateStr = (dateVal?: string | Date) => {
+    if (!dateVal) return "";
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return "";
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
 
   // Filter Drawer / Modal State
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
@@ -219,7 +230,11 @@ export default function FollowupPage() {
       const statusLower = (rec.status || "").toLowerCase();
 
       // Tab filtering
-      if (enquiryTab === "today") {
+      if (enquiryTab === "new") {
+        const createdDateStr = getLocalDateStr(rec.createdAt);
+        const todayDateStr = getLocalDateStr(new Date());
+        if (createdDateStr !== todayDateStr) return false;
+      } else if (enquiryTab === "today") {
         if (statusLower.includes("lost") || statusLower.includes("admitted") || statusLower.includes("do not")) return false;
         if (rec.dueDateStr !== todayStr && recTime > todayTime) return false;
       } else if (enquiryTab === "pending") {
@@ -290,12 +305,18 @@ export default function FollowupPage() {
   const enquiryCounts = useMemo(() => {
     const todayStr = new Date().toISOString().split("T")[0];
     const todayTime = new Date(todayStr).getTime();
+    const todayDateStr = getLocalDateStr(new Date());
 
-    let today = 0, pending = 0, upcoming = 0, donot = 0;
+    let today = 0, newLeads = 0, pending = 0, upcoming = 0, donot = 0;
 
     processedEnquiryFollowups.forEach((rec) => {
       const recTime = new Date(rec.dueDateStr || todayStr).getTime();
       const statusLower = (rec.status || "").toLowerCase();
+      const createdDateStr = getLocalDateStr(rec.createdAt);
+
+      if (createdDateStr === todayDateStr) {
+        newLeads++;
+      }
 
       if (statusLower.includes("lost") || statusLower.includes("admitted") || statusLower.includes("do not")) {
         donot++;
@@ -307,7 +328,7 @@ export default function FollowupPage() {
       }
     });
 
-    return { today, pending, upcoming, donot };
+    return { today, newLeads, pending, upcoming, donot };
   }, [processedEnquiryFollowups]);
 
   // -------------------------------------------------------------
@@ -641,6 +662,23 @@ export default function FollowupPage() {
                 <span>★ Today&apos;s Due Followup(s)</span>
                 <span className="px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 text-[10px] font-black">
                   {enquiryCounts.today}
+                </span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setEnquiryTab("new");
+                  setCurrentPage(1);
+                }}
+                className={`px-5 py-3 font-extrabold text-xs border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                  enquiryTab === "new"
+                    ? "border-emerald-500 text-emerald-600 bg-emerald-50/50"
+                    : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+                }`}
+              >
+                <span>✦ New Lead(s)</span>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-black">
+                  {enquiryCounts.newLeads}
                 </span>
               </button>
 
