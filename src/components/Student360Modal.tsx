@@ -60,13 +60,29 @@ export default function Student360Modal({
   // Upgrade Course State
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [availableUpgradeCourses, setAvailableUpgradeCourses] = useState<any[]>([]);
+  const [upgradeCourseSearchQuery, setUpgradeCourseSearchQuery] = useState("");
   const [selectedUpgradeCourse, setSelectedUpgradeCourse] = useState("");
   const [upgradeFee, setUpgradeFee] = useState<number | string>("");
   const [upgradeDiscount, setUpgradeDiscount] = useState<number | string>(0);
   const [isSubmittingUpgrade, setIsSubmittingUpgrade] = useState(false);
 
+  const parseFeeNumber = (val: any): number => {
+    if (val === undefined || val === null) return 0;
+    if (typeof val === "number") return isNaN(val) ? 0 : val;
+    const cleaned = String(val).replace(/[^0-9.]/g, "");
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? 0 : num;
+  };
+
+  const getCourseFee = (c: any): number => {
+    if (!c) return 0;
+    const raw = c.fee ?? c.totalFee ?? c.courseFee ?? c.price ?? c.expectedCourseFee ?? 0;
+    return parseFeeNumber(raw);
+  };
+
   const handleOpenUpgradeModal = async () => {
     setIsUpgradeModalOpen(true);
+    setUpgradeCourseSearchQuery("");
     setSelectedUpgradeCourse("");
     setUpgradeFee("");
     setUpgradeDiscount(0);
@@ -1558,11 +1574,35 @@ export default function Student360Modal({
                 </span>
               </div>
 
-              {/* Course Selection */}
+              {/* Course Selection & Search Bar */}
               <div>
-                <label className="block text-xs font-bold text-slate-800 mb-1.5">
-                  Select Target Upgrade Course <span className="text-rose-500">*</span>
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-slate-800">
+                    Select Target Upgrade Course <span className="text-rose-500">*</span>
+                  </label>
+                  {upgradeCourseSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setUpgradeCourseSearchQuery("")}
+                      className="text-[11px] font-extrabold text-orange-600 hover:text-orange-800 cursor-pointer"
+                    >
+                      Clear Search
+                    </button>
+                  )}
+                </div>
+
+                {/* Search Bar Input */}
+                <div className="relative mb-2">
+                  <input
+                    type="text"
+                    value={upgradeCourseSearchQuery}
+                    onChange={(e) => setUpgradeCourseSearchQuery(e.target.value)}
+                    placeholder="🔍 Type to search course (e.g. Graphic, Photoshop, Fashion)..."
+                    className="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs font-bold text-slate-800 outline-none bg-slate-50 focus:bg-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all placeholder:font-medium"
+                  />
+                </div>
+
+                {/* Filtered Dropdown */}
                 <select
                   required
                   value={selectedUpgradeCourse}
@@ -1570,22 +1610,29 @@ export default function Student360Modal({
                     const cName = e.target.value;
                     setSelectedUpgradeCourse(cName);
                     const found = availableUpgradeCourses.find((c) => c.name === cName);
-                    if (found && found.fee) {
-                      setUpgradeFee(found.fee);
+                    if (found) {
+                      const parsedFee = getCourseFee(found);
+                      setUpgradeFee(parsedFee > 0 ? parsedFee : "");
                     }
                   }}
                   className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs font-bold text-slate-800 outline-none bg-white shadow-xs focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 cursor-pointer"
                 >
                   <option value="">-- Choose New Course to Upgrade --</option>
-                  {availableUpgradeCourses.map((c: any, idx: number) => {
-                    const isCurrent = c.name?.trim().toLowerCase() === studentData?.course?.trim().toLowerCase();
-                    return (
-                      <option key={c._id || idx} value={c.name} disabled={isCurrent}>
-                        {c.name} — ₹{c.fee ? Number(c.fee).toLocaleString("en-IN") : "N/A"}
-                        {isCurrent ? " (Current Enrolled Course)" : ""}
-                      </option>
-                    );
-                  })}
+                  {availableUpgradeCourses
+                    .filter((c: any) =>
+                      (c.name || "").toLowerCase().includes(upgradeCourseSearchQuery.toLowerCase())
+                    )
+                    .map((c: any, idx: number) => {
+                      const isCurrent = c.name?.trim().toLowerCase() === studentData?.course?.trim().toLowerCase();
+                      const parsedFee = getCourseFee(c);
+                      const displayFee = parsedFee > 0 ? `₹${parsedFee.toLocaleString("en-IN")}` : "Fee on request";
+                      return (
+                        <option key={c._id || idx} value={c.name} disabled={isCurrent}>
+                          {c.name} — {displayFee}
+                          {isCurrent ? " (Current Enrolled Course)" : ""}
+                        </option>
+                      );
+                    })}
                 </select>
               </div>
 
