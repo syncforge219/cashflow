@@ -111,6 +111,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
   const [installmentAmount, setInstallmentAmount] = useState(0);
   const [firstDueDate, setFirstDueDate] = useState("");
   const [autoAllocatedCompany, setAutoAllocatedCompany] = useState("");
+  const [availableCompaniesList, setAvailableCompaniesList] = useState<string[]>([]);
 
   interface CustomEmiItem {
     installmentName: string;
@@ -296,6 +297,15 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
           }
         })
         .catch((err) => console.error("Failed to fetch batches:", err));
+      fetch("/api/companies")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.companies && Array.isArray(data.companies)) {
+            const names = data.companies.map((c: any) => (c.name || c.legalName || "").toUpperCase().trim()).filter(Boolean);
+            setAvailableCompaniesList(Array.from(new Set(names)));
+          }
+        })
+        .catch((err) => console.error("Failed to fetch available companies:", err));
     }
   }, [isOpen]);
 
@@ -902,19 +912,44 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-500 h-5 flex items-center">
-                      Company Allocation
-                    </label>
-                    <div className="w-full h-11 px-4 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 bg-slate-50 cursor-not-allowed flex items-center justify-between">
-                      <span className="truncate">
-                        {paymentMode === "Cash" ? "Cash (Unallocated)" : (autoAllocatedCompany || "Allocating...")}
-                      </span>
+                    <div className="flex items-center justify-between h-5">
+                      <label className="text-xs font-bold text-slate-500 flex items-center">
+                        Company Allocation
+                      </label>
                       {paymentMode !== "Cash" && autoAllocatedCompany && (
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-emerald-500 shrink-0">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
+                        <span className="text-[10px] text-emerald-600 font-extrabold flex items-center gap-1">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3 text-emerald-500">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          Suggested (Editable)
+                        </span>
                       )}
                     </div>
+                    <select
+                      value={paymentMode === "Cash" ? "Cash (Unallocated)" : (companyAssigned || autoAllocatedCompany || "")}
+                      onChange={(e) => setCompanyAssigned(e.target.value.toUpperCase())}
+                      disabled={paymentMode === "Cash"}
+                      className="w-full h-11 px-4 rounded-xl border border-slate-200 text-sm font-semibold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white disabled:bg-slate-50 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      {paymentMode === "Cash" ? (
+                        <option value="Cash (Unallocated)">Cash (Unallocated)</option>
+                      ) : (
+                        <>
+                          {autoAllocatedCompany && (
+                            <option value={autoAllocatedCompany}>
+                              ✨ {autoAllocatedCompany} (Auto-Suggested System Choice)
+                            </option>
+                          )}
+                          {availableCompaniesList
+                            .filter((c) => c !== autoAllocatedCompany)
+                            .map((cName) => (
+                              <option key={cName} value={cName}>
+                                {cName}
+                              </option>
+                            ))}
+                        </>
+                      )}
+                    </select>
                   </div>
 
                   <div className="flex flex-col gap-1.5">

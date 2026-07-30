@@ -68,6 +68,19 @@ export default function CounsellorFeeCollectionPage() {
     const [isCustomEmi, setIsCustomEmi] = useState(false);
     const [selectedEmiIndices, setSelectedEmiIndices] = useState<number[]>([]);
     const [autoAllocatedCompany, setAutoAllocatedCompany] = useState("");
+    const [availableCompaniesList, setAvailableCompaniesList] = useState<string[]>([]);
+
+    useEffect(() => {
+        fetch("/api/companies")
+            .then((res) => res.json())
+            .then((data) => {
+                if (data.companies && Array.isArray(data.companies)) {
+                    const names = data.companies.map((c: any) => (c.name || c.legalName || "").toUpperCase().trim()).filter(Boolean);
+                    setAvailableCompaniesList(Array.from(new Set(names)));
+                }
+            })
+            .catch((err) => console.error("Failed to fetch available companies:", err));
+    }, []);
 
     useEffect(() => {
         if (selectedStudent && paymentMode !== "Cash") {
@@ -775,21 +788,39 @@ export default function CounsellorFeeCollectionPage() {
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                             {/* Target Company Allocation */}
                                             <div>
-                                                <label className="block text-[9px] uppercase tracking-widest text-slate-400 mb-1.5">Company Allocation</label>
-                                                <div className="w-full text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 cursor-not-allowed flex items-center justify-between">
-                                                    <span>
-                                                        {paymentMode === "Cash"
-                                                            ? "Cash (Unallocated)"
-                                                            : selectedStudent?.companyAssigned
-                                                                ? selectedStudent.companyAssigned
-                                                                : (autoAllocatedCompany || "Allocating...")}
-                                                    </span>
-                                                    {paymentMode !== "Cash" && !selectedStudent?.companyAssigned && autoAllocatedCompany && (
-                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-emerald-500 shrink-0">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                        </svg>
+                                                <div className="flex items-center justify-between mb-1.5">
+                                                    <label className="block text-[9px] uppercase tracking-widest text-slate-400">Company Allocation</label>
+                                                    {paymentMode !== "Cash" && (selectedStudent?.companyAssigned || autoAllocatedCompany) && (
+                                                        <span className="text-[9px] text-emerald-600 font-extrabold flex items-center gap-0.5">
+                                                            Suggested (Editable)
+                                                        </span>
                                                     )}
                                                 </div>
+                                                <select
+                                                    value={paymentMode === "Cash" ? "Cash (Unallocated)" : (selectedCompany || selectedStudent?.companyAssigned || autoAllocatedCompany || "")}
+                                                    onChange={(e) => setSelectedCompany(e.target.value.toUpperCase())}
+                                                    disabled={paymentMode === "Cash"}
+                                                    className="w-full text-xs font-semibold text-slate-800 bg-white border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:border-indigo-500 disabled:bg-slate-50 disabled:cursor-not-allowed cursor-pointer"
+                                                >
+                                                    {paymentMode === "Cash" ? (
+                                                        <option value="Cash (Unallocated)">Cash (Unallocated)</option>
+                                                    ) : (
+                                                        <>
+                                                            {(selectedStudent?.companyAssigned || autoAllocatedCompany) && (
+                                                                <option value={selectedStudent?.companyAssigned || autoAllocatedCompany}>
+                                                                    ✨ {selectedStudent?.companyAssigned || autoAllocatedCompany} (Auto-Suggested System Choice)
+                                                                </option>
+                                                            )}
+                                                            {availableCompaniesList
+                                                                .filter((c) => c !== (selectedStudent?.companyAssigned || autoAllocatedCompany))
+                                                                .map((cName) => (
+                                                                    <option key={cName} value={cName}>
+                                                                        {cName}
+                                                                    </option>
+                                                                ))}
+                                                        </>
+                                                    )}
+                                                </select>
                                             </div>
 
                                             {/* For Particulars checkboxes */}
