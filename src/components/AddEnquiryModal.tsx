@@ -39,8 +39,12 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
       setIsFollowUpScheduled(false);
       setSelectedCourses([]);
       setExpectedCourseFee("₹0");
-      // Auto-select brand if defaultBrand is provided (sales exec / counsellor scope)
-      setSelectedBrand(defaultBrand && defaultBrand !== "All Brands" && defaultBrand !== "All" ? defaultBrand : "");
+      // Auto-select brand if defaultBrand or user's brandScope is available
+      const userBrand = (user?.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All") ? user.brandScope : "";
+      const initialBrand = (defaultBrand && defaultBrand !== "All Brands" && defaultBrand !== "All")
+        ? defaultBrand
+        : userBrand;
+      setSelectedBrand(initialBrand);
       setSelectedAdvisor("");
 
       fetch("/api/counsellors")
@@ -88,17 +92,31 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
         })
         .catch(console.error);
     }
-  }, [isOpen, defaultBrand]);
+  }, [isOpen, defaultBrand, user?.brandScope]);
+
+  const activeBrandForCounsellors = useMemo(() => {
+    if (selectedBrand && selectedBrand !== "All Brands" && selectedBrand !== "All") {
+      return selectedBrand;
+    }
+    if (defaultBrand && defaultBrand !== "All Brands" && defaultBrand !== "All") {
+      return defaultBrand;
+    }
+    if (user?.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All") {
+      return user.brandScope;
+    }
+    return "";
+  }, [selectedBrand, defaultBrand, user?.brandScope]);
 
   const filteredTeachers = teachers.filter((t) => {
-    if (!selectedBrand) return true;
+    const brandToFilter = selectedBrand || activeBrandForCounsellors;
+    if (!brandToFilter) return true;
     if (!t.brandScope || t.brandScope === "All Brands" || t.brandScope === "All") return true;
-    return t.brandScope.toLowerCase().trim() === selectedBrand.toLowerCase().trim();
+    return t.brandScope.toLowerCase().trim() === brandToFilter.toLowerCase().trim();
   });
 
   const filteredCounsellors = useMemo(() => {
-    if (!selectedBrand || selectedBrand === "All Brands" || selectedBrand === "All") return counsellors;
-    const target = selectedBrand.toLowerCase().trim();
+    if (!activeBrandForCounsellors) return counsellors;
+    const target = activeBrandForCounsellors.toLowerCase().trim();
     return counsellors.filter((c: any) => {
       if (!c.brandScope) return false;
       const scope = String(c.brandScope).toLowerCase().trim();
@@ -106,17 +124,18 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
       const parts = scope.split(/[,/|]/).map((p: string) => p.trim());
       return parts.some((p: string) => p === target || p.includes(target) || target.includes(p));
     });
-  }, [counsellors, selectedBrand]);
+  }, [counsellors, activeBrandForCounsellors]);
 
   const filteredCourses = useMemo(() => {
-    if (!selectedBrand) return courses;
-    const target = selectedBrand.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const brandToFilter = selectedBrand || activeBrandForCounsellors;
+    if (!brandToFilter) return courses;
+    const target = brandToFilter.toLowerCase().replace(/[^a-z0-9]/g, "");
     return courses.filter((c: any) => {
       if (!c.brand) return false;
       const b = String(c.brand).toLowerCase().replace(/[^a-z0-9]/g, "");
       return b === target || b.includes(target) || target.includes(b);
     });
-  }, [courses, selectedBrand]);
+  }, [courses, selectedBrand, activeBrandForCounsellors]);
 
   const handlePrimaryPhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
@@ -327,7 +346,7 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                      Assigned Sales Executive {selectedBrand ? `(${filteredCounsellors.length} for ${selectedBrand})` : ""}
+                      Assigned Sales Executive {activeBrandForCounsellors ? `(${filteredCounsellors.length} for ${activeBrandForCounsellors})` : ""}
                     </label>
                     {user?.name && (
                       <button
@@ -345,7 +364,7 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
                     onChange={(e) => setSelectedAdvisor(e.target.value)}
                     className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
                   >
-                    <option value="">{selectedBrand ? `-- Select Advisor for ${selectedBrand} --` : "-- Select Advisor --"}</option>
+                    <option value="">{activeBrandForCounsellors ? `-- Select Advisor for ${activeBrandForCounsellors} --` : "-- Select Advisor --"}</option>
                     {user?.name && (
                       <option value={user.name}>⭐ Assign to Myself ({user.name})</option>
                     )}

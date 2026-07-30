@@ -12,7 +12,6 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [isLoading, setIsLoading] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
 
   const validate = () => {
     const newErrors: { email?: string; password?: string } = {};
@@ -55,6 +54,7 @@ export default function LoginPage() {
       } else {
         const text = await response.text();
         setErrors({ email: text.includes("Internal") ? "Server error occurred. Please try again." : text });
+        setIsLoading(false);
         return;
       }
 
@@ -65,14 +65,14 @@ export default function LoginPage() {
         } else {
           setErrors({ email: errorMsg });
         }
+        setIsLoading(false);
       } else {
-        setIsSuccess(true);
-        // Redirect to role-based dashboard
+        // Redirect directly to role-based dashboard without welcome screen delay
         const userRole = (data.user?.role || "").toLowerCase().trim();
 
         if (userRole.includes("marketing")) {
           setErrors({ email: "Access denied. Marketing accounts have been decommissioned." });
-          setIsSuccess(false);
+          setIsLoading(false);
           return;
         }
 
@@ -90,15 +90,14 @@ export default function LoginPage() {
           window.location.href = "/admin-dashboard";
         } else {
           setErrors({ email: "Access denied. Unrecognized or unauthorized user role." });
-          setIsSuccess(false);
+          setIsLoading(false);
           return;
         }
       }
     } catch (err) {
       setErrors({ email: "An unexpected error occurred. Please try again." });
-      console.error(err);
-    } finally {
       setIsLoading(false);
+      console.error(err);
     }
   };
 
@@ -133,20 +132,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {isSuccess ? (
-          <div className="flex flex-col items-center justify-center py-6 text-center animate-in fade-in zoom-in-95 duration-300">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 mb-4 shadow-md shadow-emerald-500/10 animate-bounce">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-8 w-8">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-bold text-slate-800">Login Successful!</h3>
-            <p className="mt-1 text-xs font-medium text-slate-400">
-              Redirecting to your workspace...
-            </p>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email Input */}
             <div className="group">
               <label htmlFor="email" className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 font-sans transition-colors group-focus-within:text-indigo-600">
@@ -264,7 +250,6 @@ export default function LoginPage() {
               )}
             </button>
           </form>
-        )}
 
         {/* Footer */}
         <div className="mt-8 text-center text-xs font-medium text-slate-400 font-sans">
