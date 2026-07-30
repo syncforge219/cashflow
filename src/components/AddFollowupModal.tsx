@@ -414,7 +414,7 @@ export default function AddFollowupModal({
             <div className="grid grid-cols-12 items-start gap-4">
               <div className="col-span-4 text-right pr-2 pt-2">
                 <label className="block font-bold text-slate-800">
-                  Remarks & Next Action <span className="text-rose-500">*</span>
+                  Remarks & Next Action
                 </label>
               </div>
               <div className="col-span-8 space-y-2">
@@ -422,15 +422,14 @@ export default function AddFollowupModal({
                   rows={3}
                   value={followupRemark}
                   onChange={(e) => setFollowupRemark(e.target.value)}
-                  placeholder="Enter detailed call outcome (e.g. Student requested callback tomorrow, interested in Graphic Design)..."
+                  placeholder="Enter call outcome or remarks (optional)..."
                   className="w-full p-3.5 border border-slate-300 rounded-xl text-slate-800 font-medium outline-none bg-white shadow-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all"
-                  required
                 />
                 <input
                   type="text"
                   value={nextAction}
                   onChange={(e) => setNextAction(e.target.value)}
-                  placeholder="Target next action step (e.g. Send fee breakdown PDF & confirm campus demo visit)..."
+                  placeholder="Target next action step (optional)..."
                   className="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-slate-800 font-medium outline-none bg-white shadow-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
                 />
               </div>
