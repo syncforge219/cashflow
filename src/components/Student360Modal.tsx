@@ -9,6 +9,7 @@ interface Student360ModalProps {
   onClose: () => void;
   onRefresh?: () => void;
   canEdit?: boolean;
+  isAdmin?: boolean;
 }
 
 export default function Student360Modal({
@@ -17,6 +18,7 @@ export default function Student360Modal({
   onClose,
   onRefresh,
   canEdit = true,
+  isAdmin,
 }: Student360ModalProps) {
   const [activeTab, setActiveTab] = useState<"personal" | "academic" | "financial" | "payments" | "tasks">("personal");
   const [taskFilter, setTaskFilter] = useState<"all" | "pending" | "completed" | "emi">("all");
@@ -31,6 +33,29 @@ export default function Student360Modal({
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
   const [copyToast, setCopyToast] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isAdminUser, setIsAdminUser] = useState(false);
+
+  useEffect(() => {
+    try {
+      const storedUser = localStorage.getItem("user");
+      const storedRole = localStorage.getItem("userRole");
+      let roleStr = storedRole || "";
+      if (storedUser) {
+        const u = JSON.parse(storedUser);
+        if (u.role) roleStr = u.role;
+      }
+      const r = (roleStr || "").toLowerCase().trim();
+      if (r === "admin" || r === "super admin" || r === "super_admin" || r === "director") {
+        setIsAdminUser(true);
+      } else {
+        setIsAdminUser(false);
+      }
+    } catch (e) {
+      setIsAdminUser(false);
+    }
+  }, []);
+
+  const isUserAdmin = isAdmin !== undefined ? isAdmin : isAdminUser;
 
   // Upgrade Course State
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
@@ -525,15 +550,17 @@ export default function Student360Modal({
               </>
             )}
 
-            {/* Upgrade Course Action Button */}
-            <button
-              type="button"
-              onClick={handleOpenUpgradeModal}
-              className="h-9 px-3.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-orange-500/20 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
-              title="Upgrade student to a new course"
-            >
-              <span>⚡ Upgrade Course</span>
-            </button>
+            {/* Upgrade Course Action Button (ADMIN ONLY) */}
+            {isUserAdmin && (
+              <button
+                type="button"
+                onClick={handleOpenUpgradeModal}
+                className="h-9 px-3.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-orange-500/20 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+                title="Upgrade student to a new course"
+              >
+                <span>⚡ Upgrade Course</span>
+              </button>
+            )}
 
             {canEdit && (
               <>
