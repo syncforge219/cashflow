@@ -24,10 +24,8 @@ export default function BatchDisplay() {
       setIsLoading(true);
       let url = "/api/batches";
       const queryParams = new URLSearchParams();
-      if (user?.role === "brand manager" || user?.role === "counsellor") {
-        if (user?.brandScope) {
-          queryParams.append("brand", user.brandScope);
-        }
+      if (user?.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "ALL BRANDS" && user.brandScope !== "All") {
+        queryParams.append("brand", user.brandScope);
       }
       const queryString = queryParams.toString();
       if (queryString) {
@@ -71,13 +69,13 @@ export default function BatchDisplay() {
     }
   };
 
-  const isBrandManagerOrCounsellor = user?.role === "brand manager" || user?.role === "counsellor";
-  const userBrandScope = user?.brandScope;
+  const hasBrandScope = Boolean(user?.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "ALL BRANDS" && user.brandScope !== "All");
+  const userBrandScope = hasBrandScope ? user?.brandScope : undefined;
 
   const brandsList = Array.from(new Set(batches.map((b) => b.brand).filter(Boolean)));
 
   const filteredBatches = batches.filter((b) => {
-    if (isBrandManagerOrCounsellor && userBrandScope) {
+    if (userBrandScope) {
       if (b.brand?.toLowerCase() !== userBrandScope.toLowerCase()) return false;
     } else if (selectedBrandFilter !== "All Brands") {
       if (b.brand !== selectedBrandFilter) return false;
@@ -171,7 +169,7 @@ export default function BatchDisplay() {
         </div>
 
         <div className="flex items-center gap-3 w-full sm:w-auto">
-          {!isBrandManagerOrCounsellor && (
+          {!userBrandScope && (
             <select
               value={selectedBrandFilter}
               onChange={(e) => setSelectedBrandFilter(e.target.value)}
