@@ -141,6 +141,7 @@ export default function FollowupPage() {
   // Tab Selection
   const [enquiryTab, setEnquiryTab] = useState<"today" | "new" | "pending" | "upcoming" | "donot">("today");
   const [feesTab, setFeesTab] = useState<"today" | "overdue" | "upcoming">("today");
+  const [selectedNewLeadDate, setSelectedNewLeadDate] = useState<string>(new Date().toISOString().split("T")[0]);
 
   // Helper for local YYYY-MM-DD date string
   const getLocalDateStr = (dateVal?: string | Date) => {
@@ -319,8 +320,7 @@ export default function FollowupPage() {
       // Tab filtering
       if (enquiryTab === "new") {
         const createdDateStr = getLocalDateStr(rec.createdAt);
-        const todayDateStr = getLocalDateStr(new Date());
-        if (createdDateStr !== todayDateStr) return false;
+        if (createdDateStr !== selectedNewLeadDate) return false;
       } else if (enquiryTab === "today") {
         if (statusLower.includes("lost") || statusLower.includes("admitted") || statusLower.includes("do not")) return false;
         if (!rec.hasScheduledFollowup || rec.dueDateStr !== todayStr) return false;
@@ -359,11 +359,13 @@ export default function FollowupPage() {
         }
         if (advancedFilters.enableFromDate && advancedFilters.fromDate) {
           const fromTime = new Date(advancedFilters.fromDate).getTime();
-          if (recTime < fromTime) return false;
+          const checkTime = enquiryTab === "new" && rec.createdAt ? new Date(rec.createdAt).getTime() : recTime;
+          if (checkTime < fromTime) return false;
         }
         if (advancedFilters.enableTillDate && advancedFilters.tillDate) {
           const tillTime = new Date(advancedFilters.tillDate).setHours(23, 59, 59, 999);
-          if (recTime > tillTime) return false;
+          const checkTime = enquiryTab === "new" && rec.createdAt ? new Date(rec.createdAt).getTime() : recTime;
+          if (checkTime > tillTime) return false;
         }
       }
 
@@ -386,13 +388,12 @@ export default function FollowupPage() {
 
       return true;
     });
-  }, [processedEnquiryFollowups, enquiryTab, searchQuery, filterBrand, filterAdvisor, filterCourse, filterStage, advancedFilters]);
+  }, [processedEnquiryFollowups, enquiryTab, selectedNewLeadDate, searchQuery, filterBrand, filterAdvisor, filterCourse, filterStage, advancedFilters]);
 
   // Tab Counters for Enquiry Mode
   const enquiryCounts = useMemo(() => {
     const todayStr = new Date().toISOString().split("T")[0];
     const todayTime = new Date(todayStr).getTime();
-    const todayDateStr = getLocalDateStr(new Date());
 
     let today = 0, newLeads = 0, pending = 0, upcoming = 0, donot = 0;
 
@@ -401,7 +402,7 @@ export default function FollowupPage() {
       const statusLower = (rec.status || "").toLowerCase();
       const createdDateStr = getLocalDateStr(rec.createdAt);
 
-      if (createdDateStr === todayDateStr) {
+      if (createdDateStr === selectedNewLeadDate) {
         newLeads++;
       }
 
@@ -419,7 +420,7 @@ export default function FollowupPage() {
     });
 
     return { today, newLeads, pending, upcoming, donot };
-  }, [processedEnquiryFollowups]);
+  }, [processedEnquiryFollowups, selectedNewLeadDate]);
 
   // -------------------------------------------------------------
   // PROCESSED FEES FOLLOWUPS DATA
@@ -782,95 +783,96 @@ export default function FollowupPage() {
         </div>
 
         {/* Tab Navigation Bars */}
-        <div className="bg-white border-b border-slate-200 px-6 pt-3 flex items-center gap-2 overflow-x-auto select-none shrink-0">
-          {activeMode === "enquiry" ? (
-            <>
-              <button
-                onClick={() => {
-                  setEnquiryTab("today");
-                  setCurrentPage(1);
-                }}
-                className={`px-5 py-3 font-extrabold text-xs border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-                  enquiryTab === "today"
-                    ? "border-orange-500 text-orange-600 bg-orange-50/50"
-                    : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
-                }`}
-              >
-                <span>★ Today&apos;s Due Followup(s)</span>
-                <span className="px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 text-[10px] font-black">
-                  {enquiryCounts.today}
-                </span>
-              </button>
+        <div className="bg-white border-b border-slate-200 px-6 pt-3 flex flex-wrap items-center justify-between gap-3 select-none shrink-0">
+          <div className="flex items-center gap-2 overflow-x-auto">
+            {activeMode === "enquiry" ? (
+              <>
+                <button
+                  onClick={() => {
+                    setEnquiryTab("today");
+                    setCurrentPage(1);
+                  }}
+                  className={`px-5 py-3 font-extrabold text-xs border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                    enquiryTab === "today"
+                      ? "border-orange-500 text-orange-600 bg-orange-50/50"
+                      : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+                  }`}
+                >
+                  <span>★ Today&apos;s Due Followup(s)</span>
+                  <span className="px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 text-[10px] font-black">
+                    {enquiryCounts.today}
+                  </span>
+                </button>
 
-              <button
-                onClick={() => {
-                  setEnquiryTab("new");
-                  setCurrentPage(1);
-                }}
-                className={`px-5 py-3 font-extrabold text-xs border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-                  enquiryTab === "new"
-                    ? "border-emerald-500 text-emerald-600 bg-emerald-50/50"
-                    : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
-                }`}
-              >
-                <span>✦ New Lead(s)</span>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-black">
-                  {enquiryCounts.newLeads}
-                </span>
-              </button>
+                <button
+                  onClick={() => {
+                    setEnquiryTab("new");
+                    setCurrentPage(1);
+                  }}
+                  className={`px-5 py-3 font-extrabold text-xs border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                    enquiryTab === "new"
+                      ? "border-emerald-500 text-emerald-600 bg-emerald-50/50"
+                      : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+                  }`}
+                >
+                  <span>✦ New Lead(s)</span>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-black">
+                    {enquiryCounts.newLeads}
+                  </span>
+                </button>
 
-              <button
-                onClick={() => {
-                  setEnquiryTab("pending");
-                  setCurrentPage(1);
-                }}
-                className={`px-5 py-3 font-extrabold text-xs border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-                  enquiryTab === "pending"
-                    ? "border-rose-500 text-rose-600 bg-rose-50/50"
-                    : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
-                }`}
-              >
-                <span>Pending Followup(s)</span>
-                <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-black">
-                  {enquiryCounts.pending}
-                </span>
-              </button>
+                <button
+                  onClick={() => {
+                    setEnquiryTab("pending");
+                    setCurrentPage(1);
+                  }}
+                  className={`px-5 py-3 font-extrabold text-xs border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                    enquiryTab === "pending"
+                      ? "border-rose-500 text-rose-600 bg-rose-50/50"
+                      : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+                  }`}
+                >
+                  <span>Pending Followup(s)</span>
+                  <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-black">
+                    {enquiryCounts.pending}
+                  </span>
+                </button>
 
-              <button
-                onClick={() => {
-                  setEnquiryTab("upcoming");
-                  setCurrentPage(1);
-                }}
-                className={`px-5 py-3 font-extrabold text-xs border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-                  enquiryTab === "upcoming"
-                    ? "border-blue-500 text-blue-600 bg-blue-50/50"
-                    : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
-                }`}
-              >
-                <span>Upcoming Followup(s)</span>
-                <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-black">
-                  {enquiryCounts.upcoming}
-                </span>
-              </button>
+                <button
+                  onClick={() => {
+                    setEnquiryTab("upcoming");
+                    setCurrentPage(1);
+                  }}
+                  className={`px-5 py-3 font-extrabold text-xs border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                    enquiryTab === "upcoming"
+                      ? "border-blue-500 text-blue-600 bg-blue-50/50"
+                      : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+                  }`}
+                >
+                  <span>Upcoming Followup(s)</span>
+                  <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-black">
+                    {enquiryCounts.upcoming}
+                  </span>
+                </button>
 
-              <button
-                onClick={() => {
-                  setEnquiryTab("donot");
-                  setCurrentPage(1);
-                }}
-                className={`px-5 py-3 font-extrabold text-xs border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-                  enquiryTab === "donot"
-                    ? "border-slate-600 text-slate-800 bg-slate-100"
-                    : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
-                }`}
-              >
-                <span>Do not Followup(s)</span>
-                <span className="px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-black">
-                  {enquiryCounts.donot}
-                </span>
-              </button>
-            </>
-          ) : (
+                <button
+                  onClick={() => {
+                    setEnquiryTab("donot");
+                    setCurrentPage(1);
+                  }}
+                  className={`px-5 py-3 font-extrabold text-xs border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                    enquiryTab === "donot"
+                      ? "border-slate-600 text-slate-800 bg-slate-100"
+                      : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+                  }`}
+                >
+                  <span>Do not Followup(s)</span>
+                  <span className="px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-black">
+                    {enquiryCounts.donot}
+                  </span>
+                </button>
+              </>
+            ) : (
             <>
               <button
                 onClick={() => {
@@ -923,6 +925,46 @@ export default function FollowupPage() {
                 </span>
               </button>
             </>
+          )}
+          </div>
+
+          {/* New Lead Creation Date Picker Controls */}
+          {activeMode === "enquiry" && enquiryTab === "new" && (
+            <div className="flex items-center gap-2 py-2 shrink-0">
+              <span className="text-xs font-black text-slate-500 uppercase tracking-wider">Creation Date:</span>
+              <input
+                type="date"
+                value={selectedNewLeadDate}
+                onChange={(e) => {
+                  setSelectedNewLeadDate(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="bg-emerald-50/60 border border-emerald-300 text-slate-800 text-xs font-extrabold rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-600 transition-all cursor-pointer shadow-xs"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const todayStr = getLocalDateStr(new Date());
+                  setSelectedNewLeadDate(todayStr);
+                  setCurrentPage(1);
+                }}
+                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[11px] rounded-lg shadow-xs transition-colors cursor-pointer"
+              >
+                Today
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const yesterday = new Date();
+                  yesterday.setDate(yesterday.getDate() - 1);
+                  setSelectedNewLeadDate(getLocalDateStr(yesterday));
+                  setCurrentPage(1);
+                }}
+                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-[11px] rounded-lg border border-slate-200 transition-colors cursor-pointer"
+              >
+                Yesterday
+              </button>
+            </div>
           )}
         </div>
 
