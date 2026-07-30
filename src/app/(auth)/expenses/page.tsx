@@ -1481,258 +1481,274 @@ export default function ExpensesPage() {
 
         {/* Modal: Add or Edit Expense */}
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 border border-slate-200">
-              <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-                <h3 className="font-bold text-slate-900 text-base">
-                  {editingExpenseId ? "Edit Operational Expense" : "Record Operational Expense"}
-                </h3>
-                <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 font-bold text-lg">
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 flex flex-col max-h-[90vh] my-auto overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+              
+              {/* Header (Sticky top) */}
+              <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 bg-slate-50/70 shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center font-bold text-sm">
+                    💸
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-base leading-snug">
+                      {editingExpenseId ? "Edit Operational Expense" : "Record Operational Expense"}
+                    </h3>
+                    <p className="text-[11px] text-slate-500 font-medium">Enter transaction details below</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="w-8 h-8 rounded-full hover:bg-slate-200/70 text-slate-400 hover:text-slate-700 flex items-center justify-center font-bold text-lg transition-colors cursor-pointer"
+                >
                   ×
                 </button>
               </div>
 
-              <form onSubmit={handleCreateExpense} className="space-y-4 mt-4 text-xs font-semibold">
-                <div>
-                  <label className="block text-slate-600 mb-1">Expense Description / Title *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Meta Ads Campaign July 2026"
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
+              {/* Form Content (Scrollable) */}
+              <form id="expense-form" onSubmit={handleCreateExpense} className="flex flex-col flex-1 overflow-hidden">
+                <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4 text-xs font-semibold">
+                  
+                  {/* Expense Description */}
                   <div>
-                    <label className="block text-slate-600 mb-1 font-semibold text-xs">Category *</label>
-                    <select
-                      value={formData.category}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-xs font-semibold text-slate-800 bg-white cursor-pointer"
-                    >
-                      {EXPENSE_CATEGORIES.map((cat) => (
-                        <option key={cat} value={cat}>
-                          {cat}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-slate-600 mb-1">Amount (₹) *</label>
+                    <label className="block text-slate-700 font-bold text-xs mb-1.5">
+                      Expense Description / Title <span className="text-rose-500">*</span>
+                    </label>
                     <input
-                      type="number"
+                      type="text"
                       required
-                      min="0"
-                      placeholder="15000"
-                      value={formData.amount}
-                      onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20"
+                      placeholder="e.g. Meta Ads Campaign July 2026"
+                      value={formData.title}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all placeholder-slate-400"
                     />
                   </div>
-                </div>
 
-                {/* Recurring Expense Option */}
-                <div className="bg-rose-50/70 border border-rose-100 p-3 rounded-xl">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.isRecurring}
-                      onChange={(e) => setFormData({ ...formData, isRecurring: e.target.checked })}
-                      className="w-4 h-4 text-rose-600 rounded focus:ring-rose-500 cursor-pointer"
-                    />
-                    <span className="text-xs font-bold text-rose-900 select-none">🔁 Mark as Recurring Operational Expense</span>
-                  </label>
-
-                  {formData.isRecurring && (
-                    <div className="mt-2.5">
-                      <label className="block text-[11px] font-bold text-rose-800 mb-1">Recurring Frequency</label>
+                  {/* Category & Amount */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-slate-700 font-bold text-xs mb-1.5">
+                        Category <span className="text-rose-500">*</span>
+                      </label>
                       <select
-                        value={formData.recurringFrequency}
-                        onChange={(e) => setFormData({ ...formData, recurringFrequency: e.target.value })}
-                        className="w-full px-3 py-1.5 text-xs border border-rose-200 rounded-xl bg-white text-rose-900 font-bold focus:outline-none"
+                        value={formData.category}
+                        onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                        className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 text-xs font-semibold focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all cursor-pointer"
                       >
-                        <option value="Monthly">Monthly (Auto-renews every month)</option>
-                        <option value="Weekly">Weekly (Auto-renews every week)</option>
-                        <option value="Quarterly">Quarterly (Auto-renews every 3 months)</option>
-                        <option value="Yearly">Yearly (Auto-renews annually)</option>
+                        {EXPENSE_CATEGORIES.map((cat) => (
+                          <option key={cat} value={cat}>
+                            {cat}
+                          </option>
+                        ))}
                       </select>
                     </div>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-slate-600 mb-1">Expense Date</label>
-                    <input
-                      type="date"
-                      value={formData.expenseDate}
-                      onChange={(e) => setFormData({ ...formData, expenseDate: e.target.value })}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20"
-                    />
+                    <div>
+                      <label className="block text-slate-700 font-bold text-xs mb-1.5">
+                        Amount (₹) <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        required
+                        min="0"
+                        placeholder="15000"
+                        value={formData.amount}
+                        onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                        className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all placeholder-slate-400"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-slate-600 mb-1">Payment Mode</label>
-                    <select
-                      value={formData.paymentMode}
-                      onChange={(e) => handlePaymentModeChangeInForm(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-xs font-semibold text-slate-800 bg-white cursor-pointer"
-                    >
-                      <option value="UPI">UPI</option>
-                      <option value="Bank Transfer">Bank Transfer</option>
-                      <option value="Credit Card">Credit Card</option>
-                      <option value="NEFT">NEFT</option>
-                      <option value="Cash">Cash</option>
-                    </select>
-                  </div>
-                </div>
 
-                <div>
-                  <label className="block text-slate-600 mb-1 font-semibold text-xs">Brand Tag</label>
-                  <select
-                    value={formData.brand}
-                    onChange={(e) => handleBrandChangeInForm(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-xs font-semibold text-slate-800 bg-white cursor-pointer"
-                  >
-                    <option value="All Brands">All Brands</option>
-                    {brands.map((b) => (
-                      <option key={b} value={b}>{b}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Company Allocation (Matching Screenshot Design) */}
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-slate-700 font-extrabold text-xs">
-                      Company Allocation
+                  {/* Recurring Expense Box */}
+                  <div className="bg-rose-50/60 border border-rose-100 p-3.5 rounded-xl">
+                    <label className="flex items-center gap-2.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.isRecurring}
+                        onChange={(e) => setFormData({ ...formData, isRecurring: e.target.checked })}
+                        className="w-4 h-4 text-rose-600 rounded border-rose-300 focus:ring-rose-500 cursor-pointer"
+                      />
+                      <span className="text-xs font-bold text-rose-900 select-none">🔁 Mark as Recurring Operational Expense</span>
                     </label>
-                    {formData.paymentMode === "Cash" && (
-                      <span className="text-[10px] font-extrabold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
-                        N/A for Cash Payment
-                      </span>
+
+                    {formData.isRecurring && (
+                      <div className="mt-3 pt-2.5 border-t border-rose-100">
+                        <label className="block text-[11px] font-bold text-rose-800 mb-1.5">Recurring Frequency</label>
+                        <select
+                          value={formData.recurringFrequency}
+                          onChange={(e) => setFormData({ ...formData, recurringFrequency: e.target.value })}
+                          className="w-full px-3 py-2 text-xs border border-rose-200 rounded-xl bg-white text-rose-900 font-bold focus:outline-none focus:ring-2 focus:ring-rose-400/20 cursor-pointer"
+                        >
+                          <option value="Monthly">Monthly (Auto-renews every month)</option>
+                          <option value="Weekly">Weekly (Auto-renews every week)</option>
+                          <option value="Quarterly">Quarterly (Auto-renews every 3 months)</option>
+                          <option value="Yearly">Yearly (Auto-renews annually)</option>
+                        </select>
+                      </div>
                     )}
                   </div>
 
-                  <div className="space-y-2">
-                    {/* Editable Company Input Box with Suggested Badge Pill */}
-                    <div className="relative flex items-center bg-slate-50/90 border border-slate-200/90 rounded-2xl p-1.5 transition-all focus-within:bg-white focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500 shadow-xs">
+                  {/* Date & Payment Mode */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-slate-700 font-bold text-xs mb-1.5">Expense Date</label>
+                      <input
+                        type="date"
+                        value={formData.expenseDate}
+                        onChange={(e) => setFormData({ ...formData, expenseDate: e.target.value })}
+                        className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all cursor-pointer"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-700 font-bold text-xs mb-1.5">Payment Mode</label>
+                      <select
+                        value={formData.paymentMode}
+                        onChange={(e) => handlePaymentModeChangeInForm(e.target.value)}
+                        className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 text-xs font-semibold focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all cursor-pointer"
+                      >
+                        <option value="UPI">UPI</option>
+                        <option value="Bank Transfer">Bank Transfer</option>
+                        <option value="Credit Card">Credit Card</option>
+                        <option value="NEFT">NEFT</option>
+                        <option value="Cash">Cash</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Brand Tag */}
+                  <div>
+                    <label className="block text-slate-700 font-bold text-xs mb-1.5">Brand Tag</label>
+                    <select
+                      value={formData.brand}
+                      onChange={(e) => handleBrandChangeInForm(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 text-xs font-semibold focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all cursor-pointer"
+                    >
+                      <option value="All Brands">All Brands</option>
+                      {brands.map((b) => (
+                        <option key={b} value={b}>{b}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Company Allocation */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-slate-700 font-bold text-xs">
+                        Company Allocation
+                      </label>
+                      {formData.paymentMode === "Cash" && (
+                        <span className="text-[10px] font-extrabold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
+                          N/A for Cash Payment
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
                       <input
                         type="text"
                         value={formData.company}
                         disabled={formData.paymentMode === "Cash"}
-                        onChange={(e) => setFormData({ ...formData, company: e.target.value.toUpperCase() })}
-                        placeholder="Enter or edit allocated company..."
-                        className="w-full px-3 py-1.5 bg-transparent font-bold text-slate-800 text-xs outline-none placeholder-slate-400 disabled:opacity-50 uppercase"
-                        style={{ textTransform: "uppercase" }}
+                        onChange={(e) => handleCompanyChangeInForm(e.target.value.toUpperCase())}
+                        placeholder="Enter or select allocated company..."
+                        className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 text-xs font-bold focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder-slate-400 disabled:opacity-50 uppercase"
                       />
 
-                      {/* Suggested Company Badge Chip (Matching Screenshot) */}
-                      {formData.company && formData.company !== "All Companies" && (
-                        <div className="flex items-center gap-1.5 bg-emerald-50/90 text-emerald-800 border border-emerald-200/80 px-3 py-1.5 rounded-xl text-xs font-black shrink-0 whitespace-nowrap shadow-2xs">
-                          <span className="max-w-[150px] truncate uppercase tracking-tight">
-                            {formData.company}
-                          </span>
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-emerald-500 shrink-0">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
-                          </svg>
+                      {/* Company Suggestions Quick Pills */}
+                      {formData.paymentMode !== "Cash" && (
+                        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                          <span className="text-[10px] font-bold text-slate-400">Suggestions:</span>
+                          {["SLING SHOT TECHNOLOGIES", ...availableFormCompanies.filter(c => c !== "SLING SHOT TECHNOLOGIES")].slice(0, 4).map((c) => (
+                            <button
+                              key={c}
+                              type="button"
+                              onClick={() => handleCompanyChangeInForm(c)}
+                              className={`px-2.5 py-1 rounded-xl text-[11px] font-extrabold transition-all cursor-pointer border ${
+                                formData.company === c
+                                  ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300"
+                              }`}
+                            >
+                              {c}
+                            </button>
+                          ))}
                         </div>
                       )}
                     </div>
+                  </div>
 
-                    {/* Company Suggestions Quick Pills */}
-                    {formData.paymentMode !== "Cash" && (
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-[10px] font-bold text-slate-400">Suggestions:</span>
-                        {["SLING SHOT TECHNOLOGIES", ...availableFormCompanies.filter(c => c !== "SLING SHOT TECHNOLOGIES")].slice(0, 4).map((c) => (
-                          <button
-                            key={c}
-                            type="button"
-                            onClick={() => setFormData({ ...formData, company: c })}
-                            className={`px-2.5 py-1 rounded-xl text-[11px] font-extrabold transition-all cursor-pointer border ${
-                              formData.company === c
-                                ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
-                                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300"
-                            }`}
-                          >
-                            {c}
-                          </button>
-                        ))}
+                  {/* Bank Name & Expense Nature */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-slate-700 font-bold text-xs">Bank Name</label>
+                        {formData.paymentMode === "Cash" ? (
+                          <span className="text-[10px] font-extrabold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                            N/A for Cash
+                          </span>
+                        ) : formData.company && formData.company !== "All Companies" && getBankForCompany(formData.company) ? (
+                          <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                            ✓ Auto-selected
+                          </span>
+                        ) : null}
                       </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-slate-600 font-semibold text-xs">Bank Name</label>
-                      {formData.paymentMode === "Cash" ? (
-                        <span className="text-[10px] font-extrabold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
-                          N/A for Cash
-                        </span>
-                      ) : formData.company && formData.company !== "All Companies" && getBankForCompany(formData.company) ? (
-                        <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                          ✓ Auto-selected from {formData.company}
-                        </span>
-                      ) : null}
+                      <select
+                        value={formData.bank}
+                        disabled={formData.paymentMode === "Cash"}
+                        onChange={(e) => setFormData({ ...formData, bank: e.target.value })}
+                        className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 text-xs font-semibold focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all cursor-pointer disabled:opacity-50 disabled:bg-slate-100"
+                      >
+                        <option value="">-- No Bank (Cash / N/A) --</option>
+                        {availableCompanyBanks.map((b) => (
+                          <option key={b} value={b}>{b}</option>
+                        ))}
+                        {!availableCompanyBanks.includes("BOI") && <option value="BOI">BOI</option>}
+                        {!availableCompanyBanks.includes("Bank Of India") && <option value="Bank Of India">Bank Of India</option>}
+                        {!availableCompanyBanks.includes("ICICI") && <option value="ICICI">ICICI</option>}
+                        {!availableCompanyBanks.includes("HDFC") && <option value="HDFC">HDFC</option>}
+                        {!availableCompanyBanks.includes("SBI") && <option value="SBI">SBI</option>}
+                        {!availableCompanyBanks.includes("AXIS") && <option value="AXIS">AXIS</option>}
+                      </select>
                     </div>
-                    <select
-                      value={formData.bank}
-                      disabled={formData.paymentMode === "Cash"}
-                      onChange={(e) => setFormData({ ...formData, bank: e.target.value })}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-xs font-semibold text-slate-800 bg-white cursor-pointer disabled:opacity-50 disabled:bg-slate-100"
-                    >
-                      <option value="">-- No Bank (Cash / N/A) --</option>
-                      {availableCompanyBanks.map((b) => (
-                        <option key={b} value={b}>{b}</option>
-                      ))}
-                      {!availableCompanyBanks.includes("BOI") && <option value="BOI">BOI</option>}
-                      {!availableCompanyBanks.includes("Bank Of India") && <option value="Bank Of India">Bank Of India</option>}
-                      {!availableCompanyBanks.includes("ICICI") && <option value="ICICI">ICICI</option>}
-                      {!availableCompanyBanks.includes("HDFC") && <option value="HDFC">HDFC</option>}
-                      {!availableCompanyBanks.includes("SBI") && <option value="SBI">SBI</option>}
-                      {!availableCompanyBanks.includes("AXIS") && <option value="AXIS">AXIS</option>}
-                    </select>
+                    <div>
+                      <label className="block text-slate-700 font-bold text-xs mb-1.5">Expense Nature</label>
+                      <select
+                        value={formData.expenseType}
+                        onChange={(e) => setFormData({ ...formData, expenseType: e.target.value as "variable" | "fixed" })}
+                        className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 text-xs font-semibold focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all cursor-pointer"
+                      >
+                        <option value="variable">variable</option>
+                        <option value="fixed">fixed</option>
+                      </select>
+                    </div>
                   </div>
+
+                  {/* Remarks / Details */}
                   <div>
-                    <label className="block text-slate-600 mb-1 font-semibold text-xs">Expense Nature</label>
-                    <select
-                      value={formData.expenseType}
-                      onChange={(e) => setFormData({ ...formData, expenseType: e.target.value as "variable" | "fixed" })}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-xs font-semibold text-slate-800 bg-white cursor-pointer"
-                    >
-                      <option value="variable">variable</option>
-                      <option value="fixed">fixed</option>
-                    </select>
+                    <label className="block text-slate-700 font-bold text-xs mb-1.5">Remarks / Details</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Paid to vendor via Google Pay"
+                      value={formData.remarks}
+                      onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
+                      className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all placeholder-slate-400"
+                    />
                   </div>
+
                 </div>
 
-                <div>
-                  <label className="block text-slate-600 mb-1">Remarks / Details</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Paid to vendor via Google Pay"
-                    value={formData.remarks}
-                    onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20"
-                  />
-                </div>
-
-                <div className="pt-3 flex gap-3">
+                {/* Footer Buttons (Sticky Bottom) */}
+                <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/70 shrink-0 flex gap-3">
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl"
+                    className="flex-1 py-2.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold rounded-xl text-xs transition-all cursor-pointer shadow-2xs"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl shadow-md cursor-pointer disabled:opacity-50"
+                    className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs shadow-md transition-all cursor-pointer disabled:opacity-50"
                   >
                     {isSubmitting ? "Saving..." : editingExpenseId ? "Update Expense" : "Save Expense"}
                   </button>
