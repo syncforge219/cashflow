@@ -1,3 +1,6 @@
+import dbConnect from "@/lib/db";
+import Brand from "@/models/Brand";
+
 export interface FeeReceiptWhatsAppParams {
   studentName?: string | null;
   mobileNumber: string;
@@ -6,6 +9,8 @@ export interface FeeReceiptWhatsAppParams {
   paymentDate?: string | null;
   receiptNo?: string | null;
   receiptUrl?: string | null;
+  brandName?: string | null;
+  integratedNumber?: string | null;
 }
 
 /**
@@ -59,6 +64,48 @@ export function formatPhoneNumber(phone: string): string {
   return cleaned;
 }
 
+/**
+ * Dynamically resolve the MSG91 Integrated WhatsApp Sender Phone Number for a Brand.
+ * 1. If explicit integratedNumber parameter is passed, format and return it.
+ * 2. If brandName parameter is passed, lookup the Brand in MongoDB and retrieve its phone / whatsappNumber / integratedNumber.
+ * 3. Fall back to process.env.MSG91_INTEGRATED_NUMBER if configured.
+ */
+export async function getIntegratedNumberForBrand(
+  brandName?: string | null,
+  customIntegratedNum?: string | null
+): Promise<string> {
+  if (customIntegratedNum) {
+    const formatted = formatPhoneNumber(customIntegratedNum);
+    if (formatted) return formatted;
+  }
+
+  if (brandName) {
+    try {
+      await dbConnect();
+      const cleanBrand = String(brandName).toUpperCase().trim();
+      const brandDoc = await Brand.findOne({
+        $or: [
+          { name: { $regex: new RegExp(`^${cleanBrand.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')}$`, "i") } },
+          { code: { $regex: new RegExp(`^${cleanBrand.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')}$`, "i") } },
+        ],
+      }).lean();
+
+      if (brandDoc) {
+        const rawNum = (brandDoc as any).integratedNumber || (brandDoc as any).whatsappNumber || (brandDoc as any).phone || "";
+        if (rawNum) {
+          const formatted = formatPhoneNumber(rawNum);
+          if (formatted) return formatted;
+        }
+      }
+    } catch (err) {
+      console.error(`Error resolving WhatsApp integrated number for brand '${brandName}':`, err);
+    }
+  }
+
+  const envNum = process.env.MSG91_INTEGRATED_NUMBER || "";
+  return envNum ? formatPhoneNumber(envNum) : "";
+}
+
 const PUBLIC_PRODUCTION_URL = "https://lead2ledger-git-734957305541.asia-south2.run.app";
 
 export function getPublicPdfBaseUrl(): string {
@@ -76,8 +123,7 @@ export async function sendWhatsAppFeeReceipt(params: FeeReceiptWhatsAppParams) {
   try {
     const authKey =
       process.env.MSG91_AUTHKEY || "478610A465a065I869fed7fdP1";
-    const integratedNumber =
-      process.env.MSG91_INTEGRATED_NUMBER || "919335913286";
+    const integratedNumber = await getIntegratedNumberForBrand(params.brandName, params.integratedNumber);
 
     const formattedPhone = formatPhoneNumber(params.mobileNumber);
     if (!formattedPhone) {
@@ -194,6 +240,8 @@ export interface DailyReportWhatsAppParams {
   adminMobileNumber: string;
   reportData: import("./dailyReportService").DailyReportStats;
   pdfUrl?: string;
+  brandName?: string | null;
+  integratedNumber?: string | null;
 }
 
 /**
@@ -203,8 +251,7 @@ export async function sendWhatsAppDailyReport(params: DailyReportWhatsAppParams)
   try {
     const authKey =
       process.env.MSG91_AUTHKEY || "478610A465a065I869fed7fdP1";
-    const integratedNumber =
-      process.env.MSG91_INTEGRATED_NUMBER || "919335913286";
+    const integratedNumber = await getIntegratedNumberForBrand(params.brandName, params.integratedNumber);
 
     const formattedPhone = formatPhoneNumber(params.adminMobileNumber);
     if (!formattedPhone) {
@@ -376,10 +423,12 @@ export async function sendWhatsAppDailyReport(params: DailyReportWhatsAppParams)
 export async function sendWhatsAppMonthlyReport(params: {
   adminMobileNumber: string;
   reportData: import("./dailyReportService").DailyReportStats;
+  brandName?: string | null;
+  integratedNumber?: string | null;
 }) {
   try {
     const authKey = process.env.MSG91_AUTHKEY || "478610A465a065I869fed7fdP1";
-    const integratedNumber = process.env.MSG91_INTEGRATED_NUMBER || "919335913286";
+    const integratedNumber = await getIntegratedNumberForBrand(params.brandName, params.integratedNumber);
     const formattedPhone = formatPhoneNumber(params.adminMobileNumber);
     if (!formattedPhone) {
       return { success: false, error: "Invalid admin mobile number." };
@@ -540,6 +589,8 @@ export interface FeeReminderWhatsAppParams {
   courseName: string;
   amountDue: number | string;
   dueDate: string | Date;
+  brandName?: string | null;
+  integratedNumber?: string | null;
 }
 
 /**
@@ -551,8 +602,7 @@ export async function sendWhatsAppEmiReminder(params: FeeReminderWhatsAppParams)
   try {
     const authKey =
       process.env.MSG91_AUTHKEY || "478610A465a065I869fed7fdP1";
-    const integratedNumber =
-      process.env.MSG91_INTEGRATED_NUMBER || "919335913286";
+    const integratedNumber = await getIntegratedNumberForBrand(params.brandName, params.integratedNumber);
 
     const formattedPhone = formatPhoneNumber(params.mobileNumber);
     if (!formattedPhone) {
@@ -666,6 +716,8 @@ export interface CounsellorEmiReminderParams {
   studentEmail: string;
   amountDue: number | string;
   dueDate: string | Date;
+  brandName?: string | null;
+  integratedNumber?: string | null;
 }
 
 /**
@@ -684,7 +736,7 @@ export interface CounsellorEmiReminderParams {
 export async function sendWhatsAppCounsellorEmiReminder(params: CounsellorEmiReminderParams) {
   try {
     const authKey = process.env.MSG91_AUTHKEY || "478610A465a065I869fed7fdP1";
-    const integratedNumber = process.env.MSG91_INTEGRATED_NUMBER || "919335913286";
+    const integratedNumber = await getIntegratedNumberForBrand(params.brandName, params.integratedNumber);
 
     const formattedPhone = formatPhoneNumber(params.counsellorMobile);
     if (!formattedPhone) {
@@ -762,6 +814,8 @@ export interface DemoReminderWhatsAppParams {
   demoDate: string;
   demoTime: string;
   demoMode: string;
+  brandName?: string | null;
+  integratedNumber?: string | null;
 }
 
 /**
@@ -789,7 +843,7 @@ export function formatDDMMYYYY(dateStr?: string | null): string {
 export async function sendWhatsAppDemoReminder(params: DemoReminderWhatsAppParams) {
   try {
     const authKey = process.env.MSG91_AUTHKEY || "478610A465a065I869fed7fdP1";
-    const integratedNumber = process.env.MSG91_INTEGRATED_NUMBER || "919335913286";
+    const integratedNumber = await getIntegratedNumberForBrand(params.brandName, params.integratedNumber);
 
     const formattedPhone = formatPhoneNumber(params.mobileNumber);
     if (!formattedPhone) {
@@ -898,6 +952,8 @@ export interface CompanyCapacityAlertParams {
   annualCapacityCap: number;
   capacityPercentage: number;
   adminMobileNumber?: string;
+  brandName?: string | null;
+  integratedNumber?: string | null;
 }
 
 /**
@@ -906,8 +962,8 @@ export interface CompanyCapacityAlertParams {
 export async function sendWhatsAppCompanyCapacityAlert(params: CompanyCapacityAlertParams) {
   try {
     const authKey = process.env.MSG91_AUTHKEY || "478610A465a065I869fed7fdP1";
-    const integratedNumber = process.env.MSG91_INTEGRATED_NUMBER || "919335913286";
-    const adminPhone = formatPhoneNumber(params.adminMobileNumber || process.env.ADMIN_WHATSAPP_NUMBER || "919335913286");
+    const integratedNumber = await getIntegratedNumberForBrand(params.brandName, params.integratedNumber);
+    const adminPhone = formatPhoneNumber(params.adminMobileNumber || process.env.ADMIN_WHATSAPP_NUMBER || "");
 
     if (!adminPhone) {
       console.warn("MSG91 Company Capacity Alert Warning: Missing admin phone number.");
@@ -1014,6 +1070,7 @@ export interface BrandWelcomeWhatsAppParams {
   brandName?: string | null;
   counsellorName?: string | null;
   admissionId?: string | null;
+  integratedNumber?: string | null;
 }
 
 /**
@@ -1023,7 +1080,7 @@ export interface BrandWelcomeWhatsAppParams {
 export async function sendWhatsAppBrandWelcome(params: BrandWelcomeWhatsAppParams) {
   try {
     const authKey = process.env.MSG91_AUTHKEY || "478610A465a065I869fed7fdP1";
-    const integratedNumber = process.env.MSG91_INTEGRATED_NUMBER || "919335913286";
+    const integratedNumber = await getIntegratedNumberForBrand(params.brandName, params.integratedNumber);
 
     const formattedPhone = formatPhoneNumber(params.mobileNumber);
     if (!formattedPhone) {
@@ -1140,6 +1197,7 @@ export interface EnquiryWelcomeWhatsAppParams {
   brandName?: string | null;
   assignedAdvisor?: string | null;
   enquiryId?: string | null;
+  integratedNumber?: string | null;
 }
 
 /**
@@ -1149,7 +1207,7 @@ export interface EnquiryWelcomeWhatsAppParams {
 export async function sendWhatsAppEnquiryWelcome(params: EnquiryWelcomeWhatsAppParams) {
   try {
     const authKey = process.env.MSG91_AUTHKEY || "478610A465a065I869fed7fdP1";
-    const integratedNumber = process.env.MSG91_INTEGRATED_NUMBER || "919335913286";
+    const integratedNumber = await getIntegratedNumberForBrand(params.brandName, params.integratedNumber);
 
     const formattedPhone = formatPhoneNumber(params.mobileNumber);
     if (!formattedPhone) {

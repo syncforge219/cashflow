@@ -4,7 +4,7 @@ import { sendWhatsAppDailyReport } from "@/lib/msg91";
 
 export async function POST(req: Request) {
   try {
-    let targetPhone = "919335913286";
+    let targetPhone = "";
     
     try {
       const body = await req.json();
@@ -16,7 +16,7 @@ export async function POST(req: Request) {
     }
 
     if (!targetPhone) {
-      targetPhone = process.env.ADMIN_WHATSAPP_NUMBER || "919335913286";
+      targetPhone = process.env.ADMIN_WHATSAPP_NUMBER || "";
     }
 
     const stats = await getDailyReportStats();

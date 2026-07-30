@@ -5,7 +5,7 @@ import { sendWhatsAppMonthlyReport } from "@/lib/msg91";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const adminMobileNumber = body.adminMobileNumber || "919335913286";
+    const adminMobileNumber = body.adminMobileNumber || process.env.ADMIN_WHATSAPP_NUMBER || "";
 
     const stats = await getMonthlyReportStats();
 

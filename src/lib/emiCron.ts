@@ -118,7 +118,7 @@ async function runDailyReportSilently() {
   isDailyReportRunning = true;
   try {
     const stats = await getDailyReportStats();
-    const adminPhone = process.env.ADMIN_WHATSAPP_NUMBER || "919335913286";
+    const adminPhone = process.env.ADMIN_WHATSAPP_NUMBER || "";
     const res = await sendWhatsAppDailyReport({
       adminMobileNumber: adminPhone,
       reportData: stats,
@@ -136,7 +136,7 @@ async function runMonthlyReportSilently() {
   isMonthlyReportRunning = true;
   try {
     const stats = await getMonthlyReportStats();
-    const adminPhone = process.env.ADMIN_WHATSAPP_NUMBER || "919335913286";
+    const adminPhone = process.env.ADMIN_WHATSAPP_NUMBER || "";
     const res = await sendWhatsAppMonthlyReport({
       adminMobileNumber: adminPhone,
       reportData: stats,

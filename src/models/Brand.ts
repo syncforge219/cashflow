@@ -18,6 +18,12 @@ const BrandSchema = new mongoose.Schema(
     phone: {
       type: String,
     },
+    whatsappNumber: {
+      type: String,
+    },
+    integratedNumber: {
+      type: String,
+    },
     email: {
       type: String,
     },
