@@ -808,120 +808,341 @@ export default function FollowupPage() {
               </span>
             </div>
 
-            {/* DATA RENDER: MODE 1 ENQUIRY FOLLOWUP TABLE */}
+            {/* DATA RENDER: MODE 1 ENQUIRY FOLLOWUP */}
             {activeMode === "enquiry" ? (
-              <div className="overflow-auto flex-1 min-h-0">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead className="sticky top-0 z-10 bg-slate-100/95 backdrop-blur-xs shadow-2xs">
-                    <tr className="border-b border-slate-200 text-[10px] font-black text-slate-600 uppercase tracking-wider select-none">
-                      <th className="py-3 px-4 min-w-[125px]">DUE DATE ▾</th>
-                      <th className="py-3 px-4 min-w-[100px]">PRIORITY ▾</th>
-                      <th className="py-3 px-4 min-w-[145px]">ENQUIRY/WALKIN DATE ▾</th>
-                      <th className="py-3 px-4 min-w-[150px]">STUDENT ▾</th>
-                      <th className="py-3 px-4 min-w-[140px]">STUDENT MOBILE NO ▾</th>
-                      <th className="py-3 px-4 min-w-[140px]">PRIMARY MOBILE NO ▾</th>
-                      <th className="py-3 px-4 min-w-[110px]">AREA ▾</th>
-                      <th className="py-3 px-4 min-w-[150px]">COURSE PACKAGE ▾</th>
-                      <th className="py-3 px-4 min-w-[130px]">FOLLOWUP BY ▾</th>
-                      <th className="py-3 px-4 min-w-[110px]">LEAD STAGE ▾</th>
-                      <th className="py-3 px-4 min-w-[100px]">LEAD TYPE ▾</th>
-                      <th className="py-3 px-4 min-w-[160px]">LAST REMARK ▾</th>
-                      <th className="py-3 px-4 text-right min-w-[200px]">ACTION ▾</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
-                    {isLoading ? (
-                      <tr>
-                        <td colSpan={13} className="py-12 text-center text-slate-400">Loading enquiry follow-ups...</td>
-                      </tr>
-                    ) : paginatedEnquiryRecords.length === 0 ? (
-                      <tr>
-                        <td colSpan={13} className="py-12 text-center text-slate-400">No enquiry follow-up records found matching filters.</td>
-                      </tr>
-                    ) : (
-                      paginatedEnquiryRecords.map((rec: EnquiryFollowupRecord) => (
-                        <tr
-                          key={rec._id}
-                          onClick={() => setSelectedLead(rec)}
-                          className={`transition-colors cursor-pointer ${
-                            rec.isOverdue
-                              ? "bg-rose-50/70 hover:bg-rose-100/80 border-l-4 border-l-rose-500"
-                              : "hover:bg-slate-50/80"
-                          }`}
-                        >
-                          <td className="py-3.5 px-4 font-bold whitespace-nowrap">
-                            <div className="flex flex-col">
-                              <span className={rec.isOverdue ? "text-rose-700 font-black" : "text-indigo-600"}>
-                                {rec.dueDateStr ? new Date(rec.dueDateStr).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Today"}
-                              </span>
-                              {rec.isOverdue && (
-                                <span className="text-[9px] font-black text-rose-600 tracking-wider animate-pulse">🚨 OVERDUE</span>
-                              )}
-                              {rec.isEscalated && (
-                                <span className="text-[9px] font-black text-purple-700 tracking-wider">⚡ ESCALATED TO MGR</span>
-                              )}
+              viewType === "grid" ? (
+                /* GRID CARD VIEW FOR ENQUIRIES */
+                <div className="overflow-auto flex-1 p-5">
+                  {isLoading ? (
+                    <div className="py-20 text-center text-slate-400 font-bold animate-pulse">Loading enquiry grid cards...</div>
+                  ) : paginatedEnquiryRecords.length === 0 ? (
+                    <div className="py-20 text-center text-slate-400 font-bold">No enquiry follow-up records found matching filters.</div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                      {paginatedEnquiryRecords.map((rec: EnquiryFollowupRecord) => {
+                        const priorityColor =
+                          rec.priorityLevel === "Urgent"
+                            ? "bg-rose-100 text-rose-700 border-rose-200"
+                            : rec.priorityLevel === "High"
+                            ? "bg-orange-100 text-orange-700 border-orange-200"
+                            : rec.priorityLevel === "Low"
+                            ? "bg-sky-100 text-sky-700 border-sky-200"
+                            : "bg-amber-100 text-amber-700 border-amber-200";
+
+                        const initial = (rec.studentFullName || "S").charAt(0).toUpperCase();
+
+                        return (
+                          <div
+                            key={rec._id}
+                            onClick={() => setSelectedLead(rec)}
+                            className={`bg-white rounded-2xl border transition-all duration-300 shadow-xs hover:shadow-xl hover:-translate-y-1 overflow-hidden flex flex-col justify-between cursor-pointer group ${
+                              rec.isOverdue
+                                ? "border-rose-400 border-l-4 border-l-rose-500 bg-rose-50/20"
+                                : "border-slate-200/90 hover:border-indigo-500/50"
+                            }`}
+                          >
+                            {/* Card Header */}
+                            <div className="p-4 space-y-3">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-black text-sm shadow-md shrink-0">
+                                    {initial}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <h3 className="font-extrabold text-slate-900 text-sm truncate group-hover:text-indigo-600 transition-colors" title={rec.studentFullName}>
+                                      {rec.studentFullName}
+                                    </h3>
+                                    <span className="text-[10px] font-mono font-extrabold text-slate-400 block truncate">
+                                      {rec.enquiryId} • {rec.currentCity || "No City"}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <span className={`px-2 py-0.5 rounded-md border font-black text-[10px] uppercase shrink-0 ${priorityColor}`}>
+                                  {rec.priorityLevel || "Medium"}
+                                </span>
+                              </div>
+
+                              {/* Overdue / Escalated Status Pills */}
+                              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                                {rec.isOverdue && (
+                                  <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 font-black text-[10px] animate-pulse">
+                                    🚨 OVERDUE
+                                  </span>
+                                )}
+                                {rec.isEscalated && (
+                                  <span className="px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 font-black text-[10px]">
+                                    ⚡ ESCALATED TO MGR
+                                  </span>
+                                )}
+                                <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-extrabold text-[10px] uppercase">
+                                  {rec.status || "In Progress"}
+                                </span>
+                              </div>
+
+                              {/* Due Date & Course Details */}
+                              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-1.5 text-xs">
+                                <div className="flex items-center justify-between text-[11px]">
+                                  <span className="text-slate-400 font-semibold uppercase text-[9px] tracking-wider">Due Date</span>
+                                  <span className={`font-black ${rec.isOverdue ? "text-rose-600" : "text-indigo-600"}`}>
+                                    📅 {rec.dueDateStr ? new Date(rec.dueDateStr).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Today"}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between text-[11px]">
+                                  <span className="text-slate-400 font-semibold uppercase text-[9px] tracking-wider">Target Course</span>
+                                  <span className="font-extrabold text-slate-800 truncate max-w-[140px]" title={rec.targetCourse}>
+                                    🎓 {rec.targetCourse}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between text-[11px]">
+                                  <span className="text-slate-400 font-semibold uppercase text-[9px] tracking-wider">Assigned Advisor</span>
+                                  <span className="font-bold text-slate-700 truncate max-w-[130px]" title={rec.assignedCrmAdvisor}>
+                                    👤 {rec.assignedCrmAdvisor || "Unassigned"}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Discussion Remarks */}
+                              <div className="text-[11px] text-slate-600 bg-slate-100/60 p-2.5 rounded-xl border border-slate-200/60 line-clamp-2 italic">
+                                &ldquo;{rec.lastRemarkStr || "No discussion remark logged."}&rdquo;
+                              </div>
                             </div>
-                          </td>
-                          <td className="py-3.5 px-4 whitespace-nowrap">
-                            {rec.priorityLevel === "Urgent" ? (
-                              <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 font-black text-[10px]">🔴 URGENT</span>
-                            ) : rec.priorityLevel === "High" ? (
-                              <span className="px-2 py-0.5 rounded-md bg-orange-100 text-orange-700 font-black text-[10px]">🟠 HIGH</span>
-                            ) : rec.priorityLevel === "Low" ? (
-                              <span className="px-2 py-0.5 rounded-md bg-sky-100 text-sky-700 font-black text-[10px]">🔵 LOW</span>
-                            ) : (
-                              <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-700 font-black text-[10px]">🟡 MEDIUM</span>
-                            )}
-                          </td>
-                          <td className="py-3.5 px-4 text-slate-500 whitespace-nowrap">
-                            {rec.createdAt ? new Date(rec.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "N/A"}
-                          </td>
-                          <td className="py-3.5 px-4 font-extrabold text-slate-900 max-w-[170px] truncate" title={rec.studentFullName}>
-                            {rec.studentFullName}
-                          </td>
-                          <td className="py-3.5 px-4 font-mono text-slate-600 whitespace-nowrap">{rec.primaryPhoneMobile}</td>
-                          <td className="py-3.5 px-4 font-mono text-slate-400 whitespace-nowrap">{rec.parentsPhoneNumber || "-"}</td>
-                          <td className="py-3.5 px-4 text-slate-600 max-w-[130px] truncate">{rec.currentCity || "N/A"}</td>
-                          <td className="py-3.5 px-4 font-bold text-slate-800 max-w-[160px] truncate" title={rec.targetCourse}>{rec.targetCourse}</td>
-                          <td className="py-3.5 px-4 text-slate-700 max-w-[140px] truncate">{rec.assignedCrmAdvisor}</td>
-                          <td className="py-3.5 px-4">
-                            <span className="px-2.5 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200/80 rounded-lg text-[10px] font-extrabold uppercase whitespace-nowrap shadow-2xs">
-                              {rec.status || "In Progress"}
-                            </span>
-                          </td>
-                          <td className="py-3.5 px-4 text-slate-600 capitalize whitespace-nowrap">{rec.leadType || "Telephonic"}</td>
-                          <td className="py-3.5 px-4 text-slate-500 max-w-[180px] truncate" title={rec.lastRemarkStr}>
-                            {rec.lastRemarkStr || "-"}
-                          </td>
-                          <td className="py-3.5 px-4 text-right whitespace-nowrap space-x-2" onClick={(e) => e.stopPropagation()}>
-                            <button
-                              onClick={() => {
-                                setTimelineRecord(rec);
-                                setIsTimelineOpen(true);
-                              }}
-                              className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-xl text-[11px] font-bold transition-all cursor-pointer"
-                              title="View Interaction Timeline"
-                            >
-                              🕒 Timeline
-                            </button>
-                            <button
-                              onClick={() => {
-                                setActiveRecordForFollowup(rec);
-                                setIsQuickFollowupModalOpen(true);
-                              }}
-                              className="px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-xl text-[11px] font-extrabold transition-all shadow-md shadow-indigo-600/20 active:scale-95 cursor-pointer"
-                            >
-                              ✏️ Add Followup
-                            </button>
-                          </td>
+
+                            {/* Card Footer Actions */}
+                            <div className="bg-slate-50 px-4 py-3 border-t border-slate-100 flex items-center justify-between gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  onClick={() => {
+                                    const text = encodeURIComponent(`Hello ${rec.studentFullName}, regarding your course inquiry for ${rec.targetCourse}...`);
+                                    const phone = rec.primaryPhoneMobile.replace(/\D/g, "");
+                                    if (phone) window.open(`https://wa.me/${phone}?text=${text}`, "_blank");
+                                  }}
+                                  className="w-8 h-8 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200 flex items-center justify-center font-bold text-xs transition-transform active:scale-95 cursor-pointer"
+                                  title="WhatsApp Chat"
+                                >
+                                  💬
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setTimelineRecord(rec);
+                                    setIsTimelineOpen(true);
+                                  }}
+                                  className="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-[11px] font-extrabold transition-all shadow-2xs cursor-pointer"
+                                  title="View Interaction Timeline"
+                                >
+                                  🕒 Timeline
+                                </button>
+                              </div>
+
+                              <button
+                                onClick={() => {
+                                  setActiveRecordForFollowup(rec);
+                                  setIsQuickFollowupModalOpen(true);
+                                }}
+                                className="px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-xl text-[11px] font-extrabold transition-all shadow-md shadow-indigo-600/20 active:scale-95 cursor-pointer"
+                              >
+                                ✏️ Add Followup
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* LIST TABLE VIEW FOR ENQUIRIES */
+                <div className="overflow-auto flex-1 min-h-0">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="sticky top-0 z-10 bg-slate-100/95 backdrop-blur-xs shadow-2xs">
+                      <tr className="border-b border-slate-200 text-[10px] font-black text-slate-600 uppercase tracking-wider select-none">
+                        <th className="py-3 px-4 min-w-[125px]">DUE DATE ▾</th>
+                        <th className="py-3 px-4 min-w-[100px]">PRIORITY ▾</th>
+                        <th className="py-3 px-4 min-w-[145px]">ENQUIRY/WALKIN DATE ▾</th>
+                        <th className="py-3 px-4 min-w-[150px]">STUDENT ▾</th>
+                        <th className="py-3 px-4 min-w-[140px]">STUDENT MOBILE NO ▾</th>
+                        <th className="py-3 px-4 min-w-[140px]">PRIMARY MOBILE NO ▾</th>
+                        <th className="py-3 px-4 min-w-[110px]">AREA ▾</th>
+                        <th className="py-3 px-4 min-w-[150px]">COURSE PACKAGE ▾</th>
+                        <th className="py-3 px-4 min-w-[130px]">FOLLOWUP BY ▾</th>
+                        <th className="py-3 px-4 min-w-[110px]">LEAD STAGE ▾</th>
+                        <th className="py-3 px-4 min-w-[100px]">LEAD TYPE ▾</th>
+                        <th className="py-3 px-4 min-w-[160px]">LAST REMARK ▾</th>
+                        <th className="py-3 px-4 text-right min-w-[200px]">ACTION ▾</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
+                      {isLoading ? (
+                        <tr>
+                          <td colSpan={13} className="py-12 text-center text-slate-400">Loading enquiry follow-ups...</td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                      ) : paginatedEnquiryRecords.length === 0 ? (
+                        <tr>
+                          <td colSpan={13} className="py-12 text-center text-slate-400">No enquiry follow-up records found matching filters.</td>
+                        </tr>
+                      ) : (
+                        paginatedEnquiryRecords.map((rec: EnquiryFollowupRecord) => (
+                          <tr
+                            key={rec._id}
+                            onClick={() => setSelectedLead(rec)}
+                            className={`transition-colors cursor-pointer ${
+                              rec.isOverdue
+                                ? "bg-rose-50/70 hover:bg-rose-100/80 border-l-4 border-l-rose-500"
+                                : "hover:bg-slate-50/80"
+                            }`}
+                          >
+                            <td className="py-3.5 px-4 font-bold whitespace-nowrap">
+                              <div className="flex flex-col">
+                                <span className={rec.isOverdue ? "text-rose-700 font-black" : "text-indigo-600"}>
+                                  {rec.dueDateStr ? new Date(rec.dueDateStr).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Today"}
+                                </span>
+                                {rec.isOverdue && (
+                                  <span className="text-[9px] font-black text-rose-600 tracking-wider animate-pulse">🚨 OVERDUE</span>
+                                )}
+                                {rec.isEscalated && (
+                                  <span className="text-[9px] font-black text-purple-700 tracking-wider">⚡ ESCALATED TO MGR</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-3.5 px-4 whitespace-nowrap">
+                              {rec.priorityLevel === "Urgent" ? (
+                                <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 font-black text-[10px]">🔴 URGENT</span>
+                              ) : rec.priorityLevel === "High" ? (
+                                <span className="px-2 py-0.5 rounded-md bg-orange-100 text-orange-700 font-black text-[10px]">🟠 HIGH</span>
+                              ) : rec.priorityLevel === "Low" ? (
+                                <span className="px-2 py-0.5 rounded-md bg-sky-100 text-sky-700 font-black text-[10px]">🔵 LOW</span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-700 font-black text-[10px]">🟡 MEDIUM</span>
+                              )}
+                            </td>
+                            <td className="py-3.5 px-4 text-slate-500 whitespace-nowrap">
+                              {rec.createdAt ? new Date(rec.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "N/A"}
+                            </td>
+                            <td className="py-3.5 px-4 font-extrabold text-slate-900 max-w-[170px] truncate" title={rec.studentFullName}>
+                              {rec.studentFullName}
+                            </td>
+                            <td className="py-3.5 px-4 font-mono text-slate-600 whitespace-nowrap">{rec.primaryPhoneMobile}</td>
+                            <td className="py-3.5 px-4 font-mono text-slate-400 whitespace-nowrap">{rec.parentsPhoneNumber || "-"}</td>
+                            <td className="py-3.5 px-4 text-slate-600 max-w-[130px] truncate">{rec.currentCity || "N/A"}</td>
+                            <td className="py-3.5 px-4 font-bold text-slate-800 max-w-[160px] truncate" title={rec.targetCourse}>{rec.targetCourse}</td>
+                            <td className="py-3.5 px-4 text-slate-700 max-w-[140px] truncate">{rec.assignedCrmAdvisor}</td>
+                            <td className="py-3.5 px-4">
+                              <span className="px-2.5 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200/80 rounded-lg text-[10px] font-extrabold uppercase whitespace-nowrap shadow-2xs">
+                                {rec.status || "In Progress"}
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-4 text-slate-600 capitalize whitespace-nowrap">{rec.leadType || "Telephonic"}</td>
+                            <td className="py-3.5 px-4 text-slate-500 max-w-[180px] truncate" title={rec.lastRemarkStr}>
+                              {rec.lastRemarkStr || "-"}
+                            </td>
+                            <td className="py-3.5 px-4 text-right whitespace-nowrap space-x-2" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                onClick={() => {
+                                  setTimelineRecord(rec);
+                                  setIsTimelineOpen(true);
+                                }}
+                                className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-xl text-[11px] font-bold transition-all cursor-pointer"
+                                title="View Interaction Timeline"
+                              >
+                                🕒 Timeline
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setActiveRecordForFollowup(rec);
+                                  setIsQuickFollowupModalOpen(true);
+                                }}
+                                className="px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-xl text-[11px] font-extrabold transition-all shadow-md shadow-indigo-600/20 active:scale-95 cursor-pointer"
+                              >
+                                ✏️ Add Followup
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )
             ) : (
-              /* DATA RENDER: MODE 2 FEES FOLLOWUP TABLE */
+              /* DATA RENDER: MODE 2 FEES FOLLOWUP */
+              viewType === "grid" ? (
+                /* GRID CARD VIEW FOR FEES */
+                <div className="overflow-auto flex-1 p-5">
+                  {isLoading ? (
+                    <div className="py-20 text-center text-slate-400 font-bold animate-pulse">Loading fees grid cards...</div>
+                  ) : paginatedFeesRecords.length === 0 ? (
+                    <div className="py-20 text-center text-slate-400 font-bold">No fees due follow-up records found matching filters.</div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                      {paginatedFeesRecords.map((rec: FeesFollowupRecord, idx: number) => {
+                        const initial = (rec.fullName || "S").charAt(0).toUpperCase();
+                        return (
+                          <div
+                            key={`${rec._id}-${idx}`}
+                            className="bg-white rounded-2xl border border-slate-200/90 hover:border-emerald-500/50 transition-all duration-300 shadow-xs hover:shadow-xl hover:-translate-y-1 overflow-hidden flex flex-col justify-between group"
+                          >
+                            <div className="p-4 space-y-3">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-black text-sm shadow-md shrink-0">
+                                    {initial}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <h3 className="font-extrabold text-slate-900 text-sm truncate group-hover:text-emerald-600 transition-colors" title={rec.fullName}>
+                                      {rec.fullName}
+                                    </h3>
+                                    <span className="text-[10px] font-mono font-extrabold text-slate-400 block truncate">
+                                      {rec.admissionId}
+                                    </span>
+                                  </div>
+                                </div>
+                                <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-black text-[10px]">
+                                  FEES DUE
+                                </span>
+                              </div>
+
+                              <div className="bg-emerald-50/70 p-3 rounded-xl border border-emerald-100 space-y-1 text-xs">
+                                <div className="flex items-center justify-between text-[11px]">
+                                  <span className="text-slate-400 font-semibold uppercase text-[9px] tracking-wider">Due Amount</span>
+                                  <span className="font-black text-rose-600 text-sm">₹{rec.dueAmount.toLocaleString("en-IN")}</span>
+                                </div>
+                                <div className="flex items-center justify-between text-[11px]">
+                                  <span className="text-slate-400 font-semibold uppercase text-[9px] tracking-wider">Fees Due Date</span>
+                                  <span className="font-bold text-slate-800">
+                                    📅 {new Date(rec.feesDueDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between text-[11px]">
+                                  <span className="text-slate-400 font-semibold uppercase text-[9px] tracking-wider">Course / Brand</span>
+                                  <span className="font-extrabold text-slate-800 truncate max-w-[140px]" title={rec.course}>
+                                    🎓 {rec.course}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="bg-slate-50 px-4 py-3 border-t border-slate-100 flex items-center justify-between gap-2 shrink-0">
+                              <span className="text-[11px] font-bold text-slate-500 truncate" title={rec.counsellor}>
+                                👤 {rec.counsellor || "Advisor"}
+                              </span>
+                              <button
+                                onClick={() => {
+                                  setActiveRecordForFollowup(rec);
+                                  setIsQuickFollowupModalOpen(true);
+                                }}
+                                className="px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-[11px] font-extrabold transition-all shadow-md shadow-emerald-600/20 active:scale-95 cursor-pointer"
+                              >
+                                ✏️ Add Followup
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* LIST TABLE VIEW FOR FEES */
               <div className="overflow-auto flex-1 min-h-0">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead className="sticky top-0 z-10 bg-slate-100/95 backdrop-blur-xs shadow-2xs">
@@ -978,7 +1199,7 @@ export default function FollowupPage() {
                   </tbody>
                 </table>
               </div>
-            )}
+            ))}
 
             {/* Pagination Controls */}
             {activeRecordsLength > 0 && (
