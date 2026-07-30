@@ -43,15 +43,22 @@ export async function GET(req: Request) {
     const admissionQuery: any = {};
     const companyQuery: any = {};
 
-    if (filterByBrand) {
-      enquiryQuery.targetBrand = { $regex: new RegExp(`^${selectedBrand}$`, 'i') };
-      admissionQuery.brand = { $regex: new RegExp(`^${selectedBrand}$`, 'i') };
-      companyQuery.brand = { $regex: new RegExp(`^${selectedBrand}$`, 'i') };
-    } else if (allowedBrands) {
-      const regexArray = allowedBrands.map(b => new RegExp(`^${b}$`, 'i'));
-      enquiryQuery.targetBrand = { $in: regexArray };
-      admissionQuery.brand = { $in: regexArray };
-      companyQuery.brand = { $in: regexArray };
+    if (allowedBrands) {
+      // If employee is brand restricted, verify selectedBrand is within allowedBrands
+      if (filterByBrand && allowedBrands.some(b => b.toLowerCase() === selectedBrand!.toLowerCase())) {
+        enquiryQuery.targetBrand = { $regex: new RegExp(`^${selectedBrand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
+        admissionQuery.brand = { $regex: new RegExp(`^${selectedBrand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
+        companyQuery.brand = { $regex: new RegExp(`^${selectedBrand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
+      } else {
+        const regexArray = allowedBrands.map(b => new RegExp(`^${b.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'));
+        enquiryQuery.targetBrand = { $in: regexArray };
+        admissionQuery.brand = { $in: regexArray };
+        companyQuery.brand = { $in: regexArray };
+      }
+    } else if (filterByBrand) {
+      enquiryQuery.targetBrand = { $regex: new RegExp(`^${selectedBrand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
+      admissionQuery.brand = { $regex: new RegExp(`^${selectedBrand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
+      companyQuery.brand = { $regex: new RegExp(`^${selectedBrand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
     }
 
     // 1. KPI Calculations

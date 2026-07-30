@@ -5,16 +5,26 @@ import Batch from "@/models/Batch";
 import Admission from "@/models/Admission";
 import Enquiry from "@/models/Enquiry";
 
+import { getUserFromCookies } from "@/lib/helper";
+
 export async function GET(request: Request) {
   try {
     await dbConnect();
+    const user = await getUserFromCookies();
     const { searchParams } = new URL(request.url);
     const batchId = searchParams.get("batchId");
     const batchName = searchParams.get("batchName");
     const dateStr = searchParams.get("dateStr");
     const teacherId = searchParams.get("teacherId");
-    const brand = searchParams.get("brand");
+    let brand = searchParams.get("brand");
     const getRosterOnly = searchParams.get("rosterOnly");
+
+    const userBrand = (user?.brandScope || (user as any)?.brand || "").trim();
+    const isBrandRestricted = userBrand && userBrand !== "All Brands" && userBrand !== "All" && userBrand !== "*" && userBrand !== "global";
+
+    if (isBrandRestricted) {
+      brand = userBrand;
+    }
 
     // If rosterOnly flag is passed, fetch enrolled students for the specified batch
     if (getRosterOnly === "true" && (batchId || batchName)) {

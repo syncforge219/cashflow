@@ -1,17 +1,26 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Expense from "@/models/Expense";
+import { getUserFromCookies } from "@/lib/helper";
 
 export async function GET(req: Request) {
   try {
     await dbConnect();
+    const user = await getUserFromCookies();
     const { searchParams } = new URL(req.url);
     const category = searchParams.get("category");
-    const brand = searchParams.get("brand");
+    let brand = searchParams.get("brand");
     const company = searchParams.get("company");
     const search = searchParams.get("search");
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
+
+    const userBrand = (user?.brandScope || (user as any)?.brand || "").trim();
+    const isBrandRestricted = userBrand && userBrand !== "All Brands" && userBrand !== "All" && userBrand !== "*" && userBrand !== "global";
+
+    if (isBrandRestricted) {
+      brand = userBrand;
+    }
 
     const query: any = {};
 

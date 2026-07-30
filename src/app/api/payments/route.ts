@@ -17,12 +17,15 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const admissionId = searchParams.get("admissionId");
 
+    const userBrand = (user?.brandScope || (user as any)?.brand || "").trim();
+    const isBrandRestricted = userBrand && userBrand !== "All Brands" && userBrand !== "All" && userBrand !== "*" && userBrand !== "global";
+
     let query: any = {};
     if (admissionId) {
       query.admissionId = admissionId;
     }
-    if (user && user.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All") {
-      query.brand = user.brandScope;
+    if (isBrandRestricted) {
+      query.brand = { $regex: new RegExp(`^${userBrand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") };
     }
 
     const payments = await Payment.find(query).sort({ createdAt: -1 });

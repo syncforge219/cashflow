@@ -2,19 +2,28 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Batch from "@/models/Batch";
 import User from "@/models/User";
+import { getUserFromCookies } from "@/lib/helper";
 
 export async function GET(request: Request) {
   try {
     await dbConnect();
+    const user = await getUserFromCookies();
     const { searchParams } = new URL(request.url);
-    const brand = searchParams.get("brand");
+    let brand = searchParams.get("brand");
     const teacherId = searchParams.get("teacherId");
     const status = searchParams.get("status");
     const course = searchParams.get("course");
 
+    const userBrand = (user?.brandScope || (user as any)?.brand || "").trim();
+    const isBrandRestricted = userBrand && userBrand !== "All Brands" && userBrand !== "All" && userBrand !== "*" && userBrand !== "global";
+
+    if (isBrandRestricted) {
+      brand = userBrand;
+    }
+
     const query: any = {};
-    if (brand && brand !== "All Brands") {
-      query.brand = { $regex: new RegExp(`^${brand.trim()}$`, "i") };
+    if (brand && brand !== "All Brands" && brand !== "All") {
+      query.brand = { $regex: new RegExp(`^${brand.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") };
     }
     if (teacherId) {
       query.teacherId = teacherId;
