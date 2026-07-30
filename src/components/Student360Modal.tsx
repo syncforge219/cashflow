@@ -32,6 +32,99 @@ export default function Student360Modal({
   const [copyToast, setCopyToast] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Upgrade Course State
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+  const [availableUpgradeCourses, setAvailableUpgradeCourses] = useState<any[]>([]);
+  const [selectedUpgradeCourse, setSelectedUpgradeCourse] = useState("");
+  const [upgradeFee, setUpgradeFee] = useState<number | string>("");
+  const [upgradeDiscount, setUpgradeDiscount] = useState<number | string>(0);
+  const [isSubmittingUpgrade, setIsSubmittingUpgrade] = useState(false);
+
+  const handleOpenUpgradeModal = async () => {
+    setIsUpgradeModalOpen(true);
+    setSelectedUpgradeCourse("");
+    setUpgradeFee("");
+    setUpgradeDiscount(0);
+    try {
+      const res = await fetch("/api/courses");
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        let brandFiltered = json.data;
+        if (studentData?.brand) {
+          const match = json.data.filter(
+            (c: any) => c.brand && c.brand.toLowerCase() === studentData.brand.toLowerCase()
+          );
+          if (match.length > 0) brandFiltered = match;
+        }
+        setAvailableUpgradeCourses(brandFiltered);
+      }
+    } catch (err) {
+      console.error("Failed to fetch courses for upgrade:", err);
+    }
+  };
+
+  const handlePerformUpgrade = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedUpgradeCourse || !studentData) return;
+
+    setIsSubmittingUpgrade(true);
+    try {
+      const selectedCourseObj = availableUpgradeCourses.find((c) => c.name === selectedUpgradeCourse);
+      const totalFee = Number(upgradeFee || selectedCourseObj?.fee || 0);
+      const disc = Number(upgradeDiscount) || 0;
+      const finalFee = Math.max(0, totalFee - disc);
+
+      const upgradePayload = {
+        fullName: studentData.fullName,
+        studentFullName: studentData.fullName,
+        mobileNumber: studentData.mobileNumber,
+        primaryPhoneMobile: studentData.mobileNumber,
+        email: studentData.email || "",
+        parentName: studentData.parentName || studentData.parentsFullName || "",
+        parentPhone: studentData.parentPhone || studentData.parentsPhoneNumber || "",
+        address: studentData.address || "",
+        city: studentData.city || "",
+        state: studentData.state || "",
+        counsellor: studentData.counsellor || "Staff",
+        brand: studentData.brand || "Default",
+        course: selectedUpgradeCourse,
+        targetCourse: selectedUpgradeCourse,
+        totalCourseFee: totalFee,
+        discountAmount: disc,
+        finalFee: finalFee,
+        remainingBalance: finalFee,
+        amountReceivedToday: 0,
+        registrationAmount: 0,
+        paymentMode: "Pending",
+        isUpgrade: true,
+      };
+
+      const res = await fetch("/api/admissions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(upgradePayload),
+      });
+
+      const json = await res.json();
+      if (json.success) {
+        showToast(`⚡ Course upgraded successfully to ${selectedUpgradeCourse}!`);
+        setIsUpgradeModalOpen(false);
+        setSelectedUpgradeCourse("");
+        setUpgradeFee("");
+        setUpgradeDiscount(0);
+        if (admissionId) fetchStudentDetails(admissionId);
+        if (onRefresh) onRefresh();
+      } else {
+        alert(json.message || "Failed to upgrade course.");
+      }
+    } catch (err) {
+      console.error("Error upgrading course:", err);
+      alert("Error processing course upgrade.");
+    } finally {
+      setIsSubmittingUpgrade(false);
+    }
+  };
+
   const handleDeleteStudent = async () => {
     if (!admissionId || !studentData) return;
     const confirmDelete = window.confirm(
@@ -431,6 +524,16 @@ export default function Student360Modal({
                 </a>
               </>
             )}
+
+            {/* Upgrade Course Action Button */}
+            <button
+              type="button"
+              onClick={handleOpenUpgradeModal}
+              className="h-9 px-3.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-orange-500/20 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+              title="Upgrade student to a new course"
+            >
+              <span>⚡ Upgrade Course</span>
+            </button>
 
             {canEdit && (
               <>
@@ -1383,6 +1486,151 @@ export default function Student360Modal({
           student={studentData}
           paymentsHistory={payments}
         />
+      )}
+
+      {/* Upgrade Course Modal */}
+      {isUpgradeModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+            {/* Upgrade Header */}
+            <div className="bg-gradient-to-r from-amber-500 via-orange-600 to-amber-600 px-6 py-4 flex items-center justify-between text-white">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-white/20 flex items-center justify-center text-white font-black text-lg">
+                  ⚡
+                </div>
+                <div>
+                  <h2 className="text-lg font-extrabold tracking-tight">
+                    Upgrade Course Program
+                  </h2>
+                  <p className="text-xs font-semibold text-amber-100">
+                    Student: {studentData?.fullName} ({studentData?.admissionId || "Reg Student"})
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsUpgradeModalOpen(false)}
+                className="text-white/80 hover:text-white font-black text-xl transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Upgrade Form */}
+            <form onSubmit={handlePerformUpgrade} className="p-6 space-y-4 text-left">
+              {/* Current Enrolled Course Info */}
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                    Current Enrolled Program
+                  </span>
+                  <span className="text-xs font-extrabold text-indigo-900">
+                    {studentData?.course || "N/A"}
+                  </span>
+                </div>
+                <span className="bg-amber-100 text-amber-800 text-[10px] font-black px-2.5 py-1 rounded-md border border-amber-200 uppercase">
+                  Current Course
+                </span>
+              </div>
+
+              {/* Course Selection */}
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  Select Target Upgrade Course <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  required
+                  value={selectedUpgradeCourse}
+                  onChange={(e) => {
+                    const cName = e.target.value;
+                    setSelectedUpgradeCourse(cName);
+                    const found = availableUpgradeCourses.find((c) => c.name === cName);
+                    if (found && found.fee) {
+                      setUpgradeFee(found.fee);
+                    }
+                  }}
+                  className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs font-bold text-slate-800 outline-none bg-white shadow-xs focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 cursor-pointer"
+                >
+                  <option value="">-- Choose New Course to Upgrade --</option>
+                  {availableUpgradeCourses.map((c: any, idx: number) => {
+                    const isCurrent = c.name?.trim().toLowerCase() === studentData?.course?.trim().toLowerCase();
+                    return (
+                      <option key={c._id || idx} value={c.name} disabled={isCurrent}>
+                        {c.name} — ₹{c.fee ? Number(c.fee).toLocaleString("en-IN") : "N/A"}
+                        {isCurrent ? " (Current Enrolled Course)" : ""}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              {/* Fee & Discount Inputs */}
+              {selectedUpgradeCourse && (
+                <div className="grid grid-cols-2 gap-4 animate-in fade-in duration-150">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Total Course Fee (₹)
+                    </label>
+                    <input
+                      type="number"
+                      value={upgradeFee}
+                      onChange={(e) => setUpgradeFee(e.target.value)}
+                      placeholder="e.g. 25000"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-bold text-slate-800 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Discount / Concession (₹)
+                    </label>
+                    <input
+                      type="number"
+                      value={upgradeDiscount}
+                      onChange={(e) => setUpgradeDiscount(e.target.value)}
+                      placeholder="e.g. 2000"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-bold text-slate-800 outline-none"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Summary Card */}
+              {selectedUpgradeCourse && (
+                <div className="p-4 bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl border border-orange-200 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-extrabold text-orange-600 uppercase tracking-wider block">
+                      New Payable Course Fee
+                    </span>
+                    <span className="text-base font-black text-slate-900">
+                      ₹{Math.max(0, Number(upgradeFee || 0) - Number(upgradeDiscount || 0)).toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                  <span className="text-xs font-bold text-orange-700 bg-white px-2.5 py-1 rounded-lg border border-orange-200 shadow-2xs">
+                    Upgrade Status: Ready
+                  </span>
+                </div>
+              )}
+
+              {/* Footer Actions */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsUpgradeModalOpen(false)}
+                  className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!selectedUpgradeCourse || isSubmittingUpgrade}
+                  className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-orange-500/20 transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  <span>{isSubmittingUpgrade ? "Enrolling Upgrade..." : "⚡ Upgrade & Register Course"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -577,6 +577,16 @@ export default function AdmissionHub() {
                                                         <button
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
+                                                                setSelectedAdmissionDetail(adm);
+                                                            }}
+                                                            className="text-xs font-bold text-amber-800 hover:text-amber-950 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-lg transition-colors border border-amber-200 shadow-2xs cursor-pointer"
+                                                            title="Upgrade course for this student"
+                                                        >
+                                                            ⚡ Upgrade
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
                                                                 setSelected360StudentId(adm._id);
                                                                 setIs360Open(true);
                                                             }}
