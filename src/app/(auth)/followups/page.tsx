@@ -670,12 +670,17 @@ export default function FollowupPage() {
 
             {/* View Mode Select Dropdown */}
             <select
+              id="followup-view-select"
               value={viewType}
-              onChange={(e) => setViewType(e.target.value as "list" | "grid")}
+              onChange={(e) => {
+                const newView = e.target.value as "list" | "grid";
+                console.log("[FollowupPage] Switching viewType to:", newView);
+                setViewType(newView);
+              }}
               className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-700 outline-none focus:border-indigo-600 cursor-pointer shadow-xs"
             >
-              <option value="list">📋 List View</option>
-              <option value="grid">🎴 Grid Card View</option>
+              <option value="list">List View</option>
+              <option value="grid">Grid Card View</option>
             </select>
           </div>
         </div>
