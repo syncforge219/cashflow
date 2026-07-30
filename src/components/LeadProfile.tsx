@@ -619,6 +619,8 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
               </svg>
               <span>ID: <span className="font-mono text-slate-600">{localLead.enquiryId}</span></span>
               <span className="text-slate-300">•</span>
+              <span>Enquiry Date: <span className="font-mono text-slate-600">{localLead.date || (localLead.createdAt ? new Date(localLead.createdAt).toISOString().split('T')[0] : "N/A")}</span></span>
+              <span className="text-slate-300">•</span>
               <span>Course: <span className="font-mono text-slate-600">{localLead.targetCourse || "N/A"}</span></span>
             </div>
           </div>
@@ -1113,14 +1115,18 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
               <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Interactive Communication Summary</h3>
                 
-                <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                    <p className="text-[10px] font-semibold text-slate-400">Enquiry Date</p>
+                    <p className="text-xs font-bold text-slate-800 mt-0.5">{localLead.date || (localLead.createdAt ? new Date(localLead.createdAt).toISOString().split('T')[0] : "N/A")}</p>
+                  </div>
                   <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
                     <p className="text-[10px] font-semibold text-slate-400">Scheduled followup</p>
-                    <p className="text-sm font-bold text-slate-800 mt-0.5">{localLead.followUpDate ? new Date(localLead.followUpDate).toISOString().split('T')[0] : "None"}</p>
+                    <p className="text-xs font-bold text-slate-800 mt-0.5">{localLead.followUpDate ? new Date(localLead.followUpDate).toISOString().split('T')[0] : "None"}</p>
                   </div>
                   <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
                     <p className="text-[10px] font-semibold text-slate-400">Last contact date</p>
-                    <p className="text-sm font-bold text-slate-800 mt-0.5">{localLead.createdAt ? new Date(localLead.createdAt).toISOString().split('T')[0] : "N/A"}</p>
+                    <p className="text-xs font-bold text-slate-800 mt-0.5">{localLead.createdAt ? new Date(localLead.createdAt).toISOString().split('T')[0] : "N/A"}</p>
                   </div>
                 </div>
 

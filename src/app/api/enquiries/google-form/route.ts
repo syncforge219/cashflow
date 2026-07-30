@@ -145,6 +145,7 @@ export async function POST(req: Request) {
     // 3. Create Enquiry Document
     const newEnquiry = await Enquiry.create({
       studentFullName,
+      date: body.date?.trim() || new Date().toISOString().split("T")[0],
       primaryPhoneMobile,
       emailAddress,
       currentCity,

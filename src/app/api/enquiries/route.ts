@@ -25,6 +25,7 @@ export async function POST(req: Request) {
       );
     }
     body.studentFullName = fullName;
+    body.date = body.date?.trim() || new Date().toISOString().split("T")[0];
     body.primaryPhoneMobile = body.primaryPhoneMobile?.trim() || "+91 0000000000";
     body.currentCity = body.currentCity?.trim() || "N/A";
     

@@ -50,8 +50,9 @@ export default function EnquiriesDisplay() {
 
   // 1. Date Filtered Enquiries (for Date Range Presets)
   const dateFilteredEnquiries = enquiries.filter((lead) => {
-    if (!lead.createdAt || dateFilterMode === "all") return true;
-    const leadDate = new Date(lead.createdAt);
+    const rawDateVal = lead.date || lead.createdAt;
+    if (!rawDateVal || dateFilterMode === "all") return true;
+    const leadDate = new Date(rawDateVal);
     const now = new Date();
 
     if (dateFilterMode === "today") {
@@ -615,9 +616,12 @@ export default function EnquiriesDisplay() {
                     onClick={() => setSelectedLead(lead)}
                     className="hover:bg-slate-50/40 transition-colors cursor-pointer group"
                   >
-                    {/* Enquiry No */}
-                    <td className="py-4 px-6 text-slate-800 font-bold font-mono group-hover:text-indigo-600 transition-colors">
-                      {lead.enquiryId}
+                    {/* Enquiry No & Date */}
+                    <td className="py-4 px-6 text-slate-800 font-bold group-hover:text-indigo-600 transition-colors">
+                      <div className="font-mono">{lead.enquiryId}</div>
+                      <div className="text-[10px] text-slate-400 font-normal font-mono mt-0.5">
+                        📅 {lead.date || (lead.createdAt ? new Date(lead.createdAt).toISOString().split('T')[0] : "N/A")}
+                      </div>
                     </td>
 
                     {/* Basic Details */}

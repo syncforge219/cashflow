@@ -31,11 +31,13 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
   const [isFollowUpScheduled, setIsFollowUpScheduled] = useState(false);
   const [primaryPhone, setPrimaryPhone] = useState("+91 ");
   const [parentsPhone, setParentsPhone] = useState("+91 ");
+  const [enquiryDate, setEnquiryDate] = useState<string>(new Date().toISOString().split("T")[0]);
 
   useEffect(() => {
     if (isOpen) {
       setPrimaryPhone("+91 ");
       setParentsPhone("+91 ");
+      setEnquiryDate(new Date().toISOString().split("T")[0]);
       setIsFollowUpScheduled(false);
       setSelectedCourses([]);
       setExpectedCourseFee("₹0");
@@ -287,6 +289,19 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
                   value={primaryPhone}
                   onChange={handlePrimaryPhoneChange}
                   placeholder="e.g. +91 9876500000"
+                  className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50" 
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">
+                  Enquiry Date <span className="text-rose-500">*</span>
+                </label>
+                <input 
+                  name="date" 
+                  type="date" 
+                  required
+                  value={enquiryDate}
+                  onChange={(e) => setEnquiryDate(e.target.value)}
                   className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50" 
                 />
               </div>

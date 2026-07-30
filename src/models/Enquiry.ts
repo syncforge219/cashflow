@@ -6,6 +6,10 @@ const EnquirySchema = new Schema(
       type: String,
       unique: true,
     },
+    date: {
+      type: String,
+      trim: true,
+    },
     studentFullName: {
       type: String,
       trim: true,
