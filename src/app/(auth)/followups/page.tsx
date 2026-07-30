@@ -642,13 +642,40 @@ export default function FollowupPage() {
           </div>
 
           <div className="shrink-0 flex items-center gap-2">
+            {/* Segmented View Toggle Buttons */}
+            <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+              <button
+                type="button"
+                onClick={() => setViewType("list")}
+                className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1 ${
+                  viewType === "list"
+                    ? "bg-white text-indigo-600 shadow-xs"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <span>📋 List</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewType("grid")}
+                className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1 ${
+                  viewType === "grid"
+                    ? "bg-white text-indigo-600 shadow-xs"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <span>🎴 Grid Cards</span>
+              </button>
+            </div>
+
+            {/* View Mode Select Dropdown */}
             <select
               value={viewType}
               onChange={(e) => setViewType(e.target.value as "list" | "grid")}
-              className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-indigo-600 cursor-pointer shadow-xs"
+              className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-700 outline-none focus:border-indigo-600 cursor-pointer shadow-xs"
             >
-              <option value="list">List View</option>
-              <option value="grid">Grid Card View</option>
+              <option value="list">📋 List View</option>
+              <option value="grid">🎴 Grid Card View</option>
             </select>
           </div>
         </div>
