@@ -73,7 +73,8 @@ export default function FeeCollectionPage() {
   const [availableCompaniesList, setAvailableCompaniesList] = useState<string[]>([]);
 
   useEffect(() => {
-    fetch("/api/companies")
+    const activeBrand = (selectedStudent as any)?.brand || (selectedStudent as any)?.targetBrand || "";
+    fetch(`/api/companies${activeBrand ? `?brand=${encodeURIComponent(activeBrand)}` : ""}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.companies && Array.isArray(data.companies)) {
@@ -82,7 +83,7 @@ export default function FeeCollectionPage() {
         }
       })
       .catch((err) => console.error("Failed to fetch available companies:", err));
-  }, []);
+  }, [selectedStudent]);
 
   useEffect(() => {
     if (selectedStudent && paymentMode !== "Cash") {

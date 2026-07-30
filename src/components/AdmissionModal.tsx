@@ -297,7 +297,26 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
           }
         })
         .catch((err) => console.error("Failed to fetch batches:", err));
-      fetch("/api/companies")
+    }
+  }, [isOpen]);
+
+  // Auto-sync Brand from selected Course
+  useEffect(() => {
+    if (course && courses.length > 0) {
+      const selectedCourseObj = courses.find(
+        (c: any) => (c.name || "").toUpperCase().trim() === course.toUpperCase().trim()
+      );
+      if (selectedCourseObj && selectedCourseObj.brand) {
+        setBrand(selectedCourseObj.brand.toUpperCase().trim());
+      }
+    }
+  }, [course, courses]);
+
+  // Fetch Companies dynamically mapped to the active Brand
+  useEffect(() => {
+    if (isOpen) {
+      const activeBrand = brand || (user?.brandScope !== "All Brands" && user?.brandScope !== "ALL BRANDS" ? user?.brandScope : "");
+      fetch(`/api/companies${activeBrand ? `?brand=${encodeURIComponent(activeBrand)}` : ""}`)
         .then((res) => res.json())
         .then((data) => {
           if (data.companies && Array.isArray(data.companies)) {
@@ -307,7 +326,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
         })
         .catch((err) => console.error("Failed to fetch available companies:", err));
     }
-  }, [isOpen]);
+  }, [isOpen, brand, user]);
 
   useEffect(() => {
     if (isOpen) {

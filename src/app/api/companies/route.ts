@@ -5,20 +5,38 @@ import Brand from "@/models/Brand";
 import { getUserFromCookies } from "@/lib/helper";
 import { runUppercaseDataMigration } from "@/lib/uppercaseMigration";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     await dbConnect();
     await runUppercaseDataMigration();
     const user = await getUserFromCookies();
 
+    const { searchParams } = new URL(req.url);
+    const brandParam = searchParams.get("brand");
+
+    let targetBrand = "";
+    if (brandParam && brandParam !== "All Brands" && brandParam !== "ALL BRANDS" && brandParam !== "All") {
+      targetBrand = brandParam.toUpperCase().trim();
+    } else if (user && user.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "ALL BRANDS" && user.brandScope !== "All") {
+      targetBrand = user.brandScope.toUpperCase().trim();
+    }
+
     let query: any = {};
-    if (user && user.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All") {
-      const scopeBrand = await Brand.findOne({ name: user.brandScope }).lean();
-      const scopeBrandCompanies = scopeBrand?.companies || [];
+    if (targetBrand) {
+      const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const brandRegex = new RegExp(`^${escapeRegExp(targetBrand)}$`, "i");
+
+      const scopeBrand = await Brand.findOne({
+        $or: [{ name: brandRegex }, { code: brandRegex }]
+      }).lean();
+
+      const scopeBrandCompanies = (scopeBrand?.companies || []).map((c: string) => c.toUpperCase().trim());
+
       query.$or = [
-        { brand: user.brandScope }, 
-        { brands: user.brandScope },
-        { name: { $in: scopeBrandCompanies } }
+        { brand: brandRegex }, 
+        { brands: brandRegex },
+        { name: { $in: scopeBrandCompanies.map(c => new RegExp(`^${escapeRegExp(c)}$`, "i")) } },
+        { legalName: { $in: scopeBrandCompanies.map(c => new RegExp(`^${escapeRegExp(c)}$`, "i")) } }
       ];
     }
 
@@ -31,10 +49,13 @@ export async function GET() {
       const companyLegalName = (company.legalName || companyName).toUpperCase().trim();
 
       const reversedBrands = allBrands
-        .filter((b: any) => b.companies && b.companies.includes(companyName))
+        .filter((b: any) => b.companies && b.companies.map((c: string) => c.toUpperCase().trim()).includes(companyName))
         .map((b: any) => (b.name || "").toUpperCase().trim());
       
-      const finalBrandsSet = new Set([...(company.brands || []).map((b: any) => String(b).toUpperCase().trim()), ...reversedBrands]);
+      const finalBrandsSet = new Set([
+        ...(company.brands || []).map((b: any) => String(b).toUpperCase().trim()),
+        ...reversedBrands
+      ]);
       if (company.brand) finalBrandsSet.add(String(company.brand).toUpperCase().trim());
       
       return {

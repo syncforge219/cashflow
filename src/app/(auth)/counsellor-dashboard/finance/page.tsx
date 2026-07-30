@@ -71,7 +71,8 @@ export default function CounsellorFeeCollectionPage() {
     const [availableCompaniesList, setAvailableCompaniesList] = useState<string[]>([]);
 
     useEffect(() => {
-        fetch("/api/companies")
+        const activeBrand = (selectedStudent as any)?.brand || (selectedStudent as any)?.targetBrand || (user?.brandScope !== "All Brands" && user?.brandScope !== "ALL BRANDS" ? user?.brandScope : "");
+        fetch(`/api/companies${activeBrand ? `?brand=${encodeURIComponent(activeBrand)}` : ""}`)
             .then((res) => res.json())
             .then((data) => {
                 if (data.companies && Array.isArray(data.companies)) {
@@ -80,7 +81,7 @@ export default function CounsellorFeeCollectionPage() {
                 }
             })
             .catch((err) => console.error("Failed to fetch available companies:", err));
-    }, []);
+    }, [selectedStudent, user]);
 
     useEffect(() => {
         if (selectedStudent && paymentMode !== "Cash") {
