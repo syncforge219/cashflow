@@ -152,10 +152,13 @@ export default function ManagerDashboard() {
   // Compute SVG Donut Chart Stroke Array Offsets
   const getDonutSegments = () => {
     if (!stats || !stats.enquiriesBySource) return [];
+    const valid = stats.enquiriesBySource.filter((src) => src.pctNum > 0);
+    if (valid.length === 0) return [];
+
     let cumulativeOffset = 0;
     const totalCircumference = 100; // r = 15.9155 gives circ approx 100
 
-    return stats.enquiriesBySource.map((src) => {
+    return valid.map((src) => {
       const dash = src.pctNum;
       const gap = totalCircumference - dash;
       const offset = cumulativeOffset;
@@ -475,35 +478,56 @@ export default function ManagerDashboard() {
             <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-6 flex flex-col items-center">
               <h3 className="text-sm font-bold text-slate-800 self-start mb-6">Enquiries by Source</h3>
               <div className="flex items-center gap-6 w-full">
-                <div className="relative w-28 h-28 shrink-0">
+                <div className="relative w-32 h-32 shrink-0 flex items-center justify-center">
                   <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
-                    {donutSegments.map((s, idx) => (
+                    {donutSegments.length > 0 ? (
+                      donutSegments.map((s, idx) => (
+                        <circle
+                          key={idx}
+                          cx="18"
+                          cy="18"
+                          r="15.91549430918954"
+                          fill="transparent"
+                          stroke={s.hex}
+                          strokeWidth="6"
+                          strokeDasharray={s.dashArray}
+                          strokeDashoffset={s.dashOffset}
+                          className="transition-all duration-500 ease-out"
+                        />
+                      ))
+                    ) : (
                       <circle
-                        key={idx}
                         cx="18"
                         cy="18"
                         r="15.91549430918954"
                         fill="transparent"
-                        stroke={s.hex}
-                        strokeWidth="7"
-                        strokeDasharray={s.dashArray}
-                        strokeDashoffset={s.dashOffset}
+                        stroke="#e2e8f0"
+                        strokeWidth="6"
                       />
-                    ))}
+                    )}
                   </svg>
-                  <div className="absolute inset-0 flex items-center justify-center rounded-full bg-white m-4 shadow-inner"></div>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center rounded-full bg-white m-3.5 shadow-2xs">
+                    <span className="text-sm font-black text-slate-900 leading-none">
+                      {stats?.enquiriesBySource?.reduce((acc, s) => acc + (s.count || 0), 0) || 0}
+                    </span>
+                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter mt-0.5">
+                      Total Leads
+                    </span>
+                  </div>
                 </div>
-                <div className="flex-1 space-y-2">
+                <div className="flex-1 space-y-1.5 max-h-36 overflow-y-auto pr-1">
                   {loading ? (
                     <p className="text-xs text-slate-400">Loading sources...</p>
                   ) : (
                     stats?.enquiriesBySource?.map((s, i) => (
                       <div key={i} className="flex justify-between items-center text-[10px]">
-                        <div className="flex items-center gap-1.5">
-                          <span className={`w-1.5 h-1.5 ${s.color} rounded-sm`}></span>
-                          <span className="font-semibold text-slate-600">{s.label}</span>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className={`w-2 h-2 ${s.color || "bg-indigo-500"} rounded-full shrink-0`}></span>
+                          <span className="font-semibold text-slate-700 truncate">{s.label}</span>
                         </div>
-                        <span className="font-bold text-slate-800">{s.pct} <span className="text-slate-400">({s.count})</span></span>
+                        <span className="font-bold text-slate-900 shrink-0 ml-2">
+                          {s.pct} <span className="text-slate-400 font-semibold">({s.count})</span>
+                        </span>
                       </div>
                     ))
                   )}

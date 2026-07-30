@@ -334,14 +334,19 @@ export default function AdminDashboard() {
 
   // Donut chart generation
   let currentOffset = 0;
-  const donutCircles = (data?.enquiriesBySource || []).map((source: any, i: number) => {
-    const strokeDasharray = `${source.pctNum} ${100 - source.pctNum}`;
-    const strokeDashoffset = -currentOffset;
-    currentOffset += source.pctNum;
-    return (
-      <circle key={i} cx="18" cy="18" r="15.915" fill="transparent" stroke={source.hex} strokeWidth="3" strokeDasharray={strokeDasharray} strokeDashoffset={strokeDashoffset} />
-    );
-  });
+  const validSources = (data?.enquiriesBySource || []).filter((s: any) => s.pctNum > 0);
+  const donutCircles = validSources.length > 0 ? (
+    validSources.map((source: any, i: number) => {
+      const strokeDasharray = `${source.pctNum} ${100 - source.pctNum}`;
+      const strokeDashoffset = -currentOffset;
+      currentOffset += source.pctNum;
+      return (
+        <circle key={i} cx="18" cy="18" r="15.915" fill="transparent" stroke={source.hex || "#6366f1"} strokeWidth="4" strokeDasharray={strokeDasharray} strokeDashoffset={strokeDashoffset} className="transition-all duration-500 ease-out" />
+      );
+    })
+  ) : (
+    <circle cx="18" cy="18" r="15.915" fill="transparent" stroke="#e2e8f0" strokeWidth="4" />
+  );
 
   const handleMarkLost = async () => {
     if (!enquiryToDelete) return;
