@@ -304,14 +304,21 @@ export async function DELETE(
     // 5. Reset linked Enquiry status if present
     if (admission.enquiryId) {
       await Enquiry.findByIdAndUpdate(admission.enquiryId, {
+        status: "Closed / Lost",
         stage: "Closed / Lost",
         remarks: "Admission deleted via Student 360",
-        isConverted: false
+        isConverted: false,
+        isAdmitted: false
       });
     } else if (admission.mobileNumber) {
       await Enquiry.updateMany(
         { mobileNumber: admission.mobileNumber },
-        { isConverted: false }
+        { 
+          status: "Closed / Lost",
+          stage: "Closed / Lost",
+          isConverted: false,
+          isAdmitted: false
+        }
       );
     }
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Enquiry from "@/models/Enquiry";
+import Admission from "@/models/Admission";
 import LostLeadCounter from "@/models/LostLeadCounter";
 
 export async function POST(req: Request) {
@@ -13,12 +14,33 @@ export async function POST(req: Request) {
 
     await dbConnect();
 
-    // 1. Physically delete the enquiry instead of marking it as lost
-    const enquiry = await Enquiry.findByIdAndDelete(enquiryId);
-
-    if (!enquiry) {
+    const existingEnquiry = await Enquiry.findById(enquiryId);
+    if (!existingEnquiry) {
       return NextResponse.json({ message: "Enquiry not found" }, { status: 404 });
     }
+
+    const enquiryDoc = existingEnquiry as any;
+    const phone = enquiryDoc.primaryPhoneMobile || enquiryDoc.mobileNumber;
+
+    const admissionExists = await Admission.exists({
+      $or: [
+        { enquiryId: existingEnquiry._id.toString() },
+        { enquiryId: existingEnquiry._id },
+        ...(phone
+          ? [
+              { mobileNumber: phone },
+              { primaryPhoneMobile: phone }
+            ]
+          : [])
+      ]
+    });
+
+    if (admissionExists) {
+      return NextResponse.json({ message: "Cannot mark an enquiry as lost while an active student admission record exists." }, { status: 400 });
+    }
+
+    // 1. Physically delete the enquiry instead of marking it as lost
+    const enquiry = await Enquiry.findByIdAndDelete(enquiryId);
 
     // 2. Increment the lost lead counter for the given date
     await LostLeadCounter.findOneAndUpdate(

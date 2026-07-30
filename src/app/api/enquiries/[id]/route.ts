@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Enquiry from "@/models/Enquiry";
+import Admission from "@/models/Admission";
 import LostLeadCounter from "@/models/LostLeadCounter";
 
 export async function PATCH(
@@ -120,15 +121,31 @@ export async function DELETE(
     }
 
     const enquiryDoc = existingEnquiry as any;
+    const phone = enquiryDoc.primaryPhoneMobile || enquiryDoc.mobileNumber;
     if (
       (enquiryDoc.status || "").toUpperCase() === "ADMITTED" ||
       (enquiryDoc.stage || "").toUpperCase() === "ADMITTED" ||
       enquiryDoc.isAdmitted === true
     ) {
-      return NextResponse.json(
-        { error: "Cannot mark an admitted student as a lost lead or delete their enquiry record." },
-        { status: 400 }
-      );
+      const admissionExists = await Admission.exists({
+        $or: [
+          { enquiryId: existingEnquiry._id.toString() },
+          { enquiryId: existingEnquiry._id },
+          ...(phone
+            ? [
+                { mobileNumber: phone },
+                { primaryPhoneMobile: phone }
+              ]
+            : [])
+        ]
+      });
+
+      if (admissionExists) {
+        return NextResponse.json(
+          { error: "Cannot delete an enquiry record while an active student admission record exists." },
+          { status: 400 }
+        );
+      }
     }
 
     const deletedEnquiry = await Enquiry.findByIdAndDelete(id);

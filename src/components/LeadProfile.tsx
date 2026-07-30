@@ -667,10 +667,6 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
 
             <button
               onClick={async () => {
-                if (localLead.status === "Admitted" || localLead.isAdmitted) {
-                  alert("Cannot delete an admitted student's enquiry record.");
-                  return;
-                }
                 if (!confirm(`Are you sure you want to permanently delete enquiry "${localLead.studentName}" (${localLead.enquiryId})? This action cannot be undone.`)) {
                   return;
                 }
@@ -685,7 +681,7 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
                     onClose();
                     if (onSuccess) onSuccess();
                   } else {
-                    alert(data.error || "Failed to delete enquiry.");
+                    alert(data.error || data.message || "Failed to delete enquiry.");
                   }
                 } catch (err: any) {
                   console.error("Error deleting enquiry:", err);

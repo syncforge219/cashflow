@@ -699,10 +699,6 @@ export default function EnquiriesDisplay() {
                       <button
                         onClick={async (e) => {
                           e.stopPropagation();
-                          if (lead.status === "Admitted" || lead.isAdmitted) {
-                            alert("Cannot delete an admitted student's enquiry record.");
-                            return;
-                          }
                           if (confirm(`Are you sure you want to delete enquiry "${lead.studentFullName}" (${lead.enquiryId})?`)) {
                             try {
                               const res = await fetch(`/api/enquiries/${lead._id}`, { method: "DELETE" });
@@ -710,7 +706,7 @@ export default function EnquiriesDisplay() {
                               if (res.ok && data.success) {
                                 fetchEnquiries();
                               } else {
-                                alert(data.error || "Failed to delete enquiry.");
+                                alert(data.error || data.message || "Failed to delete enquiry.");
                               }
                             } catch (err) {
                               console.error(err);
