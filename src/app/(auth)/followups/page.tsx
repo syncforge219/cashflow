@@ -46,6 +46,7 @@ interface EnquiryFollowupRecord {
   }>;
   dueDateStr?: string;
   dueDateObj?: Date;
+  hasScheduledFollowup?: boolean;
   lastRemarkStr?: string;
   isOverdue?: boolean;
   isEscalated?: boolean;
@@ -253,18 +254,26 @@ export default function FollowupPage() {
       const lastFollowup = rawFollowups.length > 0 ? rawFollowups[rawFollowups.length - 1] : null;
       const lastRemarkStr = lastFollowup?.remarks || e.remarks || e.followUpNotes || "No remark";
 
-      // If pending followups exist, use the earliest pending followup date
-      let dueDateStr = todayStr;
-      if (pendingFollowups.length > 0) {
-        dueDateStr = pendingFollowups[0].date || todayStr;
+      // Follow-up due date calculation
+      let dueDateStr = "";
+      let hasScheduledFollowup = false;
+
+      if (pendingFollowups.length > 0 && pendingFollowups[0].date) {
+        dueDateStr = pendingFollowups[0].date;
+        hasScheduledFollowup = true;
+      } else if (e.nextFollowUpDate) {
+        dueDateStr = e.nextFollowUpDate;
+        hasScheduledFollowup = true;
       } else if (lastFollowup?.date) {
         dueDateStr = lastFollowup.date;
+      } else if (e.createdAt) {
+        dueDateStr = getLocalDateStr(e.createdAt);
       } else {
-        dueDateStr = e.createdAt ? new Date(e.createdAt).toISOString().split("T")[0] : todayStr;
+        dueDateStr = todayStr;
       }
 
-      const dueDateTime = new Date(dueDateStr).getTime();
-      const isOverdue = dueDateTime < todayTime;
+      const dueDateTime = dueDateStr ? new Date(dueDateStr).getTime() : 0;
+      const isOverdue = hasScheduledFollowup && dueDateTime < todayTime;
       const isEscalated = rawFollowups.some((f: any) => f.escalatedToManager) || (isOverdue && (todayTime - dueDateTime) > 86400000);
 
       list.push({
@@ -288,6 +297,7 @@ export default function FollowupPage() {
         followUps: e.followUps,
         dueDateStr,
         dueDateObj: new Date(dueDateStr),
+        hasScheduledFollowup,
         lastRemarkStr,
         isOverdue,
         isEscalated,
@@ -313,13 +323,13 @@ export default function FollowupPage() {
         if (createdDateStr !== todayDateStr) return false;
       } else if (enquiryTab === "today") {
         if (statusLower.includes("lost") || statusLower.includes("admitted") || statusLower.includes("do not")) return false;
-        if (rec.dueDateStr !== todayStr && recTime > todayTime) return false;
+        if (!rec.hasScheduledFollowup || rec.dueDateStr !== todayStr) return false;
       } else if (enquiryTab === "pending") {
         if (statusLower.includes("lost") || statusLower.includes("admitted") || statusLower.includes("do not")) return false;
-        if (recTime >= todayTime) return false; // Past due
+        if (!rec.hasScheduledFollowup || recTime >= todayTime) return false; // Past due
       } else if (enquiryTab === "upcoming") {
         if (statusLower.includes("lost") || statusLower.includes("admitted") || statusLower.includes("do not")) return false;
-        if (recTime <= todayTime) return false; // Future due
+        if (!rec.hasScheduledFollowup || recTime <= todayTime) return false; // Future due
       } else if (enquiryTab === "donot") {
         if (!statusLower.includes("lost") && !statusLower.includes("admitted") && !statusLower.includes("do not")) return false;
       }
@@ -387,7 +397,7 @@ export default function FollowupPage() {
     let today = 0, newLeads = 0, pending = 0, upcoming = 0, donot = 0;
 
     processedEnquiryFollowups.forEach((rec) => {
-      const recTime = new Date(rec.dueDateStr || todayStr).getTime();
+      const recTime = rec.dueDateStr ? new Date(rec.dueDateStr).getTime() : 0;
       const statusLower = (rec.status || "").toLowerCase();
       const createdDateStr = getLocalDateStr(rec.createdAt);
 
@@ -397,11 +407,14 @@ export default function FollowupPage() {
 
       if (statusLower.includes("lost") || statusLower.includes("admitted") || statusLower.includes("do not")) {
         donot++;
-      } else if (rec.dueDateStr === todayStr || recTime <= todayTime) {
-        today++;
-        if (recTime < todayTime) pending++;
-      } else if (recTime > todayTime) {
-        upcoming++;
+      } else if (rec.hasScheduledFollowup) {
+        if (rec.dueDateStr === todayStr) {
+          today++;
+        } else if (recTime < todayTime) {
+          pending++;
+        } else if (recTime > todayTime) {
+          upcoming++;
+        }
       }
     });
 
@@ -1125,9 +1138,15 @@ export default function FollowupPage() {
                           >
                             <td className="py-3.5 px-4 font-bold whitespace-nowrap">
                               <div className="flex flex-col">
-                                <span className={rec.isOverdue ? "text-rose-700 font-black" : "text-indigo-600"}>
-                                  {rec.dueDateStr ? new Date(rec.dueDateStr).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Today"}
-                                </span>
+                                {rec.hasScheduledFollowup ? (
+                                  <span className={rec.isOverdue ? "text-rose-700 font-black" : "text-indigo-600"}>
+                                    {rec.dueDateStr ? new Date(rec.dueDateStr).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Today"}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400 font-medium text-xs">
+                                    {rec.dueDateStr ? new Date(rec.dueDateStr).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Not Scheduled"}
+                                  </span>
+                                )}
                                 {rec.isOverdue && (
                                   <span className="text-[9px] font-black text-rose-600 tracking-wider animate-pulse">🚨 OVERDUE</span>
                                 )}
