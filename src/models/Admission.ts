@@ -33,6 +33,8 @@ const AdmissionSchema = new Schema(
 
     // 2. Course Details
     course: { type: String },
+    courses: [{ type: String, trim: true }],
+    targetCourses: [{ type: String, trim: true }],
     batch: { type: String },
     duration: { type: String },
     startDate: { type: Date },

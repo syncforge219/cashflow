@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, use } from "react";
+import CourseMultiSelect from "@/components/CourseMultiSelect";
 
 interface PublicEnquiryPageProps {
   params: Promise<{ brand: string }>;
@@ -12,6 +13,7 @@ export default function PublicBrandEnquiryPage({ params }: PublicEnquiryPageProp
   const brandName = rawBrand.toUpperCase().trim();
 
   const [courses, setCourses] = useState<any[]>([]);
+  const [selectedCourses, setSelectedCourses] = useState<string[]>([]);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -72,7 +74,9 @@ export default function PublicBrandEnquiryPage({ params }: PublicEnquiryPageProp
         emailAddress: formData.emailAddress,
         currentCity: formData.currentCity,
         targetBrand: brandName,
-        targetCourse: formData.targetCourse || "General Course",
+        courses: selectedCourses,
+        targetCourses: selectedCourses,
+        targetCourse: selectedCourses.length > 0 ? selectedCourses.join(", ") : "General Course",
         leadSource: "Online Inquiry Form",
         remarks: formData.remarks,
       };
@@ -147,6 +151,7 @@ export default function PublicBrandEnquiryPage({ params }: PublicEnquiryPageProp
                 <button
                   onClick={() => {
                     setIsSubmitted(false);
+                    setSelectedCourses([]);
                     setFormData({
                       studentFullName: "",
                       primaryPhoneMobile: "",
@@ -239,21 +244,14 @@ export default function PublicBrandEnquiryPage({ params }: PublicEnquiryPageProp
               {/* Course Selection */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Interested Course
+                  Interested Course(s) {selectedCourses.length > 0 && `(${selectedCourses.length} selected)`}
                 </label>
-                <select
-                  name="targetCourse"
-                  value={formData.targetCourse}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-800 text-xs font-semibold focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all shadow-2xs"
-                >
-                  <option value="">-- Select a Course for {brandName} --</option>
-                  {courses.map((c) => (
-                    <option key={c._id || c.name} value={c.name}>
-                      {c.name} {c.duration ? `(${c.duration})` : ""}
-                    </option>
-                  ))}
-                </select>
+                <CourseMultiSelect
+                  courses={courses}
+                  selectedCourses={selectedCourses}
+                  onChange={setSelectedCourses}
+                  placeholder={`-- Search & Select Course(s) for ${brandName} --`}
+                />
               </div>
 
               {/* Remarks */}

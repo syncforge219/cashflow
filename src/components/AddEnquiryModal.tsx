@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUser } from "@/app/component/context/user-context";
 import LeadSourceManagerModal from "@/components/LeadSourceManagerModal";
+import CourseMultiSelect from "@/components/CourseMultiSelect";
 
 interface AddEnquiryModalProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [counsellors, setCounsellors] = useState<any[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
+  const [selectedCourses, setSelectedCourses] = useState<string[]>([]);
   const [brands, setBrands] = useState<any[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
   const [leadSources, setLeadSources] = useState<any[]>([]);
@@ -35,6 +37,8 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
       setPrimaryPhone("+91 ");
       setParentsPhone("+91 ");
       setIsFollowUpScheduled(false);
+      setSelectedCourses([]);
+      setExpectedCourseFee("₹0");
       // Auto-select brand if defaultBrand is provided (sales exec / counsellor scope)
       setSelectedBrand(defaultBrand && defaultBrand !== "All Brands" && defaultBrand !== "All" ? defaultBrand : "");
       setSelectedAdvisor("");
@@ -128,6 +132,25 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
 
   // Removed if (!isOpen) return null; to handle AnimatePresence
 
+  const handleCourseSelectionChange = (newSelected: string[]) => {
+    setSelectedCourses(newSelected);
+
+    let totalFee = 0;
+    newSelected.forEach((cName) => {
+      const found = filteredCourses.find((c: any) => c.name === cName);
+      if (found && found.fee) {
+        const num = parseFloat(String(found.fee).replace(/[^0-9.]/g, "")) || 0;
+        totalFee += num;
+      }
+    });
+
+    if (totalFee > 0) {
+      setExpectedCourseFee(`₹${totalFee.toLocaleString("en-IN")}`);
+    } else {
+      setExpectedCourseFee("₹0");
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -138,10 +161,16 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
     const studentFullName = String(data.studentFullName || "").trim();
     if (!studentFullName) {
       alert("Student Full Name is required.");
+      setIsSubmitting(false);
       return;
     }
 
-    setIsSubmitting(true);
+    if (selectedCourses.length === 0) {
+      alert("Please select at least one course.");
+      setIsSubmitting(false);
+      return;
+    }
+
     if (data.primaryPhoneMobile) {
       const cleanPrimary = String(data.primaryPhoneMobile).trim().replace(/^\+?91\s?/, '');
       data.primaryPhoneMobile = cleanPrimary ? `+91 ${cleanPrimary}` : "";
@@ -150,6 +179,12 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
       const cleanParents = String(data.parentsPhoneNumber).trim().replace(/^\+?91\s?/, '');
       data.parentsPhoneNumber = cleanParents ? `+91 ${cleanParents}` : "";
     }
+
+    // Attach multi-selected courses array and string fallback
+    (data as any).courses = selectedCourses;
+    (data as any).targetCourses = selectedCourses;
+    (data as any).targetCourse = selectedCourses.join(", ");
+    (data as any).expectedCourseFee = expectedCourseFee;
 
     // Ensure boolean value for the toggles
     data.isDemoScheduled = isDemoScheduled as any;
@@ -269,25 +304,22 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
                 </select>
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Target Course</label>
-                <select 
-                  name="targetCourse" 
-                  className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
-                  onChange={(e) => {
-                    const selectedCourseName = e.target.value;
-                    const course = filteredCourses.find(c => c.name === selectedCourseName);
-                    if (course) {
-                      setExpectedCourseFee(course.fee);
-                    } else {
-                      setExpectedCourseFee("₹0");
-                    }
-                  }}
-                >
-                  <option value="">-- Select a Course --</option>
-                  {filteredCourses.map(c => (
-                    <option key={c._id || c.name} value={c.name}>{c.name}</option>
-                  ))}
-                </select>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                    Target Course(s) <span className="text-rose-500">*</span>
+                  </label>
+                  {selectedCourses.length > 0 && (
+                    <span className="text-[10px] font-extrabold text-indigo-600">
+                      Total Fee: {expectedCourseFee}
+                    </span>
+                  )}
+                </div>
+                <CourseMultiSelect
+                  courses={filteredCourses}
+                  selectedCourses={selectedCourses}
+                  onChange={handleCourseSelectionChange}
+                  placeholder="-- Search & Select Course(s) --"
+                />
               </div>
               {user?.role === "counsellor" ? (
                 <input type="hidden" name="assignedCrmAdvisor" value={user.name} />

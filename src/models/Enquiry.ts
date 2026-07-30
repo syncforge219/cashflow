@@ -36,7 +36,20 @@ const EnquirySchema = new Schema(
     },
     targetCourse: {
       type: String,
+      trim: true,
     },
+    targetCourses: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
+    courses: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
     assignedCrmAdvisor: {
       type: String,
     },

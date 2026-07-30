@@ -34,7 +34,24 @@ export async function POST(req: NextRequest) {
     data.state = data.state?.trim() || "N/A";
     data.pincode = data.pincode?.trim() || "000000";
     data.counsellor = data.counsellor?.trim() || user?.name || "Counsellor";
-    data.course = data.course?.trim() || "General Course";
+    
+    // Process multi-selected courses
+    let coursesList: string[] = [];
+    if (Array.isArray(data.courses) && data.courses.length > 0) {
+      coursesList = data.courses.map((c: any) => String(c).trim()).filter(Boolean);
+    } else if (Array.isArray(data.targetCourses) && data.targetCourses.length > 0) {
+      coursesList = data.targetCourses.map((c: any) => String(c).trim()).filter(Boolean);
+    } else if (typeof data.course === "string" && data.course.trim()) {
+      coursesList = data.course.split(",").map((c: string) => c.trim()).filter(Boolean);
+    }
+
+    if (coursesList.length === 0) {
+      coursesList = ["General Course"];
+    }
+
+    data.courses = coursesList;
+    data.targetCourses = coursesList;
+    data.course = coursesList.join(", ");
     data.batch = data.batch?.trim() || "General Batch";
     data.duration = data.duration?.trim() || "6 Months";
     data.startDate = data.startDate ? new Date(data.startDate) : new Date();

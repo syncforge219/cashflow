@@ -12,6 +12,25 @@ export async function PATCH(
     const { id } = await params;
     const body = await req.json();
 
+    // Normalize courses array if updating course fields
+    const updateTarget = body.$set || body;
+    if (updateTarget.courses || updateTarget.targetCourses || updateTarget.targetCourse) {
+      let coursesList: string[] = [];
+      if (Array.isArray(updateTarget.courses) && updateTarget.courses.length > 0) {
+        coursesList = updateTarget.courses.map((c: any) => String(c).trim()).filter(Boolean);
+      } else if (Array.isArray(updateTarget.targetCourses) && updateTarget.targetCourses.length > 0) {
+        coursesList = updateTarget.targetCourses.map((c: any) => String(c).trim()).filter(Boolean);
+      } else if (typeof updateTarget.targetCourse === "string" && updateTarget.targetCourse.trim()) {
+        coursesList = updateTarget.targetCourse.split(",").map((c: string) => c.trim()).filter(Boolean);
+      }
+
+      if (coursesList.length > 0) {
+        updateTarget.courses = coursesList;
+        updateTarget.targetCourses = coursesList;
+        updateTarget.targetCourse = coursesList.join(", ");
+      }
+    }
+
     const updateQuery = (body.$set || body.$push || body.$pull) ? body : { $set: body };
     const statusVal = body.status || (body.$set && body.$set.status);
     const isAdmittedVal = body.isAdmitted || (body.$set && body.$set.isAdmitted);

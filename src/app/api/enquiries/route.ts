@@ -27,16 +27,37 @@ export async function POST(req: Request) {
     body.studentFullName = fullName;
     body.primaryPhoneMobile = body.primaryPhoneMobile?.trim() || "+91 0000000000";
     body.currentCity = body.currentCity?.trim() || "N/A";
-    body.targetCourse = body.targetCourse?.trim() || "General Course";
+    
+    // Process multi-selected courses
+    let coursesList: string[] = [];
+    if (Array.isArray(body.courses) && body.courses.length > 0) {
+      coursesList = body.courses.map((c: any) => String(c).trim()).filter(Boolean);
+    } else if (Array.isArray(body.targetCourses) && body.targetCourses.length > 0) {
+      coursesList = body.targetCourses.map((c: any) => String(c).trim()).filter(Boolean);
+    } else if (typeof body.targetCourse === "string" && body.targetCourse.trim()) {
+      coursesList = body.targetCourse.split(",").map((c: string) => c.trim()).filter(Boolean);
+    }
+
+    if (coursesList.length === 0) {
+      coursesList = ["General Course"];
+    }
+
+    body.courses = coursesList;
+    body.targetCourses = coursesList;
+    body.targetCourse = coursesList.join(", ");
     body.targetBrand = body.targetBrand?.trim() || "Cadd Mantra";
     body.assignedCrmAdvisor = body.assignedCrmAdvisor?.trim() || user?.name || "Unassigned";
 
-    // Check for duplicate primary phone number for the target course (only for real non-default numbers)
-    if (body.primaryPhoneMobile && body.targetCourse && !body.primaryPhoneMobile.includes("0000000000")) {
+    // Check for duplicate primary phone number for any of the target courses (only for real non-default numbers)
+    if (body.primaryPhoneMobile && coursesList.length > 0 && !body.primaryPhoneMobile.includes("0000000000")) {
       const cleanDigits = String(body.primaryPhoneMobile).replace(/\D/g, "").slice(-10);
       if (cleanDigits.length === 10) {
         const existingEnquiry = await Enquiry.findOne({
-          targetCourse: { $regex: new RegExp(`^${body.targetCourse.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") },
+          $or: [
+            { targetCourse: { $in: coursesList } },
+            { courses: { $in: coursesList } },
+            { targetCourses: { $in: coursesList } }
+          ],
           primaryPhoneMobile: { $regex: cleanDigits }
         });
 
@@ -44,7 +65,7 @@ export async function POST(req: Request) {
           return NextResponse.json(
             { 
               success: false, 
-              message: `A lead with primary phone number '${body.primaryPhoneMobile}' already exists for the course '${body.targetCourse}'.` 
+              message: `A lead with primary phone number '${body.primaryPhoneMobile}' already exists for one of the selected courses.` 
             },
             { status: 400 }
           );

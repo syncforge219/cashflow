@@ -87,12 +87,22 @@ export async function POST(req: Request) {
       "CADD MANTRA"
     ).toUpperCase().trim();
 
-    const targetCourse =
-      body.targetCourse ||
-      body.course ||
-      body["Target Course"] ||
-      body["Course"] ||
-      "General Course";
+    let coursesList: string[] = [];
+    if (Array.isArray(body.courses) && body.courses.length > 0) {
+      coursesList = body.courses.map((c: any) => String(c).trim()).filter(Boolean);
+    } else if (Array.isArray(body.targetCourses) && body.targetCourses.length > 0) {
+      coursesList = body.targetCourses.map((c: any) => String(c).trim()).filter(Boolean);
+    } else if (typeof body.targetCourse === "string" && body.targetCourse.trim()) {
+      coursesList = body.targetCourse.split(",").map((c: string) => c.trim()).filter(Boolean);
+    } else if (typeof body.course === "string" && body.course.trim()) {
+      coursesList = body.course.split(",").map((c: string) => c.trim()).filter(Boolean);
+    }
+
+    if (coursesList.length === 0) {
+      coursesList = ["General Course"];
+    }
+
+    const targetCourse = coursesList.join(", ");
 
     const leadSource =
       body.leadSource ||
@@ -140,6 +150,8 @@ export async function POST(req: Request) {
       currentCity,
       targetBrand,
       targetCourse,
+      targetCourses: coursesList,
+      courses: coursesList,
       assignedCrmAdvisor: assignedAdvisor,
       leadSource,
       priorityLevel: "High",

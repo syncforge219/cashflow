@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import PaymentReceiptModal from "./PaymentReceiptModal";
+import CourseMultiSelect from "./CourseMultiSelect";
 import { useUser } from "@/app/component/context/user-context";
 
 interface AdmissionModalProps {
@@ -17,6 +18,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
   const { user } = useUser();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [courses, setCourses] = useState<any[]>([]);
+  const [selectedCourses, setSelectedCourses] = useState<string[]>([]);
   const [batchesList, setBatchesList] = useState<any[]>([]);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [receiptData, setReceiptData] = useState<any>(null);
@@ -305,7 +307,21 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
         setEmail(lead.emailAddress || lead.email || "");
         setCounsellor(lead.assignedCrmAdvisor || lead.counsellor || user?.name || "");
         setBrand(lead.targetBrand || lead.brand || "");
-        setCourse(lead.targetCourse || lead.course || "");
+        
+        // Multi-course array initialization
+        const rawCourses = lead.courses || lead.targetCourses;
+        let initialCourses: string[] = [];
+        if (Array.isArray(rawCourses) && rawCourses.length > 0) {
+          initialCourses = rawCourses.map((c: any) => String(c).trim()).filter(Boolean);
+        } else {
+          const targetCourseName = lead.targetCourse || lead.course || "";
+          if (targetCourseName) {
+            initialCourses = targetCourseName.split(",").map((c: string) => c.trim()).filter(Boolean);
+          }
+        }
+        setSelectedCourses(initialCourses);
+        setCourse(initialCourses.join(", "));
+        
         const feeVal = lead.expectedCourseFee || lead.courseFee || "0";
         setCourseFee(
           typeof feeVal === "number"
@@ -393,6 +409,40 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
     }
   }, [isOpen, course, courses]);
 
+  const handleCourseSelectionChange = (newSelected: string[]) => {
+    setSelectedCourses(newSelected);
+    const combinedNames = newSelected.join(", ");
+    setCourse(combinedNames);
+    setBatch("");
+    setIsCustomBatch(false);
+
+    let totalFee = 0;
+    let maxDurationMonths = 0;
+
+    newSelected.forEach((cName) => {
+      const found = courses.find((c) => c.name?.trim().toLowerCase() === cName.trim().toLowerCase());
+      if (found) {
+        if (found.fee) {
+          const numFee = Math.floor(Number(String(found.fee).replace(/[^0-9.]/g, ""))) || 0;
+          totalFee += numFee;
+        }
+        if (found.duration) {
+          const dNum = parseInt(found.duration.replace(/\D/g, ""), 10) || 6;
+          if (dNum > maxDurationMonths) maxDurationMonths = dNum;
+        }
+      }
+    });
+
+    if (totalFee > 0) {
+      setCourseFee(totalFee);
+    }
+    if (maxDurationMonths > 0) {
+      setDuration(`${maxDurationMonths} Months`);
+    } else if (newSelected.length > 0) {
+      setDuration("6 Months");
+    }
+  };
+
   const handleGenerateAdmission = async (generateReceipt = false) => {
     setIsSubmitting(true);
     try {
@@ -418,7 +468,10 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
         enquiryId: lead?._id,
         fullName, mobileNumber, email, parentName, parentPhone, parentsFullName: parentName, parentsPhoneNumber: parentPhone,
         guardian2Name, guardian2Phone, guardian2Relation, address, city, state, pincode, dob, gender, counsellor, brand,
-        course, batch, duration, startDate, academicYear, admissionDate, companyAssigned,
+        course: selectedCourses.join(", "),
+        courses: selectedCourses,
+        targetCourses: selectedCourses,
+        batch, duration, startDate, academicYear, admissionDate, companyAssigned,
         courseFee, scholarshipType, scholarshipAmount, discountType, discountAmount, additionalDiscount, totalDiscount, finalFee,
         paymentMode, transactionNo, amountReceivedToday: Number(registrationAmount), registrationAmount: Number(registrationAmount), downpaymentAmount: Number(downpaymentAmount), downpaymentDueDate, paymentDate, remainingBalance, hasEmi,
         numInstallments: customEmiItems.length || numInstallments,
@@ -631,41 +684,15 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
               <div className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                   <div className="flex flex-col gap-1.5 md:col-span-2">
-                    <label className="text-xs font-bold text-slate-500">Course <span className="text-rose-500">*</span></label>
-                    <select 
-                      value={course} 
-                      onChange={e => {
-                        const selectedCourseName = e.target.value;
-                        setCourse(selectedCourseName);
-                        setBatch("");
-                        setIsCustomBatch(false);
-                        
-                        const selectedCourseObj = courses.find(c => c.name?.trim().toLowerCase() === selectedCourseName.trim().toLowerCase());
-                        if (selectedCourseObj && selectedCourseObj.duration) {
-                          setDuration(selectedCourseObj.duration);
-                        } else if (selectedCourseName) {
-                          const nameUpper = selectedCourseName.toUpperCase();
-                          if (nameUpper.includes("BVOC") || nameUpper.includes("DEGREE") || nameUpper.includes("BSC") || nameUpper.includes("BACHELOR")) {
-                            setDuration("36 Months");
-                          } else if (nameUpper.includes("ADVANCE") || nameUpper.includes("DIPLOMA")) {
-                            setDuration("12 Months");
-                          } else {
-                            setDuration("6 Months");
-                          }
-                        }
-
-                        if (selectedCourseObj && selectedCourseObj.fee) {
-                          const numFee = Math.floor(Number(selectedCourseObj.fee.replace(/[^0-9.]/g, ''))) || 0;
-                          setCourseFee(numFee);
-                        }
-                      }} 
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white"
-                    >
-                      <option value="">Select a course...</option>
-                      {courses.map(c => (
-                        <option key={c._id} value={c.name}>{c.name}</option>
-                      ))}
-                    </select>
+                    <label className="text-xs font-bold text-slate-500">
+                      Course(s) <span className="text-rose-500">*</span>
+                    </label>
+                    <CourseMultiSelect
+                      courses={courses}
+                      selectedCourses={selectedCourses}
+                      onChange={handleCourseSelectionChange}
+                      placeholder="Select a course..."
+                    />
                   </div>
                   <div className="flex flex-col gap-1.5 md:col-span-2">
                     <label className="text-xs font-bold text-slate-500">Batch</label>
