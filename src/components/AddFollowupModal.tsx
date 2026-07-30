@@ -64,18 +64,43 @@ export default function AddFollowupModal({
   const [callEnd, setCallEnd] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Response Type & Dynamic Add Modal State
+  const [responseTypes, setResponseTypes] = useState<string[]>([
+    "incoming call",
+    "INCOMING NOT AVAIALABLE",
+    "Not interested",
+    "ntr",
+    "remark",
+    "RNR",
+    "sw/off",
+    "Wrong no.",
+    "Telephonic",
+    "WhatsApp",
+    "Email",
+    "Walkin",
+    "Campus Visit",
+  ]);
+  const [responseType, setResponseType] = useState<string>("incoming call");
+
+  // Add Response Type Modal State
+  const [isAddResponseTypeModalOpen, setIsAddResponseTypeModalOpen] = useState(false);
+  const [newResponseTypeName, setNewResponseTypeName] = useState("");
+  const [newResponseTypeRemarks, setNewResponseTypeRemarks] = useState("");
+  const [isSavingResponseType, setIsSavingResponseType] = useState(false);
+
   // History State
   const [historySearch, setHistorySearch] = useState("");
   const [historyItemsPerPage, setHistoryItemsPerPage] = useState(5);
   const [historyCurrentPage, setHistoryCurrentPage] = useState(1);
 
-  // Fetch real courses and counsellors from backend
+  // Fetch real courses, counsellors and response types from backend
   useEffect(() => {
     const fetchRealData = async () => {
       try {
-        const [cRes, counsRes] = await Promise.all([
+        const [cRes, counsRes, respRes] = await Promise.all([
           fetch("/api/courses").then(r => r.json().catch(() => ({}))),
           fetch("/api/counsellors").then(r => r.json().catch(() => ({}))),
+          fetch("/api/response-types").then(r => r.json().catch(() => ({}))),
         ]);
 
         let courseList: string[] = [];
@@ -89,6 +114,11 @@ export default function AddFollowupModal({
           setCounsellorsList(counsRes.data);
         }
 
+        if (respRes.success && Array.isArray(respRes.data) && respRes.data.length > 0) {
+          const names = respRes.data.map((t: any) => t.name);
+          setResponseTypes(names);
+        }
+
         if (record && (record.targetCourse || record.course)) {
           const selected = record.targetCourse || record.course;
           setSelectedCourses([selected]);
@@ -97,7 +127,7 @@ export default function AddFollowupModal({
           setAvailableCourses(courseList);
         }
       } catch (err) {
-        console.error("Error fetching options for modal:", err);
+        console.error("Error loading modal dropdown data:", err);
         setAvailableCourses(DEFAULT_COURSES);
       }
     };
@@ -535,7 +565,39 @@ export default function AddFollowupModal({
               </div>
             </div>
 
-            {/* 5. Lead Type */}
+            {/* 5. Response Type */}
+            <div className="grid grid-cols-12 items-center gap-4">
+              <div className="col-span-4 text-right pr-2">
+                <label className="block font-bold text-slate-800">
+                  Response Type <span className="text-rose-500">*</span>
+                </label>
+              </div>
+              <div className="col-span-8 flex items-center gap-2">
+                <select
+                  value={responseType}
+                  onChange={(e) => setResponseType(e.target.value)}
+                  className="flex-1 px-3.5 py-2.5 border border-slate-300 rounded-xl text-slate-800 font-bold outline-none bg-white shadow-xs focus:ring-2 focus:ring-orange-500/20 focus:border-orange-600 cursor-pointer"
+                >
+                  {responseTypes.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Orange + Button to open Add Response Type Modal (Matching Screenshot) */}
+                <button
+                  type="button"
+                  onClick={() => setIsAddResponseTypeModalOpen(true)}
+                  className="w-10 h-10 bg-orange-600 hover:bg-orange-700 text-white font-black text-xl rounded-xl flex items-center justify-center shadow-md shadow-orange-600/30 transition-all active:scale-95 cursor-pointer shrink-0"
+                  title="Add New Response Type"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            {/* 6. Lead Type */}
             <div className="grid grid-cols-12 items-center gap-4">
               <div className="col-span-4 text-right pr-2">
                 <label className="block font-bold text-slate-800">
@@ -730,6 +792,107 @@ export default function AddFollowupModal({
                   &gt;
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Dynamic Add Response Type Modal matching Screenshots */}
+        {isAddResponseTypeModalOpen && (
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+              {/* Header matching Screenshot 3: Bright Orange Header */}
+              <div className="bg-gradient-to-r from-orange-600 to-orange-500 px-6 py-4 flex items-center justify-between text-white">
+                <h2 className="text-lg font-extrabold flex items-center gap-2">
+                  <span>Response Type</span>
+                  <span className="text-base animate-pulse">🔊</span>
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setIsAddResponseTypeModalOpen(false)}
+                  className="text-white/80 hover:text-white font-black text-xl transition-colors cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Body Form matching Screenshot 3 */}
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!newResponseTypeName.trim()) return;
+                  setIsSavingResponseType(true);
+                  try {
+                    const res = await fetch("/api/response-types", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        name: newResponseTypeName,
+                        remarks: newResponseTypeRemarks,
+                      }),
+                    });
+                    const json = await res.json();
+                    if (json.success && json.data) {
+                      const addedName = json.data.name;
+                      setResponseTypes((prev) => Array.from(new Set([...prev, addedName])));
+                      setResponseType(addedName);
+                      setNewResponseTypeName("");
+                      setNewResponseTypeRemarks("");
+                      setIsAddResponseTypeModalOpen(false);
+                    }
+                  } catch (err) {
+                    console.error("Error adding response type:", err);
+                  } finally {
+                    setIsSavingResponseType(false);
+                  }
+                }}
+                className="p-6 space-y-4 text-left"
+              >
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                    Response Type Name<span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newResponseTypeName}
+                    onChange={(e) => setNewResponseTypeName(e.target.value)}
+                    placeholder="e.g. Call Back Later, Busy, Switched Off..."
+                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                    Response Type Remarks<span className="text-rose-500">*</span>
+                  </label>
+                  <textarea
+                    rows={3}
+                    required
+                    value={newResponseTypeRemarks}
+                    onChange={(e) => setNewResponseTypeRemarks(e.target.value)}
+                    placeholder="Enter guidelines or remarks..."
+                    className="w-full p-3.5 border border-slate-300 rounded-xl text-xs font-medium text-slate-800 outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-600"
+                  />
+                </div>
+
+                {/* Footer Buttons matching Screenshot 3 */}
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddResponseTypeModalOpen(false)}
+                    className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer"
+                  >
+                    Close
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingResponseType}
+                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-emerald-600/20 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {isSavingResponseType ? "Saving..." : "Save"}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}
