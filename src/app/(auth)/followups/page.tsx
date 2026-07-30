@@ -8,6 +8,8 @@ import LeadProfile from "@/components/LeadProfile";
 import AddEnquiryModal from "@/components/AddEnquiryModal";
 import AdvancedSearchModal, { AdvancedSearchFilterState } from "@/components/AdvancedSearchModal";
 import AddFollowupModal from "@/components/AddFollowupModal";
+import FollowupTimelineModal from "@/components/FollowupTimelineModal";
+import FollowupPerformanceModal from "@/components/FollowupPerformanceModal";
 
 interface EnquiryFollowupRecord {
   _id: string;
@@ -22,6 +24,7 @@ interface EnquiryFollowupRecord {
   targetBrand?: string;
   assignedCrmAdvisor?: string;
   status: string;
+  priorityLevel?: string;
   leadSource?: string;
   leadType?: string;
   remarks?: string;
@@ -32,13 +35,20 @@ interface EnquiryFollowupRecord {
     priority?: string;
     typeOfContact?: string;
     remarks?: string;
+    nextAction?: string;
+    assignedTo?: string;
     status?: string;
     isCompleted?: boolean;
+    isRecurring?: boolean;
+    recurringRule?: string;
+    escalatedToManager?: boolean;
     plannedBy?: string;
   }>;
   dueDateStr?: string;
   dueDateObj?: Date;
   lastRemarkStr?: string;
+  isOverdue?: boolean;
+  isEscalated?: boolean;
 }
 
 interface FeesFollowupRecord {
@@ -63,8 +73,63 @@ export default function FollowupPage() {
   // Main Mode: "enquiry" | "fees"
   const [activeMode, setActiveMode] = useState<"enquiry" | "fees">("enquiry");
 
-  // Notifications Toggle State
+  // Notifications & Sound System State
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [soundActivated, setSoundActivated] = useState(false);
+
+  // Web Audio Synthesizer Engine for Crystal Clear System Sounds
+  const playChimeSound = (type: "notification" | "alert" | "success" = "notification") => {
+    if (typeof window === "undefined") return;
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
+      if (ctx.state === "suspended") {
+        ctx.resume();
+      }
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      const now = ctx.currentTime;
+
+      if (type === "alert") {
+        // Warning alert tone (E5 -> A5)
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(659.25, now);
+        osc.frequency.setValueAtTime(880, now + 0.15);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+        osc.start(now);
+        osc.stop(now + 0.5);
+      } else if (type === "success") {
+        // Success chord (C5 -> E5 -> G5)
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(523.25, now);
+        osc.frequency.setValueAtTime(659.25, now + 0.12);
+        osc.frequency.setValueAtTime(783.99, now + 0.24);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+        osc.start(now);
+        osc.stop(now + 0.45);
+      } else {
+        // Crystal notification chime (G5 -> C6)
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(783.99, now);
+        osc.frequency.setValueAtTime(1046.50, now + 0.12);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+        osc.start(now);
+        osc.stop(now + 0.4);
+      }
+      setSoundActivated(true);
+    } catch (err) {
+      console.error("Failed to play system chime:", err);
+    }
+  };
 
   // Search and View Mode
   const [searchQuery, setSearchQuery] = useState("");
@@ -95,6 +160,11 @@ export default function FollowupPage() {
   const [filterCourse, setFilterCourse] = useState("All");
   const [filterStage, setFilterStage] = useState("All");
 
+  // Timeline & Performance Modals State
+  const [isTimelineOpen, setIsTimelineOpen] = useState(false);
+  const [timelineRecord, setTimelineRecord] = useState<any | null>(null);
+  const [isPerformanceModalOpen, setIsPerformanceModalOpen] = useState(false);
+
   // Data Loading States
   const [enquiries, setEnquiries] = useState<any[]>([]);
   const [admissions, setAdmissions] = useState<any[]>([]);
@@ -111,6 +181,8 @@ export default function FollowupPage() {
   const [quickTime, setQuickTime] = useState("11:00 AM");
   const [quickRemarks, setQuickRemarks] = useState("");
   const [quickStatus, setQuickStatus] = useState("In Progress");
+  const [quickPriority, setQuickPriority] = useState("Medium");
+  const [quickAssignedTo, setQuickAssignedTo] = useState("");
   const [isSavingQuickFollowup, setIsSavingQuickFollowup] = useState(false);
 
   // Fetch Data
@@ -192,6 +264,8 @@ export default function FollowupPage() {
       }
 
       const dueDateTime = new Date(dueDateStr).getTime();
+      const isOverdue = dueDateTime < todayTime;
+      const isEscalated = rawFollowups.some((f: any) => f.escalatedToManager) || (isOverdue && (todayTime - dueDateTime) > 86400000);
 
       list.push({
         _id: e._id,
@@ -206,6 +280,7 @@ export default function FollowupPage() {
         targetBrand: e.targetBrand || "Cadd Mantra",
         assignedCrmAdvisor: e.assignedCrmAdvisor || "Unassigned",
         status: e.status || "New Lead",
+        priorityLevel: e.priorityLevel || lastFollowup?.priority || "Medium",
         leadSource: e.leadSource || "Direct",
         leadType: e.leadType || "Telephonic",
         remarks: e.remarks || "",
@@ -214,6 +289,8 @@ export default function FollowupPage() {
         dueDateStr,
         dueDateObj: new Date(dueDateStr),
         lastRemarkStr,
+        isOverdue,
+        isEscalated,
       });
     });
 
@@ -517,95 +594,110 @@ export default function FollowupPage() {
       {/* Main Container */}
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
         
-        {/* Top Header Controls Bar (Matching Application Theme) */}
-        <div className="bg-white/90 backdrop-blur-md border-b border-slate-200 px-6 py-3 flex flex-wrap items-center justify-between gap-4 shadow-xs shrink-0 z-30">
+        {/* Top Header Controls Bar (Sleek Single-Row Layout) */}
+        <div className="bg-white/95 backdrop-blur-md border-b border-slate-200/90 px-6 py-2.5 flex items-center justify-between gap-4 shadow-2xs shrink-0 z-30">
           
-          {/* Left Title & Mode Switcher */}
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl font-black tracking-tight text-slate-900 flex items-center gap-2 font-sans">
-              {activeMode === "enquiry" ? "Enquiry Followup" : "Fees Followup"}
-              <button
-                onClick={() => {
-                  const audio = new Audio("https://actions.google.com/sounds/v1/notifications/beep_short.ogg");
-                  audio.play().catch(() => {});
-                }}
-                className="text-indigo-600 hover:text-indigo-700 transition-transform hover:scale-110 cursor-pointer"
-                title="Play Notification Sound"
-              >
-                🔊
-              </button>
+          {/* Left: Mode Title & Pill Selector */}
+          <div className="flex items-center gap-4">
+            <h1 className="text-lg font-black tracking-tight text-slate-900 font-sans">
+              Followup CRM
             </h1>
 
-            {/* Mode Switcher Button (Click to Change) */}
-            <div className="flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200/80 ml-2">
+            {/* Mode Switcher Pill */}
+            <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200/80">
               <button
                 onClick={() => {
                   setActiveMode("enquiry");
                   setCurrentPage(1);
                 }}
-                className={`px-4 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                className={`px-3.5 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
                   activeMode === "enquiry"
-                    ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-600/20"
-                    : "text-slate-600 hover:bg-slate-200/70"
+                    ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                Enquiry Followup
+                Enquiry Followups
               </button>
               <button
                 onClick={() => {
                   setActiveMode("fees");
                   setCurrentPage(1);
                 }}
-                className={`px-4 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                className={`px-3.5 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
                   activeMode === "fees"
-                    ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-600/20"
-                    : "text-slate-600 hover:bg-slate-200/70"
+                    ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                Fees Followup
+                Fees Followups
               </button>
             </div>
           </div>
 
-          {/* Right Controls: Desktop Notification Toggle, Advanced Filter, Add New */}
-          <div className="flex flex-wrap items-center gap-3">
+          {/* Right Controls: Unified Alerts Capsule, Performance Reports, Filter, Add New */}
+          <div className="flex items-center gap-2.5">
             
-            {/* Desktop Notification Toggle Switch */}
-            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 px-3 py-1.5 rounded-xl shadow-xs">
-              <span className="text-xs font-extrabold text-indigo-700">Desktop Notification</span>
+            {/* Unified Alerts Capsule (Sound & Desktop Notifications) */}
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 px-2.5 py-1 rounded-xl shadow-2xs">
+              {/* Sound Test / Toggle Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  const nextState = !soundEnabled;
+                  setSoundEnabled(nextState);
+                  playChimeSound("notification");
+                }}
+                className={`px-2 py-0.5 rounded-lg text-[11px] font-black transition-all cursor-pointer flex items-center gap-1 ${
+                  soundEnabled
+                    ? "bg-indigo-100/80 text-indigo-700 hover:bg-indigo-200/80"
+                    : "bg-slate-200 text-slate-400"
+                }`}
+                title="Click to Test Audio Chime"
+              >
+                <span className="animate-pulse">🔊</span>
+                <span>Sound: {soundEnabled ? "ON" : "OFF"}</span>
+              </button>
+
+              <div className="h-3 w-px bg-slate-200" />
+
+              {/* Desktop Notification Toggle Switch */}
               <button
                 type="button"
                 onClick={toggleNotifications}
-                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                  notificationsEnabled ? "bg-emerald-500" : "bg-slate-300"
+                className={`px-2 py-0.5 rounded-lg text-[11px] font-black transition-all cursor-pointer flex items-center gap-1 ${
+                  notificationsEnabled
+                    ? "bg-emerald-100/80 text-emerald-800 hover:bg-emerald-200/80"
+                    : "bg-slate-200 text-slate-400"
                 }`}
+                title="Toggle Desktop Notifications"
               >
-                <span
-                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
-                    notificationsEnabled ? "translate-x-4" : "translate-x-0"
-                  }`}
-                />
+                <span>🔔 Desktop: {notificationsEnabled ? "ON" : "OFF"}</span>
               </button>
-              <span className="text-[10px] font-black text-slate-500 uppercase">
-                {notificationsEnabled ? "ON" : "OFF"}
-              </span>
             </div>
+
+            {/* Performance Reports Button */}
+            <button
+              onClick={() => setIsPerformanceModalOpen(true)}
+              className="px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-xs rounded-xl shadow-2xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+            >
+              <span>📊 Performance Reports</span>
+            </button>
 
             {/* Advanced Filter Button */}
             <button
               onClick={() => setIsFilterModalOpen(true)}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-indigo-600/20 transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+              className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-2xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
               </svg>
-              <span>Advanced Filter</span>
+              <span>Filter</span>
             </button>
 
             {/* Add New Button */}
             <button
               onClick={() => setIsAddEnquiryModalOpen(true)}
-              className="px-4.5 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-indigo-600/20 transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+              className="px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-extrabold text-xs rounded-xl shadow-2xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -633,10 +725,42 @@ export default function FollowupPage() {
           </div>
 
           <div className="shrink-0 flex items-center gap-2">
+            {/* Segmented View Toggle Buttons */}
+            <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+              <button
+                type="button"
+                onClick={() => setViewType("list")}
+                className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1 ${
+                  viewType === "list"
+                    ? "bg-white text-indigo-600 shadow-xs"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <span>📋 List</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewType("grid")}
+                className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1 ${
+                  viewType === "grid"
+                    ? "bg-white text-indigo-600 shadow-xs"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <span>🎴 Grid Cards</span>
+              </button>
+            </div>
+
+            {/* View Mode Select Dropdown */}
             <select
+              id="followup-view-select"
               value={viewType}
-              onChange={(e) => setViewType(e.target.value as "list" | "grid")}
-              className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-indigo-600 cursor-pointer shadow-xs"
+              onChange={(e) => {
+                const newView = e.target.value as "list" | "grid";
+                console.log("[FollowupPage] Switching viewType to:", newView);
+                setViewType(newView);
+              }}
+              className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-700 outline-none focus:border-indigo-600 cursor-pointer shadow-xs"
             >
               <option value="list">List View</option>
               <option value="grid">Grid Card View</option>
@@ -816,100 +940,341 @@ export default function FollowupPage() {
               </span>
             </div>
 
-            {/* DATA RENDER: MODE 1 ENQUIRY FOLLOWUP TABLE */}
+            {/* DATA RENDER: MODE 1 ENQUIRY FOLLOWUP */}
             {activeMode === "enquiry" ? (
-              <div className="overflow-auto flex-1 min-h-0">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead className="sticky top-0 z-10 bg-slate-100/95 backdrop-blur-xs shadow-2xs">
-                    <tr className="border-b border-slate-200 text-[10px] font-black text-slate-600 uppercase tracking-wider select-none">
-                      <th className="py-3 px-4 min-w-[125px]">DUE DATE ▾</th>
-                      <th className="py-3 px-4 min-w-[145px]">ENQUIRY/WALKIN DATE ▾</th>
-                      <th className="py-3 px-4 min-w-[150px]">STUDENT ▾</th>
-                      <th className="py-3 px-4 min-w-[140px]">STUDENT MOBILE NO ▾</th>
-                      <th className="py-3 px-4 min-w-[140px]">PRIMARY MOBILE NO ▾</th>
-                      <th className="py-3 px-4 min-w-[140px]">SECONDARY MOBILE NO ▾</th>
-                      <th className="py-3 px-4 min-w-[110px]">AREA ▾</th>
-                      <th className="py-3 px-4 min-w-[140px]">EMAIL ▾</th>
-                      <th className="py-3 px-4 min-w-[150px]">COURSE PACKAGE ▾</th>
-                      <th className="py-3 px-4 min-w-[130px]">FOLLOWUP BY ▾</th>
-                      <th className="py-3 px-4 min-w-[110px]">LEAD STAGE ▾</th>
-                      <th className="py-3 px-4 min-w-[100px]">LEAD TYPE ▾</th>
-                      <th className="py-3 px-4 min-w-[110px]">LEAD SOURCE ▾</th>
-                      <th className="py-3 px-4 min-w-[160px]">LAST REMARK ▾</th>
-                      <th className="py-3 px-4 min-w-[110px]">STATUS ▾</th>
-                      <th className="py-3 px-4 text-right min-w-[120px]">ACTION ▾</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
-                    {isLoading ? (
-                      <tr>
-                        <td colSpan={16} className="py-12 text-center text-slate-400">Loading enquiry follow-ups...</td>
+              viewType === "grid" ? (
+                /* GRID CARD VIEW FOR ENQUIRIES */
+                <div className="overflow-auto flex-1 p-5">
+                  {isLoading ? (
+                    <div className="py-20 text-center text-slate-400 font-bold animate-pulse">Loading enquiry grid cards...</div>
+                  ) : paginatedEnquiryRecords.length === 0 ? (
+                    <div className="py-20 text-center text-slate-400 font-bold">No enquiry follow-up records found matching filters.</div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                      {paginatedEnquiryRecords.map((rec: EnquiryFollowupRecord) => {
+                        const priorityColor =
+                          rec.priorityLevel === "Urgent"
+                            ? "bg-rose-100 text-rose-700 border-rose-200"
+                            : rec.priorityLevel === "High"
+                            ? "bg-orange-100 text-orange-700 border-orange-200"
+                            : rec.priorityLevel === "Low"
+                            ? "bg-sky-100 text-sky-700 border-sky-200"
+                            : "bg-amber-100 text-amber-700 border-amber-200";
+
+                        const initial = (rec.studentFullName || "S").charAt(0).toUpperCase();
+
+                        return (
+                          <div
+                            key={rec._id}
+                            onClick={() => setSelectedLead(rec)}
+                            className={`bg-white rounded-2xl border transition-all duration-300 shadow-xs hover:shadow-xl hover:-translate-y-1 overflow-hidden flex flex-col justify-between cursor-pointer group ${
+                              rec.isOverdue
+                                ? "border-rose-400 border-l-4 border-l-rose-500 bg-rose-50/20"
+                                : "border-slate-200/90 hover:border-indigo-500/50"
+                            }`}
+                          >
+                            {/* Card Header */}
+                            <div className="p-4 space-y-3">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-black text-sm shadow-md shrink-0">
+                                    {initial}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <h3 className="font-extrabold text-slate-900 text-sm truncate group-hover:text-indigo-600 transition-colors" title={rec.studentFullName}>
+                                      {rec.studentFullName}
+                                    </h3>
+                                    <span className="text-[10px] font-mono font-extrabold text-slate-400 block truncate">
+                                      {rec.enquiryId} • {rec.currentCity || "No City"}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <span className={`px-2 py-0.5 rounded-md border font-black text-[10px] uppercase shrink-0 ${priorityColor}`}>
+                                  {rec.priorityLevel || "Medium"}
+                                </span>
+                              </div>
+
+                              {/* Overdue / Escalated Status Pills */}
+                              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                                {rec.isOverdue && (
+                                  <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 font-black text-[10px] animate-pulse">
+                                    🚨 OVERDUE
+                                  </span>
+                                )}
+                                {rec.isEscalated && (
+                                  <span className="px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 font-black text-[10px]">
+                                    ⚡ ESCALATED TO MGR
+                                  </span>
+                                )}
+                                <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-extrabold text-[10px] uppercase">
+                                  {rec.status || "In Progress"}
+                                </span>
+                              </div>
+
+                              {/* Due Date & Course Details */}
+                              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-1.5 text-xs">
+                                <div className="flex items-center justify-between text-[11px]">
+                                  <span className="text-slate-400 font-semibold uppercase text-[9px] tracking-wider">Due Date</span>
+                                  <span className={`font-black ${rec.isOverdue ? "text-rose-600" : "text-indigo-600"}`}>
+                                    📅 {rec.dueDateStr ? new Date(rec.dueDateStr).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Today"}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between text-[11px]">
+                                  <span className="text-slate-400 font-semibold uppercase text-[9px] tracking-wider">Target Course</span>
+                                  <span className="font-extrabold text-slate-800 truncate max-w-[140px]" title={rec.targetCourse}>
+                                    🎓 {rec.targetCourse}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between text-[11px]">
+                                  <span className="text-slate-400 font-semibold uppercase text-[9px] tracking-wider">Assigned Advisor</span>
+                                  <span className="font-bold text-slate-700 truncate max-w-[130px]" title={rec.assignedCrmAdvisor}>
+                                    👤 {rec.assignedCrmAdvisor || "Unassigned"}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Discussion Remarks */}
+                              <div className="text-[11px] text-slate-600 bg-slate-100/60 p-2.5 rounded-xl border border-slate-200/60 line-clamp-2 italic">
+                                &ldquo;{rec.lastRemarkStr || "No discussion remark logged."}&rdquo;
+                              </div>
+                            </div>
+
+                            {/* Card Footer Actions */}
+                            <div className="bg-slate-50 px-4 py-3 border-t border-slate-100 flex items-center justify-between gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  onClick={() => {
+                                    const text = encodeURIComponent(`Hello ${rec.studentFullName}, regarding your course inquiry for ${rec.targetCourse}...`);
+                                    const phone = rec.primaryPhoneMobile.replace(/\D/g, "");
+                                    if (phone) window.open(`https://wa.me/${phone}?text=${text}`, "_blank");
+                                  }}
+                                  className="w-8 h-8 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200 flex items-center justify-center font-bold text-xs transition-transform active:scale-95 cursor-pointer"
+                                  title="WhatsApp Chat"
+                                >
+                                  💬
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setTimelineRecord(rec);
+                                    setIsTimelineOpen(true);
+                                  }}
+                                  className="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-[11px] font-extrabold transition-all shadow-2xs cursor-pointer"
+                                  title="View Interaction Timeline"
+                                >
+                                  🕒 Timeline
+                                </button>
+                              </div>
+
+                              <button
+                                onClick={() => {
+                                  setActiveRecordForFollowup(rec);
+                                  setIsQuickFollowupModalOpen(true);
+                                }}
+                                className="px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-xl text-[11px] font-extrabold transition-all shadow-md shadow-indigo-600/20 active:scale-95 cursor-pointer"
+                              >
+                                ✏️ Add Followup
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* LIST TABLE VIEW FOR ENQUIRIES */
+                <div className="overflow-auto flex-1 min-h-0">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="sticky top-0 z-10 bg-slate-100/95 backdrop-blur-xs shadow-2xs">
+                      <tr className="border-b border-slate-200 text-[10px] font-black text-slate-600 uppercase tracking-wider select-none">
+                        <th className="py-3 px-4 min-w-[125px]">DUE DATE ▾</th>
+                        <th className="py-3 px-4 min-w-[100px]">PRIORITY ▾</th>
+                        <th className="py-3 px-4 min-w-[145px]">ENQUIRY/WALKIN DATE ▾</th>
+                        <th className="py-3 px-4 min-w-[150px]">STUDENT ▾</th>
+                        <th className="py-3 px-4 min-w-[140px]">STUDENT MOBILE NO ▾</th>
+                        <th className="py-3 px-4 min-w-[140px]">PRIMARY MOBILE NO ▾</th>
+                        <th className="py-3 px-4 min-w-[110px]">AREA ▾</th>
+                        <th className="py-3 px-4 min-w-[150px]">COURSE PACKAGE ▾</th>
+                        <th className="py-3 px-4 min-w-[130px]">FOLLOWUP BY ▾</th>
+                        <th className="py-3 px-4 min-w-[110px]">LEAD STAGE ▾</th>
+                        <th className="py-3 px-4 min-w-[100px]">LEAD TYPE ▾</th>
+                        <th className="py-3 px-4 min-w-[160px]">LAST REMARK ▾</th>
+                        <th className="py-3 px-4 text-right min-w-[200px]">ACTION ▾</th>
                       </tr>
-                    ) : paginatedEnquiryRecords.length === 0 ? (
-                      <tr>
-                        <td colSpan={16} className="py-12 text-center text-slate-400">No enquiry follow-up records found matching filters.</td>
-                      </tr>
-                    ) : (
-                      paginatedEnquiryRecords.map((rec: EnquiryFollowupRecord) => (
-                        <tr
-                          key={rec._id}
-                          onClick={() => setSelectedLead(rec)}
-                          className="hover:bg-slate-50/80 transition-colors cursor-pointer"
-                        >
-                          <td className="py-3.5 px-4 font-bold text-indigo-600 whitespace-nowrap">
-                            {rec.dueDateStr ? new Date(rec.dueDateStr).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Today"}
-                          </td>
-                          <td className="py-3.5 px-4 text-slate-500 whitespace-nowrap">
-                            {rec.createdAt ? new Date(rec.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "N/A"}
-                          </td>
-                          <td className="py-3.5 px-4 font-extrabold text-slate-900 max-w-[170px] truncate" title={rec.studentFullName}>
-                            {rec.studentFullName}
-                          </td>
-                          <td className="py-3.5 px-4 font-mono text-slate-600 whitespace-nowrap">{rec.primaryPhoneMobile}</td>
-                          <td className="py-3.5 px-4 font-mono text-slate-400 whitespace-nowrap">{rec.parentsPhoneNumber || "-"}</td>
-                          <td className="py-3.5 px-4 font-mono text-slate-400 whitespace-nowrap">{rec.secondaryPhone || "-"}</td>
-                          <td className="py-3.5 px-4 text-slate-600 max-w-[130px] truncate">{rec.currentCity || "N/A"}</td>
-                          <td className="py-3.5 px-4 text-slate-500 max-w-[140px] truncate" title={rec.emailAddress}>{rec.emailAddress || "-"}</td>
-                          <td className="py-3.5 px-4 font-bold text-slate-800 max-w-[160px] truncate" title={rec.targetCourse}>{rec.targetCourse}</td>
-                          <td className="py-3.5 px-4 text-slate-700 max-w-[140px] truncate">{rec.assignedCrmAdvisor}</td>
-                          <td className="py-3.5 px-4">
-                            <span className="px-2.5 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200/80 rounded-lg text-[10px] font-extrabold uppercase whitespace-nowrap shadow-2xs">
-                              {rec.status || "In Progress"}
-                            </span>
-                          </td>
-                          <td className="py-3.5 px-4 text-slate-600 capitalize whitespace-nowrap">{rec.leadType || "Telephonic"}</td>
-                          <td className="py-3.5 px-4">
-                            <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-[10px] font-bold whitespace-nowrap">
-                              {rec.leadSource || "Direct"}
-                            </span>
-                          </td>
-                          <td className="py-3.5 px-4 text-slate-500 max-w-[180px] truncate" title={rec.lastRemarkStr}>
-                            {rec.lastRemarkStr || "-"}
-                          </td>
-                          <td className="py-3.5 px-4">
-                            <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-[10px] font-extrabold uppercase whitespace-nowrap">
-                              Active
-                            </span>
-                          </td>
-                          <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                            <button
-                              onClick={() => {
-                                setActiveRecordForFollowup(rec);
-                                setIsQuickFollowupModalOpen(true);
-                              }}
-                              className="px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-xl text-[11px] font-extrabold transition-all shadow-md shadow-indigo-600/20 active:scale-95 cursor-pointer"
-                            >
-                              ✏️ Add Followup
-                            </button>
-                          </td>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
+                      {isLoading ? (
+                        <tr>
+                          <td colSpan={13} className="py-12 text-center text-slate-400">Loading enquiry follow-ups...</td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                      ) : paginatedEnquiryRecords.length === 0 ? (
+                        <tr>
+                          <td colSpan={13} className="py-12 text-center text-slate-400">No enquiry follow-up records found matching filters.</td>
+                        </tr>
+                      ) : (
+                        paginatedEnquiryRecords.map((rec: EnquiryFollowupRecord) => (
+                          <tr
+                            key={rec._id}
+                            onClick={() => setSelectedLead(rec)}
+                            className={`transition-colors cursor-pointer ${
+                              rec.isOverdue
+                                ? "bg-rose-50/70 hover:bg-rose-100/80 border-l-4 border-l-rose-500"
+                                : "hover:bg-slate-50/80"
+                            }`}
+                          >
+                            <td className="py-3.5 px-4 font-bold whitespace-nowrap">
+                              <div className="flex flex-col">
+                                <span className={rec.isOverdue ? "text-rose-700 font-black" : "text-indigo-600"}>
+                                  {rec.dueDateStr ? new Date(rec.dueDateStr).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Today"}
+                                </span>
+                                {rec.isOverdue && (
+                                  <span className="text-[9px] font-black text-rose-600 tracking-wider animate-pulse">🚨 OVERDUE</span>
+                                )}
+                                {rec.isEscalated && (
+                                  <span className="text-[9px] font-black text-purple-700 tracking-wider">⚡ ESCALATED TO MGR</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-3.5 px-4 whitespace-nowrap">
+                              {rec.priorityLevel === "Urgent" ? (
+                                <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 font-black text-[10px]">🔴 URGENT</span>
+                              ) : rec.priorityLevel === "High" ? (
+                                <span className="px-2 py-0.5 rounded-md bg-orange-100 text-orange-700 font-black text-[10px]">🟠 HIGH</span>
+                              ) : rec.priorityLevel === "Low" ? (
+                                <span className="px-2 py-0.5 rounded-md bg-sky-100 text-sky-700 font-black text-[10px]">🔵 LOW</span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-700 font-black text-[10px]">🟡 MEDIUM</span>
+                              )}
+                            </td>
+                            <td className="py-3.5 px-4 text-slate-500 whitespace-nowrap">
+                              {rec.createdAt ? new Date(rec.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "N/A"}
+                            </td>
+                            <td className="py-3.5 px-4 font-extrabold text-slate-900 max-w-[170px] truncate" title={rec.studentFullName}>
+                              {rec.studentFullName}
+                            </td>
+                            <td className="py-3.5 px-4 font-mono text-slate-600 whitespace-nowrap">{rec.primaryPhoneMobile}</td>
+                            <td className="py-3.5 px-4 font-mono text-slate-400 whitespace-nowrap">{rec.parentsPhoneNumber || "-"}</td>
+                            <td className="py-3.5 px-4 text-slate-600 max-w-[130px] truncate">{rec.currentCity || "N/A"}</td>
+                            <td className="py-3.5 px-4 font-bold text-slate-800 max-w-[160px] truncate" title={rec.targetCourse}>{rec.targetCourse}</td>
+                            <td className="py-3.5 px-4 text-slate-700 max-w-[140px] truncate">{rec.assignedCrmAdvisor}</td>
+                            <td className="py-3.5 px-4">
+                              <span className="px-2.5 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200/80 rounded-lg text-[10px] font-extrabold uppercase whitespace-nowrap shadow-2xs">
+                                {rec.status || "In Progress"}
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-4 text-slate-600 capitalize whitespace-nowrap">{rec.leadType || "Telephonic"}</td>
+                            <td className="py-3.5 px-4 text-slate-500 max-w-[180px] truncate" title={rec.lastRemarkStr}>
+                              {rec.lastRemarkStr || "-"}
+                            </td>
+                            <td className="py-3.5 px-4 text-right whitespace-nowrap space-x-2" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                onClick={() => {
+                                  setTimelineRecord(rec);
+                                  setIsTimelineOpen(true);
+                                }}
+                                className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-xl text-[11px] font-bold transition-all cursor-pointer"
+                                title="View Interaction Timeline"
+                              >
+                                🕒 Timeline
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setActiveRecordForFollowup(rec);
+                                  setIsQuickFollowupModalOpen(true);
+                                }}
+                                className="px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-xl text-[11px] font-extrabold transition-all shadow-md shadow-indigo-600/20 active:scale-95 cursor-pointer"
+                              >
+                                ✏️ Add Followup
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )
             ) : (
-              /* DATA RENDER: MODE 2 FEES FOLLOWUP TABLE */
+              /* DATA RENDER: MODE 2 FEES FOLLOWUP */
+              viewType === "grid" ? (
+                /* GRID CARD VIEW FOR FEES */
+                <div className="overflow-auto flex-1 p-5">
+                  {isLoading ? (
+                    <div className="py-20 text-center text-slate-400 font-bold animate-pulse">Loading fees grid cards...</div>
+                  ) : paginatedFeesRecords.length === 0 ? (
+                    <div className="py-20 text-center text-slate-400 font-bold">No fees due follow-up records found matching filters.</div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                      {paginatedFeesRecords.map((rec: FeesFollowupRecord, idx: number) => {
+                        const initial = (rec.fullName || "S").charAt(0).toUpperCase();
+                        return (
+                          <div
+                            key={`${rec._id}-${idx}`}
+                            className="bg-white rounded-2xl border border-slate-200/90 hover:border-emerald-500/50 transition-all duration-300 shadow-xs hover:shadow-xl hover:-translate-y-1 overflow-hidden flex flex-col justify-between group"
+                          >
+                            <div className="p-4 space-y-3">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-black text-sm shadow-md shrink-0">
+                                    {initial}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <h3 className="font-extrabold text-slate-900 text-sm truncate group-hover:text-emerald-600 transition-colors" title={rec.fullName}>
+                                      {rec.fullName}
+                                    </h3>
+                                    <span className="text-[10px] font-mono font-extrabold text-slate-400 block truncate">
+                                      {rec.admissionId}
+                                    </span>
+                                  </div>
+                                </div>
+                                <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-black text-[10px]">
+                                  FEES DUE
+                                </span>
+                              </div>
+
+                              <div className="bg-emerald-50/70 p-3 rounded-xl border border-emerald-100 space-y-1 text-xs">
+                                <div className="flex items-center justify-between text-[11px]">
+                                  <span className="text-slate-400 font-semibold uppercase text-[9px] tracking-wider">Due Amount</span>
+                                  <span className="font-black text-rose-600 text-sm">₹{rec.dueAmount.toLocaleString("en-IN")}</span>
+                                </div>
+                                <div className="flex items-center justify-between text-[11px]">
+                                  <span className="text-slate-400 font-semibold uppercase text-[9px] tracking-wider">Fees Due Date</span>
+                                  <span className="font-bold text-slate-800">
+                                    📅 {new Date(rec.feesDueDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between text-[11px]">
+                                  <span className="text-slate-400 font-semibold uppercase text-[9px] tracking-wider">Course / Brand</span>
+                                  <span className="font-extrabold text-slate-800 truncate max-w-[140px]" title={rec.course}>
+                                    🎓 {rec.course}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="bg-slate-50 px-4 py-3 border-t border-slate-100 flex items-center justify-between gap-2 shrink-0">
+                              <span className="text-[11px] font-bold text-slate-500 truncate" title={rec.counsellor}>
+                                👤 {rec.counsellor || "Advisor"}
+                              </span>
+                              <button
+                                onClick={() => {
+                                  setActiveRecordForFollowup(rec);
+                                  setIsQuickFollowupModalOpen(true);
+                                }}
+                                className="px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-[11px] font-extrabold transition-all shadow-md shadow-emerald-600/20 active:scale-95 cursor-pointer"
+                              >
+                                ✏️ Add Followup
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* LIST TABLE VIEW FOR FEES */
               <div className="overflow-auto flex-1 min-h-0">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead className="sticky top-0 z-10 bg-slate-100/95 backdrop-blur-xs shadow-2xs">
@@ -966,7 +1331,7 @@ export default function FollowupPage() {
                   </tbody>
                 </table>
               </div>
-            )}
+            ))}
 
             {/* Pagination Controls */}
             {activeRecordsLength > 0 && (
@@ -1036,6 +1401,19 @@ export default function FollowupPage() {
         onClose={() => setIsQuickFollowupModalOpen(false)}
         record={activeRecordForFollowup}
         onSuccess={fetchData}
+      />
+
+      {/* Timeline Modal */}
+      <FollowupTimelineModal
+        isOpen={isTimelineOpen}
+        onClose={() => setIsTimelineOpen(false)}
+        record={timelineRecord}
+      />
+
+      {/* Performance Reports Modal */}
+      <FollowupPerformanceModal
+        isOpen={isPerformanceModalOpen}
+        onClose={() => setIsPerformanceModalOpen(false)}
       />
 
       {/* Full Student Lead Profile Drawer */}

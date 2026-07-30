@@ -19,14 +19,31 @@ export default function EditBatchModal({
   const [course, setCourse] = useState("");
   const [teacherId, setTeacherId] = useState("");
   const [brand, setBrand] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [timing, setTiming] = useState("");
+  const [selectedDays, setSelectedDays] = useState<string[]>(["Mon", "Wed", "Fri"]);
   const [status, setStatus] = useState("Upcoming");
   const [maxCapacity, setMaxCapacity] = useState(30);
   const [notes, setNotes] = useState("");
 
   const [teachersList, setTeachersList] = useState<any[]>([]);
+  const [coursesList, setCoursesList] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+
+  const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+  const formatDateForInput = (d?: string | Date) => {
+    if (!d) return "";
+    try {
+      const dt = new Date(d);
+      if (!isNaN(dt.getTime())) {
+        return dt.toISOString().split("T")[0];
+      }
+    } catch (_) {}
+    return String(d).split("T")[0] || "";
+  };
 
   useEffect(() => {
     if (!isOpen || !batch) return;
@@ -35,21 +52,35 @@ export default function EditBatchModal({
     setCourse(batch.course || "");
     setTeacherId(batch.teacherId || "");
     setBrand(batch.brand || "");
+    setStartDate(formatDateForInput(batch.startDate));
+    setEndDate(formatDateForInput(batch.endDate));
     setTiming(batch.timing || "");
+    setSelectedDays(Array.isArray(batch.days) ? batch.days : ["Mon", "Wed", "Fri"]);
     setStatus(batch.status || "Upcoming");
     setMaxCapacity(batch.maxCapacity || 30);
     setNotes(batch.notes || "");
 
-    // Fetch teachers list for re-assignment
-    fetch("/api/teachers")
-      .then((r) => r.json())
-      .then((res) => {
-        if (res.success || res.teachers) {
-          setTeachersList(res.data || res.teachers || []);
+    // Fetch options
+    Promise.all([
+      fetch("/api/teachers").then((r) => r.json().catch(() => ({}))),
+      fetch("/api/courses").then((r) => r.json().catch(() => ({}))),
+    ])
+      .then(([tRes, cRes]) => {
+        if (tRes.success || tRes.teachers) {
+          setTeachersList(tRes.data || tRes.teachers || []);
+        }
+        if (cRes.success || cRes.courses) {
+          setCoursesList(cRes.data || cRes.courses || []);
         }
       })
-      .catch((err) => console.error("Failed to load teachers for edit modal:", err));
+      .catch((err) => console.error("Failed to load options for edit modal:", err));
   }, [isOpen, batch]);
+
+  const handleDayToggle = (day: string) => {
+    setSelectedDays((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
+    );
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,7 +100,11 @@ export default function EditBatchModal({
           course,
           teacherId,
           teacherName: selectedTeacher ? selectedTeacher.name : batch.teacherName,
+          brand,
+          startDate: startDate ? new Date(startDate) : undefined,
+          endDate: endDate ? new Date(endDate) : undefined,
           timing,
+          days: selectedDays,
           status,
           maxCapacity,
           notes: notes.trim(),
@@ -169,6 +204,57 @@ export default function EditBatchModal({
                 <option value="Completed">Completed</option>
                 <option value="Cancelled">Cancelled</option>
               </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                Start Date
+              </label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-semibold"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                End Date (Optional)
+              </label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-semibold"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+              Schedule Days
+            </label>
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {daysOfWeek.map((day) => {
+                const isSelected = selectedDays.includes(day);
+                return (
+                  <button
+                    type="button"
+                    key={day}
+                    onClick={() => handleDayToggle(day)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer border ${
+                      isSelected
+                        ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
+                        : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                    }`}
+                  >
+                    {day}
+                  </button>
+                );
+              })}
             </div>
           </div>
 

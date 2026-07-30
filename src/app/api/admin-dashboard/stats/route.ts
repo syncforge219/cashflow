@@ -378,32 +378,70 @@ export async function GET(req: Request) {
       });
     }
 
-    // 4. Process Source Distribution (Fully Dynamic from MongoDB)
-    const colorsList = ["bg-blue-500", "bg-cyan-500", "bg-emerald-500", "bg-amber-500", "bg-purple-500", "bg-rose-500", "bg-slate-400"];
-    const hexList = ["#3b82f6", "#06b6d4", "#10b981", "#f59e0b", "#a855f7", "#f43f5e", "#94a3b8"];
+    // 4. Process Source Distribution (Normalized & Dynamic with Vibrant Colors)
+    const normalizeSource = (srcRaw?: string) => {
+      if (!srcRaw || !srcRaw.trim()) return "Direct Walkin";
+      const s = srcRaw.toLowerCase().trim();
+      if (s.includes("google")) return "Google Ads";
+      if (s.includes("meta") || s.includes("facebook") || s.includes("insta")) return "Meta Ads";
+      if (s.includes("walkin") || s.includes("walk-in") || s.includes("walk in")) return "Direct Walkin";
+      if (s.includes("whatsapp")) return "WhatsApp";
+      if (s.includes("telephonic") || s.includes("call") || s.includes("phone")) return "Call / Telephonic";
+      if (s.includes("website") || s.includes("site") || s.includes("online")) return "Website";
+      if (s.includes("seminar")) return "Seminar";
+      if (s.includes("hoarding") || s.includes("banner")) return "Hoarding";
+      if (s.includes("reference") || s.includes("referral")) return "Reference";
+      if (s.includes("email")) return "Email";
+      if (s.includes("paper")) return "Paper Ads";
+      if (s.includes("campus")) return "Campus Visit";
+      return srcRaw.trim();
+    };
 
-    const enquiriesBySource = sourceCountsGroup.map((srcGroup: any, i: number) => {
-      const label = srcGroup._id || "Direct Walkin";
-      const count = srcGroup.count || 0;
-      const pctNum = totalLeads > 0 ? (count / totalLeads) * 100 : 0;
-      return {
-        label,
-        count,
-        pct: `${pctNum.toFixed(1)}%`,
-        pctNum,
-        color: colorsList[i % colorsList.length],
-        hex: hexList[i % hexList.length]
-      };
+    const sourceColorMap: Record<string, { color: string; hex: string }> = {
+      "Google Ads": { color: "bg-indigo-500", hex: "#6366f1" },
+      "Meta Ads": { color: "bg-blue-500", hex: "#3b82f6" },
+      "Direct Walkin": { color: "bg-emerald-500", hex: "#10b981" },
+      "WhatsApp": { color: "bg-emerald-600", hex: "#059669" },
+      "Call / Telephonic": { color: "bg-purple-500", hex: "#8b5cf6" },
+      "Website": { color: "bg-amber-500", hex: "#f59e0b" },
+      "Seminar": { color: "bg-rose-500", hex: "#f43f5e" },
+      "Hoarding": { color: "bg-cyan-500", hex: "#06b6d4" },
+      "Reference": { color: "bg-violet-600", hex: "#7c3aed" },
+      "Email": { color: "bg-teal-500", hex: "#14b8a6" },
+      "Paper Ads": { color: "bg-pink-500", hex: "#ec4899" },
+      "Campus Visit": { color: "bg-fuchsia-500", hex: "#d946ef" },
+      "Others": { color: "bg-sky-600", hex: "#0284c7" },
+    };
+
+    const adminSourceCountsMap: Record<string, number> = {};
+    (sourceCountsGroup || []).forEach((srcGroup: any) => {
+      const norm = normalizeSource(srcGroup._id);
+      adminSourceCountsMap[norm] = (adminSourceCountsMap[norm] || 0) + (srcGroup.count || 0);
     });
+
+    const enquiriesBySource = Object.entries(adminSourceCountsMap)
+      .map(([label, count]) => {
+        const pctNum = totalLeads > 0 ? (count / totalLeads) * 100 : 0;
+        const colorInfo = sourceColorMap[label] || { color: "bg-sky-500", hex: "#0ea5e9" };
+        return {
+          label,
+          count,
+          pct: `${pctNum.toFixed(1)}%`,
+          pctNum,
+          color: colorInfo.color,
+          hex: colorInfo.hex
+        };
+      })
+      .sort((a, b) => b.count - a.count);
 
     if (enquiriesBySource.length === 0) {
       enquiriesBySource.push({
         label: "Direct Walkin",
         count: 0,
-        pct: "0%",
+        pct: "0.0%",
         pctNum: 0,
-        color: colorsList[0],
-        hex: hexList[0]
+        color: "bg-emerald-500",
+        hex: "#10b981"
       });
     }
 

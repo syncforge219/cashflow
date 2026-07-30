@@ -10,13 +10,16 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const brandParam = searchParams.get("brand");
     
+    const userBrand = (user?.brandScope || (user as any)?.brand || "").trim();
+    const isBrandRestricted = userBrand && userBrand !== "All Brands" && userBrand !== "All" && userBrand !== "*" && userBrand !== "global";
+
     let query: any = {};
-    if (brandParam) {
+    if (isBrandRestricted) {
+      query.brand = { $regex: new RegExp(`^${userBrand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") };
+    } else if (brandParam && brandParam !== "All Brands" && brandParam !== "All") {
       const cleanParam = brandParam.trim().replace(/[^a-zA-Z0-9]/g, "");
       const regexPattern = cleanParam.split("").join(".*");
       query.brand = { $regex: new RegExp(regexPattern, "i") };
-    } else if (user && user.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All") {
-      query.brand = user.brandScope;
     }
 
     const courses = await Course.find(query).sort({ createdAt: -1 });

@@ -149,10 +149,17 @@ export async function GET(req: Request) {
   try {
     await dbConnect();
     const user = await getUserFromCookies();
-    
+    const { searchParams } = new URL(req.url);
+    const paramBrand = searchParams.get("brand") || searchParams.get("targetBrand");
+
+    const userBrand = (user?.brandScope || (user as any)?.brand || "").trim();
+    const isBrandRestricted = userBrand && userBrand !== "All Brands" && userBrand !== "All" && userBrand !== "*" && userBrand !== "global";
+
     let query: any = {};
-    if (user && user.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All") {
-      query.targetBrand = { $regex: new RegExp(`^${user.brandScope}$`, "i") };
+    if (isBrandRestricted) {
+      query.targetBrand = { $regex: new RegExp(`^${userBrand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") };
+    } else if (paramBrand && paramBrand !== "All Brands" && paramBrand !== "All") {
+      query.targetBrand = { $regex: new RegExp(`^${paramBrand.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") };
     }
 
     const enquiries = await Enquiry.find(query).sort({ createdAt: -1 });

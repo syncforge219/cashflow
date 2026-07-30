@@ -931,16 +931,26 @@ export default function BrandManagerAdmissionHub() {
                                                     <button
                                                         onClick={(e) => {
                                                             e.stopPropagation();
+                                                            setSelectedAdmissionDetail(adm);
+                                                        }}
+                                                        className="text-xs font-bold text-amber-800 hover:text-amber-950 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-lg transition-colors border border-amber-200 shadow-2xs cursor-pointer"
+                                                        title="Upgrade course for this student"
+                                                    >
+                                                        ⚡ Upgrade
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
                                                             setSelected360StudentId(adm._id);
                                                             setIs360Open(true);
                                                         }}
-                                                        className="text-xs font-bold text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition-colors border border-emerald-200"
+                                                        className="text-xs font-bold text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition-colors border border-emerald-200 cursor-pointer"
                                                     >
                                                         Student 360
                                                     </button>
                                                     <button
                                                         onClick={(e) => handlePrintSlip(adm, e)}
-                                                        className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors border border-indigo-100"
+                                                        className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors border border-indigo-100 cursor-pointer"
                                                     >
                                                         Print Slip
                                                     </button>

@@ -7,6 +7,7 @@ interface AdmissionDetailModalProps {
   onClose: () => void;
   admission: any;
   onUpgradeCourse?: (admission: any, targetCourse: string, targetCourseFee?: any) => void;
+  isAdmin?: boolean;
 }
 
 export default function AdmissionDetailModal({
@@ -14,10 +15,49 @@ export default function AdmissionDetailModal({
   onClose,
   admission,
   onUpgradeCourse,
+  isAdmin,
 }: AdmissionDetailModalProps) {
   const [brandCourses, setBrandCourses] = useState<any[]>([]);
+  const [courseSearchQuery, setCourseSearchQuery] = useState("");
   const [isLoadingCourses, setIsLoadingCourses] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState("");
+  const [isAdminUser, setIsAdminUser] = useState(false);
+
+  const parseFeeNumber = (val: any): number => {
+    if (val === undefined || val === null) return 0;
+    if (typeof val === "number") return isNaN(val) ? 0 : val;
+    const cleaned = String(val).replace(/[^0-9.]/g, "");
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? 0 : num;
+  };
+
+  const getCourseFee = (c: any): number => {
+    if (!c) return 0;
+    const raw = c.fee ?? c.totalFee ?? c.courseFee ?? c.price ?? c.expectedCourseFee ?? 0;
+    return parseFeeNumber(raw);
+  };
+
+  useEffect(() => {
+    try {
+      const storedUser = localStorage.getItem("user");
+      const storedRole = localStorage.getItem("userRole");
+      let roleStr = storedRole || "";
+      if (storedUser) {
+        const u = JSON.parse(storedUser);
+        if (u.role) roleStr = u.role;
+      }
+      const r = (roleStr || "").toLowerCase().trim();
+      if (r === "admin" || r === "super admin" || r === "super_admin" || r === "director") {
+        setIsAdminUser(true);
+      } else {
+        setIsAdminUser(false);
+      }
+    } catch (e) {
+      setIsAdminUser(false);
+    }
+  }, []);
+
+  const isUserAdmin = isAdmin !== undefined ? isAdmin : isAdminUser;
 
   useEffect(() => {
     if (isOpen && admission?.brand) {
@@ -204,11 +244,34 @@ export default function AdmissionDetailModal({
             </div>
           </div>
 
-          {/* Brand Courses Dropdown & Upgrade Action */}
+          {/* Brand Courses Dropdown & Upgrade Action (Available to all users) */}
           <div className="space-y-3">
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-              All Courses Under "{admission.brand || "Brand"}"
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                All Courses Under "{admission.brand || "Brand"}"
+              </label>
+              {courseSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setCourseSearchQuery("")}
+                  className="text-[10px] font-extrabold text-indigo-600 hover:text-indigo-800 cursor-pointer"
+                >
+                  Clear Search
+                </button>
+              )}
+            </div>
+
+            {/* Search input for courses */}
+            <div className="relative">
+              <input
+                type="text"
+                value={courseSearchQuery}
+                onChange={(e) => setCourseSearchQuery(e.target.value)}
+                placeholder="🔍 Type to search course..."
+                className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 outline-none bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:font-normal"
+              />
+            </div>
+
             {isLoadingCourses ? (
               <div className="flex items-center gap-2 py-3 px-4 bg-slate-50 rounded-xl border border-slate-200">
                 <svg
@@ -254,21 +317,25 @@ export default function AdmissionDetailModal({
                 <option value="" disabled>
                   -- Select another course to upgrade --
                 </option>
-                {brandCourses.map((c: any, idx: number) => {
-                  const isEnrolled =
-                    c.name?.trim().toLowerCase() ===
-                    admission.course?.trim().toLowerCase();
-                  return (
-                    <option
-                      key={c._id || idx}
-                      value={c.name}
-                      disabled={isEnrolled}
-                    >
-                      {c.name} — ₹{c.fee || "N/A"}
-                      {isEnrolled ? " (Currently Enrolled)" : ""}
-                    </option>
-                  );
-                })}
+                {brandCourses
+                  .filter((c: any) => (c.name || "").toLowerCase().includes(courseSearchQuery.toLowerCase()))
+                  .map((c: any, idx: number) => {
+                    const isEnrolled =
+                      c.name?.trim().toLowerCase() ===
+                      admission.course?.trim().toLowerCase();
+                    const feeVal = getCourseFee(c);
+                    const feeText = feeVal > 0 ? `₹${feeVal.toLocaleString("en-IN")}` : (c.fee ? `₹${c.fee}` : "Fee on request");
+                    return (
+                      <option
+                        key={c._id || idx}
+                        value={c.name}
+                        disabled={isEnrolled}
+                      >
+                        {c.name} — {feeText}
+                        {isEnrolled ? " (Currently Enrolled)" : ""}
+                      </option>
+                    );
+                  })}
               </select>
             )}
 

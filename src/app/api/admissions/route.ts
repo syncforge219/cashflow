@@ -447,8 +447,11 @@ export async function GET(req: Request) {
     const endDateParam = searchParams.get("endDate");
     const filterParam = searchParams.get("filter");
 
-    if (user && user.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All") {
-      brand = user.brandScope;
+    const userBrand = (user?.brandScope || (user as any)?.brand || "").trim();
+    const isBrandRestricted = userBrand && userBrand !== "All Brands" && userBrand !== "All" && userBrand !== "*" && userBrand !== "global";
+
+    if (isBrandRestricted) {
+      brand = userBrand;
     }
 
     let query: any = {};
@@ -465,8 +468,8 @@ export async function GET(req: Request) {
       ];
     }
 
-    if (brand && brand !== "all" && brand !== "All") {
-      query.brand = brand;
+    if (brand && brand !== "all" && brand !== "All" && brand !== "All Brands") {
+      query.brand = { $regex: new RegExp(`^${brand.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") };
     }
 
     if (startDateParam && endDateParam) {

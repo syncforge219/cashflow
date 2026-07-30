@@ -50,47 +50,94 @@ export default function AddFollowupModal({
   const [selectedFromLeft, setSelectedFromLeft] = useState<string[]>([]);
   const [selectedFromRight, setSelectedFromRight] = useState<string[]>([]);
 
+  // Additional Follow-up Features State
+  const [priority, setPriority] = useState<string>(record?.priorityLevel || record?.priority || "Medium");
+  const [assignedTo, setAssignedTo] = useState<string>(record?.assignedCrmAdvisor || record?.counsellor || "");
+  const [nextAction, setNextAction] = useState<string>("");
+  const [status, setStatus] = useState<string>("Pending");
+  const [recurringRule, setRecurringRule] = useState<string>("none");
+  const [counsellorsList, setCounsellorsList] = useState<any[]>([]);
+
   // Lead Type & Call Duration
   const [leadType, setLeadType] = useState(record?.leadType || "walkin");
   const [callStart, setCallStart] = useState("");
   const [callEnd, setCallEnd] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Response Type & Dynamic Add Modal State
+  const [responseTypes, setResponseTypes] = useState<string[]>([
+    "incoming call",
+    "INCOMING NOT AVAIALABLE",
+    "Not interested",
+    "ntr",
+    "remark",
+    "RNR",
+    "sw/off",
+    "Wrong no.",
+    "Telephonic",
+    "WhatsApp",
+    "Email",
+    "Walkin",
+    "Campus Visit",
+  ]);
+  const [responseType, setResponseType] = useState<string>("incoming call");
+
+  // Add Response Type Modal State
+  const [isAddResponseTypeModalOpen, setIsAddResponseTypeModalOpen] = useState(false);
+  const [newResponseTypeName, setNewResponseTypeName] = useState("");
+  const [newResponseTypeRemarks, setNewResponseTypeRemarks] = useState("");
+  const [isSavingResponseType, setIsSavingResponseType] = useState(false);
+
   // History State
   const [historySearch, setHistorySearch] = useState("");
   const [historyItemsPerPage, setHistoryItemsPerPage] = useState(5);
   const [historyCurrentPage, setHistoryCurrentPage] = useState(1);
 
-  // Fetch real courses from backend
+  // Fetch real courses, counsellors and response types from backend
   useEffect(() => {
-    const fetchRealCourses = async () => {
+    const fetchRealData = async () => {
       try {
-        const res = await fetch("/api/courses");
-        const data = await res.json();
+        const [cRes, counsRes, respRes] = await Promise.all([
+          fetch("/api/courses").then(r => r.json().catch(() => ({}))),
+          fetch("/api/counsellors").then(r => r.json().catch(() => ({}))),
+          fetch("/api/response-types").then(r => r.json().catch(() => ({}))),
+        ]);
+
         let courseList: string[] = [];
-        if (data.success && Array.isArray(data.data) && data.data.length > 0) {
-          courseList = data.data.map((c: any) => `${c.name}${c.fee ? `-${c.fee}` : ""}`);
+        if (cRes.success && Array.isArray(cRes.data) && cRes.data.length > 0) {
+          courseList = Array.from(new Set(cRes.data.map((c: any) => `${c.name}${c.fee ? `-${c.fee}` : ""}`)));
         } else {
-          courseList = DEFAULT_COURSES;
+          courseList = Array.from(new Set(DEFAULT_COURSES));
+        }
+
+        if (counsRes.success && Array.isArray(counsRes.data)) {
+          setCounsellorsList(counsRes.data);
+        }
+
+        if (respRes.success && Array.isArray(respRes.data) && respRes.data.length > 0) {
+          const names: string[] = Array.from(new Set(respRes.data.map((t: any) => String(t.name))));
+          setResponseTypes(names);
         }
 
         if (record && (record.targetCourse || record.course)) {
           const selected = record.targetCourse || record.course;
-          setSelectedCourses([selected]);
-          setAvailableCourses(courseList.filter((item) => item !== selected));
+          setSelectedCourses(Array.from(new Set([selected])));
+          setAvailableCourses(Array.from(new Set(courseList.filter((item) => item !== selected))));
         } else {
-          setAvailableCourses(courseList);
+          setAvailableCourses(Array.from(new Set(courseList)));
         }
       } catch (err) {
-        console.error("Error fetching courses for modal:", err);
+        console.error("Error loading modal dropdown data:", err);
         setAvailableCourses(DEFAULT_COURSES);
       }
     };
 
     if (isOpen) {
-      fetchRealCourses();
+      fetchRealData();
       if (record) {
         setLeadType(record.leadType || "walkin");
+        setAssignedTo(record.assignedCrmAdvisor || record.counsellor || "");
+        setPriority(record.priorityLevel || record.priority || "Medium");
       }
     }
   }, [isOpen, record]);
@@ -155,14 +202,19 @@ export default function AddFollowupModal({
       const payload = {
         date: nextDate,
         time: nextTime,
+        priority,
+        assignedTo,
         remarks: followupRemark,
+        nextAction,
         currentDate,
         currentTime,
         typeOfContact: leadType,
         selectedCourses,
         callStart,
         callEnd,
-        status: "In Progress",
+        status,
+        isRecurring: recurringRule !== "none",
+        recurringRule,
       };
 
       const res = await fetch(`/api/enquiries/${record._id}/tasks`, {
@@ -250,7 +302,41 @@ export default function AddFollowupModal({
         {activeTab === "add" ? (
           <div className="p-8 overflow-y-auto space-y-6 text-xs text-slate-700 font-sans flex-1">
             
-            {/* 1. Next Follow-up Date & Time */}
+            {/* 1. Priority & Assignment Row */}
+            <div className="grid grid-cols-12 items-center gap-4">
+              <div className="col-span-4 text-right pr-2">
+                <label className="block font-bold text-slate-800">
+                  Priority & Assignee
+                </label>
+              </div>
+              <div className="col-span-8 grid grid-cols-2 gap-3">
+                <select
+                  value={priority}
+                  onChange={(e) => setPriority(e.target.value)}
+                  className="px-3.5 py-2.5 border border-slate-300 rounded-xl text-slate-800 font-bold outline-none bg-white shadow-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 cursor-pointer"
+                >
+                  <option value="Urgent">🔴 Urgent Priority</option>
+                  <option value="High">🟠 High Priority</option>
+                  <option value="Medium">🟡 Medium Priority</option>
+                  <option value="Low">🔵 Low Priority</option>
+                </select>
+
+                <select
+                  value={assignedTo}
+                  onChange={(e) => setAssignedTo(e.target.value)}
+                  className="px-3.5 py-2.5 border border-slate-300 rounded-xl text-slate-800 font-bold outline-none bg-white shadow-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 cursor-pointer"
+                >
+                  <option value="">-- Assign Counsellor / Rep --</option>
+                  {counsellorsList.map((c) => (
+                    <option key={c._id || c.name} value={c.name}>
+                      👤 {c.name} {c.brand ? `(${c.brand})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* 2. Next Follow-up Date & Time */}
             <div className="grid grid-cols-12 items-center gap-4">
               <div className="col-span-4 text-right pr-2">
                 <label className="block font-bold text-slate-800 leading-tight">
@@ -289,21 +375,62 @@ export default function AddFollowupModal({
               </div>
             </div>
 
-            {/* 2. Followup Remark */}
+            {/* 3. Recurring Follow-up & Touchpoint Status */}
+            <div className="grid grid-cols-12 items-center gap-4">
+              <div className="col-span-4 text-right pr-2">
+                <label className="block font-bold text-slate-800">
+                  Status & Auto-Recurring
+                </label>
+              </div>
+              <div className="col-span-8 grid grid-cols-2 gap-3">
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                  className="px-3.5 py-2.5 border border-slate-300 rounded-xl text-slate-800 font-bold outline-none bg-white shadow-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 cursor-pointer"
+                >
+                  <option value="Pending">⏳ Pending</option>
+                  <option value="In Progress">🔄 In Progress</option>
+                  <option value="Completed">✓ Completed</option>
+                  <option value="Rescheduled">📅 Rescheduled</option>
+                  <option value="Missed">🚨 Missed</option>
+                </select>
+
+                <select
+                  value={recurringRule}
+                  onChange={(e) => setRecurringRule(e.target.value)}
+                  className="px-3.5 py-2.5 border border-slate-300 rounded-xl text-slate-800 font-bold outline-none bg-white shadow-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 cursor-pointer"
+                >
+                  <option value="none">🔁 Auto-Recurring: None</option>
+                  <option value="1_day">🔁 Every 1 Day (+1d)</option>
+                  <option value="3_days">🔁 Every 3 Days (+3d)</option>
+                  <option value="7_days">🔁 Every 7 Days (+7d)</option>
+                  <option value="14_days">🔁 Every 14 Days (+14d)</option>
+                  <option value="30_days">🔁 Monthly (+30d)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* 4. Followup Remark & Next Action Step */}
             <div className="grid grid-cols-12 items-start gap-4">
               <div className="col-span-4 text-right pr-2 pt-2">
                 <label className="block font-bold text-slate-800">
-                  Followup Remark <span className="text-rose-500">*</span>
+                  Remarks & Next Action
                 </label>
               </div>
-              <div className="col-span-8">
+              <div className="col-span-8 space-y-2">
                 <textarea
                   rows={3}
                   value={followupRemark}
                   onChange={(e) => setFollowupRemark(e.target.value)}
-                  placeholder="Enter detailed call outcome (e.g. Student requested callback tomorrow, interested in Graphic Design)..."
+                  placeholder="Enter call outcome or remarks (optional)..."
                   className="w-full p-3.5 border border-slate-300 rounded-xl text-slate-800 font-medium outline-none bg-white shadow-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all"
-                  required
+                />
+                <input
+                  type="text"
+                  value={nextAction}
+                  onChange={(e) => setNextAction(e.target.value)}
+                  placeholder="Target next action step (optional)..."
+                  className="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-slate-800 font-medium outline-none bg-white shadow-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
                 />
               </div>
             </div>
@@ -368,9 +495,9 @@ export default function AddFollowupModal({
                   <div className="h-36 overflow-y-auto p-1.5 divide-y divide-slate-100">
                     {availableCourses
                       .filter((c) => c.toLowerCase().includes(searchAvailable.toLowerCase()))
-                      .map((c) => (
+                      .map((c, idx) => (
                         <div
-                          key={c}
+                          key={`avail-${c}-${idx}`}
                           onClick={() => {
                             if (selectedFromLeft.includes(c)) {
                               setSelectedFromLeft(selectedFromLeft.filter((item) => item !== c));
@@ -415,9 +542,9 @@ export default function AddFollowupModal({
                   <div className="h-36 overflow-y-auto p-1.5 divide-y divide-slate-100">
                     {selectedCourses
                       .filter((c) => c.toLowerCase().includes(searchSelected.toLowerCase()))
-                      .map((c) => (
+                      .map((c, idx) => (
                         <div
-                          key={c}
+                          key={`sel-${c}-${idx}`}
                           onClick={() => {
                             if (selectedFromRight.includes(c)) {
                               setSelectedFromRight(selectedFromRight.filter((item) => item !== c));
@@ -437,7 +564,39 @@ export default function AddFollowupModal({
               </div>
             </div>
 
-            {/* 5. Lead Type */}
+            {/* 5. Response Type */}
+            <div className="grid grid-cols-12 items-center gap-4">
+              <div className="col-span-4 text-right pr-2">
+                <label className="block font-bold text-slate-800">
+                  Response Type <span className="text-rose-500">*</span>
+                </label>
+              </div>
+              <div className="col-span-8 flex items-center gap-2">
+                <select
+                  value={responseType}
+                  onChange={(e) => setResponseType(e.target.value)}
+                  className="flex-1 px-3.5 py-2.5 border border-slate-300 rounded-xl text-slate-800 font-bold outline-none bg-white shadow-xs focus:ring-2 focus:ring-orange-500/20 focus:border-orange-600 cursor-pointer"
+                >
+                  {responseTypes.map((t, idx) => (
+                    <option key={`resp-${t}-${idx}`} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Orange + Button to open Add Response Type Modal (Matching Screenshot) */}
+                <button
+                  type="button"
+                  onClick={() => setIsAddResponseTypeModalOpen(true)}
+                  className="w-10 h-10 bg-orange-600 hover:bg-orange-700 text-white font-black text-xl rounded-xl flex items-center justify-center shadow-md shadow-orange-600/30 transition-all active:scale-95 cursor-pointer shrink-0"
+                  title="Add New Response Type"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            {/* 6. Lead Type */}
             <div className="grid grid-cols-12 items-center gap-4">
               <div className="col-span-4 text-right pr-2">
                 <label className="block font-bold text-slate-800">
@@ -632,6 +791,107 @@ export default function AddFollowupModal({
                   &gt;
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Dynamic Add Response Type Modal matching Screenshots */}
+        {isAddResponseTypeModalOpen && (
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+              {/* Header matching Screenshot 3: Bright Orange Header */}
+              <div className="bg-gradient-to-r from-orange-600 to-orange-500 px-6 py-4 flex items-center justify-between text-white">
+                <h2 className="text-lg font-extrabold flex items-center gap-2">
+                  <span>Response Type</span>
+                  <span className="text-base animate-pulse">🔊</span>
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setIsAddResponseTypeModalOpen(false)}
+                  className="text-white/80 hover:text-white font-black text-xl transition-colors cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Body Form matching Screenshot 3 */}
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!newResponseTypeName.trim()) return;
+                  setIsSavingResponseType(true);
+                  try {
+                    const res = await fetch("/api/response-types", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        name: newResponseTypeName,
+                        remarks: newResponseTypeRemarks,
+                      }),
+                    });
+                    const json = await res.json();
+                    if (json.success && json.data) {
+                      const addedName = json.data.name;
+                      setResponseTypes((prev) => Array.from(new Set([...prev, addedName])));
+                      setResponseType(addedName);
+                      setNewResponseTypeName("");
+                      setNewResponseTypeRemarks("");
+                      setIsAddResponseTypeModalOpen(false);
+                    }
+                  } catch (err) {
+                    console.error("Error adding response type:", err);
+                  } finally {
+                    setIsSavingResponseType(false);
+                  }
+                }}
+                className="p-6 space-y-4 text-left"
+              >
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                    Response Type Name<span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newResponseTypeName}
+                    onChange={(e) => setNewResponseTypeName(e.target.value)}
+                    placeholder="e.g. Call Back Later, Busy, Switched Off..."
+                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                    Response Type Remarks<span className="text-rose-500">*</span>
+                  </label>
+                  <textarea
+                    rows={3}
+                    required
+                    value={newResponseTypeRemarks}
+                    onChange={(e) => setNewResponseTypeRemarks(e.target.value)}
+                    placeholder="Enter guidelines or remarks..."
+                    className="w-full p-3.5 border border-slate-300 rounded-xl text-xs font-medium text-slate-800 outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-600"
+                  />
+                </div>
+
+                {/* Footer Buttons matching Screenshot 3 */}
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddResponseTypeModalOpen(false)}
+                    className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer"
+                  >
+                    Close
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingResponseType}
+                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-emerald-600/20 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {isSavingResponseType ? "Saving..." : "Save"}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}
