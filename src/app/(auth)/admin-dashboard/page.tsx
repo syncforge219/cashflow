@@ -129,13 +129,37 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
-    if (user?.role === "counsellor") {
+    const role = (user?.role || "").toLowerCase().trim();
+    if (!role) return;
+
+    if (role === "counsellor" || role === "counselor") {
       router.replace("/counsellor-dashboard");
-    } else if (user?.role === "brand manager") {
+    } else if (
+      role === "brand manager" ||
+      role === "brand_manager" ||
+      role === "brand-manager" ||
+      role === "centre head" ||
+      role === "centre_head" ||
+      role === "center head" ||
+      role === "center_head" ||
+      role === "manager" ||
+      role === "branch head" ||
+      role === "branch_head"
+    ) {
       router.replace("/manager-dashboard");
-    } else if (user?.role === "teacher") {
+    } else if (role === "teacher") {
       router.replace("/teacher-dashboard");
-    } else if (user?.role === "crm" || user?.role === "crm executive" || user?.role === "crm advisor") {
+    } else if (
+      role === "cfo" ||
+      role === "finance manager" ||
+      role === "finance executive"
+    ) {
+      router.replace("/cfo-dashboard");
+    } else if (
+      role === "crm" ||
+      role === "crm executive" ||
+      role === "crm advisor"
+    ) {
       router.replace("/crm-dashboard");
     }
   }, [user, router]);
@@ -152,7 +176,29 @@ export default function AdminDashboard() {
   }, []);
 
   useEffect(() => {
-    if (user?.role !== "counsellor") {
+    const role = (user?.role || "").toLowerCase().trim();
+    const isNonAdmin =
+      role === "counsellor" ||
+      role === "counselor" ||
+      role === "brand manager" ||
+      role === "brand_manager" ||
+      role === "brand-manager" ||
+      role === "centre head" ||
+      role === "centre_head" ||
+      role === "center head" ||
+      role === "center_head" ||
+      role === "manager" ||
+      role === "branch head" ||
+      role === "branch_head" ||
+      role === "teacher" ||
+      role === "cfo" ||
+      role === "finance manager" ||
+      role === "finance executive" ||
+      role === "crm" ||
+      role === "crm executive" ||
+      role === "crm advisor";
+
+    if (role && !isNonAdmin) {
       setIsLoading(true);
       let url = "/api/admin-dashboard/stats";
       if (startDate && endDate) {
@@ -173,7 +219,29 @@ export default function AdminDashboard() {
     }
   }, [user, startDate, endDate]);
 
-  if (!user || user.role === "counsellor" || user.role === "brand manager" || user.role === "teacher") return null;
+  const roleLower = (user?.role || "").toLowerCase().trim();
+  const isNonAdminUser =
+    roleLower === "counsellor" ||
+    roleLower === "counselor" ||
+    roleLower === "brand manager" ||
+    roleLower === "brand_manager" ||
+    roleLower === "brand-manager" ||
+    roleLower === "centre head" ||
+    roleLower === "centre_head" ||
+    roleLower === "center head" ||
+    roleLower === "center_head" ||
+    roleLower === "manager" ||
+    roleLower === "branch head" ||
+    roleLower === "branch_head" ||
+    roleLower === "teacher" ||
+    roleLower === "cfo" ||
+    roleLower === "finance manager" ||
+    roleLower === "finance executive" ||
+    roleLower === "crm" ||
+    roleLower === "crm executive" ||
+    roleLower === "crm advisor";
+
+  if (!user || isNonAdminUser) return null;
 
   const initialLetter = user.name ? user.name.charAt(0).toUpperCase() : "A";
 

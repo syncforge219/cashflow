@@ -108,7 +108,16 @@ export default function TeacherDisplay() {
   };
 
   // Filter logic
-  const isBrandManager = user?.role === "brand manager";
+  const roleLower = (user?.role || "").toLowerCase().trim();
+  const isBrandManager =
+    roleLower === "brand manager" ||
+    roleLower === "brand_manager" ||
+    roleLower === "brand-manager" ||
+    roleLower === "centre head" ||
+    roleLower === "centre_head" ||
+    roleLower === "center head" ||
+    roleLower === "center_head" ||
+    roleLower === "manager";
   const userBrandScope = user?.brandScope;
 
   const brandsList = Array.from(new Set(teachersList.map((t) => t.brand).filter(Boolean)));

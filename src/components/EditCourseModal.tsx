@@ -82,7 +82,16 @@ export default function EditCourseModal({ isOpen, course, onClose, onSuccess }: 
   if (!isOpen || !course) return null;
 
   const getBrandOptions = (): string[] => {
-    if (user?.brandScope && user.role === "brand manager") {
+    const roleLower = (user?.role || "").toLowerCase().trim();
+    const isBrandMgrRole =
+      roleLower === "brand manager" ||
+      roleLower === "brand_manager" ||
+      roleLower === "brand-manager" ||
+      roleLower === "centre head" ||
+      roleLower === "centre_head" ||
+      roleLower === "center head" ||
+      roleLower === "center_head";
+    if (user?.brandScope && isBrandMgrRole) {
       const userBrands = user.brandScope.split(",").map((b: string) => b.trim()).filter(Boolean);
       if (userBrands.length > 0) return userBrands;
     }

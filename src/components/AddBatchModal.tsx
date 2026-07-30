@@ -161,7 +161,17 @@ export default function AddBatchModal({
 
   if (!isOpen) return null;
 
-  const isBrandLocked = user?.role === "brand manager" || user?.role === "counsellor";
+  const roleLower = (user?.role || "").toLowerCase().trim();
+  const isBrandLocked =
+    roleLower === "brand manager" ||
+    roleLower === "brand_manager" ||
+    roleLower === "brand-manager" ||
+    roleLower === "centre head" ||
+    roleLower === "centre_head" ||
+    roleLower === "center head" ||
+    roleLower === "center_head" ||
+    roleLower === "counsellor" ||
+    roleLower === "counselor";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto font-sans">

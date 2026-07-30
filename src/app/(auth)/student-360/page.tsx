@@ -51,7 +51,17 @@ export default function Student360PortalPage() {
     userRole === "branch_head" ||
     isCounsellor;
 
-  const isBrandManager = userRole === "brand_manager" || userRole === "brand-manager" || userRole === "brand manager";
+  const isBrandManager =
+    userRole === "brand_manager" ||
+    userRole === "brand-manager" ||
+    userRole === "brand manager" ||
+    userRole === "manager" ||
+    userRole === "centre head" ||
+    userRole === "centre_head" ||
+    userRole === "center head" ||
+    userRole === "center_head" ||
+    userRole === "branch head" ||
+    userRole === "branch_head";
 
   useEffect(() => {
     if (isBrandManager && user?.brandScope && user?.brandScope !== "All Brands" && user?.brandScope !== "All") {

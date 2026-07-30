@@ -27,9 +27,17 @@ export async function GET(
       return NextResponse.json({ success: false, message: "Student record not found" }, { status: 404 });
     }
 
-    // Role check: brand manager brand scoping
+    // Role check: brand manager / centre head brand scoping
     const userRole = (user.role || "").toLowerCase();
-    const isBrandManager = userRole === "brand_manager" || userRole === "brand-manager" || userRole === "brand manager";
+    const isBrandManager =
+      userRole === "brand_manager" ||
+      userRole === "brand-manager" ||
+      userRole === "brand manager" ||
+      userRole === "manager" ||
+      userRole === "centre head" ||
+      userRole === "centre_head" ||
+      userRole === "center head" ||
+      userRole === "center_head";
     if (isBrandManager && user.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All") {
       const studentBrand = (admission as any).brand || "";
       if (studentBrand.toLowerCase() !== user.brandScope.toLowerCase()) {
@@ -83,10 +91,15 @@ export async function PUT(
       userRole === "super_admin" ||
       userRole === "brand_manager" ||
       userRole === "brand-manager" ||
-      userRole === "brand manager";
+      userRole === "brand manager" ||
+      userRole === "manager" ||
+      userRole === "centre head" ||
+      userRole === "centre_head" ||
+      userRole === "center head" ||
+      userRole === "center_head";
 
     if (!isAuthorized) {
-      return NextResponse.json({ success: false, message: "Forbidden: Only Admins and Brand Managers can edit student records." }, { status: 403 });
+      return NextResponse.json({ success: false, message: "Forbidden: Only Admins, Brand Managers and Centre Heads can edit student records." }, { status: 403 });
     }
 
     const body = await req.json();
@@ -96,8 +109,16 @@ export async function PUT(
       return NextResponse.json({ success: false, message: "Student record not found" }, { status: 404 });
     }
 
-    // Role check: brand manager scope
-    const isBrandManager = userRole === "brand_manager" || userRole === "brand-manager" || userRole === "brand manager";
+    // Role check: brand manager / centre head scope
+    const isBrandManager =
+      userRole === "brand_manager" ||
+      userRole === "brand-manager" ||
+      userRole === "brand manager" ||
+      userRole === "manager" ||
+      userRole === "centre head" ||
+      userRole === "centre_head" ||
+      userRole === "center head" ||
+      userRole === "center_head";
     if (isBrandManager && user.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All") {
       const studentBrand = existingDoc.brand || "";
       if (studentBrand.toLowerCase() !== user.brandScope.toLowerCase()) {

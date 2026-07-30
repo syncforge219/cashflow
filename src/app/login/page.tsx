@@ -76,9 +76,20 @@ export default function LoginPage() {
           return;
         }
 
-        if (userRole === "counsellor") {
+        if (userRole === "counsellor" || userRole === "counselor") {
           window.location.href = "/counsellor-dashboard";
-        } else if (userRole === "brand manager" || userRole === "centre head") {
+        } else if (
+          userRole === "brand manager" ||
+          userRole === "brand_manager" ||
+          userRole === "brand-manager" ||
+          userRole === "centre head" ||
+          userRole === "centre_head" ||
+          userRole === "center head" ||
+          userRole === "center_head" ||
+          userRole === "manager" ||
+          userRole === "branch head" ||
+          userRole === "branch_head"
+        ) {
           window.location.href = "/manager-dashboard";
         } else if (userRole === "teacher") {
           window.location.href = "/teacher-dashboard";
@@ -86,7 +97,7 @@ export default function LoginPage() {
           window.location.href = "/cfo-dashboard";
         } else if (userRole === "crm" || userRole === "crm executive" || userRole === "crm advisor") {
           window.location.href = "/crm-dashboard";
-        } else if (userRole === "admin" || userRole === "super admin" || userRole === "director") {
+        } else if (userRole === "admin" || userRole === "super admin" || userRole === "director" || userRole === "super_admin") {
           window.location.href = "/admin-dashboard";
         } else {
           setErrors({ email: "Access denied. Unrecognized or unauthorized user role." });
