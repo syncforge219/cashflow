@@ -573,117 +573,91 @@ export default function FollowupPage() {
       {/* Main Container */}
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
         
-        {/* Top Header Controls Bar (Matching Application Theme) */}
-        <div className="bg-white/90 backdrop-blur-md border-b border-slate-200 px-6 py-3 flex flex-wrap items-center justify-between gap-4 shadow-xs shrink-0 z-30">
+        {/* Top Header Controls Bar (Sleek Single-Row Layout) */}
+        <div className="bg-white/95 backdrop-blur-md border-b border-slate-200/90 px-6 py-2.5 flex items-center justify-between gap-4 shadow-2xs shrink-0 z-30">
           
-          {/* Left Title & Mode Switcher */}
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl font-black tracking-tight text-slate-900 flex items-center gap-2 font-sans">
-              {activeMode === "enquiry" ? "Enquiry Followup" : "Fees Followup"}
-              <button
-                onClick={() => {
-                  playChimeSound("notification");
-                }}
-                className={`p-1.5 rounded-xl border transition-all duration-300 active:scale-90 cursor-pointer flex items-center gap-1 ${
-                  soundEnabled
-                    ? "bg-indigo-50 border-indigo-200 text-indigo-600 hover:bg-indigo-100 shadow-xs"
-                    : "bg-slate-100 border-slate-200 text-slate-400 hover:bg-slate-200"
-                }`}
-                title="Click to Test & Activate Sound System"
-              >
-                <span className="text-base animate-pulse">🔊</span>
-                <span className="text-[10px] font-black uppercase text-indigo-700 tracking-wider">
-                  {soundActivated ? "ACTIVE" : "TEST SOUND"}
-                </span>
-              </button>
+          {/* Left: Mode Title & Pill Selector */}
+          <div className="flex items-center gap-4">
+            <h1 className="text-lg font-black tracking-tight text-slate-900 font-sans">
+              Followup CRM
             </h1>
 
-            {/* Mode Switcher Button (Click to Change) */}
-            <div className="flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200/80 ml-2">
+            {/* Mode Switcher Pill */}
+            <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200/80">
               <button
                 onClick={() => {
                   setActiveMode("enquiry");
                   setCurrentPage(1);
                 }}
-                className={`px-4 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                className={`px-3.5 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
                   activeMode === "enquiry"
-                    ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-600/20"
-                    : "text-slate-600 hover:bg-slate-200/70"
+                    ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                Enquiry Followup
+                Enquiry Followups
               </button>
               <button
                 onClick={() => {
                   setActiveMode("fees");
                   setCurrentPage(1);
                 }}
-                className={`px-4 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                className={`px-3.5 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
                   activeMode === "fees"
-                    ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-600/20"
-                    : "text-slate-600 hover:bg-slate-200/70"
+                    ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                Fees Followup
+                Fees Followups
               </button>
             </div>
           </div>
 
-          {/* Right Controls: Desktop Notification Toggle, Audio Chime Toggle, Advanced Filter, Add New */}
-          <div className="flex flex-wrap items-center gap-3">
+          {/* Right Controls: Unified Alerts Capsule, Performance Reports, Filter, Add New */}
+          <div className="flex items-center gap-2.5">
             
-            {/* Audio Alerts Toggle Switch */}
-            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 px-3 py-1.5 rounded-xl shadow-xs">
-              <span className="text-xs font-extrabold text-slate-700 flex items-center gap-1">
-                <span>🔊 Audio System</span>
-              </span>
+            {/* Unified Alerts Capsule (Sound & Desktop Notifications) */}
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 px-2.5 py-1 rounded-xl shadow-2xs">
+              {/* Sound Test / Toggle Button */}
               <button
                 type="button"
                 onClick={() => {
                   const nextState = !soundEnabled;
                   setSoundEnabled(nextState);
-                  if (nextState) playChimeSound("notification");
+                  playChimeSound("notification");
                 }}
-                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                  soundEnabled ? "bg-indigo-600" : "bg-slate-300"
+                className={`px-2 py-0.5 rounded-lg text-[11px] font-black transition-all cursor-pointer flex items-center gap-1 ${
+                  soundEnabled
+                    ? "bg-indigo-100/80 text-indigo-700 hover:bg-indigo-200/80"
+                    : "bg-slate-200 text-slate-400"
                 }`}
+                title="Click to Test Audio Chime"
               >
-                <span
-                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
-                    soundEnabled ? "translate-x-4" : "translate-x-0"
-                  }`}
-                />
+                <span className="animate-pulse">🔊</span>
+                <span>Sound: {soundEnabled ? "ON" : "OFF"}</span>
               </button>
-              <span className="text-[10px] font-black text-slate-500 uppercase">
-                {soundEnabled ? "ON" : "OFF"}
-              </span>
-            </div>
 
-            {/* Desktop Notification Toggle Switch */}
-            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 px-3 py-1.5 rounded-xl shadow-xs">
-              <span className="text-xs font-extrabold text-indigo-700">Desktop Notification</span>
+              <div className="h-3 w-px bg-slate-200" />
+
+              {/* Desktop Notification Toggle Switch */}
               <button
                 type="button"
                 onClick={toggleNotifications}
-                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                  notificationsEnabled ? "bg-emerald-500" : "bg-slate-300"
+                className={`px-2 py-0.5 rounded-lg text-[11px] font-black transition-all cursor-pointer flex items-center gap-1 ${
+                  notificationsEnabled
+                    ? "bg-emerald-100/80 text-emerald-800 hover:bg-emerald-200/80"
+                    : "bg-slate-200 text-slate-400"
                 }`}
+                title="Toggle Desktop Notifications"
               >
-                <span
-                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
-                    notificationsEnabled ? "translate-x-4" : "translate-x-0"
-                  }`}
-                />
+                <span>🔔 Desktop: {notificationsEnabled ? "ON" : "OFF"}</span>
               </button>
-              <span className="text-[10px] font-black text-slate-500 uppercase">
-                {notificationsEnabled ? "ON" : "OFF"}
-              </span>
             </div>
 
             {/* Performance Reports Button */}
             <button
               onClick={() => setIsPerformanceModalOpen(true)}
-              className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-emerald-600/20 transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+              className="px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-xs rounded-xl shadow-2xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
             >
               <span>📊 Performance Reports</span>
             </button>
@@ -691,18 +665,18 @@ export default function FollowupPage() {
             {/* Advanced Filter Button */}
             <button
               onClick={() => setIsFilterModalOpen(true)}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-indigo-600/20 transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+              className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-2xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
               </svg>
-              <span>Advanced Filter</span>
+              <span>Filter</span>
             </button>
 
             {/* Add New Button */}
             <button
               onClick={() => setIsAddEnquiryModalOpen(true)}
-              className="px-4.5 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-indigo-600/20 transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+              className="px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-extrabold text-xs rounded-xl shadow-2xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
