@@ -586,7 +586,15 @@ export default function TeacherDashboard() {
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs">
                   {teacherData?.enrolledStudentsList?.length > 0 ? (
-                    teacherData.enrolledStudentsList
+                    Array.from(
+                      teacherData.enrolledStudentsList
+                        .reduce((map: Map<string, any>, s: any) => {
+                          const k = `${(s.primaryPhoneMobile || "").trim()}_${(s.targetCourse || "").toLowerCase().trim()}`;
+                          if (!map.has(k)) map.set(k, s);
+                          return map;
+                        }, new Map())
+                        .values()
+                    )
                       .filter((s: any) => {
                         if (!searchQuery) return true;
                         const q = searchQuery.toLowerCase().trim();
