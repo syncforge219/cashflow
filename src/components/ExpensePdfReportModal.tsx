@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 
 interface ExpenseRecord {
   _id: string;
@@ -41,33 +41,84 @@ export default function ExpensePdfReportModal({
 }: ExpensePdfReportModalProps) {
   const printRef = useRef<HTMLDivElement>(null);
 
+  // ── Custom Range States ──
+  const [startRow, setStartRow] = useState<number>(1);
+  const [endRow, setEndRow] = useState<number>(expenses.length || 1);
+  const [customStartDate, setCustomStartDate] = useState<string>(filters.startDate || "");
+  const [customEndDate, setCustomEndDate] = useState<string>(filters.endDate || "");
+  const [presetRange, setPresetRange] = useState<string>("all");
+
+  useEffect(() => {
+    setEndRow(expenses.length || 1);
+    setStartRow(1);
+    setPresetRange("all");
+    setCustomStartDate(filters.startDate || "");
+    setCustomEndDate(filters.endDate || "");
+  }, [expenses, filters.startDate, filters.endDate, isOpen]);
+
+  const handleApplyPreset = (preset: string) => {
+    setPresetRange(preset);
+    if (preset === "all") {
+      setStartRow(1);
+      setEndRow(expenses.length || 1);
+    } else if (preset === "1_50") {
+      setStartRow(1);
+      setEndRow(Math.min(50, expenses.length || 1));
+    } else if (preset === "51_100") {
+      setStartRow(51);
+      setEndRow(Math.min(100, expenses.length || 1));
+    } else if (preset === "101_200") {
+      setStartRow(101);
+      setEndRow(Math.min(200, expenses.length || 1));
+    }
+  };
+
+  // ── 1. Calculate Scoped Expenses based on Active Range Filters ──
+  const scopedExpenses = useMemo(() => {
+    let list = expenses;
+
+    // Filter by Custom Date Range if specified
+    if (customStartDate || customEndDate) {
+      list = list.filter((exp) => {
+        if (!exp.expenseDate) return true;
+        const d = new Date(exp.expenseDate);
+        if (customStartDate && d < new Date(customStartDate + "T00:00:00")) return false;
+        if (customEndDate && d > new Date(customEndDate + "T23:59:59")) return false;
+        return true;
+      });
+    }
+
+    // Filter by Voucher Row Index Range
+    const sIdx = Math.max(1, startRow) - 1;
+    const eIdx = Math.min(list.length, endRow || list.length);
+    return list.slice(sIdx, eIdx);
+  }, [expenses, customStartDate, customEndDate, startRow, endRow]);
+
   if (!isOpen) return null;
 
-  // ── 1. Calculate Financial Summaries & KPIs ──────────────────────────
-  const totalAmount = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-  const totalCount = expenses.length;
+  // ── 2. Calculate Financial Summaries & KPIs ──────────────────────────
+  const totalAmount = scopedExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+  const totalCount = scopedExpenses.length;
 
-  const variableExpenses = expenses.filter(
+  const variableExpenses = scopedExpenses.filter(
     (e) => (e.expenseType || "variable").toLowerCase() === "variable"
   );
-  const fixedExpenses = expenses.filter(
+  const fixedExpenses = scopedExpenses.filter(
     (e) => (e.expenseType || "").toLowerCase() === "fixed"
   );
 
   const variableTotal = variableExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
   const fixedTotal = fixedExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
 
-  const cashExpenses = expenses.filter(
+  const cashExpenses = scopedExpenses.filter(
     (e) => (e.paymentMode || "").toLowerCase() === "cash"
   );
   const cashTotal = cashExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
   const bankTotal = Math.max(0, totalAmount - cashTotal);
 
-  // ── 2. Insight Graph Data Computations ──────────────────────────────
-
-  // Graph 1: Category Breakdown (Top 7 Categories)
+  // ── 3. Insight Graph Data Computations ──────────────────────────────
   const categoryMap: Record<string, { amount: number; count: number }> = {};
-  expenses.forEach((e) => {
+  scopedExpenses.forEach((e) => {
     const cat = e.category || "Misc";
     if (!categoryMap[cat]) categoryMap[cat] = { amount: 0, count: 0 };
     categoryMap[cat].amount += Number(e.amount) || 0;
@@ -80,9 +131,8 @@ export default function ExpensePdfReportModal({
 
   const maxCategoryAmt = Math.max(...sortedCategories.map((c) => c[1].amount), 1);
 
-  // Graph 2: Payment Mode Distribution
   const paymentMap: Record<string, number> = {};
-  expenses.forEach((e) => {
+  scopedExpenses.forEach((e) => {
     const mode = e.paymentMode || "Cash";
     paymentMap[mode] = (paymentMap[mode] || 0) + (Number(e.amount) || 0);
   });
@@ -99,9 +149,8 @@ export default function ExpensePdfReportModal({
 
   const paymentModes = Object.entries(paymentMap).sort((a, b) => b[1] - a[1]);
 
-  // Graph 4: Brand Allocation Breakdown
   const brandMap: Record<string, number> = {};
-  expenses.forEach((e) => {
+  scopedExpenses.forEach((e) => {
     const b = e.brand && e.brand !== "All Brands" ? e.brand : "Unassigned Brand";
     brandMap[b] = (brandMap[b] || 0) + (Number(e.amount) || 0);
   });
@@ -111,22 +160,28 @@ export default function ExpensePdfReportModal({
     .slice(0, 5);
   const maxBrandAmt = Math.max(...brandBreakdown.map((b) => b[1]), 1);
 
-  // ── 3. Print Action Handler ──────────────────────────────────────────
+  // ── 4. Handlers ─────────────────────────────────────────────────────
   const handlePrint = () => {
     if (typeof window !== "undefined") {
       window.print();
     }
   };
 
-  // ── 4. Server API PDF Download Handler ─────────────────────────────
   const handleDownloadApiPdf = () => {
     const params = new URLSearchParams();
     if (filters.category && filters.category !== "All") params.append("category", filters.category);
     if (filters.brand && filters.brand !== "All Brands" && filters.brand !== "All") params.append("brand", filters.brand);
     if (filters.company && filters.company !== "All Companies" && filters.company !== "All") params.append("company", filters.company);
-    if (filters.startDate) params.append("startDate", filters.startDate);
-    if (filters.endDate) params.append("endDate", filters.endDate);
     if (filters.searchQuery) params.append("search", filters.searchQuery);
+
+    if (customStartDate) params.append("startDate", customStartDate);
+    else if (filters.startDate) params.append("startDate", filters.startDate);
+
+    if (customEndDate) params.append("endDate", customEndDate);
+    else if (filters.endDate) params.append("endDate", filters.endDate);
+
+    if (startRow) params.append("startRow", String(startRow));
+    if (endRow) params.append("endRow", String(endRow));
 
     const url = `/api/expenses/pdf?${params.toString()}`;
     window.open(url, "_blank");
@@ -206,6 +261,105 @@ export default function ExpensePdfReportModal({
             >
               ✕
             </button>
+          </div>
+        </div>
+
+        {/* ── CUSTOM RANGE EXPORT TOOLBAR (no-print) ───────────────────── */}
+        <div className="bg-slate-100/90 border-b border-slate-200 px-6 py-3 no-print flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span className="font-extrabold text-slate-700 flex items-center gap-1.5 shrink-0">
+              <span className="text-indigo-600 font-bold">🎯</span> Custom Range Export:
+            </span>
+
+            {/* Range Presets */}
+            <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => handleApplyPreset("all")}
+                className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all cursor-pointer ${
+                  presetRange === "all" ? "bg-indigo-600 text-white shadow-xs" : "text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                All ({expenses.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => handleApplyPreset("1_50")}
+                className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all cursor-pointer ${
+                  presetRange === "1_50" ? "bg-indigo-600 text-white shadow-xs" : "text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                1 - 50
+              </button>
+              <button
+                type="button"
+                onClick={() => handleApplyPreset("51_100")}
+                className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all cursor-pointer ${
+                  presetRange === "51_100" ? "bg-indigo-600 text-white shadow-xs" : "text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                51 - 100
+              </button>
+              <button
+                type="button"
+                onClick={() => handleApplyPreset("101_200")}
+                className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all cursor-pointer ${
+                  presetRange === "101_200" ? "bg-indigo-600 text-white shadow-xs" : "text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                101 - 200
+              </button>
+            </div>
+
+            {/* Custom Voucher Row Range Inputs */}
+            <div className="flex items-center gap-1.5 bg-white px-3 py-1 rounded-xl border border-slate-200 shadow-2xs">
+              <span className="text-[11px] font-bold text-slate-500">Voucher #:</span>
+              <input
+                type="number"
+                min={1}
+                max={expenses.length}
+                value={startRow}
+                onChange={(e) => {
+                  setPresetRange("custom");
+                  setStartRow(Number(e.target.value));
+                }}
+                className="w-12 px-1.5 py-0.5 text-center font-black text-slate-800 bg-slate-50 border border-slate-200 rounded focus:outline-none"
+              />
+              <span className="text-slate-400 font-bold">to</span>
+              <input
+                type="number"
+                min={1}
+                max={expenses.length}
+                value={endRow}
+                onChange={(e) => {
+                  setPresetRange("custom");
+                  setEndRow(Number(e.target.value));
+                }}
+                className="w-14 px-1.5 py-0.5 text-center font-black text-slate-800 bg-slate-50 border border-slate-200 rounded focus:outline-none"
+              />
+            </div>
+
+            {/* Custom Date Range Inputs */}
+            <div className="flex items-center gap-1.5 bg-white px-3 py-1 rounded-xl border border-slate-200 shadow-2xs">
+              <span className="text-[11px] font-bold text-slate-500">Date:</span>
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                className="text-[11px] font-bold text-slate-700 bg-transparent focus:outline-none cursor-pointer"
+              />
+              <span className="text-slate-400 font-bold">-</span>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                className="text-[11px] font-bold text-slate-700 bg-transparent focus:outline-none cursor-pointer"
+              />
+            </div>
+          </div>
+
+          <div className="text-[11px] font-extrabold text-indigo-700 bg-indigo-50 px-3 py-1 rounded-lg border border-indigo-100 shrink-0">
+            Exporting {scopedExpenses.length} of {expenses.length} Vouchers
           </div>
         </div>
 
@@ -299,29 +453,19 @@ export default function ExpensePdfReportModal({
                   {sortedCategories.map(([cat, data], idx) => {
                     const pct = totalAmount > 0 ? ((data.amount / totalAmount) * 100).toFixed(1) : "0.0";
                     const widthPct = Math.max(8, Math.round((data.amount / maxCategoryAmt) * 100));
-                    const colors = [
-                      "from-indigo-600 to-indigo-400",
-                      "from-rose-600 to-rose-400",
-                      "from-purple-600 to-purple-400",
-                      "from-emerald-600 to-emerald-400",
-                      "from-amber-600 to-amber-400",
-                      "from-blue-600 to-blue-400",
-                      "from-pink-600 to-pink-400",
-                    ];
-                    const grad = colors[idx % colors.length];
 
                     return (
                       <div key={cat} className="space-y-1">
                         <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-                          <span className="truncate max-w-[170px]">{cat}</span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-slate-400 font-semibold text-[10px]">{pct}%</span>
-                            <span className="text-slate-900 font-extrabold">₹{data.amount.toLocaleString("en-IN")}</span>
-                          </div>
+                          <span className="truncate max-w-[180px]">{cat}</span>
+                          <span className="text-slate-900 font-extrabold">
+                            ₹{data.amount.toLocaleString("en-IN")}{" "}
+                            <span className="text-[10px] text-slate-400 font-normal">({pct}%)</span>
+                          </span>
                         </div>
-                        <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden flex">
+                        <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
                           <div
-                            className={`bg-gradient-to-r ${grad} h-full rounded-full transition-all`}
+                            className="bg-gradient-to-r from-indigo-500 to-purple-600 h-full rounded-full"
                             style={{ width: `${widthPct}%` }}
                           />
                         </div>
@@ -331,31 +475,31 @@ export default function ExpensePdfReportModal({
                 </div>
               </div>
 
-              {/* GRAPH 2: Payment Mode Breakdown */}
+              {/* GRAPH 2: Payment Mode Distribution */}
               <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-sm space-y-3">
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                     <span>💳</span> Graph 2: Payment Mode Distribution
                   </h4>
                   <span className="text-[10px] font-extrabold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
-                    {paymentModes.length} Modes Active
+                    {paymentModes.length} Modes Tagged
                   </span>
                 </div>
 
-                <div className="space-y-3 pt-1">
+                <div className="space-y-2 pt-1">
                   {paymentModes.map(([mode, amt]) => {
                     const pct = totalAmount > 0 ? ((amt / totalAmount) * 100).toFixed(1) : "0.0";
-                    const color = paymentColors[mode] || "#64748b";
+                    const badgeColor = paymentColors[mode] || "#64748b";
 
                     return (
-                      <div key={mode} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                        <div className="flex items-center gap-2.5">
-                          <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                      <div key={mode} className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100">
+                        <div className="flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: badgeColor }} />
                           <span className="text-xs font-bold text-slate-800">{mode}</span>
                         </div>
                         <div className="text-right">
-                          <div className="text-xs font-black text-slate-900">₹{amt.toLocaleString("en-IN")}</div>
-                          <div className="text-[10px] font-bold text-slate-400">{pct}% Share</div>
+                          <span className="text-xs font-black text-slate-900">₹{amt.toLocaleString("en-IN")}</span>
+                          <span className="text-[10px] font-bold text-slate-400 ml-1.5">({pct}%)</span>
                         </div>
                       </div>
                     );
@@ -367,32 +511,32 @@ export default function ExpensePdfReportModal({
               <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-sm space-y-3">
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                    <span>⚖️</span> Graph 3: Variable vs. Fixed Expenses
+                    <span>⚖️</span> Graph 3: Cost Nature (Variable vs Fixed)
                   </h4>
                   <span className="text-[10px] font-extrabold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-md">
-                    Cost Nature Breakdown
+                    Nature Share
                   </span>
                 </div>
 
-                <div className="pt-2 space-y-4">
+                <div className="space-y-3 pt-1">
                   <div className="space-y-1">
-                    <div className="flex items-center justify-between text-xs font-bold">
-                      <span className="text-purple-700">Variable Expenses</span>
-                      <span className="text-slate-900 font-extrabold">₹{variableTotal.toLocaleString("en-IN")}</span>
+                    <div className="flex justify-between text-xs font-extrabold text-purple-900">
+                      <span>Variable Expenses</span>
+                      <span>₹{variableTotal.toLocaleString("en-IN")} ({totalAmount > 0 ? ((variableTotal / totalAmount) * 100).toFixed(1) : 0}%)</span>
                     </div>
                     <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
                       <div
-                        className="bg-gradient-to-r from-purple-600 to-pink-500 h-full rounded-full"
+                        className="bg-gradient-to-r from-purple-600 to-indigo-500 h-full rounded-full"
                         style={{ width: `${totalAmount > 0 ? (variableTotal / totalAmount) * 100 : 0}%` }}
                       />
                     </div>
-                    <p className="text-[10px] text-slate-400 font-semibold">Includes materials, conveyance, ad recharges & operational variance</p>
+                    <p className="text-[10px] text-slate-400 font-semibold">Includes material, repairs, marketing & ad-hoc operational bills</p>
                   </div>
 
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-xs font-bold">
-                      <span className="text-indigo-700">Fixed Expenses</span>
-                      <span className="text-slate-900 font-extrabold">₹{fixedTotal.toLocaleString("en-IN")}</span>
+                  <div className="space-y-1 pt-1">
+                    <div className="flex justify-between text-xs font-extrabold text-indigo-900">
+                      <span>Fixed Overhead</span>
+                      <span>₹{fixedTotal.toLocaleString("en-IN")} ({totalAmount > 0 ? ((fixedTotal / totalAmount) * 100).toFixed(1) : 0}%)</span>
                     </div>
                     <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
                       <div
@@ -448,8 +592,8 @@ export default function ExpensePdfReportModal({
                 </h3>
                 <p className="text-[11px] text-slate-400 font-medium">Audit-ready register of vouchers</p>
               </div>
-              <span className="text-xs font-extrabold bg-slate-100 text-slate-700 px-3 py-1 rounded-lg">
-                {totalCount} Total Entries
+              <span className="text-xs font-extrabold bg-indigo-50 text-indigo-700 px-3 py-1 rounded-lg border border-indigo-100">
+                {scopedExpenses.length} Entries (Vouchers {startRow} - {startRow + scopedExpenses.length - 1})
               </span>
             </div>
 
@@ -469,16 +613,16 @@ export default function ExpensePdfReportModal({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 font-medium text-slate-700">
-                  {expenses.length === 0 ? (
+                  {scopedExpenses.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="py-6 text-center text-slate-400">
-                        No expense records found.
+                      <td colSpan={9} className="py-6 text-center text-slate-400 font-semibold">
+                        No expense records matching the selected custom range.
                       </td>
                     </tr>
                   ) : (
-                    expenses.map((exp, idx) => (
+                    scopedExpenses.map((exp, idx) => (
                       <tr key={exp._id || idx} className={idx % 2 === 0 ? "bg-white" : "bg-slate-50/60"}>
-                        <td className="py-2.5 px-3 text-center text-slate-400 font-bold">{idx + 1}</td>
+                        <td className="py-2.5 px-3 text-center text-slate-400 font-bold">{(startRow || 1) + idx}</td>
                         <td className="py-2.5 px-3 whitespace-nowrap font-bold text-slate-900">
                           {exp.expenseDate
                             ? new Date(exp.expenseDate).toLocaleDateString("en-IN", {
@@ -498,14 +642,14 @@ export default function ExpensePdfReportModal({
                           ₹{(Number(exp.amount) || 0).toLocaleString("en-IN")}
                         </td>
                         <td className="py-2.5 px-3 font-bold text-slate-600 whitespace-nowrap">{exp.paymentMode || "Cash"}</td>
-                        <td className="py-2.5 px-3 text-slate-600">{exp.brand || "-"}</td>
-                        <td className="py-2.5 px-3 text-slate-600">{exp.company || "-"}</td>
+                        <td className="py-2.5 px-3 text-slate-500 font-medium">{exp.brand || "All Brands"}</td>
+                        <td className="py-2.5 px-3 text-slate-500 font-medium">{exp.company || "All Companies"}</td>
                         <td className="py-2.5 px-3">
                           <span
-                            className={`px-2 py-0.5 rounded text-[9px] font-extrabold uppercase ${
-                              exp.expenseType === "fixed"
-                                ? "bg-indigo-50 text-indigo-700 border border-indigo-100"
-                                : "bg-slate-100 text-slate-600"
+                            className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase border ${
+                              (exp.expenseType || "variable").toLowerCase() === "fixed"
+                                ? "bg-indigo-50 text-indigo-700 border-indigo-100"
+                                : "bg-purple-50 text-purple-700 border-purple-100"
                             }`}
                           >
                             {exp.expenseType || "variable"}
@@ -516,26 +660,20 @@ export default function ExpensePdfReportModal({
                   )}
                 </tbody>
                 <tfoot>
-                  <tr className="bg-slate-900 text-white font-black text-xs border-t-2 border-slate-900">
-                    <td colSpan={4} className="py-3 px-4 rounded-l-lg uppercase tracking-wider">
-                      GRAND TOTAL OPERATIONAL EXPENDITURE
+                  <tr className="bg-slate-900 text-white font-extrabold text-xs">
+                    <td colSpan={4} className="py-3 px-4 rounded-l-lg">
+                      SCOPED GRAND TOTAL ({totalCount} Vouchers)
                     </td>
-                    <td className="py-3 px-3 text-right text-emerald-400 text-sm">
+                    <td className="py-3 px-3 text-right text-emerald-400 font-black underline decoration-double">
                       ₹{totalAmount.toLocaleString("en-IN")}
                     </td>
-                    <td colSpan={4} className="py-3 px-3 rounded-r-lg text-right text-[11px] font-normal text-slate-300">
-                      {totalCount} Transactions Audited
+                    <td colSpan={4} className="py-3 px-3 text-right rounded-r-lg text-[10px] text-slate-400 font-normal">
+                      Audited & Certified by CoachFlow ERP
                     </td>
                   </tr>
                 </tfoot>
               </table>
             </div>
-          </div>
-
-          {/* ── FOOTER STAMP & SIGNATURE AREA ────────────────────────────── */}
-          <div className="flex flex-col sm:flex-row items-center justify-between border-t border-slate-200 pt-4 text-[10px] text-slate-400 font-semibold gap-2">
-            <div>CoachFlow ERP Financial Reporting Suite • Confidential Internal Audit Report</div>
-            <div>Authorized Financial Controller Stamp & Signature</div>
           </div>
         </div>
       </div>

@@ -16,6 +16,8 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get("search");
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
+    const startRowRaw = searchParams.get("startRow");
+    const endRowRaw = searchParams.get("endRow");
 
     const userBrand = (user?.brandScope || (user as any)?.brand || "").trim();
     const isBrandRestricted =
@@ -69,12 +71,22 @@ export async function GET(req: NextRequest) {
 
     const expenses = await Expense.find(query).sort({ expenseDate: -1, createdAt: -1 }).lean();
 
+    // ── Apply Custom Row Range Slicing if specified ────────────────────
+    let finalExpenses = expenses;
+    let rangeLabel = "";
+    if (startRowRaw || endRowRaw) {
+      const startRow = startRowRaw ? Math.max(1, Number(startRowRaw)) : 1;
+      const endRow = endRowRaw ? Math.min(expenses.length, Number(endRowRaw)) : expenses.length;
+      finalExpenses = expenses.slice(startRow - 1, endRow);
+      rangeLabel = ` (Vouchers ${startRow}-${endRow} of ${expenses.length})`;
+    }
+
     // ── Generate Native PDF Buffer (100% zero filesystem font file dependency) ──
     const pdfBuffer = generateExpensePdfBuffer({
-      expenses,
+      expenses: finalExpenses,
       filters: {
         category: category || undefined,
-        brand: brand || undefined,
+        brand: brand ? `${brand}${rangeLabel}` : undefined,
         company: company || undefined,
         startDate: startDate || undefined,
         endDate: endDate || undefined,
