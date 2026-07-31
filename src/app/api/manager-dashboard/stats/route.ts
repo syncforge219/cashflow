@@ -100,12 +100,9 @@ export async function GET(req: Request) {
       totalCollection += Number(p.amountReceived || 0);
     });
 
-    // 2. Lead Pipeline Breakdown
+    // 2. Lead Pipeline Breakdown (Streamlined stages: New Lead, Demo Attended, Admitted)
     const pipelineStages = [
       { stage: "New Lead", status: "New", color: "bg-[#2563eb]" },
-      { stage: "Contacted", status: "Contacted", color: "bg-[#22c55e]" },
-      { stage: "Counselling Scheduled", status: "Counselling Scheduled", color: "bg-[#eab308]" },
-      { stage: "Interested", status: "Interested", color: "bg-[#a855f7]" },
       { stage: "Demo Attended", status: "Demo Attended", color: "bg-[#06b6d4]" },
       { stage: "Admitted", status: "Admitted", color: "bg-[#10b981]" }
     ];

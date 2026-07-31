@@ -372,7 +372,8 @@ export default function ManagerDashboard() {
               <div className="flex-1 flex items-center gap-6">
                 <div className="flex-1 flex flex-col gap-1 items-center justify-center">
                   {stats?.pipeline?.map((item, idx) => {
-                    const widthPct = Math.max(25, 100 - idx * 12);
+                    const step = 60 / Math.max(1, (stats.pipeline.length - 1));
+                    const widthPct = Math.max(35, 100 - idx * step);
                     return (
                       <div
                         key={idx}
