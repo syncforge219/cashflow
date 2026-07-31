@@ -191,23 +191,7 @@ export default function ManagerDashboard() {
           </div>
 
           <div className="flex items-center gap-4">
-            {/* Brand Filter Dropdown for Brand Manager */}
-            {stats?.availableBrands && stats.availableBrands.length > 0 && (
-              <div className="relative">
-                <select
-                  value={selectedBrand}
-                  onChange={(e) => setSelectedBrand(e.target.value)}
-                  className="px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all cursor-pointer shadow-sm"
-                >
-                  <option value="all">🏢 All Brands Scope</option>
-                  {stats.availableBrands.map((b) => (
-                    <option key={b} value={b}>
-                      {b}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+
 
 
             <button
