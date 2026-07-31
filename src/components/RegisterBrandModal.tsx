@@ -26,6 +26,7 @@ export default function RegisterBrandModal({ isOpen, onClose, brandToEdit }: Reg
     youtubeUrl: "",
     facebookUrl: "",
     instagramUrl: "",
+    brochureDriveUrl: "",
   });
 
   const [availableCompanies, setAvailableCompanies] = useState<{ id: string; name: string }[]>([]);
@@ -126,6 +127,7 @@ export default function RegisterBrandModal({ isOpen, onClose, brandToEdit }: Reg
         youtubeUrl: brandToEdit.youtubeUrl || "",
         facebookUrl: brandToEdit.facebookUrl || "",
         instagramUrl: brandToEdit.instagramUrl || "",
+        brochureDriveUrl: brandToEdit.brochureDriveUrl || "",
       });
     } else {
       setFormData({
@@ -143,6 +145,7 @@ export default function RegisterBrandModal({ isOpen, onClose, brandToEdit }: Reg
         youtubeUrl: "",
         facebookUrl: "",
         instagramUrl: "",
+        brochureDriveUrl: "",
       });
     }
   }, [brandToEdit, isOpen]);
@@ -414,6 +417,24 @@ export default function RegisterBrandModal({ isOpen, onClose, brandToEdit }: Reg
                 />
               </div>
             </div>
+          </div>
+
+          {/* Brochure Google Drive Link */}
+          <div className="bg-indigo-50/60 border border-indigo-100 rounded-2xl p-4 space-y-2">
+            <label className="block text-[10px] font-bold text-indigo-900 uppercase tracking-widest flex items-center gap-1.5">
+              <span>📂 Brochure Google Drive Link</span>
+            </label>
+            <input
+              type="url"
+              name="brochureDriveUrl"
+              value={formData.brochureDriveUrl}
+              onChange={handleChange}
+              placeholder="https://drive.google.com/file/d/.../view?usp=sharing"
+              className="w-full text-xs font-semibold text-slate-700 bg-white border border-indigo-200/80 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+            />
+            <p className="text-[10px] font-medium text-indigo-600/80">
+              Paste the public Google Drive sharing link for the brand brochure / prospectus PDF.
+            </p>
           </div>
 
           <div>

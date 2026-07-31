@@ -61,6 +61,9 @@ const BrandSchema = new mongoose.Schema(
     instagramUrl: {
       type: String,
     },
+    brochureDriveUrl: {
+      type: String,
+    },
   },
   { timestamps: true }
 );
