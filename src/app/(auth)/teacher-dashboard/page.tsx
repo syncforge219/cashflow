@@ -439,7 +439,6 @@ export default function TeacherDashboard() {
                   <tr className="bg-slate-50/70 border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     <th className="py-3.5 px-6">Subject / Course Name</th>
                     <th className="py-3.5 px-6">Brand Scope</th>
-                    <th className="py-3.5 px-6">Course Fee</th>
                     <th className="py-3.5 px-6">Duration</th>
                     <th className="py-3.5 px-6">Status</th>
                     <th className="py-3.5 px-6 text-right">Actions</th>
@@ -459,7 +458,6 @@ export default function TeacherDashboard() {
                             {course.brand || user.brandScope || "All Brands"}
                           </span>
                         </td>
-                        <td className="py-3.5 px-6 font-bold text-indigo-600">{course.fee || "₹0"}</td>
                         <td className="py-3.5 px-6 font-medium text-slate-600">{course.duration || "Self-Paced"}</td>
                         <td className="py-3.5 px-6">
                           <span className="inline-block px-2 py-0.5 bg-emerald-50 text-emerald-700 font-bold text-[10px] rounded-md border border-emerald-200/60">
@@ -467,15 +465,21 @@ export default function TeacherDashboard() {
                           </span>
                         </td>
                         <td className="py-3.5 px-6 text-right">
-                          <button className="px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-lg transition-colors border border-indigo-200">
-                            View Roster
+                          <button
+                            onClick={() => {
+                              setActiveTab("students");
+                              setSearchQuery(course.name);
+                            }}
+                            className="px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-lg transition-all border border-indigo-200 cursor-pointer shadow-2xs hover:scale-105 active:scale-95"
+                          >
+                            View Roster ({teacherData?.enrolledStudentsList?.filter((s: any) => (s.targetCourse || "").toLowerCase().trim() === (course.name || "").toLowerCase().trim()).length || 0})
                           </button>
                         </td>
                       </tr>
                     ))}
                   {(!teacherData?.myBrandCourses || teacherData.myBrandCourses.length === 0) && (
                     <tr>
-                      <td colSpan={6} className="py-8 text-center text-slate-400 font-medium">
+                      <td colSpan={5} className="py-8 text-center text-slate-400 font-medium">
                         No courses recorded for this faculty scope.
                       </td>
                     </tr>
@@ -582,8 +586,25 @@ export default function TeacherDashboard() {
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs">
                   {teacherData?.enrolledStudentsList?.length > 0 ? (
-                    teacherData.enrolledStudentsList
-                      .filter((s: any) => !searchQuery || s.studentFullName?.toLowerCase().includes(searchQuery.toLowerCase()))
+                    Array.from(
+                      teacherData.enrolledStudentsList
+                        .reduce((map: Map<string, any>, s: any) => {
+                          const k = `${(s.primaryPhoneMobile || "").trim()}_${(s.targetCourse || "").toLowerCase().trim()}`;
+                          if (!map.has(k)) map.set(k, s);
+                          return map;
+                        }, new Map())
+                        .values()
+                    )
+                      .filter((s: any) => {
+                        if (!searchQuery) return true;
+                        const q = searchQuery.toLowerCase().trim();
+                        return (
+                          (s.studentFullName || "").toLowerCase().includes(q) ||
+                          (s.targetCourse || "").toLowerCase().includes(q) ||
+                          (s.targetBrand || "").toLowerCase().includes(q) ||
+                          (s.primaryPhoneMobile || "").includes(q)
+                        );
+                      })
                       .map((student: any, idx: number) => (
                         <tr key={idx} className="hover:bg-emerald-50/30 transition-colors">
                           <td className="py-3.5 px-6 font-bold text-slate-800 flex items-center gap-2">

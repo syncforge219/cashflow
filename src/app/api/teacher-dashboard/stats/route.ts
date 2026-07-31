@@ -67,9 +67,10 @@ export async function GET(req: Request) {
 
     const teacherBatchNames = teacherBatches.map((b: any) => b.batchName);
 
-    // 4. Filter enrolled students (from Admission and Enquiry collections)
+    // 4. Filter enrolled students (from Admission and Enquiry collections with deduplication)
     const enrolledStudentsList: any[] = [];
     const addedStudentIds = new Set<string>();
+    const addedStudentKeys = new Set<string>();
 
     allAdmissions.forEach((a: any) => {
       const batchMatch = teacherBatchNames.includes(a.batch);
@@ -81,8 +82,14 @@ export async function GET(req: Request) {
 
       if (batchMatch || brandMatch) {
         const uid = a._id.toString();
-        if (!addedStudentIds.has(uid)) {
+        const mobileKey = (a.mobileNumber || "").trim();
+        const courseKey = (a.course || "").trim().toLowerCase();
+        const studentKey = mobileKey ? `${mobileKey}_${courseKey}` : uid;
+
+        if (!addedStudentIds.has(uid) && !addedStudentKeys.has(studentKey)) {
           addedStudentIds.add(uid);
+          addedStudentKeys.add(studentKey);
+
           enrolledStudentsList.push({
             _id: a._id,
             studentFullName: a.fullName,
@@ -107,8 +114,14 @@ export async function GET(req: Request) {
           (e.targetBrand || "").toLowerCase().trim() === userBrandScope;
 
         const uid = e._id.toString();
-        if (brandMatch && !addedStudentIds.has(uid)) {
+        const mobileKey = (e.primaryPhoneMobile || "").trim();
+        const courseKey = (e.targetCourse || "").trim().toLowerCase();
+        const studentKey = mobileKey ? `${mobileKey}_${courseKey}` : uid;
+
+        if (brandMatch && !addedStudentIds.has(uid) && !addedStudentKeys.has(studentKey)) {
           addedStudentIds.add(uid);
+          addedStudentKeys.add(studentKey);
+
           enrolledStudentsList.push({
             _id: e._id,
             studentFullName: e.studentFullName,

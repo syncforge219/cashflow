@@ -27,13 +27,25 @@ export default function CompaniesDisplay() {
       const response = await fetch("/api/companies");
       const data = await response.json();
       if (data.success && data.companies && data.companies.length > 0) {
-        const list = data.companies.map((c: any) => {
+        const deduppedMap = new Map<string, any>();
+        
+        data.companies.forEach((c: any) => {
+          const rawName = (c.name || "Unknown Company").trim().toUpperCase();
+          const normKey = rawName
+            .replace(/[^A-Z0-9]/g, "")
+            .replace(/PRIVATELIMITED/g, "PVTLTD")
+            .replace(/PVTLIMITED/g, "PVTLTD")
+            .replace(/LIMITED/g, "LTD")
+            .replace(/SERVICES/g, "")
+            .replace(/GATEEWAY/g, "GATEWAY")
+            .replace(/LLP/g, "");
+
           const cap = c.annualCapacityCap || 1949999;
           const revenue = c.collectedRevenue || 0;
-          return {
+          const compObj = {
             id: c.companyId || `COMP-${c._id}`,
             mongoId: c._id,
-            name: c.name || "Unknown Company",
+            name: rawName,
             legalName: c.legalName || c.name || "",
             gst: c.gst || "Not Provided",
             pan: c.pan || "Not Provided",
@@ -47,7 +59,18 @@ export default function CompaniesDisplay() {
             address: c.address || "No listed street, No City, No State, PIN",
             brands: c.brands && c.brands.length > 0 ? c.brands : (c.brand ? [c.brand] : []),
           };
+
+          if (!deduppedMap.has(normKey)) {
+            deduppedMap.set(normKey, compObj);
+          } else {
+            const existing = deduppedMap.get(normKey);
+            if (rawName.length > existing.name.length) {
+              deduppedMap.set(normKey, compObj);
+            }
+          }
         });
+
+        const list = Array.from(deduppedMap.values());
         setCompaniesList(list);
         if (list.length > 0) {
           setSelectedCompId((prev) => (prev && list.some((item: any) => item.id === prev) ? prev : list[0].id));

@@ -8,6 +8,7 @@ import ProfileDisplay from "@/components/ProfileDisplay";
 import { useUser } from "@/app/component/context/user-context";
 import CfoSecurityGuard from "@/components/CfoSecurityGuard";
 import ExpensePdfReportModal from "@/components/ExpensePdfReportModal";
+import { TableSkeleton, CardSkeleton } from "@/components/Skeleton";
 
 interface ExpenseRecord {
   _id: string;
@@ -736,14 +737,68 @@ export default function ExpensesPage() {
       .catch((err) => console.error("Failed to fetch companies:", err));
   }, []);
 
-  const getLinkedCompaniesForBrand = (targetBrand: string) => {
-    if (!targetBrand || targetBrand === "All Brands" || targetBrand === "All") {
-      return companies;
-    }
+  const deduplicateCompanies = (list: string[]) => {
+    const map = new Map<string, string>();
+    list.forEach((orig) => {
+      if (!orig || !orig.trim()) return;
+      const name = orig.trim().toUpperCase();
+      const key = name
+        .replace(/[^A-Z0-9]/g, "")
+        .replace(/PRIVATELIMITED/g, "PVTLTD")
+        .replace(/PVTLIMITED/g, "PVTLTD")
+        .replace(/LIMITED/g, "LTD")
+        .replace(/SERVICES/g, "")
+        .replace(/GATEEWAY/g, "GATEWAY")
+        .replace(/LLP/g, "");
 
-    const brandObj = rawBrands.find(
-      (b) => b.name?.trim().toLowerCase() === targetBrand.trim().toLowerCase()
-    );
+      if (!key) return;
+
+      if (!map.has(key)) {
+        map.set(key, name);
+      } else {
+        const existing = map.get(key)!;
+        if (name.length > existing.length) {
+          map.set(key, name);
+        }
+      }
+    });
+    return Array.from(map.values()).sort();
+  };
+
+  const getLinkedCompaniesForBrand = (targetBrand: string) => {
+    const allUniqueCompanies = new Set<string>();
+
+    // Add companies from rawCompanies
+    rawCompanies.forEach((c: any) => {
+      if (c.name) allUniqueCompanies.add(c.name.trim());
+      if (c.legalName) allUniqueCompanies.add(c.legalName.trim());
+    });
+
+    // Add companies from companies state
+    companies.forEach((cn) => {
+      if (cn) allUniqueCompanies.add(cn.trim());
+    });
+
+    // Add companies from rawBrands
+    rawBrands.forEach((b: any) => {
+      if (Array.isArray(b.companies)) {
+        b.companies.forEach((cn: string) => {
+          if (cn) allUniqueCompanies.add(cn.trim());
+        });
+      }
+      if (Array.isArray(b.legalEntities)) {
+        b.legalEntities.forEach((le: any) => {
+          const leName = typeof le === "string" ? le : le?.name;
+          if (leName) allUniqueCompanies.add(leName.trim());
+        });
+      }
+    });
+
+    const allCompaniesList = deduplicateCompanies(Array.from(allUniqueCompanies));
+
+    if (!targetBrand || targetBrand === "All Brands" || targetBrand === "ALL BRANDS" || targetBrand === "All") {
+      return allCompaniesList;
+    }
 
     const linkedNames = new Set<string>();
 
@@ -756,25 +811,30 @@ export default function ExpensesPage() {
         cBrand?.trim().toLowerCase() === targetBrand.trim().toLowerCase() ||
         cBrands.some((b: string) => b.trim().toLowerCase() === targetBrand.trim().toLowerCase())
       ) {
-        if (cName) linkedNames.add(cName);
+        if (cName) linkedNames.add(cName.trim());
       }
     });
+
+    const brandObj = rawBrands.find(
+      (b) => b.name?.trim().toLowerCase() === targetBrand.trim().toLowerCase()
+    );
 
     if (brandObj) {
       if (Array.isArray(brandObj.companies)) {
         brandObj.companies.forEach((cn: string) => {
-          if (cn) linkedNames.add(cn);
+          if (cn) linkedNames.add(cn.trim());
         });
       }
       if (Array.isArray(brandObj.legalEntities)) {
         brandObj.legalEntities.forEach((le: any) => {
           const leName = typeof le === "string" ? le : le?.name;
-          if (leName) linkedNames.add(leName);
+          if (leName) linkedNames.add(leName.trim());
         });
       }
     }
 
-    return Array.from(linkedNames);
+    const deduplicatedLinked = deduplicateCompanies(Array.from(linkedNames));
+    return deduplicatedLinked.length > 0 ? deduplicatedLinked : allCompaniesList;
   };
 
   const availableFilterCompanies = getLinkedCompaniesForBrand(selectedBrand);
@@ -1369,11 +1429,13 @@ export default function ExpensesPage() {
               </thead>
               <tbody className="divide-y divide-slate-100/60 font-semibold text-slate-600">
                 {isLoading ? (
-                  <tr>
-                    <td colSpan={10} className="py-8 text-center text-slate-400">
-                      Loading expenses...
-                    </td>
-                  </tr>
+                  Array.from({ length: 5 }).map((_, idx) => (
+                    <tr key={idx} className="animate-pulse">
+                      <td colSpan={10} className="py-3 px-2">
+                        <div className="h-4 bg-slate-200/80 rounded-lg w-full"></div>
+                      </td>
+                    </tr>
+                  ))
                 ) : sortedExpenses.length === 0 ? (
                   <tr>
                     <td colSpan={10} className="py-8 text-center text-slate-400">
@@ -1655,20 +1717,41 @@ export default function ExpensesPage() {
                     </div>
 
                     <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={availableFormCompanies.includes(formData.company) ? formData.company : "CUSTOM"}
+                          disabled={formData.paymentMode === "Cash"}
+                          onChange={(e) => {
+                            if (e.target.value !== "CUSTOM") {
+                              handleCompanyChangeInForm(e.target.value);
+                            }
+                          }}
+                          className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 text-xs font-bold focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all disabled:opacity-50 uppercase cursor-pointer"
+                        >
+                          <option value="All Companies">All Companies (Unallocated)</option>
+                          {availableFormCompanies.map((c) => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                          {!availableFormCompanies.includes(formData.company) && formData.company && formData.company !== "All Companies" && (
+                            <option value="CUSTOM">{formData.company}</option>
+                          )}
+                        </select>
+                      </div>
+
                       <input
                         type="text"
                         value={formData.company}
                         disabled={formData.paymentMode === "Cash"}
                         onChange={(e) => handleCompanyChangeInForm(e.target.value.toUpperCase())}
-                        placeholder="Enter or select allocated company..."
-                        className="w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 text-xs font-bold focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder-slate-400 disabled:opacity-50 uppercase"
+                        placeholder="Or type custom company name..."
+                        className="w-full px-3 py-1.5 bg-slate-50/30 border border-slate-200/80 rounded-xl text-slate-700 text-[11px] font-semibold focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500/30 transition-all placeholder-slate-400 disabled:opacity-50 uppercase"
                       />
 
                       {/* Company Suggestions Quick Pills */}
                       {formData.paymentMode !== "Cash" && (
-                        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                          <span className="text-[10px] font-bold text-slate-400">Suggestions:</span>
-                          {["SLING SHOT TECHNOLOGIES", ...availableFormCompanies.filter(c => c !== "SLING SHOT TECHNOLOGIES")].slice(0, 4).map((c) => (
+                        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                          <span className="text-[10px] font-bold text-slate-400 w-full block">All Companies Suggestions ({availableFormCompanies.length}):</span>
+                          {availableFormCompanies.map((c) => (
                             <button
                               key={c}
                               type="button"
