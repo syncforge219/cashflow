@@ -31,7 +31,46 @@ export async function GET(
     const admissionId = admission?.admissionId || "ADM-N/A";
     const courseName = admission?.course || "Course";
     const amountPaid = payment?.amountReceived || 0;
-    const paymentDateObj = payment?.createdAt || payment?.paymentDate ? new Date(payment?.createdAt || payment?.paymentDate) : new Date();
+    const createdAtDate = payment?.createdAt ? new Date(payment.createdAt) : null;
+    const pDate = payment?.paymentDate ? new Date(payment.paymentDate) : null;
+    let paymentDateObj = new Date();
+
+    if (createdAtDate && !isNaN(createdAtDate.getTime())) {
+      paymentDateObj = createdAtDate;
+      if (pDate && !isNaN(pDate.getTime())) {
+        const isSameDay =
+          createdAtDate.getFullYear() === pDate.getFullYear() &&
+          createdAtDate.getMonth() === pDate.getMonth() &&
+          createdAtDate.getDate() === pDate.getDate();
+
+        if (!isSameDay) {
+          paymentDateObj = new Date(
+            pDate.getFullYear(),
+            pDate.getMonth(),
+            pDate.getDate(),
+            createdAtDate.getHours(),
+            createdAtDate.getMinutes(),
+            createdAtDate.getSeconds()
+          );
+        }
+      }
+    } else if (pDate && !isNaN(pDate.getTime())) {
+      const h = pDate.getHours();
+      const m = pDate.getMinutes();
+      if ((h === 5 && m === 30) || (h === 0 && m === 0)) {
+        const now = new Date();
+        paymentDateObj = new Date(
+          pDate.getFullYear(),
+          pDate.getMonth(),
+          pDate.getDate(),
+          now.getHours(),
+          now.getMinutes()
+        );
+      } else {
+        paymentDateObj = pDate;
+      }
+    }
+
     const paymentDate = paymentDateObj.toLocaleString("en-IN", {
       day: "2-digit",
       month: "short",

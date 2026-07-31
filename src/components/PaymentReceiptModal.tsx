@@ -146,16 +146,62 @@ export default function PaymentReceiptModal({
   if (!isOpen || !receipt || !student) return null;
 
   const receiptNo = receipt.receiptNo || `REC-${Date.now().toString().slice(-6)}`;
-  const paymentDateFormatted = new Date(
-    receipt.paymentDate || receipt.createdAt || Date.now()
-  ).toLocaleString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
+
+  const getReceiptFormattedDate = () => {
+    // 1. Prefer createdAt for exact system timestamp
+    const createdAtDate = receipt.createdAt ? new Date(receipt.createdAt) : null;
+    const paymentDate = receipt.paymentDate ? new Date(receipt.paymentDate) : null;
+
+    let targetDate = new Date();
+
+    if (createdAtDate && !isNaN(createdAtDate.getTime())) {
+      targetDate = createdAtDate;
+      if (paymentDate && !isNaN(paymentDate.getTime())) {
+        const isSameDay =
+          createdAtDate.getFullYear() === paymentDate.getFullYear() &&
+          createdAtDate.getMonth() === paymentDate.getMonth() &&
+          createdAtDate.getDate() === paymentDate.getDate();
+
+        if (!isSameDay) {
+          targetDate = new Date(
+            paymentDate.getFullYear(),
+            paymentDate.getMonth(),
+            paymentDate.getDate(),
+            createdAtDate.getHours(),
+            createdAtDate.getMinutes(),
+            createdAtDate.getSeconds()
+          );
+        }
+      }
+    } else if (paymentDate && !isNaN(paymentDate.getTime())) {
+      const hours = paymentDate.getHours();
+      const minutes = paymentDate.getMinutes();
+      // If hours/minutes are default UTC midnight (05:30 IST or 00:00), use current system time for hours/minutes
+      if ((hours === 5 && minutes === 30) || (hours === 0 && minutes === 0)) {
+        const now = new Date();
+        targetDate = new Date(
+          paymentDate.getFullYear(),
+          paymentDate.getMonth(),
+          paymentDate.getDate(),
+          now.getHours(),
+          now.getMinutes()
+        );
+      } else {
+        targetDate = paymentDate;
+      }
+    }
+
+    return targetDate.toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
+  const paymentDateFormatted = getReceiptFormattedDate();
 
   const finalFee = Number(
     student.finalFee || student.totalFee || student.courseFee || 0

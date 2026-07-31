@@ -102,6 +102,22 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
     }
   }, [isOpen, defaultBrand, user?.brandScope]);
 
+  const userRole = (user?.role || (user as any)?.crmRole || "").toLowerCase().trim();
+  const isSuperAdmin =
+    userRole === "super admin" ||
+    userRole === "super_admin" ||
+    userRole === "director";
+
+  const rawUserBrand = user?.brandScope || (user as any)?.brand || (user as any)?.targetBrand || "";
+  const userBrand = (rawUserBrand && rawUserBrand !== "All Brands" && rawUserBrand !== "All" && rawUserBrand !== "*") ? rawUserBrand : "";
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!isSuperAdmin && userBrand && selectedBrand !== userBrand) {
+      setSelectedBrand(userBrand);
+    }
+  }, [isOpen, isSuperAdmin, userBrand, selectedBrand]);
+
   const activeBrandForCounsellors = useMemo(() => {
     if (selectedBrand && selectedBrand !== "All Brands" && selectedBrand !== "All") {
       return selectedBrand;
@@ -356,19 +372,29 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
             <h4 className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-4">Section 2: Business Routing</h4>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Target Brand</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">Target Brand</label>
+                  {!isSuperAdmin && (
+                    <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
+                      🔒 Assigned Brand
+                    </span>
+                  )}
+                </div>
                 <select 
                   name="targetBrand" 
+                  disabled={!isSuperAdmin}
                   value={selectedBrand}
                   onChange={(e) => {
-                    setSelectedBrand(e.target.value);
-                    if (user?.name) {
-                      setSelectedAdvisor(user.name);
-                    } else {
-                      setSelectedAdvisor("");
+                    if (isSuperAdmin) {
+                      setSelectedBrand(e.target.value);
+                      if (user?.name) {
+                        setSelectedAdvisor(user.name);
+                      } else {
+                        setSelectedAdvisor("");
+                      }
                     }
                   }}
-                  className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                  className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 disabled:bg-slate-100 disabled:text-slate-600 disabled:cursor-not-allowed disabled:border-slate-200 disabled:opacity-90"
                 >
                   <option value="">-- Select a Brand --</option>
                   {brands.map(b => (
