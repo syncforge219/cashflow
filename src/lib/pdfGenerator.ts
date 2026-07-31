@@ -740,6 +740,13 @@ export function generateExpensePdfBuffer(data: ExpensePdfData): Buffer {
 
   const fmt = (n: number) => Math.round(n).toLocaleString("en-IN");
 
+  // Dynamic pagination calculation for ALL expenses
+  const remainingCount = Math.max(0, totalCount - 12);
+  const continuationPageCount = Math.max(1, Math.ceil(remainingCount / 38));
+  const totalPages = 1 + continuationPageCount;
+
+  const pageStreams: string[] = [];
+
   // ── PAGE 1 CONTENT STREAM ──
   const p1Lines: string[] = [];
 
@@ -757,28 +764,24 @@ export function generateExpensePdfBuffer(data: ExpensePdfData): Buffer {
   p1Lines.push(`BT /F2 7.5 Tf 0.2 0.25 0.35 rg 390 738 Td (Category: ${escapePdfText((filters.category || "All").slice(0, 15))}) Tj ET`);
 
   // KPI Scorecards (Y: 660..720)
-  // Card 1: Total Spend
   p1Lines.push(fillRoundedRect("1.0 0.95 0.96", 20, 660, 132, 60, 6));
   p1Lines.push(fillRoundedRect("0.88 0.11 0.28", 20, 660, 4, 60, 2));
   p1Lines.push(`BT /F2 7 Tf 0.6 0.1 0.2 rg 30 705 Td (TOTAL SPEND) Tj ET`);
   p1Lines.push(`BT /F2 10.5 Tf 0.75 0.07 0.23 rg 30 688 Td (Rs.${fmt(totalAmount)}) Tj ET`);
   p1Lines.push(`BT /F1 6.5 Tf 0.5 0.5 0.5 rg 30 672 Td (${totalCount} Vouchers) Tj ET`);
 
-  // Card 2: Variable Spend
   p1Lines.push(fillRoundedRect("0.98 0.95 1.0", 161, 660, 132, 60, 6));
   p1Lines.push(fillRoundedRect("0.58 0.2 0.92", 161, 660, 4, 60, 2));
   p1Lines.push(`BT /F2 7 Tf 0.4 0.1 0.6 rg 171 705 Td (VARIABLE SPEND) Tj ET`);
   p1Lines.push(`BT /F2 10.5 Tf 0.49 0.13 0.82 rg 171 688 Td (Rs.${fmt(variableTotal)}) Tj ET`);
   p1Lines.push(`BT /F1 6.5 Tf 0.5 0.5 0.5 rg 171 672 Td (${totalAmount > 0 ? ((variableTotal / totalAmount) * 100).toFixed(1) : 0}% Share) Tj ET`);
 
-  // Card 3: Fixed Spend
   p1Lines.push(fillRoundedRect("0.93 0.95 1.0", 302, 660, 132, 60, 6));
   p1Lines.push(fillRoundedRect("0.31 0.27 0.9", 302, 660, 4, 60, 2));
   p1Lines.push(`BT /F2 7 Tf 0.2 0.2 0.6 rg 312 705 Td (FIXED SPEND) Tj ET`);
   p1Lines.push(`BT /F2 10.5 Tf 0.26 0.22 0.79 rg 312 688 Td (Rs.${fmt(fixedTotal)}) Tj ET`);
   p1Lines.push(`BT /F1 6.5 Tf 0.5 0.5 0.5 rg 312 672 Td (${totalAmount > 0 ? ((fixedTotal / totalAmount) * 100).toFixed(1) : 0}% Share) Tj ET`);
 
-  // Card 4: Digital Ratio
   p1Lines.push(fillRoundedRect("0.92 0.99 0.96", 443, 660, 132, 60, 6));
   p1Lines.push(fillRoundedRect("0.02 0.59 0.41", 443, 660, 4, 60, 2));
   p1Lines.push(`BT /F2 7 Tf 0.0 0.4 0.3 rg 453 705 Td (BANK / CASH RATIO) Tj ET`);
@@ -789,7 +792,7 @@ export function generateExpensePdfBuffer(data: ExpensePdfData): Buffer {
   p1Lines.push(fillRoundedRect("0.06 0.09 0.16", 20, 636, 555, 18, 4));
   p1Lines.push(`BT /F2 8.5 Tf 1 1 1 rg 30 641 Td (FINANCIAL INSIGHT GRAPH ANALYTICS & BREAKDOWN CHARTS) Tj ET`);
 
-  // ── GRAPH 1: Category Spend Breakdown (Y: 480..626) ──
+  // GRAPH 1: Category Spend Breakdown
   p1Lines.push(fillRoundedRect("1 1 1", 20, 480, 270, 146, 6));
   p1Lines.push(strokeRoundedRect("0.85 0.88 0.92", 20, 480, 270, 146, 6));
   p1Lines.push(`BT /F2 8.5 Tf 0.12 0.16 0.23 rg 30 612 Td (GRAPH 1: TOP CATEGORY ALLOCATION) Tj ET`);
@@ -815,7 +818,7 @@ export function generateExpensePdfBuffer(data: ExpensePdfData): Buffer {
     cY -= 20;
   });
 
-  // ── GRAPH 2: Payment Mode Breakdown (Y: 480..626) ──
+  // GRAPH 2: Payment Mode Breakdown
   p1Lines.push(fillRoundedRect("1 1 1", 305, 480, 270, 146, 6));
   p1Lines.push(strokeRoundedRect("0.85 0.88 0.92", 305, 480, 270, 146, 6));
   p1Lines.push(`BT /F2 8.5 Tf 0.12 0.16 0.23 rg 315 612 Td (GRAPH 2: PAYMENT MODE BREAKDOWN) Tj ET`);
@@ -839,7 +842,7 @@ export function generateExpensePdfBuffer(data: ExpensePdfData): Buffer {
     pY -= 20;
   });
 
-  // ── GRAPH 3: Variable vs Fixed Nature Comparison (Y: 360..468) ──
+  // GRAPH 3: Variable vs Fixed Nature Comparison
   p1Lines.push(fillRoundedRect("1 1 1", 20, 360, 270, 108, 6));
   p1Lines.push(strokeRoundedRect("0.85 0.88 0.92", 20, 360, 270, 108, 6));
   p1Lines.push(`BT /F2 8.5 Tf 0.12 0.16 0.23 rg 30 452 Td (GRAPH 3: COST NATURE COMPARISON) Tj ET`);
@@ -853,7 +856,7 @@ export function generateExpensePdfBuffer(data: ExpensePdfData): Buffer {
   p1Lines.push(`BT /F2 7.5 Tf 0.26 0.22 0.79 rg 30 400 Td (Fixed Overhead: Rs.${fmt(fixedTotal)} [${fixPct}%]) Tj ET`);
   p1Lines.push(fillRoundedRect("0.31 0.27 0.9", 30, 386, Math.max((fixPct / 100) * 240, 5), 10, 3));
 
-  // ── GRAPH 4: Brand Allocation Breakdown (Y: 360..468) ──
+  // GRAPH 4: Brand Allocation Breakdown
   p1Lines.push(fillRoundedRect("1 1 1", 305, 360, 270, 108, 6));
   p1Lines.push(strokeRoundedRect("0.85 0.88 0.92", 305, 360, 270, 108, 6));
   p1Lines.push(`BT /F2 8.5 Tf 0.12 0.16 0.23 rg 315 452 Td (GRAPH 4: BRAND SPEND ALLOCATION) Tj ET`);
@@ -875,7 +878,7 @@ export function generateExpensePdfBuffer(data: ExpensePdfData): Buffer {
     bY -= 18;
   });
 
-  // Table Preview Section Header (Y: 334)
+  // Table Section Header
   p1Lines.push(fillRoundedRect("0.12 0.16 0.23", 20, 334, 555, 18, 4));
   p1Lines.push(`BT /F2 8.5 Tf 1 1 1 rg 30 339 Td (EXPENSE REGISTER VOUCHERS AUDIT TRAIL) Tj ET`);
 
@@ -912,76 +915,110 @@ export function generateExpensePdfBuffer(data: ExpensePdfData): Buffer {
   // Page 1 Footer
   p1Lines.push(fillRoundedRect("0.82 0.82 0.85", 20, 35, 555, 1, 0));
   p1Lines.push(`BT /F1 7 Tf 0.5 0.5 0.5 rg 22 22 Td (CoachFlow ERP  \xb7  Operational Expense Report  \xb7  Confidential) Tj ET`);
-  p1Lines.push(`BT /F1 7 Tf 0.5 0.5 0.5 rg 488 22 Td (Page 1 of 2) Tj ET`);
+  p1Lines.push(`BT /F1 7 Tf 0.5 0.5 0.5 rg 488 22 Td (Page 1 of ${totalPages}) Tj ET`);
 
-  // ── PAGE 2 CONTENT STREAM ──
-  const p2Lines: string[] = [];
+  pageStreams.push(p1Lines.join("\n"));
 
-  // Page 2 Header Bar
-  p2Lines.push(fillRoundedRect("0.12 0.10 0.29", 20, 780, 555, 40, 4));
-  p2Lines.push(`BT /F2 12 Tf 1 1 1 rg 35 798 Td (OPERATIONAL EXPENSE DETAILED REGISTER) Tj ET`);
-  p2Lines.push(`BT /F1 8 Tf 0.8 0.85 0.98 rg 35 785 Td (Vouchers Register & Audit Continuation Sheet) Tj ET`);
+  // ── CONTINUATION PAGES (PAGE 2 TO N) ──
+  const remainingExpenses = expenses.slice(12);
 
-  // Table Header Row Page 2 (Y: 755)
-  p2Lines.push(fillRoundedRect("0.2 0.25 0.35", 20, 755, 555, 18, 2));
-  p2Lines.push(`BT /F2 7.5 Tf 1 1 1 rg 25 760 Td (#) Tj ET`);
-  p2Lines.push(`BT /F2 7.5 Tf 1 1 1 rg 50 760 Td (Date) Tj ET`);
-  p2Lines.push(`BT /F2 7.5 Tf 1 1 1 rg 110 760 Td (Category) Tj ET`);
-  p2Lines.push(`BT /F2 7.5 Tf 1 1 1 rg 200 760 Td (Title / Description) Tj ET`);
-  p2Lines.push(`BT /F2 7.5 Tf 1 1 1 rg 330 760 Td (Amount) Tj ET`);
-  p2Lines.push(`BT /F2 7.5 Tf 1 1 1 rg 390 760 Td (Mode) Tj ET`);
-  p2Lines.push(`BT /F2 7.5 Tf 1 1 1 rg 440 760 Td (Brand) Tj ET`);
-  p2Lines.push(`BT /F2 7.5 Tf 1 1 1 rg 510 760 Td (Nature) Tj ET`);
+  for (let pageIdx = 0; pageIdx < continuationPageCount; pageIdx++) {
+    const pageNum = pageIdx + 2;
+    const pageLines: string[] = [];
 
-  // Render Remaining Rows on Page 2
-  let p2Y = 735;
-  const remainingRows = expenses.slice(12, 50);
+    // Header Bar
+    pageLines.push(fillRoundedRect("0.12 0.10 0.29", 20, 780, 555, 40, 4));
+    pageLines.push(`BT /F2 12 Tf 1 1 1 rg 35 798 Td (OPERATIONAL EXPENSE DETAILED REGISTER) Tj ET`);
+    pageLines.push(`BT /F1 8 Tf 0.8 0.85 0.98 rg 35 785 Td (Vouchers Register & Audit Continuation Sheet - Page ${pageNum} of ${totalPages}) Tj ET`);
 
-  if (remainingRows.length === 0) {
-    p2Lines.push(`BT /F1 8 Tf 0.5 0.5 0.5 rg 200 ${p2Y} Td (All expense vouchers listed on Page 1.) Tj ET`);
-  } else {
-    remainingRows.forEach((exp, idx) => {
-      const globalIdx = 13 + idx;
-      if (idx % 2 === 1) p2Lines.push(fillRoundedRect("0.96 0.97 0.98", 20, p2Y - 2, 555, 15, 0));
+    // Table Header Row
+    pageLines.push(fillRoundedRect("0.2 0.25 0.35", 20, 755, 555, 18, 2));
+    pageLines.push(`BT /F2 7.5 Tf 1 1 1 rg 25 760 Td (#) Tj ET`);
+    pageLines.push(`BT /F2 7.5 Tf 1 1 1 rg 50 760 Td (Date) Tj ET`);
+    pageLines.push(`BT /F2 7.5 Tf 1 1 1 rg 110 760 Td (Category) Tj ET`);
+    pageLines.push(`BT /F2 7.5 Tf 1 1 1 rg 200 760 Td (Title / Description) Tj ET`);
+    pageLines.push(`BT /F2 7.5 Tf 1 1 1 rg 330 760 Td (Amount) Tj ET`);
+    pageLines.push(`BT /F2 7.5 Tf 1 1 1 rg 390 760 Td (Mode) Tj ET`);
+    pageLines.push(`BT /F2 7.5 Tf 1 1 1 rg 440 760 Td (Brand) Tj ET`);
+    pageLines.push(`BT /F2 7.5 Tf 1 1 1 rg 510 760 Td (Nature) Tj ET`);
 
-      const dateStr = exp.expenseDate ? new Date(exp.expenseDate).toLocaleDateString("en-IN") : "-";
-      p2Lines.push(`BT /F1 7 Tf 0.3 0.3 0.4 rg 25 ${p2Y} Td (${globalIdx}) Tj ET`);
-      p2Lines.push(`BT /F1 7 Tf 0.1 0.1 0.2 rg 50 ${p2Y} Td (${escapePdfText(dateStr)}) Tj ET`);
-      p2Lines.push(`BT /F2 7 Tf 0.7 0.1 0.2 rg 110 ${p2Y} Td (${escapePdfText((exp.category || "Misc").slice(0, 15))}) Tj ET`);
-      p2Lines.push(`BT /F1 7 Tf 0.1 0.1 0.2 rg 200 ${p2Y} Td (${escapePdfText((exp.title || "").slice(0, 24))}) Tj ET`);
-      p2Lines.push(`BT /F2 7 Tf 0.7 0.05 0.2 rg 330 ${p2Y} Td (Rs.${fmt(Number(exp.amount) || 0)}) Tj ET`);
-      p2Lines.push(`BT /F1 7 Tf 0.3 0.3 0.4 rg 390 ${p2Y} Td (${escapePdfText((exp.paymentMode || "Cash").slice(0, 8))}) Tj ET`);
-      p2Lines.push(`BT /F1 7 Tf 0.3 0.3 0.4 rg 440 ${p2Y} Td (${escapePdfText((exp.brand || "-").slice(0, 10))}) Tj ET`);
-      p2Lines.push(`BT /F1 7 Tf 0.3 0.3 0.4 rg 510 ${p2Y} Td (${escapePdfText((exp.expenseType || "variable").slice(0, 9))}) Tj ET`);
+    const chunk = remainingExpenses.slice(pageIdx * 38, (pageIdx + 1) * 38);
+    let pY = 735;
 
-      p2Y -= 16;
-    });
+    if (chunk.length === 0 && pageNum === 2) {
+      pageLines.push(`BT /F1 8 Tf 0.5 0.5 0.5 rg 200 ${pY} Td (All expense vouchers listed on Page 1.) Tj ET`);
+    } else {
+      chunk.forEach((exp, rowIdx) => {
+        const globalIdx = 13 + pageIdx * 38 + rowIdx;
+        if (rowIdx % 2 === 1) pageLines.push(fillRoundedRect("0.96 0.97 0.98", 20, pY - 2, 555, 15, 0));
+
+        const dateStr = exp.expenseDate ? new Date(exp.expenseDate).toLocaleDateString("en-IN") : "-";
+        pageLines.push(`BT /F1 7 Tf 0.3 0.3 0.4 rg 25 ${pY} Td (${globalIdx}) Tj ET`);
+        pageLines.push(`BT /F1 7 Tf 0.1 0.1 0.2 rg 50 ${pY} Td (${escapePdfText(dateStr)}) Tj ET`);
+        pageLines.push(`BT /F2 7 Tf 0.7 0.1 0.2 rg 110 ${pY} Td (${escapePdfText((exp.category || "Misc").slice(0, 15))}) Tj ET`);
+        pageLines.push(`BT /F1 7 Tf 0.1 0.1 0.2 rg 200 ${pY} Td (${escapePdfText((exp.title || "").slice(0, 24))}) Tj ET`);
+        pageLines.push(`BT /F2 7 Tf 0.7 0.05 0.2 rg 330 ${pY} Td (Rs.${fmt(Number(exp.amount) || 0)}) Tj ET`);
+        pageLines.push(`BT /F1 7 Tf 0.3 0.3 0.4 rg 390 ${pY} Td (${escapePdfText((exp.paymentMode || "Cash").slice(0, 8))}) Tj ET`);
+        pageLines.push(`BT /F1 7 Tf 0.3 0.3 0.4 rg 440 ${pY} Td (${escapePdfText((exp.brand || "-").slice(0, 10))}) Tj ET`);
+        pageLines.push(`BT /F1 7 Tf 0.3 0.3 0.4 rg 510 ${pY} Td (${escapePdfText((exp.expenseType || "variable").slice(0, 9))}) Tj ET`);
+
+        pY -= 16;
+      });
+    }
+
+    // On the final continuation page, render Grand Total Summary Box!
+    if (pageNum === totalPages) {
+      pageLines.push(fillRoundedRect("0.06 0.09 0.16", 20, 60, 555, 30, 4));
+      pageLines.push(`BT /F2 9 Tf 1 1 1 rg 30 72 Td (GRAND TOTAL OPERATIONAL EXPENDITURE) Tj ET`);
+      pageLines.push(`BT /F2 10 Tf 0.2 0.8 0.6 rg 325 72 Td (Rs.${fmt(totalAmount)}) Tj ET`);
+      pageLines.push(`BT /F1 7.5 Tf 0.8 0.8 0.9 rg 440 72 Td (${totalCount} Total Transactions) Tj ET`);
+    }
+
+    // Footer
+    pageLines.push(fillRoundedRect("0.82 0.82 0.85", 20, 35, 555, 1, 0));
+    pageLines.push(`BT /F1 7 Tf 0.5 0.5 0.5 rg 22 22 Td (CoachFlow ERP  \xb7  Operational Expense Report  \xb7  Confidential) Tj ET`);
+    pageLines.push(`BT /F1 7 Tf 0.5 0.5 0.5 rg 488 22 Td (Page ${pageNum} of ${totalPages}) Tj ET`);
+
+    pageStreams.push(pageLines.join("\n"));
   }
 
-  // Grand Total Summary Box on Page 2 Footer (Y: 60..90)
-  p2Lines.push(fillRoundedRect("0.06 0.09 0.16", 20, 60, 555, 30, 4));
-  p2Lines.push(`BT /F2 9 Tf 1 1 1 rg 30 72 Td (GRAND TOTAL OPERATIONAL EXPENDITURE) Tj ET`);
-  p2Lines.push(`BT /F2 10 Tf 0.2 0.8 0.6 rg 325 72 Td (Rs.${fmt(totalAmount)}) Tj ET`);
-  p2Lines.push(`BT /F1 7.5 Tf 0.8 0.8 0.9 rg 440 72 Td (${totalCount} Total Transactions) Tj ET`);
-
-  // Page 2 Footer
-  p2Lines.push(fillRoundedRect("0.82 0.82 0.85", 20, 35, 555, 1, 0));
-  p2Lines.push(`BT /F1 7 Tf 0.5 0.5 0.5 rg 22 22 Td (CoachFlow ERP  \xb7  Operational Expense Report  \xb7  Confidential) Tj ET`);
-  p2Lines.push(`BT /F1 7 Tf 0.5 0.5 0.5 rg 488 22 Td (Page 2 of 2) Tj ET`);
-
-  // ── Assemble PDF Streams ──
-  const p1Text = p1Lines.join("\n");
-  const p2Text = p2Lines.join("\n");
-
+  // ── Assemble Dynamic PDF Objects ──
   const objects: string[] = [];
+
+  // Obj 1: Catalog
   objects.push(`1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj`);
-  objects.push(`2 0 obj\n<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>\nendobj`);
-  objects.push(`3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 7 0 R >>\nendobj`);
-  objects.push(`4 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 8 0 R >>\nendobj`);
-  objects.push(`5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj`);
-  objects.push(`6 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>\nendobj`);
-  objects.push(`7 0 obj\n<< /Length ${Buffer.byteLength(p1Text)} >>\nstream\n${p1Text}\nendstream\nendobj`);
-  objects.push(`8 0 obj\n<< /Length ${Buffer.byteLength(p2Text)} >>\nstream\n${p2Text}\nendstream\nendobj`);
+
+  // Obj 2: Pages list
+  const pageObjectIds: number[] = [];
+  for (let i = 0; i < pageStreams.length; i++) {
+    pageObjectIds.push(3 + i);
+  }
+  const kidsStr = pageObjectIds.map((id) => `${id} 0 R`).join(" ");
+  objects.push(`2 0 obj\n<< /Type /Pages /Kids [${kidsStr}] /Count ${pageStreams.length} >>\nendobj`);
+
+  // Font object IDs
+  const font1ObjId = 3 + pageStreams.length;
+  const font2ObjId = 4 + pageStreams.length;
+
+  // Create Page Objects (3 .. 3 + pageStreams.length - 1)
+  const contentObjIds: number[] = [];
+  for (let i = 0; i < pageStreams.length; i++) {
+    const pageId = 3 + i;
+    const contentId = 5 + pageStreams.length + i;
+    contentObjIds.push(contentId);
+    objects.push(`${pageId} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 ${font1ObjId} 0 R /F2 ${font2ObjId} 0 R >> >> /Contents ${contentId} 0 R >>\nendobj`);
+  }
+
+  // Font objects
+  objects.push(`${font1ObjId} 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj`);
+  objects.push(`${font2ObjId} 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>\nendobj`);
+
+  // Stream objects
+  for (let i = 0; i < pageStreams.length; i++) {
+    const contentId = contentObjIds[i];
+    const streamText = pageStreams[i];
+    objects.push(`${contentId} 0 obj\n<< /Length ${Buffer.byteLength(streamText)} >>\nstream\n${streamText}\nendstream\nendobj`);
+  }
 
   let headerStr = "%PDF-1.4\n";
   let bodyStr = "";
