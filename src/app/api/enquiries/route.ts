@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     body.date = body.date?.trim() || new Date().toISOString().split("T")[0];
     body.primaryPhoneMobile = body.primaryPhoneMobile?.trim() || "+91 0000000000";
     body.currentCity = body.currentCity?.trim() || "N/A";
-    
+
     // Process multi-selected courses
     let coursesList: string[] = [];
     if (Array.isArray(body.courses) && body.courses.length > 0) {
@@ -64,9 +64,9 @@ export async function POST(req: Request) {
 
         if (existingEnquiry) {
           return NextResponse.json(
-            { 
-              success: false, 
-              message: `A lead with primary phone number '${body.primaryPhoneMobile}' already exists for one of the selected courses.` 
+            {
+              success: false,
+              message: `A lead with primary phone number '${body.primaryPhoneMobile}' already exists for one of the selected courses.`
             },
             { status: 400 }
           );

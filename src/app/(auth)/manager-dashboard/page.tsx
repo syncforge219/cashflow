@@ -497,10 +497,16 @@ export default function ManagerDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
             {/* Enquiries by Source */}
-            <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-6 flex flex-col items-center">
-              <h3 className="text-sm font-bold text-slate-800 self-start mb-6">Enquiries by Source</h3>
-              <div className="flex items-center gap-6 w-full">
-                <div className="relative w-32 h-32 shrink-0 flex items-center justify-center">
+            <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-6 flex flex-col justify-between space-y-5">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-extrabold text-slate-800 tracking-tight">Enquiries by Source</h3>
+                <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-100">
+                  {stats?.enquiriesBySource?.length || 0} Channels
+                </span>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center gap-6">
+                <div className="relative w-36 h-36 shrink-0 flex items-center justify-center">
                   <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
                     {donutSegments.length > 0 ? (
                       donutSegments.map((s, idx) => (
@@ -510,8 +516,8 @@ export default function ManagerDashboard() {
                           cy="18"
                           r="15.91549430918954"
                           fill="transparent"
-                          stroke={s.hex}
-                          strokeWidth="6"
+                          stroke={s.hex || "#6366f1"}
+                          strokeWidth="5.5"
                           strokeDasharray={s.dashArray}
                           strokeDashoffset={s.dashOffset}
                           className="transition-all duration-500 ease-out"
@@ -524,32 +530,50 @@ export default function ManagerDashboard() {
                         r="15.91549430918954"
                         fill="transparent"
                         stroke="#e2e8f0"
-                        strokeWidth="6"
+                        strokeWidth="5.5"
                       />
                     )}
                   </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center rounded-full bg-white m-3.5 shadow-2xs">
-                    <span className="text-sm font-black text-slate-900 leading-none">
+                  <div className="absolute inset-0 flex flex-col items-center justify-center rounded-full bg-white m-4 shadow-xs border border-slate-50">
+                    <span className="text-xl font-black text-slate-900 leading-none">
                       {stats?.enquiriesBySource?.reduce((acc, s) => acc + (s.count || 0), 0) || 0}
                     </span>
-                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter mt-0.5">
-                      Total Leads
+                    <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest mt-1">
+                      TOTAL LEADS
                     </span>
                   </div>
                 </div>
-                <div className="flex-1 space-y-1.5 max-h-36 overflow-y-auto pr-1">
+
+                <div className="flex-1 w-full space-y-2.5 max-h-48 overflow-y-auto pr-1">
                   {loading ? (
-                    <p className="text-xs text-slate-400">Loading sources...</p>
+                    <p className="text-xs text-slate-400 font-semibold">Loading sources...</p>
+                  ) : !stats?.enquiriesBySource || stats.enquiriesBySource.length === 0 ? (
+                    <p className="text-xs text-slate-400 font-semibold">No source data recorded.</p>
                   ) : (
-                    stats?.enquiriesBySource?.map((s, i) => (
-                      <div key={i} className="flex justify-between items-center text-[10px]">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <span className={`w-2 h-2 ${s.color || "bg-indigo-500"} rounded-full shrink-0`}></span>
-                          <span className="font-semibold text-slate-700 truncate">{s.label}</span>
+                    stats.enquiriesBySource.map((s, i) => (
+                      <div key={i} className="space-y-1">
+                        <div className="flex justify-between items-center text-xs">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span
+                              className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs"
+                              style={{ backgroundColor: s.hex || "#6366f1" }}
+                            />
+                            <span className="font-bold text-slate-700 truncate">{s.label}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                            <span className="font-black text-slate-900">{s.pct}</span>
+                            <span className="text-[10px] font-bold text-slate-400">({s.count})</span>
+                          </div>
                         </div>
-                        <span className="font-bold text-slate-900 shrink-0 ml-2">
-                          {s.pct} <span className="text-slate-400 font-semibold">({s.count})</span>
-                        </span>
+                        <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{
+                              backgroundColor: s.hex || "#6366f1",
+                              width: `${Math.max(s.pctNum || 0, 3)}%`,
+                            }}
+                          />
+                        </div>
                       </div>
                     ))
                   )}
