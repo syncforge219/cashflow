@@ -8,6 +8,7 @@ import ProfileDisplay from "@/components/ProfileDisplay";
 import { useUser } from "@/app/component/context/user-context";
 import CfoSecurityGuard from "@/components/CfoSecurityGuard";
 import ExpensePdfReportModal from "@/components/ExpensePdfReportModal";
+import { TableSkeleton, CardSkeleton } from "@/components/Skeleton";
 
 interface ExpenseRecord {
   _id: string;
@@ -736,6 +737,34 @@ export default function ExpensesPage() {
       .catch((err) => console.error("Failed to fetch companies:", err));
   }, []);
 
+  const deduplicateCompanies = (list: string[]) => {
+    const map = new Map<string, string>();
+    list.forEach((orig) => {
+      if (!orig || !orig.trim()) return;
+      const name = orig.trim().toUpperCase();
+      const key = name
+        .replace(/[^A-Z0-9]/g, "")
+        .replace(/PRIVATELIMITED/g, "PVTLTD")
+        .replace(/PVTLIMITED/g, "PVTLTD")
+        .replace(/LIMITED/g, "LTD")
+        .replace(/SERVICES/g, "")
+        .replace(/GATEEWAY/g, "GATEWAY")
+        .replace(/LLP/g, "");
+
+      if (!key) return;
+
+      if (!map.has(key)) {
+        map.set(key, name);
+      } else {
+        const existing = map.get(key)!;
+        if (name.length > existing.length) {
+          map.set(key, name);
+        }
+      }
+    });
+    return Array.from(map.values()).sort();
+  };
+
   const getLinkedCompaniesForBrand = (targetBrand: string) => {
     const allUniqueCompanies = new Set<string>();
 
@@ -765,7 +794,7 @@ export default function ExpensesPage() {
       }
     });
 
-    const allCompaniesList = Array.from(allUniqueCompanies);
+    const allCompaniesList = deduplicateCompanies(Array.from(allUniqueCompanies));
 
     if (!targetBrand || targetBrand === "All Brands" || targetBrand === "ALL BRANDS" || targetBrand === "All") {
       return allCompaniesList;
@@ -804,7 +833,8 @@ export default function ExpensesPage() {
       }
     }
 
-    return linkedNames.size > 0 ? Array.from(linkedNames) : allCompaniesList;
+    const deduplicatedLinked = deduplicateCompanies(Array.from(linkedNames));
+    return deduplicatedLinked.length > 0 ? deduplicatedLinked : allCompaniesList;
   };
 
   const availableFilterCompanies = getLinkedCompaniesForBrand(selectedBrand);
@@ -1399,11 +1429,13 @@ export default function ExpensesPage() {
               </thead>
               <tbody className="divide-y divide-slate-100/60 font-semibold text-slate-600">
                 {isLoading ? (
-                  <tr>
-                    <td colSpan={10} className="py-8 text-center text-slate-400">
-                      Loading expenses...
-                    </td>
-                  </tr>
+                  Array.from({ length: 5 }).map((_, idx) => (
+                    <tr key={idx} className="animate-pulse">
+                      <td colSpan={10} className="py-3 px-2">
+                        <div className="h-4 bg-slate-200/80 rounded-lg w-full"></div>
+                      </td>
+                    </tr>
+                  ))
                 ) : sortedExpenses.length === 0 ? (
                   <tr>
                     <td colSpan={10} className="py-8 text-center text-slate-400">
