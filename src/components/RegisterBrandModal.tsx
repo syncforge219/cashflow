@@ -23,6 +23,9 @@ export default function RegisterBrandModal({ isOpen, onClose, brandToEdit }: Reg
     companies: [] as string[],
     receiptTemplateUrl: "",
     receiptTerms: "",
+    youtubeUrl: "",
+    facebookUrl: "",
+    instagramUrl: "",
   });
 
   const [availableCompanies, setAvailableCompanies] = useState<{ id: string; name: string }[]>([]);
@@ -120,6 +123,9 @@ export default function RegisterBrandModal({ isOpen, onClose, brandToEdit }: Reg
         companies: brandToEdit.companies || [],
         receiptTemplateUrl: brandToEdit.receiptTemplateUrl || "",
         receiptTerms: brandToEdit.receiptTerms || "",
+        youtubeUrl: brandToEdit.youtubeUrl || "",
+        facebookUrl: brandToEdit.facebookUrl || "",
+        instagramUrl: brandToEdit.instagramUrl || "",
       });
     } else {
       setFormData({
@@ -134,6 +140,9 @@ export default function RegisterBrandModal({ isOpen, onClose, brandToEdit }: Reg
         companies: [],
         receiptTemplateUrl: "",
         receiptTerms: "",
+        youtubeUrl: "",
+        facebookUrl: "",
+        instagramUrl: "",
       });
     }
   }, [brandToEdit, isOpen]);
@@ -355,6 +364,56 @@ export default function RegisterBrandModal({ isOpen, onClose, brandToEdit }: Reg
               placeholder="12/A, Corporate Plaza, Connaught Place, New Delhi"
               className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
             />
+          </div>
+
+          {/* Social Media Links */}
+          <div className="bg-slate-50/70 border border-slate-200/80 rounded-2xl p-4 space-y-3">
+            <h4 className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+              <span>🌐 Social Media Handles & Links</span>
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                  <span className="text-rose-600 font-black">▶</span> YouTube Link
+                </label>
+                <input
+                  type="url"
+                  name="youtubeUrl"
+                  value={formData.youtubeUrl}
+                  onChange={handleChange}
+                  placeholder="https://youtube.com/@channel"
+                  className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-rose-500/50"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                  <span className="text-blue-600 font-black">f</span> Facebook Link
+                </label>
+                <input
+                  type="url"
+                  name="facebookUrl"
+                  value={formData.facebookUrl}
+                  onChange={handleChange}
+                  placeholder="https://facebook.com/page"
+                  className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                  <span className="text-pink-600 font-black">📸</span> Instagram Link
+                </label>
+                <input
+                  type="url"
+                  name="instagramUrl"
+                  value={formData.instagramUrl}
+                  onChange={handleChange}
+                  placeholder="https://instagram.com/profile"
+                  className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-pink-500/50"
+                />
+              </div>
+            </div>
           </div>
 
           <div>

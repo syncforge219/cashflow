@@ -52,6 +52,15 @@ const BrandSchema = new mongoose.Schema(
     receiptTerms: {
       type: String,
     },
+    youtubeUrl: {
+      type: String,
+    },
+    facebookUrl: {
+      type: String,
+    },
+    instagramUrl: {
+      type: String,
+    },
   },
   { timestamps: true }
 );
