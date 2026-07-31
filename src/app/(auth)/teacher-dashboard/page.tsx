@@ -439,7 +439,6 @@ export default function TeacherDashboard() {
                   <tr className="bg-slate-50/70 border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     <th className="py-3.5 px-6">Subject / Course Name</th>
                     <th className="py-3.5 px-6">Brand Scope</th>
-                    <th className="py-3.5 px-6">Course Fee</th>
                     <th className="py-3.5 px-6">Duration</th>
                     <th className="py-3.5 px-6">Status</th>
                     <th className="py-3.5 px-6 text-right">Actions</th>
@@ -459,7 +458,6 @@ export default function TeacherDashboard() {
                             {course.brand || user.brandScope || "All Brands"}
                           </span>
                         </td>
-                        <td className="py-3.5 px-6 font-bold text-indigo-600">{course.fee || "₹0"}</td>
                         <td className="py-3.5 px-6 font-medium text-slate-600">{course.duration || "Self-Paced"}</td>
                         <td className="py-3.5 px-6">
                           <span className="inline-block px-2 py-0.5 bg-emerald-50 text-emerald-700 font-bold text-[10px] rounded-md border border-emerald-200/60">
@@ -475,7 +473,7 @@ export default function TeacherDashboard() {
                     ))}
                   {(!teacherData?.myBrandCourses || teacherData.myBrandCourses.length === 0) && (
                     <tr>
-                      <td colSpan={6} className="py-8 text-center text-slate-400 font-medium">
+                      <td colSpan={5} className="py-8 text-center text-slate-400 font-medium">
                         No courses recorded for this faculty scope.
                       </td>
                     </tr>
