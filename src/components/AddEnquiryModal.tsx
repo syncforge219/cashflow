@@ -41,13 +41,19 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
       setIsFollowUpScheduled(false);
       setSelectedCourses([]);
       setExpectedCourseFee("₹0");
-      // Auto-select brand if defaultBrand or user's brandScope is available
-      const userBrand = (user?.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All") ? user.brandScope : "";
+      // Auto-select brand if defaultBrand or user's brandScope / brand is available
+      const rawUserBrand = user?.brandScope || (user as any)?.brand || (user as any)?.targetBrand || "";
+      const userBrand = (rawUserBrand && rawUserBrand !== "All Brands" && rawUserBrand !== "All" && rawUserBrand !== "*") ? rawUserBrand : "";
       const initialBrand = (defaultBrand && defaultBrand !== "All Brands" && defaultBrand !== "All")
         ? defaultBrand
         : userBrand;
       setSelectedBrand(initialBrand);
-      setSelectedAdvisor("");
+
+      if (user?.name) {
+        setSelectedAdvisor(user.name);
+      } else {
+        setSelectedAdvisor("");
+      }
 
       fetch("/api/counsellors")
         .then(res => res.json())
@@ -356,7 +362,11 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
                   value={selectedBrand}
                   onChange={(e) => {
                     setSelectedBrand(e.target.value);
-                    setSelectedAdvisor("");
+                    if (user?.name) {
+                      setSelectedAdvisor(user.name);
+                    } else {
+                      setSelectedAdvisor("");
+                    }
                   }}
                   className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
                 >
