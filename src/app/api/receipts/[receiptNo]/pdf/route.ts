@@ -31,12 +31,25 @@ export async function GET(
     const admissionId = admission?.admissionId || "ADM-N/A";
     const courseName = admission?.course || "Course";
     const amountPaid = payment?.amountReceived || 0;
-    const paymentDate = new Date(
-      payment?.createdAt || payment?.paymentDate || Date.now()
-    ).toLocaleDateString("en-IN", {
+    const paymentDateObj = payment?.createdAt || payment?.paymentDate ? new Date(payment?.createdAt || payment?.paymentDate) : new Date();
+    const paymentDate = paymentDateObj.toLocaleString("en-IN", {
       day: "2-digit",
       month: "short",
       year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+    });
+
+    const generatedAtStr = new Date().toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
     });
 
     const finalFee = Number(admission?.finalFee || admission?.courseFee || 0);
@@ -101,6 +114,7 @@ export async function GET(
       totalFee: finalFee,
       totalPaidToDate,
       remainingBalance,
+      generatedAtStr,
     });
 
     return new NextResponse(Uint8Array.from(pdfBuffer), {

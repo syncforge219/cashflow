@@ -16,6 +16,7 @@ export interface ReceiptPdfData {
   totalFee?: number | string;
   totalPaidToDate?: number | string;
   remainingBalance?: number | string;
+  generatedAtStr?: string;
 }
 
 export type DailyReportPdfData = DailyBiReportData;
@@ -42,7 +43,8 @@ export function generateReceiptPdfBuffer(data: ReceiptPdfData): Buffer {
   const mode = (data.paymentMode || "Online").replace(/[()]/g, "");
   const ref = (data.referenceNo || "N/A").replace(/[()]/g, "");
   const receiptNo = (data.receiptNo || "CM/CTE/2024/1230").replace(/[()]/g, "");
-  const payDate = (data.paymentDate || new Date().toLocaleDateString("en-IN")).replace(/[()]/g, "");
+  const payDate = (data.paymentDate || new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })).replace(/[()]/g, "");
+  const generatedTime = (data.generatedAtStr || new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })).replace(/[()]/g, "");
 
   const amountVal = Number(data.amountPaid || 0);
   const amountStr = amountVal.toLocaleString("en-IN", { minimumFractionDigits: 2 });
@@ -62,7 +64,8 @@ export function generateReceiptPdfBuffer(data: ReceiptPdfData): Buffer {
     `BT /F2 8.5 Tf 0.1 0.5 0.2 rg 135 752 Td (Brand: ${brand}) Tj ET`,
 
     // Header Right
-    `BT /F2 11 Tf 0.1 0.6 0.2 rg 360 780 Td (Receipt # ${receiptNo}) Tj ET`,
+    `BT /F2 10 Tf 0.1 0.6 0.2 rg 360 780 Td (Receipt # ${receiptNo}) Tj ET`,
+    `BT /F1 7.5 Tf 0.4 0.4 0.4 rg 360 768 Td (Generated: ${generatedTime}) Tj ET`,
     
     // Barcode Vector Graphic
     `0.1 0.1 0.1 rg`,
@@ -82,7 +85,7 @@ export function generateReceiptPdfBuffer(data: ReceiptPdfData): Buffer {
     strokeRoundedRect("0.85 0.85 0.85", 50, 625, 240, 95, 4),
     `BT /F1 8.5 Tf 0.3 0.3 0.3 rg 55 707 Td (Receipt #) Tj ET`,
     `BT /F2 8.5 Tf 0.1 0.1 0.1 rg 140 707 Td (${receiptNo}) Tj ET`,
-    `BT /F1 8.5 Tf 0.3 0.3 0.3 rg 55 688 Td (Receipt Date) Tj ET`,
+    `BT /F1 8.5 Tf 0.3 0.3 0.3 rg 55 688 Td (Receipt Date & Time) Tj ET`,
     `BT /F1 8.5 Tf 0.1 0.1 0.1 rg 140 688 Td (${payDate}) Tj ET`,
     `BT /F1 8.5 Tf 0.3 0.3 0.3 rg 55 669 Td (Received In) Tj ET`,
     `BT /F1 8.5 Tf 0.1 0.1 0.1 rg 140 669 Td (${mode}) Tj ET`,
