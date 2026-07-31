@@ -96,6 +96,9 @@ const EnquirySchema = new Schema(
     followUpNotes: {
       type: String,
     },
+    followUpDate: {
+      type: String,
+    },
     demos: [
       {
         date: String,

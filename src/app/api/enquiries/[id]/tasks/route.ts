@@ -161,7 +161,7 @@ export async function PATCH(
     const { id } = await params;
     const body = await req.json();
 
-    const { followupIndex, status, remarks, priority, assignedTo, escalatedToManager } = body;
+    const { followupIndex, status, isCompleted, remarks, priority, assignedTo, escalatedToManager } = body;
 
     const enquiry = await Enquiry.findById(id);
     if (!enquiry) {
@@ -170,15 +170,14 @@ export async function PATCH(
 
     if (typeof followupIndex === "number" && enquiry.followUps && enquiry.followUps[followupIndex]) {
       const item = enquiry.followUps[followupIndex];
-      if (status) {
-        item.status = status;
-        if (status === "Completed") {
-          item.isCompleted = true;
-          item.completedAt = new Date();
-        } else if (status === "Pending" || status === "In Progress") {
-          item.isCompleted = false;
-        }
+      const targetCompleted = typeof isCompleted === "boolean" ? isCompleted : (status === "Completed");
+      const targetStatus = status || (targetCompleted ? "Completed" : "Pending");
+      item.status = targetStatus;
+      item.isCompleted = targetCompleted;
+      if (targetCompleted) {
+        item.completedAt = new Date();
       }
+
       if (remarks !== undefined) item.remarks = remarks;
       if (priority) item.priority = priority;
       if (assignedTo) item.assignedTo = assignedTo;
@@ -190,14 +189,36 @@ export async function PATCH(
         }
       }
     } else {
-      // General update to latest active followup
-      if (status && enquiry.followUps.length > 0) {
-        const lastItem = enquiry.followUps[enquiry.followUps.length - 1];
-        lastItem.status = status;
-        if (status === "Completed") {
-          lastItem.isCompleted = true;
-          lastItem.completedAt = new Date();
-        }
+      // General update to active/all followups
+      const targetCompleted = typeof isCompleted === "boolean" ? isCompleted : (status === "Completed");
+      const targetStatus = status || (targetCompleted ? "Completed" : "Pending");
+
+      if (enquiry.followUps && enquiry.followUps.length > 0) {
+        enquiry.followUps.forEach((item: any) => {
+          item.status = targetStatus;
+          item.isCompleted = targetCompleted;
+          if (targetCompleted) {
+            item.completedAt = new Date();
+          }
+        });
+      } else {
+        enquiry.followUps.push({
+          date: enquiry.followUpDate || enquiry.date || new Date().toISOString().split("T")[0],
+          time: "10:00",
+          priority: priority || enquiry.priorityLevel || "Medium",
+          typeOfContact: "Phone Call",
+          remarks: remarks || enquiry.followUpNotes || enquiry.remarks || "Follow-up completed",
+          nextAction: "",
+          status: targetStatus,
+          plannedBy: enquiry.assignedCrmAdvisor || "System",
+          assignedTo: enquiry.assignedCrmAdvisor || "Unassigned",
+          isCompleted: targetCompleted,
+          completedAt: targetCompleted ? new Date() : undefined,
+          isRecurring: false,
+          recurringRule: "none",
+          escalatedToManager: false,
+          createdAt: new Date(),
+        } as any);
       }
     }
 

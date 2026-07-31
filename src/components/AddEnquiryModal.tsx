@@ -211,6 +211,35 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
     data.isDemoScheduled = isDemoScheduled as any;
     data.isFollowUpScheduled = isFollowUpScheduled as any;
 
+    if (isFollowUpScheduled && data.followUpDate) {
+      const followUpDateStr = String(data.followUpDate).trim();
+      const followUpTimeStr = String(data.followUpTime || "10:00").trim();
+      const followUpPriorityStr = String(data.followUpPriority || data.priorityLevel || "Medium").trim();
+      const followUpTypeStr = String(data.followUpType || "Phone Call").trim();
+      const followUpNotesStr = String(data.followUpNotes || "").trim();
+      const reminderStr = data.reminder ? String(data.reminder).trim() : "None";
+
+      (data as any).followUpDate = followUpDateStr;
+      (data as any).followUps = [
+        {
+          date: followUpDateStr,
+          time: followUpTimeStr,
+          priority: followUpPriorityStr,
+          typeOfContact: followUpTypeStr,
+          remarks: followUpNotesStr,
+          nextAction: reminderStr && reminderStr !== "None" ? `Reminder: ${reminderStr}` : "",
+          status: "Pending",
+          plannedBy: user?.name || (data.assignedCrmAdvisor ? String(data.assignedCrmAdvisor) : "System"),
+          assignedTo: data.assignedCrmAdvisor ? String(data.assignedCrmAdvisor) : (user?.name || "Unassigned"),
+          isCompleted: false,
+          isRecurring: false,
+          recurringRule: "none",
+          escalatedToManager: false,
+          createdAt: new Date(),
+        },
+      ];
+    }
+
     try {
       const response = await fetch("/api/enquiries", {
         method: "POST",

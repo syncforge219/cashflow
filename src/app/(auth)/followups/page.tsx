@@ -216,6 +216,69 @@ export default function FollowupPage() {
     fetchData();
   }, []);
 
+  const handleToggleFollowupDone = async (rec: EnquiryFollowupRecord, isChecked: boolean) => {
+    const newStatus = isChecked ? "Completed" : "Pending";
+
+    setEnquiries((prevEnquiries) =>
+      prevEnquiries.map((enq) => {
+        if (enq._id === rec._id) {
+          const rawFollowups = Array.isArray(enq.followUps) ? enq.followUps : [];
+          let updatedFollowups: any[] = [];
+
+          if (rawFollowups.length > 0) {
+            updatedFollowups = rawFollowups.map((f: any) => ({
+              ...f,
+              status: newStatus,
+              isCompleted: isChecked,
+              completedAt: isChecked ? new Date().toISOString() : null,
+            }));
+          } else {
+            updatedFollowups = [
+              {
+                date: enq.followUpDate || enq.date || new Date().toISOString().split("T")[0],
+                time: "10:00",
+                priority: enq.priorityLevel || "Medium",
+                typeOfContact: "Phone Call",
+                remarks: "Follow-up marked completed",
+                status: newStatus,
+                isCompleted: isChecked,
+                completedAt: isChecked ? new Date().toISOString() : null,
+                createdAt: new Date().toISOString(),
+              },
+            ];
+          }
+
+          return {
+            ...enq,
+            status: isChecked ? "Completed" : enq.status,
+            followUps: updatedFollowups,
+          };
+        }
+        return enq;
+      })
+    );
+
+    try {
+      const res = await fetch(`/api/enquiries/${rec._id}/tasks`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          isCompleted: isChecked,
+          status: newStatus,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        console.error("Failed to toggle followup completed status:", data);
+        fetchData();
+      }
+    } catch (err) {
+      console.error("Error toggling followup completed:", err);
+      fetchData();
+    }
+  };
+
   // Request browser notification permission if enabled
   useEffect(() => {
     if (notificationsEnabled && typeof window !== "undefined" && "Notification" in window) {
@@ -1062,9 +1125,26 @@ export default function FollowupPage() {
                                     ⚡ ESCALATED TO MGR
                                   </span>
                                 )}
-                                <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-extrabold text-[10px] uppercase">
-                                  {rec.status || "In Progress"}
-                                </span>
+                                {(() => {
+                                  const isDone = Boolean(
+                                    rec.followUps && rec.followUps.length > 0
+                                      ? rec.followUps.every((f: any) => f.isCompleted || (f.status || "").toLowerCase() === "completed")
+                                      : (rec.status || "").toLowerCase() === "completed"
+                                  );
+                                  return (
+                                    <label className="inline-flex items-center gap-1.5 cursor-pointer bg-slate-100 hover:bg-slate-200/80 px-2 py-0.5 rounded-md border border-slate-200 text-[10px] font-extrabold text-slate-700 transition-all select-none" onClick={(e) => e.stopPropagation()}>
+                                      <input
+                                        type="checkbox"
+                                        checked={isDone}
+                                        onChange={(e) => handleToggleFollowupDone(rec, e.target.checked)}
+                                        className="w-3 h-3 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500 cursor-pointer"
+                                      />
+                                      <span className={isDone ? "text-emerald-700 font-extrabold uppercase" : "text-slate-600 uppercase"}>
+                                        {isDone ? "✓ Completed" : (rec.status || "In Progress")}
+                                      </span>
+                                    </label>
+                                  );
+                                })()}
                               </div>
 
                               {/* Due Date & Course Details */}
@@ -1143,6 +1223,7 @@ export default function FollowupPage() {
                   <table className="w-full text-left text-xs border-collapse">
                     <thead className="sticky top-0 z-10 bg-slate-100/95 backdrop-blur-xs shadow-2xs">
                       <tr className="border-b border-slate-200 text-[10px] font-black text-slate-600 uppercase tracking-wider select-none">
+                        <th className="py-3 px-3 w-[70px] text-center min-w-[70px]">DONE ▾</th>
                         <th className="py-3 px-4 min-w-[125px]">DUE DATE ▾</th>
                         <th className="py-3 px-4 min-w-[100px]">PRIORITY ▾</th>
                         <th className="py-3 px-4 min-w-[145px]">ENQUIRY/WALKIN DATE ▾</th>
@@ -1161,11 +1242,11 @@ export default function FollowupPage() {
                     <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
                       {isLoading ? (
                         <tr>
-                          <td colSpan={13} className="py-12 text-center text-slate-400">Loading enquiry follow-ups...</td>
+                          <td colSpan={14} className="py-12 text-center text-slate-400">Loading enquiry follow-ups...</td>
                         </tr>
                       ) : paginatedEnquiryRecords.length === 0 ? (
                         <tr>
-                          <td colSpan={13} className="py-12 text-center text-slate-400">No enquiry follow-up records found matching filters.</td>
+                          <td colSpan={14} className="py-12 text-center text-slate-400">No enquiry follow-up records found matching filters.</td>
                         </tr>
                       ) : (
                         paginatedEnquiryRecords.map((rec: EnquiryFollowupRecord) => (
@@ -1178,6 +1259,25 @@ export default function FollowupPage() {
                                 : "hover:bg-slate-50/80"
                             }`}
                           >
+                            <td className="py-3.5 px-3 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                              {(() => {
+                                const isDone = Boolean(
+                                  rec.followUps && rec.followUps.length > 0
+                                    ? rec.followUps.every((f: any) => f.isCompleted || (f.status || "").toLowerCase() === "completed")
+                                    : (rec.status || "").toLowerCase() === "completed"
+                                );
+                                return (
+                                  <label className="inline-flex items-center justify-center cursor-pointer p-1 group" title={isDone ? "Mark as Pending" : "Mark Follow-up as Completed"}>
+                                    <input
+                                      type="checkbox"
+                                      checked={isDone}
+                                      onChange={(e) => handleToggleFollowupDone(rec, e.target.checked)}
+                                      className="w-4 h-4 text-emerald-600 bg-slate-100 border-slate-300 rounded focus:ring-emerald-500 focus:ring-2 cursor-pointer transition-all"
+                                    />
+                                  </label>
+                                );
+                              })()}
+                            </td>
                             <td className="py-3.5 px-4 font-bold whitespace-nowrap">
                               <div className="flex flex-col">
                                 {rec.hasScheduledFollowup ? (
@@ -1195,7 +1295,7 @@ export default function FollowupPage() {
                                 {rec.isEscalated && (
                                   <span className="text-[9px] font-black text-purple-700 tracking-wider">⚡ ESCALATED TO MGR</span>
                                 )}
-                              </div>
+                               </div>
                             </td>
                             <td className="py-3.5 px-4 whitespace-nowrap">
                               {rec.priorityLevel === "Urgent" ? (
@@ -1220,9 +1320,23 @@ export default function FollowupPage() {
                             <td className="py-3.5 px-4 font-bold text-slate-800 max-w-[160px] truncate" title={rec.targetCourse}>{rec.targetCourse}</td>
                             <td className="py-3.5 px-4 text-slate-700 max-w-[140px] truncate">{rec.assignedCrmAdvisor}</td>
                             <td className="py-3.5 px-4">
-                              <span className="px-2.5 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200/80 rounded-lg text-[10px] font-extrabold uppercase whitespace-nowrap shadow-2xs">
-                                {rec.status || "In Progress"}
-                              </span>
+                              {(() => {
+                                const isDone = Boolean(
+                                  rec.followUps && rec.followUps.length > 0
+                                    ? rec.followUps.every((f: any) => f.isCompleted || (f.status || "").toLowerCase() === "completed")
+                                    : (rec.status || "").toLowerCase() === "completed"
+                                );
+                                const displayStatus = isDone ? "Completed" : (rec.status || "In Progress");
+                                return (
+                                  <span className={`px-2.5 py-0.5 border rounded-lg text-[10px] font-extrabold uppercase whitespace-nowrap shadow-2xs ${
+                                    isDone
+                                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                      : "bg-indigo-50 text-indigo-700 border-indigo-200/80"
+                                  }`}>
+                                    {displayStatus}
+                                  </span>
+                                );
+                              })()}
                             </td>
                             <td className="py-3.5 px-4 text-slate-600 capitalize whitespace-nowrap">{rec.leadType || "Telephonic"}</td>
                             <td className="py-3.5 px-4 text-slate-500 max-w-[180px] truncate" title={rec.lastRemarkStr}>

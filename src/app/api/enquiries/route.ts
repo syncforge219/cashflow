@@ -74,12 +74,72 @@ export async function POST(req: Request) {
       }
     }
 
+    // Handle follow-up task construction if scheduled or followUpDate provided
+    const isFollowUpScheduled = body.isFollowUpScheduled === true || body.isFollowUpScheduled === "true";
+    const followUpDateStr = body.followUpDate ? String(body.followUpDate).trim() : "";
+
+    if ((isFollowUpScheduled || followUpDateStr) && (!Array.isArray(body.followUps) || body.followUps.length === 0)) {
+      const fDate = followUpDateStr || body.date || new Date().toISOString().split("T")[0];
+      const fTime = body.followUpTime ? String(body.followUpTime).trim() : "10:00";
+      const fPriority = body.followUpPriority ? String(body.followUpPriority).trim() : (body.priorityLevel || "Medium");
+      const fType = body.followUpType ? String(body.followUpType).trim() : "Phone Call";
+      const fNotes = body.followUpNotes ? String(body.followUpNotes).trim() : (body.remarks || "");
+      const reminderStr = body.reminder ? String(body.reminder).trim() : "None";
+      const advisor = body.assignedCrmAdvisor || user?.name || "Unassigned";
+
+      body.followUpDate = fDate;
+      body.followUps = [
+        {
+          date: fDate,
+          time: fTime,
+          priority: fPriority,
+          typeOfContact: fType,
+          remarks: fNotes,
+          nextAction: reminderStr && reminderStr !== "None" ? `Reminder: ${reminderStr}` : "",
+          status: "Pending",
+          plannedBy: user?.name || advisor,
+          assignedTo: advisor,
+          isCompleted: false,
+          isRecurring: false,
+          recurringRule: "none",
+          escalatedToManager: false,
+          createdAt: new Date(),
+        },
+      ];
+    } else if (followUpDateStr && !body.followUpDate) {
+      body.followUpDate = followUpDateStr;
+    }
+
+    // Handle demo class construction if scheduled
+    if (body.isDemoScheduled && body.demoDate && (!Array.isArray(body.demos) || body.demos.length === 0)) {
+      body.demos = [
+        {
+          date: String(body.demoDate).trim(),
+          time: body.demoTime ? String(body.demoTime).trim() : "10:00 AM",
+          mode: body.demoMode ? String(body.demoMode).trim() : "Online",
+          notes: body.demoNotes ? String(body.demoNotes).trim() : "",
+          status: "Scheduled",
+          createdAt: new Date(),
+        },
+      ];
+    }
+
     const newEnquiry = await Enquiry.create(body);
 
     // AUTO TASK ENGINE: Generate Call Lead task
     try {
-      const dueDate = new Date();
-      dueDate.setDate(dueDate.getDate() + 1); // Due in 24h
+      let dueDate = new Date();
+      if (followUpDateStr) {
+        const timePart = body.followUpTime || "10:00";
+        const parsed = new Date(`${followUpDateStr}T${timePart}:00`);
+        if (!isNaN(parsed.getTime())) {
+          dueDate = parsed;
+        } else {
+          dueDate.setDate(dueDate.getDate() + 1);
+        }
+      } else {
+        dueDate.setDate(dueDate.getDate() + 1);
+      }
       await Task.create({
         title: `Call Lead: ${newEnquiry.studentFullName}`,
         description: `Initial contact & course counseling call for ${newEnquiry.targetCourse || 'Program'}.`,

@@ -647,6 +647,39 @@ export default function AddFollowupModal({
               </div>
             </div>
 
+            {/* 7. Follow-up Status & Completion Checkbox */}
+            <div className="grid grid-cols-12 items-center gap-4">
+              <div className="col-span-4 text-right pr-2">
+                <label className="block font-bold text-slate-800">
+                  Followup Status
+                </label>
+              </div>
+              <div className="col-span-8 flex items-center gap-4">
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                  className="flex-1 px-3.5 py-2 border border-slate-300 rounded-xl text-slate-800 font-bold outline-none bg-white shadow-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 cursor-pointer"
+                >
+                  <option value="Pending">Pending</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Completed">Completed</option>
+                  <option value="Cancelled">Cancelled</option>
+                </select>
+
+                <label className="flex items-center gap-2 cursor-pointer bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-xl text-xs font-extrabold text-slate-700 hover:bg-slate-100 transition-colors select-none">
+                  <input
+                    type="checkbox"
+                    checked={status === "Completed"}
+                    onChange={(e) => setStatus(e.target.checked ? "Completed" : "Pending")}
+                    className="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500 cursor-pointer"
+                  />
+                  <span className={status === "Completed" ? "text-emerald-700 font-black" : "text-slate-600 font-bold"}>
+                    Followup Done
+                  </span>
+                </label>
+              </div>
+            </div>
+
             {/* Action Buttons Footer */}
             <div className="flex items-center justify-end gap-3 pt-6 mt-4 border-t border-slate-100">
               <button
