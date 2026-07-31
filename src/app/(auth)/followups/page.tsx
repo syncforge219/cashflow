@@ -380,18 +380,22 @@ export default function FollowupPage() {
       const recTime = new Date(rec.dueDateStr || todayStr).getTime();
       const statusLower = (rec.status || "").toLowerCase();
 
+      const isCompletedLead =
+        statusLower.includes("completed") ||
+        (Array.isArray(rec.followUps) && rec.followUps.length > 0 && rec.followUps.every((f: any) => f.isCompleted || (f.status || "").toLowerCase() === "completed" || (f.status || "").toLowerCase() === "cancelled"));
+
       // Tab filtering
       if (enquiryTab === "new") {
         const createdDateStr = getLocalDateStr(rec.createdAt);
         if (createdDateStr !== selectedNewLeadDate) return false;
       } else if (enquiryTab === "today") {
-        if (statusLower.includes("lost") || statusLower.includes("admitted") || statusLower.includes("do not")) return false;
+        if (statusLower.includes("lost") || statusLower.includes("admitted") || statusLower.includes("do not") || isCompletedLead) return false;
         if (!rec.hasScheduledFollowup || rec.dueDateStr !== todayStr) return false;
       } else if (enquiryTab === "pending") {
-        if (statusLower.includes("lost") || statusLower.includes("admitted") || statusLower.includes("do not")) return false;
+        if (statusLower.includes("lost") || statusLower.includes("admitted") || statusLower.includes("do not") || isCompletedLead) return false;
         if (!rec.hasScheduledFollowup || recTime >= todayTime) return false; // Past due
       } else if (enquiryTab === "upcoming") {
-        if (statusLower.includes("lost") || statusLower.includes("admitted") || statusLower.includes("do not")) return false;
+        if (statusLower.includes("lost") || statusLower.includes("admitted") || statusLower.includes("do not") || isCompletedLead) return false;
         if (!rec.hasScheduledFollowup || recTime <= todayTime) return false; // Future due
       } else if (enquiryTab === "donot") {
         if (!statusLower.includes("lost") && !statusLower.includes("do not")) return false;
@@ -464,6 +468,9 @@ export default function FollowupPage() {
       const recTime = rec.dueDateStr ? new Date(rec.dueDateStr).getTime() : 0;
       const statusLower = (rec.status || "").toLowerCase();
       const createdDateStr = getLocalDateStr(rec.createdAt);
+      const isCompletedLead =
+        statusLower.includes("completed") ||
+        (Array.isArray(rec.followUps) && rec.followUps.length > 0 && rec.followUps.every((f: any) => f.isCompleted || (f.status || "").toLowerCase() === "completed" || (f.status || "").toLowerCase() === "cancelled"));
 
       if (createdDateStr === selectedNewLeadDate) {
         newLeads++;
@@ -471,6 +478,8 @@ export default function FollowupPage() {
 
       if (statusLower.includes("lost") || statusLower.includes("do not")) {
         donot++;
+      } else if (statusLower.includes("admitted") || isCompletedLead) {
+        // Exclude completed or admitted leads from active follow-up tab counts
       } else if (rec.hasScheduledFollowup) {
         if (rec.dueDateStr === todayStr) {
           today++;
