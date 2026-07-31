@@ -413,8 +413,12 @@ export default function PaymentReceiptModal({
                     <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wide">Company Address:</span>
                     <span>{companyAddress}</span>
                   </p>
-                  <p className="text-xs font-extrabold text-emerald-700 mt-0.5">
-                    Brand: {brandName} {brandAddress && `(${brandAddress})`}
+                  <p className="text-[11px] font-bold text-slate-700 mt-0.5 flex flex-wrap items-center gap-1">
+                    <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wide">Brand:</span>
+                    <span className="text-emerald-700 font-black">{brandName}</span>
+                    <span className="text-slate-300 font-bold mx-0.5">|</span>
+                    <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wide">Brand Addr:</span>
+                    <span>{brandAddress}</span>
                   </p>
                 </div>
               </div>

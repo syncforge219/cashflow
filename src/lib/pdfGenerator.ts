@@ -61,7 +61,7 @@ export function generateReceiptPdfBuffer(data: ReceiptPdfData): Buffer {
 
     `BT /F2 12 Tf 0.1 0.1 0.1 rg 135 778 Td (${company}) Tj ET`,
     `BT /F1 7.5 Tf 0.3 0.3 0.3 rg 135 765 Td (Company Addr: ${companyAddress}) Tj ET`,
-    `BT /F2 8.5 Tf 0.1 0.5 0.2 rg 135 752 Td (Brand: ${brand}) Tj ET`,
+    `BT /F2 8.5 Tf 0.1 0.5 0.2 rg 135 752 Td (Brand: ${brand} | Brand Addr: ${brandAddress}) Tj ET`,
 
     // Header Right
     `BT /F2 10 Tf 0.1 0.6 0.2 rg 360 780 Td (Receipt # ${receiptNo}) Tj ET`,

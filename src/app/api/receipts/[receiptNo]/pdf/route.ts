@@ -108,7 +108,7 @@ export async function GET(
       paymentMode: payment?.paymentMode || "Cash",
       referenceNo: payment?.referenceNo || "N/A",
       brandName: targetBrandName,
-      brandAddress: brand?.address || undefined,
+      brandAddress: brand?.address || "G 11 , Murli Bhawan , 10- A, Ashok Marg , Lucknow",
       companyName,
       companyAddress,
       totalFee: finalFee,
