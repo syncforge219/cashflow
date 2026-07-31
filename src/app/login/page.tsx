@@ -76,28 +76,32 @@ export default function LoginPage() {
           return;
         }
 
-        if (userRole === "counsellor" || userRole === "counselor") {
+        if (
+          userRole.includes("counsellor") ||
+          userRole.includes("counselor")
+        ) {
           window.location.href = "/counsellor-dashboard";
         } else if (
-          userRole === "brand manager" ||
-          userRole === "brand_manager" ||
-          userRole === "brand-manager" ||
-          userRole === "centre head" ||
-          userRole === "centre_head" ||
-          userRole === "center head" ||
-          userRole === "center_head" ||
-          userRole === "manager" ||
-          userRole === "branch head" ||
-          userRole === "branch_head"
+          userRole.includes("centre") ||
+          userRole.includes("center") ||
+          userRole.includes("manager") ||
+          userRole.includes("branch") ||
+          (userRole.includes("head") && !userRole.includes("admin"))
         ) {
           window.location.href = "/manager-dashboard";
-        } else if (userRole === "teacher") {
+        } else if (userRole.includes("teacher")) {
           window.location.href = "/teacher-dashboard";
-        } else if (userRole === "cfo" || userRole === "finance manager" || userRole === "finance executive") {
+        } else if (userRole.includes("cfo") || userRole.includes("finance")) {
           window.location.href = "/cfo-dashboard";
-        } else if (userRole === "crm" || userRole === "crm executive" || userRole === "crm advisor") {
+        } else if (userRole.includes("crm")) {
           window.location.href = "/crm-dashboard";
-        } else if (userRole === "admin" || userRole === "super admin" || userRole === "director" || userRole === "super_admin") {
+        } else if (
+          userRole === "admin" ||
+          userRole === "super admin" ||
+          userRole === "director" ||
+          userRole.includes("admin") ||
+          userRole.includes("director")
+        ) {
           window.location.href = "/admin-dashboard";
         } else {
           setErrors({ email: "Access denied. Unrecognized or unauthorized user role." });

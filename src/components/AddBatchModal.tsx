@@ -19,6 +19,7 @@ export default function AddBatchModal({
   const { user } = useUser();
   const [batchName, setBatchName] = useState("");
   const [course, setCourse] = useState("");
+  const [courseCode, setCourseCode] = useState("");
   const [teacherId, setTeacherId] = useState("");
   const [brand, setBrand] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -37,6 +38,12 @@ export default function AddBatchModal({
 
   const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
+  const handleCourseChange = (selectedName: string) => {
+    setCourse(selectedName);
+    const matched = coursesList.find((c) => (c.name || c.courseName) === selectedName);
+    setCourseCode(matched?.code || matched?.courseCode || "");
+  };
+
   // Fetch available courses, teachers, and brands
   useEffect(() => {
     if (!isOpen) return;
@@ -54,7 +61,10 @@ export default function AddBatchModal({
           const cList = coursesRes.data || coursesRes.courses || [];
           setCoursesList(cList);
           if (cList.length > 0 && !course) {
-            setCourse(cList[0].name || cList[0].courseName || "");
+            const initialCourse = cList[0];
+            const initialName = initialCourse.name || initialCourse.courseName || "";
+            setCourse(initialName);
+            setCourseCode(initialCourse.code || initialCourse.courseCode || "");
           }
         }
 
@@ -127,6 +137,7 @@ export default function AddBatchModal({
         body: JSON.stringify({
           batchName: batchName.trim(),
           course,
+          courseCode: courseCode.trim() || undefined,
           teacherId,
           teacherName,
           brand: brand || user?.brandScope || "CADD Mantra",
@@ -148,6 +159,8 @@ export default function AddBatchModal({
         onClose();
         // Reset form
         setBatchName("");
+        setCourseCode("");
+        setEndDate("");
         setNotes("");
       } else {
         setErrorMsg(json.error || "Failed to create batch.");
@@ -175,7 +188,7 @@ export default function AddBatchModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto font-sans">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden my-8 animate-fade-in">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden my-8 animate-fade-in">
         {/* Header */}
         <div className="bg-gradient-to-r from-indigo-900 via-slate-800 to-indigo-950 px-6 py-5 text-white flex items-center justify-between">
           <div>
@@ -207,8 +220,8 @@ export default function AddBatchModal({
             </div>
           )}
 
-          {/* Batch Name & Course Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Batch Name, Course & Course Code Row */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
                 Batch Name / Title <span className="text-rose-500">*</span>
@@ -230,7 +243,7 @@ export default function AddBatchModal({
               <select
                 required
                 value={course}
-                onChange={(e) => setCourse(e.target.value)}
+                onChange={(e) => handleCourseChange(e.target.value)}
                 className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-semibold cursor-pointer transition-all"
               >
                 <option value="" disabled>Select Course</option>
@@ -243,6 +256,20 @@ export default function AddBatchModal({
                   );
                 })}
               </select>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center justify-between">
+                <span>Course Code</span>
+                {courseCode && <span className="text-[10px] text-emerald-600 font-extrabold">✓ Auto-Fetched</span>}
+              </label>
+              <input
+                type="text"
+                value={courseCode}
+                onChange={(e) => setCourseCode(e.target.value)}
+                placeholder="Auto-fetched course code"
+                className="w-full px-3.5 py-2.5 bg-indigo-50/50 border border-indigo-200 text-indigo-900 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-bold transition-all"
+              />
             </div>
           </div>
 
@@ -294,7 +321,7 @@ export default function AddBatchModal({
           </div>
 
           {/* Schedule & Timing Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
                 Start Date <span className="text-rose-500">*</span>
@@ -304,6 +331,18 @@ export default function AddBatchModal({
                 required
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-semibold transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                End Date (Optional)
+              </label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
                 className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-semibold transition-all"
               />
             </div>

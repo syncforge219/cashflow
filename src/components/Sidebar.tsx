@@ -105,30 +105,24 @@ export default function Sidebar() {
     }
   };
 
-  const roleLower = (user?.role || "").toLowerCase().trim();
+  const roleLower = (user?.role || (user as any)?.crmRole || (user as any)?.designation || "").toLowerCase().trim();
+  const isCentreHeadOrManager =
+    roleLower.includes("centre") ||
+    roleLower.includes("center") ||
+    roleLower.includes("manager") ||
+    roleLower.includes("branch") ||
+    (roleLower.includes("head") && !roleLower.includes("admin"));
+
   const dashboardHref =
-    roleLower === "counsellor" || roleLower === "counselor"
+    roleLower.includes("counsellor") || roleLower.includes("counselor")
       ? "/counsellor-dashboard"
-      : roleLower === "brand manager" ||
-        roleLower === "brand_manager" ||
-        roleLower === "brand-manager" ||
-        roleLower === "centre head" ||
-        roleLower === "centre_head" ||
-        roleLower === "center head" ||
-        roleLower === "center_head" ||
-        roleLower === "manager" ||
-        roleLower === "branch head" ||
-        roleLower === "branch_head"
+      : isCentreHeadOrManager
       ? "/manager-dashboard"
-      : roleLower === "teacher"
+      : roleLower.includes("teacher")
       ? "/teacher-dashboard"
-      : roleLower === "cfo" ||
-        roleLower === "finance manager" ||
-        roleLower === "finance executive"
+      : roleLower.includes("cfo") || roleLower.includes("finance")
       ? "/cfo-dashboard"
-      : roleLower === "crm" ||
-        roleLower === "crm executive" ||
-        roleLower === "crm advisor"
+      : roleLower.includes("crm")
       ? "/crm-dashboard"
       : "/admin-dashboard";
 

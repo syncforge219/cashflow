@@ -129,38 +129,28 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
-    const role = (user?.role || "").toLowerCase().trim();
+    const role = (user?.role || (user as any)?.crmRole || (user as any)?.designation || "").toLowerCase().trim();
     if (!role) return;
 
-    if (role === "counsellor" || role === "counselor") {
+    const isAdmin =
+      role === "admin" ||
+      role === "super admin" ||
+      role === "super_admin" ||
+      role === "director" ||
+      (role.includes("admin") && !role.includes("centre") && !role.includes("center"));
+
+    if (isAdmin) return;
+
+    if (role.includes("counsellor") || role.includes("counselor")) {
       router.replace("/counsellor-dashboard");
-    } else if (
-      role === "brand manager" ||
-      role === "brand_manager" ||
-      role === "brand-manager" ||
-      role === "centre head" ||
-      role === "centre_head" ||
-      role === "center head" ||
-      role === "center_head" ||
-      role === "manager" ||
-      role === "branch head" ||
-      role === "branch_head"
-    ) {
-      router.replace("/manager-dashboard");
-    } else if (role === "teacher") {
+    } else if (role.includes("teacher")) {
       router.replace("/teacher-dashboard");
-    } else if (
-      role === "cfo" ||
-      role === "finance manager" ||
-      role === "finance executive"
-    ) {
+    } else if (role.includes("cfo") || role.includes("finance")) {
       router.replace("/cfo-dashboard");
-    } else if (
-      role === "crm" ||
-      role === "crm executive" ||
-      role === "crm advisor"
-    ) {
+    } else if (role.includes("crm")) {
       router.replace("/crm-dashboard");
+    } else {
+      router.replace("/manager-dashboard");
     }
   }, [user, router]);
 
@@ -176,29 +166,15 @@ export default function AdminDashboard() {
   }, []);
 
   useEffect(() => {
-    const role = (user?.role || "").toLowerCase().trim();
-    const isNonAdmin =
-      role === "counsellor" ||
-      role === "counselor" ||
-      role === "brand manager" ||
-      role === "brand_manager" ||
-      role === "brand-manager" ||
-      role === "centre head" ||
-      role === "centre_head" ||
-      role === "center head" ||
-      role === "center_head" ||
-      role === "manager" ||
-      role === "branch head" ||
-      role === "branch_head" ||
-      role === "teacher" ||
-      role === "cfo" ||
-      role === "finance manager" ||
-      role === "finance executive" ||
-      role === "crm" ||
-      role === "crm executive" ||
-      role === "crm advisor";
+    const role = (user?.role || (user as any)?.crmRole || (user as any)?.designation || "").toLowerCase().trim();
+    const isAdmin =
+      role === "admin" ||
+      role === "super admin" ||
+      role === "super_admin" ||
+      role === "director" ||
+      (role.includes("admin") && !role.includes("centre") && !role.includes("center"));
 
-    if (role && !isNonAdmin) {
+    if (role && isAdmin) {
       setIsLoading(true);
       let url = "/api/admin-dashboard/stats";
       if (startDate && endDate) {
@@ -219,29 +195,15 @@ export default function AdminDashboard() {
     }
   }, [user, startDate, endDate]);
 
-  const roleLower = (user?.role || "").toLowerCase().trim();
-  const isNonAdminUser =
-    roleLower === "counsellor" ||
-    roleLower === "counselor" ||
-    roleLower === "brand manager" ||
-    roleLower === "brand_manager" ||
-    roleLower === "brand-manager" ||
-    roleLower === "centre head" ||
-    roleLower === "centre_head" ||
-    roleLower === "center head" ||
-    roleLower === "center_head" ||
-    roleLower === "manager" ||
-    roleLower === "branch head" ||
-    roleLower === "branch_head" ||
-    roleLower === "teacher" ||
-    roleLower === "cfo" ||
-    roleLower === "finance manager" ||
-    roleLower === "finance executive" ||
-    roleLower === "crm" ||
-    roleLower === "crm executive" ||
-    roleLower === "crm advisor";
+  const roleLower = (user?.role || (user as any)?.crmRole || (user as any)?.designation || "").toLowerCase().trim();
+  const isAdminUser =
+    roleLower === "admin" ||
+    roleLower === "super admin" ||
+    roleLower === "super_admin" ||
+    roleLower === "director" ||
+    (roleLower.includes("admin") && !roleLower.includes("centre") && !roleLower.includes("center"));
 
-  if (!user || isNonAdminUser) return null;
+  if (!user || !isAdminUser) return null;
 
   const initialLetter = user.name ? user.name.charAt(0).toUpperCase() : "A";
 

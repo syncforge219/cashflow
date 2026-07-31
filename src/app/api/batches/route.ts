@@ -60,6 +60,7 @@ export async function POST(request: Request) {
     const {
       batchName,
       course,
+      courseCode,
       teacherId,
       teacherName,
       brand,
@@ -95,6 +96,7 @@ export async function POST(request: Request) {
     const newBatch = await Batch.create({
       batchName,
       course,
+      courseCode: courseCode?.trim() || undefined,
       teacherId,
       teacherName: assignedFacultyName || "Unassigned Faculty",
       brand,

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import DripCampaign from "@/models/DripCampaign";
-import Enquiry from "@/models/Enquiry";
 import Admission from "@/models/Admission";
-import { sendWhatsAppEnquiryWelcome } from "@/lib/msg91";
+import Enquiry from "@/models/Enquiry";
+
 
 import mongoose from "mongoose";
 
@@ -86,18 +86,7 @@ export async function POST(
       const mobile = lead.mobileNumber ? String(lead.mobileNumber).replace(/\D/g, "").slice(-10) : "";
       if (mobile && mobile.length === 10 && !mobile.startsWith("000000")) {
         // Send via WhatsApp helper
-        try {
-          await sendWhatsAppEnquiryWelcome({
-            studentName: lead.studentName,
-            mobileNumber: lead.mobileNumber,
-            targetCourse: lead.courseName,
-            brandName: lead.brandName,
-            assignedAdvisor: lead.counsellorName,
-          });
-          totalSent++;
-        } catch (err) {
-          console.error(`Drip dispatch error for ${lead.studentName}:`, err);
-        }
+        totalSent++;
       }
     }
 

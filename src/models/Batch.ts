@@ -12,6 +12,10 @@ const BatchSchema = new Schema(
       required: [true, "Course name is required"],
       trim: true,
     },
+    courseCode: {
+      type: String,
+      trim: true,
+    },
     teacherId: {
       type: Schema.Types.ObjectId,
       ref: "User",

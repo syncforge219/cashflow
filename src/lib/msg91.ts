@@ -51,7 +51,8 @@ export function formatDateOnly(dateInput?: string | null): string {
  */
 export function formatPhoneNumber(phone: string): string {
   if (!phone) return "";
-  let cleaned = phone.replace(/[^0-9]/g, "");
+  const singlePhone = phone.includes(",") ? phone.split(",")[0].trim() : phone;
+  let cleaned = singlePhone.replace(/[^0-9]/g, "");
 
   if (cleaned.length === 10) {
     cleaned = `91${cleaned}`;
@@ -80,9 +81,58 @@ export async function getIntegratedNumberForBrand(
   }
 
   if (brandName) {
+    const cleanBrand = String(brandName).trim();
+    const upperBrand = cleanBrand.toUpperCase();
+
+    // 1. Check brand-specific environment variables dynamically
+    const brandEnvKey = upperBrand.replace(/[^A-Z0-9]/g, "_");
+    const possibleEnvKeys = [
+      `MSG91_INTEGRATED_NUMBER_${brandEnvKey}`,
+      `MSG91_${brandEnvKey}_INTEGRATED_NUMBER`,
+      `MSG91_${brandEnvKey}_NUMBER`,
+      `MSG91_INTEGRATED_NUMBER_${brandEnvKey.split("_")[0]}`,
+      `MSG91_${brandEnvKey.split("_")[0]}_NUMBER`,
+    ];
+
+    for (const key of possibleEnvKeys) {
+      if (process.env[key]) {
+        const formatted = formatPhoneNumber(process.env[key]!);
+        if (formatted) return formatted;
+      }
+    }
+
+    const envNumRaw = process.env.MSG91_INTEGRATED_NUMBER || "";
+    const envNumbers = envNumRaw.split(",").map((n) => n.trim()).filter(Boolean);
+
+    // Specific keyword matching for Design Gateway vs CADD
+    if (upperBrand.includes("DESIGN") || upperBrand.includes("GATEWAY")) {
+      const designNum =
+        process.env.MSG91_INTEGRATED_NUMBER_DESIGN_GATEWAY ||
+        process.env.MSG91_DESIGN_GATEWAY_INTEGRATED_NUMBER ||
+        process.env.MSG91_DESIGN_GATEWAY_NUMBER ||
+        process.env.MSG91_DESIGN_NUMBER ||
+        process.env.MSG91_INTEGRATED_NUMBER_DESIGN ||
+        (envNumbers.length >= 2 ? envNumbers[1] : "");
+      if (designNum) {
+        const formatted = formatPhoneNumber(designNum);
+        if (formatted) return formatted;
+      }
+    } else if (upperBrand.includes("CADD") || upperBrand.includes("MANTRA")) {
+      const caddNum =
+        process.env.MSG91_INTEGRATED_NUMBER_CADD ||
+        process.env.MSG91_INTEGRATED_NUMBER_CADD_MANTRA ||
+        process.env.MSG91_CADD_NUMBER ||
+        process.env.MSG91_CADD_MANTRA_NUMBER ||
+        (envNumbers.length >= 1 ? envNumbers[0] : "");
+      if (caddNum) {
+        const formatted = formatPhoneNumber(caddNum);
+        if (formatted) return formatted;
+      }
+    }
+
+    // 2. Lookup MongoDB Brand collection for brand's registered integrated number
     try {
       await dbConnect();
-      const cleanBrand = String(brandName).toUpperCase().trim();
       const brandDoc = await Brand.findOne({
         $or: [
           { name: { $regex: new RegExp(`^${cleanBrand.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')}$`, "i") } },
@@ -102,8 +152,10 @@ export async function getIntegratedNumberForBrand(
     }
   }
 
+  // 3. Global fallback (1st number is default CADD Mantra)
   const envNum = process.env.MSG91_INTEGRATED_NUMBER || "";
-  return envNum ? formatPhoneNumber(envNum) : "";
+  const envNumbers = envNum.split(",").map((n) => n.trim()).filter(Boolean);
+  return envNumbers.length > 0 ? formatPhoneNumber(envNumbers[0]) : "";
 }
 
 const PUBLIC_PRODUCTION_URL = "https://lead2ledger-git-734957305541.asia-south2.run.app";
@@ -114,6 +166,41 @@ export function getPublicPdfBaseUrl(): string {
     return envUrl.replace(/\/$/, "");
   }
   return process.env.MSG91_DEFAULT_PDF_HOST || PUBLIC_PRODUCTION_URL;
+}
+
+/**
+ * Resolve the MSG91 AuthKey for a specific brand if multi-account / multi-AuthKey setup is configured in .env
+ */
+export function getAuthKeyForBrand(brandName?: string | null): string {
+  const defaultAuthKey = process.env.MSG91_AUTHKEY || "478610A465a065I869fed7fdP1";
+
+  if (brandName) {
+    const cleanBrand = String(brandName).trim();
+    const upperBrand = cleanBrand.toUpperCase();
+
+    if (upperBrand.includes("DESIGN") || upperBrand.includes("GATEWAY")) {
+      const designAuthKey =
+        process.env.MSG91_AUTHKEY_DESIGN_GATEWAY ||
+        process.env.MSG91_DESIGN_GATEWAY_AUTHKEY ||
+        process.env.MSG91_DESIGN_AUTHKEY ||
+        process.env.MSG91_AUTHKEY_DESIGN;
+      if (designAuthKey) return designAuthKey;
+    } else if (upperBrand.includes("CADD") || upperBrand.includes("MANTRA")) {
+      const caddAuthKey =
+        process.env.MSG91_AUTHKEY_CADD ||
+        process.env.MSG91_CADD_AUTHKEY;
+      if (caddAuthKey) return caddAuthKey;
+    }
+
+    const envAuthKeys = (process.env.MSG91_AUTHKEY || "").split(",").map((k) => k.trim()).filter(Boolean);
+    if (upperBrand.includes("DESIGN") || upperBrand.includes("GATEWAY")) {
+      if (envAuthKeys.length >= 2) return envAuthKeys[1];
+    } else if (upperBrand.includes("CADD") || upperBrand.includes("MANTRA")) {
+      if (envAuthKeys.length >= 1) return envAuthKeys[0];
+    }
+  }
+
+  return defaultAuthKey;
 }
 
 /**
@@ -1190,131 +1277,5 @@ export async function sendWhatsAppBrandWelcome(params: BrandWelcomeWhatsAppParam
   }
 }
 
-export interface EnquiryWelcomeWhatsAppParams {
-  studentName?: string | null;
-  mobileNumber: string;
-  targetCourse?: string | null;
-  brandName?: string | null;
-  assignedAdvisor?: string | null;
-  enquiryId?: string | null;
-  integratedNumber?: string | null;
-}
 
-/**
- * Dispatch MSG91 WhatsApp Welcome Message to Student upon Enquiry Creation
- * Sends an official, warm welcome greeting & confirmation to the student's WhatsApp number.
- */
-export async function sendWhatsAppEnquiryWelcome(params: EnquiryWelcomeWhatsAppParams) {
-  try {
-    const authKey = process.env.MSG91_AUTHKEY || "478610A465a065I869fed7fdP1";
-    const integratedNumber = await getIntegratedNumberForBrand(params.brandName, params.integratedNumber);
-
-    const formattedPhone = formatPhoneNumber(params.mobileNumber);
-    if (!formattedPhone) {
-      console.warn("MSG91 Enquiry WhatsApp Warning: Invalid student mobile number.");
-      return { success: false, error: "Invalid recipient phone number." };
-    }
-
-    const student = (params.studentName || "Student").toUpperCase();
-    const course = (params.targetCourse || "Course").toUpperCase();
-    const brand = (params.brandName || "CADD MANTRA").toUpperCase();
-    const advisor = (params.assignedAdvisor || "Academic Counsellor").toUpperCase();
-
-    // Primary Approved MSG91 WhatsApp Template Payload
-    const payload = {
-      integrated_number: integratedNumber,
-      content_type: "template",
-      payload: {
-        messaging_product: "whatsapp",
-        type: "template",
-        template: {
-          name: "welcome_enquery",
-          language: { code: "en", policy: "deterministic" },
-          namespace: null,
-          to_and_components: [
-            {
-              to: [formattedPhone],
-              components: {
-                body_1: { type: "text", value: student },
-                body_2: { type: "text", value: course },
-                body_3: { type: "text", value: brand },
-                body_4: { type: "text", value: advisor },
-              },
-            },
-          ],
-        },
-      },
-    };
-
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (authKey) headers["authkey"] = authKey;
-
-    console.log(`[MSG91] Sending Enquiry Welcome WhatsApp to ${student} (${formattedPhone}) for course ${course}...`);
-
-    const response = await fetch(
-      "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/",
-      {
-        method: "POST",
-        headers,
-        body: JSON.stringify(payload),
-      }
-    );
-
-    const resText = await response.text();
-    let resJson: any = null;
-    try { resJson = JSON.parse(resText); } catch (_) {}
-
-    if (response.ok) {
-      return { success: true, data: resJson || resText };
-    } else {
-      console.warn("[MSG91] Primary 'welcome_enquery' template notice, triggering approved fallback template...");
-      // Fallback with universal approved template "feeremainderstudent"
-      const fallbackPayload = {
-        integrated_number: integratedNumber,
-        content_type: "template",
-        payload: {
-          messaging_product: "whatsapp",
-          type: "template",
-          template: {
-            name: "feeremainderstudent",
-            language: { code: "en", policy: "deterministic" },
-            namespace: "610ca09d_29b3_4193_8bab_18e0fab26f84",
-            to_and_components: [
-              {
-                to: [formattedPhone],
-                components: {
-                  body_1: { type: "text", value: student },
-                  body_2: { type: "text", value: `${course} (${brand})` },
-                  body_3: { type: "text", value: "Enquiry Received" },
-                  body_4: { type: "text", value: new Date().toLocaleDateString("en-IN") },
-                },
-              },
-            ],
-          },
-        },
-      };
-
-      const fallbackRes = await fetch(
-        "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/",
-        { method: "POST", headers, body: JSON.stringify(fallbackPayload) }
-      );
-
-      const fallbackText = await fallbackRes.text();
-      let fallbackJson: any = null;
-      try { fallbackJson = JSON.parse(fallbackText); } catch (_) {}
-
-      if (fallbackRes.ok) {
-        return { success: true, data: fallbackJson || fallbackText };
-      }
-
-      return {
-        success: false,
-        error: resJson?.message || fallbackJson?.message || resText || "Failed to send Enquiry WhatsApp message.",
-      };
-    }
-  } catch (error: any) {
-    console.error("[MSG91] Enquiry WhatsApp Error:", error);
-    return { success: false, error: error.message || "Network error during Enquiry WhatsApp dispatch." };
-  }
-}
 
