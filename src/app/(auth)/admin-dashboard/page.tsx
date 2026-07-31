@@ -1045,10 +1045,7 @@ export default function AdminDashboard() {
                   <div key={i} className="space-y-1">
                     <div className="flex items-center justify-between text-xs">
                       <div className="flex items-center gap-2">
-                        <span
-                          className="h-2.5 w-2.5 rounded-full shrink-0 shadow-2xs"
-                          style={{ backgroundColor: src.hex || "#6366f1" }}
-                        />
+                        <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${src.color || "bg-indigo-500"}`}></span>
                         <span className="font-semibold text-slate-700">{src.label}</span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -1056,14 +1053,11 @@ export default function AdminDashboard() {
                         <span className="text-[10px] font-semibold text-slate-400">({src.count || 0})</span>
                       </div>
                     </div>
-                    <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                    <div className="w-full bg-slate-100 h-1 rounded-full overflow-hidden">
                       <div
-                        className="h-full rounded-full transition-all duration-500"
-                        style={{
-                          backgroundColor: src.hex || "#6366f1",
-                          width: src.pct || "0%",
-                        }}
-                      />
+                        className={`h-full rounded-full transition-all ${src.color || "bg-indigo-500"}`}
+                        style={{ width: src.pct || "0%" }}
+                      ></div>
                     </div>
                   </div>
                 ))}
