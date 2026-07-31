@@ -3,15 +3,29 @@ import bcrypt from "bcryptjs";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
 
+import { getUserFromCookies } from "@/lib/helper";
+
 export async function GET(request: Request) {
   try {
     await dbConnect();
+    const user = await getUserFromCookies();
     const { searchParams } = new URL(request.url);
-    const brandScope = searchParams.get("brandScope");
+    const brandScopeParam = searchParams.get("brandScope");
+
+    const userBrand = (user?.brandScope || (user as any)?.brand || "").trim();
+    const isBrandRestricted = userBrand && userBrand !== "All Brands" && userBrand !== "All" && userBrand !== "*" && userBrand !== "global";
+
+    const targetBrand = isBrandRestricted ? userBrand : (brandScopeParam && brandScopeParam !== "All Brands" && brandScopeParam !== "All" ? brandScopeParam : "");
 
     const query: any = { role: "teacher" };
-    if (brandScope && brandScope !== "All Brands") {
-      query.brandScope = brandScope;
+    if (targetBrand) {
+      const regex = new RegExp(targetBrand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "i");
+      query.$or = [
+        { brandScope: { $regex: regex } },
+        { brandScope: { $in: ["All Brands", "All", "global", "*"] } },
+        { brandScope: { $exists: false } },
+        { brandScope: null },
+      ];
     }
 
     const teachers = await User.find(query).select("-password").sort({ createdAt: -1 });

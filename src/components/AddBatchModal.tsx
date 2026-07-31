@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useUser } from "@/app/component/context/user-context";
 
 interface AddBatchModalProps {
@@ -8,6 +8,156 @@ interface AddBatchModalProps {
   onClose: () => void;
   onSuccess: () => void;
   initialBrandScope?: string;
+}
+
+function CourseSearchSelect({
+  courses,
+  selectedCourse,
+  onSelectCourse,
+}: {
+  courses: any[];
+  selectedCourse: string;
+  onSelectCourse: (courseName: string, courseCode: string) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (isOpen && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [isOpen]);
+
+  const filteredCourses = useMemo(() => {
+    let list = courses;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = courses.filter(
+        (c) =>
+          (c.name || c.courseName || "").toLowerCase().includes(q) ||
+          (c.code || c.courseCode || "").toLowerCase().includes(q) ||
+          (c.category || "").toLowerCase().includes(q)
+      );
+    }
+    return [...list].sort((a, b) =>
+      (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base", numeric: true })
+    );
+  }, [courses, searchQuery]);
+
+  const selectedObj = courses.find((c) => (c.name || c.courseName) === selectedCourse);
+
+  return (
+    <div className="relative w-full" ref={containerRef}>
+      <div
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus-within:bg-white focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 font-semibold cursor-pointer transition-all flex items-center justify-between gap-2"
+      >
+        <span className={selectedCourse ? "text-slate-900 font-bold truncate" : "text-slate-400 font-normal"}>
+          {selectedCourse ? (
+            <>
+              {selectedCourse}{" "}
+              {selectedObj?.code && (
+                <span className="text-[10px] font-extrabold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 ml-1">
+                  [{selectedObj.code}]
+                </span>
+              )}
+            </>
+          ) : (
+            "-- Search & Select Course --"
+          )}
+        </span>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          strokeWidth={2}
+          stroke="currentColor"
+          className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+        </svg>
+      </div>
+
+      {isOpen && (
+        <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden animate-fade-in font-sans">
+          <div className="p-2 border-b border-slate-100 bg-slate-50/80">
+            <div className="relative">
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="🔍 Search course name or code..."
+                className="w-full pl-8 pr-7 py-2 text-xs font-medium bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+              />
+              <span className="absolute left-2.5 top-2 text-slate-400 text-xs">🔍</span>
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="max-h-56 overflow-y-auto p-1 divide-y divide-slate-50 text-xs">
+            {filteredCourses.length > 0 ? (
+              filteredCourses.map((c, idx) => {
+                const cName = c.name || c.courseName || `Course #${idx + 1}`;
+                const cCode = c.code || c.courseCode || "";
+                const isSelected = selectedCourse === cName;
+
+                return (
+                  <div
+                    key={c._id || idx}
+                    onClick={() => {
+                      onSelectCourse(cName, cCode);
+                      setIsOpen(false);
+                      setSearchQuery("");
+                    }}
+                    className={`px-3 py-2 rounded-xl cursor-pointer transition-colors flex items-center justify-between ${
+                      isSelected
+                        ? "bg-indigo-50 text-indigo-900 font-bold"
+                        : "hover:bg-slate-50 text-slate-700 font-medium"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 truncate pr-2">
+                      <span>{cName}</span>
+                      {cCode && (
+                        <span className="text-[10px] font-mono font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                          {cCode}
+                        </span>
+                      )}
+                    </div>
+                    {isSelected && <span className="text-indigo-600 font-bold text-xs">✓</span>}
+                  </div>
+                );
+              })
+            ) : (
+              <div className="p-4 text-center text-xs text-slate-400 font-medium">
+                No matching courses found
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function AddBatchModal({
@@ -98,6 +248,30 @@ export default function AddBatchModal({
 
     fetchOptions();
   }, [isOpen, initialBrandScope, user]);
+
+  const filteredTeachersList = React.useMemo(() => {
+    const activeBrand = (brand || user?.brandScope || initialBrandScope || "").trim().toLowerCase();
+    if (!activeBrand || activeBrand === "all brands" || activeBrand === "all" || activeBrand === "*") {
+      return teachersList;
+    }
+    return teachersList.filter((t: any) => {
+      if (!t.brandScope) return true;
+      const scope = String(t.brandScope).trim().toLowerCase();
+      if (scope === "all" || scope === "all brands" || scope === "global" || scope === "*") return true;
+      return scope === activeBrand || scope.includes(activeBrand) || activeBrand.includes(scope);
+    });
+  }, [teachersList, brand, user?.brandScope, initialBrandScope]);
+
+  useEffect(() => {
+    if (filteredTeachersList.length > 0) {
+      const isValid = filteredTeachersList.some((t) => t._id === teacherId);
+      if (!isValid) {
+        setTeacherId(filteredTeachersList[0]._id || "");
+      }
+    } else {
+      setTeacherId("");
+    }
+  }, [filteredTeachersList]);
 
   const handleDayToggle = (day: string) => {
     setSelectedDays((prev) =>
@@ -240,22 +414,14 @@ export default function AddBatchModal({
               <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
                 Course / Specialization <span className="text-rose-500">*</span>
               </label>
-              <select
-                required
-                value={course}
-                onChange={(e) => handleCourseChange(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-semibold cursor-pointer transition-all"
-              >
-                <option value="" disabled>Select Course</option>
-                {coursesList.map((c, idx) => {
-                  const cName = c.name || c.courseName || `Course #${idx+1}`;
-                  return (
-                    <option key={c._id || idx} value={cName}>
-                      {cName}
-                    </option>
-                  );
-                })}
-              </select>
+              <CourseSearchSelect
+                courses={coursesList}
+                selectedCourse={course}
+                onSelectCourse={(cName, cCode) => {
+                  setCourse(cName);
+                  setCourseCode(cCode);
+                }}
+              />
             </div>
 
             <div>
@@ -286,7 +452,7 @@ export default function AddBatchModal({
                 className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-bold text-indigo-700 cursor-pointer transition-all"
               >
                 <option value="" disabled>Select Faculty</option>
-                {teachersList.map((t) => (
+                {filteredTeachersList.map((t) => (
                   <option key={t._id} value={t._id}>
                     {t.name} ({t.brandScope || "Faculty"})
                   </option>

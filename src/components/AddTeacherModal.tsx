@@ -29,10 +29,24 @@ export default function AddTeacherModal({
   const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
   const [brands, setBrands] = useState<string[]>([]);
   const [isSubjectDropdownOpen, setIsSubjectDropdownOpen] = useState(false);
+  const [subjectSearchQuery, setSubjectSearchQuery] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isSubjectDropdownOpen && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [isSubjectDropdownOpen]);
+
+  const filteredSubjects = React.useMemo(() => {
+    if (!subjectSearchQuery.trim()) return availableSubjects;
+    const q = subjectSearchQuery.toLowerCase().trim();
+    return availableSubjects.filter((s) => s.toLowerCase().includes(q));
+  }, [availableSubjects, subjectSearchQuery]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -370,7 +384,31 @@ export default function AddTeacherModal({
 
               {/* Dropdown Menu */}
               {isSubjectDropdownOpen && availableSubjects.length > 0 && (
-                <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-2 max-h-56 overflow-y-auto custom-scrollbar animate-in fade-in duration-150">
+                <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-2 max-h-64 overflow-y-auto custom-scrollbar animate-in fade-in duration-150">
+                  {/* Search Input Bar */}
+                  <div className="p-1 mb-1.5 border-b border-slate-100 sticky -top-2 bg-white z-10">
+                    <div className="relative">
+                      <input
+                        ref={searchInputRef}
+                        type="text"
+                        value={subjectSearchQuery}
+                        onChange={(e) => setSubjectSearchQuery(e.target.value)}
+                        placeholder="🔍 Search subject / course..."
+                        className="w-full pl-8 pr-7 py-1.5 text-xs font-medium bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:bg-white"
+                      />
+                      <span className="absolute left-2.5 top-2 text-slate-400 text-xs">🔍</span>
+                      {subjectSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setSubjectSearchQuery("")}
+                          className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
                   {/* Select All Checkbox */}
                   <label className="flex items-center gap-2 px-2 py-2 hover:bg-slate-50 rounded-lg cursor-pointer font-bold text-xs text-indigo-700 border-b border-slate-100 mb-1 select-none">
                     <input
@@ -383,23 +421,29 @@ export default function AddTeacherModal({
                   </label>
 
                   {/* Individual Subject Checkboxes */}
-                  {availableSubjects.map((sub) => {
-                    const isChecked = selectedSubjects.includes(sub);
-                    return (
-                      <label
-                        key={sub}
-                        className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-50 rounded-lg cursor-pointer text-xs font-semibold text-slate-700 select-none"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => handleToggleSubject(sub)}
-                          className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                        />
-                        <span className="truncate">{sub}</span>
-                      </label>
-                    );
-                  })}
+                  {filteredSubjects.length > 0 ? (
+                    filteredSubjects.map((sub) => {
+                      const isChecked = selectedSubjects.includes(sub);
+                      return (
+                        <label
+                          key={sub}
+                          className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-50 rounded-lg cursor-pointer text-xs font-semibold text-slate-700 select-none"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => handleToggleSubject(sub)}
+                            className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                          />
+                          <span className="truncate">{sub}</span>
+                        </label>
+                      );
+                    })
+                  ) : (
+                    <div className="p-3 text-center text-xs text-slate-400 font-medium">
+                      No matching subjects found
+                    </div>
+                  )}
                 </div>
               )}
             </div>
