@@ -138,12 +138,19 @@ export async function POST(req: NextRequest) {
 
     data.companyAssigned = finalCompany;
 
-    // Detect if this is an upgrade admission
-    if (!data.isUpgrade && data.mobileNumber) {
-      const existingAdmCount = await Admission.countDocuments({ mobileNumber: data.mobileNumber });
-      if (existingAdmCount > 0) {
-        data.isUpgrade = true;
-      }
+    // Determine if this is an Upgrade or Fresh Admission
+    if (data.enquiryId || data.isUpgrade === false) {
+      data.isUpgrade = false;
+    } else if (data.isUpgrade === true) {
+      data.isUpgrade = true;
+    } else if (data.mobileNumber) {
+      const existingAdmCount = await Admission.countDocuments({
+        mobileNumber: data.mobileNumber.trim(),
+        status: { $ne: "Cancelled" }
+      });
+      data.isUpgrade = existingAdmCount > 0;
+    } else {
+      data.isUpgrade = false;
     }
 
     const admission = new Admission(data);

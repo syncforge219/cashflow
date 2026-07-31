@@ -72,16 +72,17 @@ export default function AdmissionBreakdownModal({
 
   // Helper to determine if an admission is an upgrade
   const isUpgradeAdmission = (adm: any) => {
-    if (adm.isUpgrade) return true;
-    // Check if another admission for the same mobileNumber exists with an earlier createdAt date
     const mobile = adm.mobileNumber?.trim();
     if (!mobile) return false;
+
+    // An upgrade occurs ONLY if an EARLIER admission record exists for the same student
     const earlierExist = allAdmissionsList.some(
       (other) =>
         other.mobileNumber?.trim() === mobile &&
-        other._id !== adm._id &&
-        new Date(other.createdAt) < new Date(adm.createdAt)
+        String(other._id) !== String(adm._id) &&
+        new Date(other.createdAt).getTime() < new Date(adm.createdAt).getTime()
     );
+
     return earlierExist;
   };
 

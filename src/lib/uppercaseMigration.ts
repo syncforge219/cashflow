@@ -148,6 +148,28 @@ export async function runUppercaseDataMigration() {
       }
     }
 
+    // 7. Fix isUpgrade classification for Admission documents
+    const allAdmissions = await Admission.find({}).sort({ createdAt: 1 }).lean();
+    const seenMobiles = new Set<string>();
+
+    for (const adm of allAdmissions) {
+      const mobile = (adm.mobileNumber || "").trim();
+      if (!mobile) continue;
+
+      if (!seenMobiles.has(mobile)) {
+        // First admission record for this student -> Fresh Student Admission
+        seenMobiles.add(mobile);
+        if (adm.isUpgrade === true) {
+          await Admission.findByIdAndUpdate(adm._id, { isUpgrade: false });
+        }
+      } else {
+        // Subsequent course admission for existing student -> Course Upgrade
+        if (adm.isUpgrade !== true) {
+          await Admission.findByIdAndUpdate(adm._id, { isUpgrade: true });
+        }
+      }
+    }
+
     migrationRan = true;
     console.log("[Uppercase Migration] Successfully converted existing saved brand & company data to UPPERCASE.");
   } catch (err) {
