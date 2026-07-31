@@ -635,26 +635,78 @@ export default function PaymentReceiptModal({
             </div>
 
             {/* Terms & Conditions */}
-            <div className="pt-3 border-t border-slate-200 space-y-1.5 text-[10px] text-slate-600 leading-normal">
-              <h4 className="font-bold text-slate-800 uppercase tracking-wider">TERMS & CONDITIONS:</h4>
+            <div className="pt-4 border-t border-slate-200 space-y-2 text-[10px] text-slate-700 leading-relaxed">
+              <h4 className="font-extrabold text-slate-900 uppercase tracking-wider text-xs border-b border-slate-200 pb-1">TERMS & CONDITIONS</h4>
               {customTerms ? (
-                <div className="whitespace-pre-line text-slate-600 font-normal">
+                <div className="whitespace-pre-line text-slate-700 font-normal">
                   {customTerms}
                 </div>
               ) : (
-                <ol className="list-decimal list-inside space-y-1 text-slate-600 font-normal">
-                  <li>Payment made through cheque is subject to realization. In case the cheque is returned / dishonored for any reason, handling charges of Rs. 500/- along with the charges by the bank for return of the cheque will be collected from student by the centre. This payment should be made only by cash.</li>
-                  <li>The student should strictly adhere to the batch / schedule timings specified by the centre. All breaks must be pre approved in writing and not exceeding 2months continuously.</li>
-                  <li>Students joining through any special scheme, Inaugural Discount or any scheme classified as a ‘special scheme’ cannot avail the transfer facility.</li>
-                  <li>Keep the receipt safe for your future reference, you need to produce this receipt at the time of collecting the course completion certificate.</li>
-                  <li>The student is expected to maintain the dignity, discipline and decorum of the centre.</li>
-                  <li>The student should take care of all the property of the Centre with utmost care. Any material losses due to mishandling of equipments by student should be paid by the student.</li>
-                  <li>Course fee once paid cannot be refunded after the commencement of the course. However the balance fee could be transferred for another course at Centre.</li>
-                  <li>FORCE MAJEURE : Design Gateway/CADD MANTRA accepts no liability for delay or non fulfilment of any term of the contract caused by force majeure or by any industrial dispute, default by any accident, flood, riot. Terrorism or any cause not directly within its control.</li>
-                  <li>The course and course combinations are expected to change time to time based on the industry requirements. In case you are taking a break during the course and the course you have registered and paid is not available at the time of rejoining, then you will have to join an alternative program available at that point of time or must upgrade the course by paying additional fee if required for the new combination.</li>
-                  <li>The student must complete the course within 12 months from the date of joining for diploma programs or short term courses. for master diploma its 2 years validity. The registration is not valid after time period from the date of course commencement. The centre and the student should have mutual agreement for any such break in writing.</li>
-                  <li>Fee if paid in installment,all fee payment must be made as per the fee payment schedule discussed at the time of admission</li>
-                </ol>
+                <div className="space-y-2 text-slate-700 font-normal text-[10px] leading-relaxed">
+                  <div>
+                    <p className="font-bold text-slate-900">1. Payment Clearance:</p>
+                    <p className="pl-3 text-slate-600">Payments made through cheque are subject to realization. If a cheque is returned or dishonoured for any reason, the student shall be liable to pay a handling charge of ₹500, along with any applicable bank charges. Such dues must be cleared only through cash or any other mode approved by the institute.</p>
+                  </div>
+
+                  <div>
+                    <p className="font-bold text-slate-900">2. Attendance & Schedule:</p>
+                    <p className="pl-3 text-slate-600">Students must strictly adhere to the batch timings and schedule allotted by the institute. Any leave or break must be approved in writing by the management in advance.</p>
+                  </div>
+
+                  <div>
+                    <p className="font-bold text-slate-900">3. Transfer Policy:</p>
+                    <p className="pl-3 text-slate-600">Students enrolled under any special scheme, promotional offer, inaugural discount, or any other discounted admission scheme shall not be eligible for course transfer.</p>
+                  </div>
+
+                  <div>
+                    <p className="font-bold text-slate-900">4. Receipt Preservation:</p>
+                    <p className="pl-3 text-slate-600">Students are advised to keep all fee receipts safely, as they may be required at the time of collecting certificates or for future verification.</p>
+                  </div>
+
+                  <div>
+                    <p className="font-bold text-slate-900">5. Code of Conduct:</p>
+                    <p className="pl-3 text-slate-600">Students are expected to maintain discipline, decorum, and professional behaviour within the institute premises at all times.</p>
+                  </div>
+
+                  <div>
+                    <p className="font-bold text-slate-900">6. Institute Property:</p>
+                    <p className="pl-3 text-slate-600">Students shall be responsible for the proper use and care of institute property. Any damage caused due to negligence or misuse shall be compensated by the student.</p>
+                  </div>
+
+                  <div className="bg-amber-50/70 p-2.5 rounded-xl border border-amber-200/80">
+                    <p className="font-extrabold text-amber-900">7. FEE POLICY (IMPORTANT):</p>
+                    <ul className="list-disc list-inside pl-3 space-y-0.5 font-bold text-amber-950">
+                      <li>All fees paid are non-refundable and non-transferable.</li>
+                      <li>Delayed fee payments shall attract a penalty of ₹200 per day.</li>
+                      <li>Students must not disclose their fee structure or discount details to others. Any violation may result in cancellation of the discount, and the student shall be liable to pay the full course fee.</li>
+                    </ul>
+                  </div>
+
+                  <div>
+                    <p className="font-bold text-slate-900">8. Force Majeure:</p>
+                    <p className="pl-3 text-slate-600">The institute shall not be held liable for any delay or failure in fulfilling its obligations due to circumstances beyond its reasonable control, including but not limited to natural disasters, floods, riots, strikes, accidents, terrorism, or any other force majeure event.</p>
+                  </div>
+
+                  <div>
+                    <p className="font-bold text-slate-900">9. Course Validity & Curriculum:</p>
+                    <p className="pl-3 text-slate-600">Course content and combinations may be revised from time to time to meet industry requirements. If a student rejoins after a break and the originally enrolled course is no longer available, the student shall be required to join an alternative programme or pay the applicable difference for an upgraded programme, if necessary.</p>
+                  </div>
+
+                  <div>
+                    <p className="font-bold text-slate-900">10. Course Completion Period:</p>
+                    <p className="pl-3 text-slate-600">Students must complete their course within the prescribed validity period:</p>
+                    <ul className="list-disc list-inside pl-6 space-y-0.5 text-slate-600">
+                      <li>Certificate / Diploma / Short-Term Courses: Within 12 months from the date of admission.</li>
+                      <li>Master Diploma Programmes: Within 24 months from the date of admission.</li>
+                    </ul>
+                    <p className="pl-3 mt-0.5 text-slate-600">Any extension or break shall require prior written approval from the institute.</p>
+                  </div>
+
+                  <div>
+                    <p className="font-bold text-slate-900">11. Course Modification Policy:</p>
+                    <p className="pl-3 text-slate-600">Course upgrades may be permitted only with prior written approval from the institute and subject to payment of the applicable fee difference and other prescribed charges. However, requests for downgrades or changes to a lower-value programme shall not be permitted under any circumstances. Students are advised to carefully review and confirm their course selection before completing the registration process.</p>
+                  </div>
+                </div>
               )}
 
               <div className="pt-8 flex justify-end">

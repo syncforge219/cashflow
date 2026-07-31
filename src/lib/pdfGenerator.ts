@@ -147,25 +147,42 @@ export function generateReceiptPdfBuffer(data: ReceiptPdfData): Buffer {
 
     // Terms & Conditions Title
     `BT /F2 9.5 Tf 0.1 0.1 0.1 rg 50 465 Td (TERMS & CONDITIONS:) Tj ET`,
-    `BT /F1 7.5 Tf 0.2 0.2 0.2 rg 50 450 Td (1. Payment made through cheque is subject to realization. In case cheque is returned / dishonored,) Tj ET`,
-    `BT /F1 7.5 Tf 0.2 0.2 0.2 rg 50 440 Td (handling charges of Rs. 500/- along with bank charges will be collected in cash.) Tj ET`,
+    `BT /F2 7.5 Tf 0.1 0.1 0.1 rg 50 450 Td (1. Payment Clearance:) Tj ET`,
+    `BT /F1 7 Tf 0.2 0.2 0.2 rg 50 440 Td (Payments made through cheque are subject to realization. If a cheque is returned or dishonoured for any reason,) Tj ET`,
+    `BT /F1 7 Tf 0.2 0.2 0.2 rg 50 431 Td (the student shall be liable to pay a handling charge of Rs. 500, along with any applicable bank charges.) Tj ET`,
 
-    `BT /F1 7.5 Tf 0.2 0.2 0.2 rg 50 425 Td (2. Student should strictly adhere to batch / schedule timings specified by centre.) Tj ET`,
-    `BT /F1 7.5 Tf 0.2 0.2 0.2 rg 50 415 Td (All breaks must be pre-approved in writing not exceeding 2 months continuously.) Tj ET`,
+    `BT /F2 7.5 Tf 0.1 0.1 0.1 rg 50 417 Td (2. Attendance & Schedule:) Tj ET`,
+    `BT /F1 7 Tf 0.2 0.2 0.2 rg 50 408 Td (Students must strictly adhere to the batch timings and schedule allotted by the institute.) Tj ET`,
 
-    `BT /F1 7.5 Tf 0.2 0.2 0.2 rg 50 400 Td (3. Students joining through special scheme / discount cannot avail transfer facility.) Tj ET`,
+    `BT /F2 7.5 Tf 0.1 0.1 0.1 rg 50 394 Td (3. Transfer Policy:) Tj ET`,
+    `BT /F1 7 Tf 0.2 0.2 0.2 rg 50 385 Td (Students enrolled under special schemes, promotional offers or discounts are not eligible for course transfer.) Tj ET`,
 
-    `BT /F1 7.5 Tf 0.2 0.2 0.2 rg 50 385 Td (4. Keep receipt safe. Must produce this receipt when collecting completion certificate.) Tj ET`,
+    `BT /F2 7.5 Tf 0.1 0.1 0.1 rg 50 371 Td (4. Receipt Preservation:) Tj ET`,
+    `BT /F1 7 Tf 0.2 0.2 0.2 rg 50 362 Td (Students are advised to keep all fee receipts safely for certificate collection and future verification.) Tj ET`,
 
-    `BT /F1 7.5 Tf 0.2 0.2 0.2 rg 50 370 Td (5. Student is expected to maintain dignity, discipline and decorum of the centre.) Tj ET`,
+    `BT /F2 7.5 Tf 0.1 0.1 0.1 rg 50 348 Td (5. Code of Conduct:) Tj ET`,
+    `BT /F1 7 Tf 0.2 0.2 0.2 rg 50 339 Td (Students are expected to maintain discipline, decorum, and professional behaviour at all times.) Tj ET`,
 
-    `BT /F1 7.5 Tf 0.2 0.2 0.2 rg 50 355 Td (6. Material losses due to mishandling of equipment by student must be paid by student.) Tj ET`,
+    `BT /F2 7.5 Tf 0.1 0.1 0.1 rg 50 325 Td (6. Institute Property:) Tj ET`,
+    `BT /F1 7 Tf 0.2 0.2 0.2 rg 50 316 Td (Students shall be responsible for proper use of property. Damage due to negligence must be compensated.) Tj ET`,
 
-    `BT /F1 7.5 Tf 0.2 0.2 0.2 rg 50 340 Td (7. Course fee once paid cannot be refunded after commencement of course.) Tj ET`,
+    `BT /F2 7.5 Tf 0.7 0.1 0.1 rg 50 302 Td (7. FEE POLICY (IMPORTANT):) Tj ET`,
+    `BT /F2 7 Tf 0.7 0.1 0.1 rg 50 293 Td (- All fees paid are non-refundable and non-transferable.) Tj ET`,
+    `BT /F2 7 Tf 0.7 0.1 0.1 rg 50 284 Td (- Delayed fee payments shall attract a penalty of Rs. 200 per day.) Tj ET`,
+    `BT /F2 7 Tf 0.7 0.1 0.1 rg 50 275 Td (- Students must not disclose fee structure / discount details to others.) Tj ET`,
 
-    `BT /F1 7.5 Tf 0.2 0.2 0.2 rg 50 325 Td (8. FORCE MAJEURE: Design Gateway/CADD MANTRA accepts no liability for delay or non fulfilment.) Tj ET`,
+    `BT /F2 7.5 Tf 0.1 0.1 0.1 rg 50 261 Td (8. Force Majeure:) Tj ET`,
+    `BT /F1 7 Tf 0.2 0.2 0.2 rg 50 252 Td (Institute accepts no liability for delay due to natural disasters, floods, riots or events beyond control.) Tj ET`,
 
-    `BT /F1 7.5 Tf 0.2 0.2 0.2 rg 50 310 Td (9. Course combinations expected to change based on industry requirements.) Tj ET`,
+    `BT /F2 7.5 Tf 0.1 0.1 0.1 rg 50 238 Td (9. Course Validity & Curriculum:) Tj ET`,
+    `BT /F1 7 Tf 0.2 0.2 0.2 rg 50 229 Td (Curriculum may be revised. Rejoining after a break requires joining available program or paying difference.) Tj ET`,
+
+    `BT /F2 7.5 Tf 0.1 0.1 0.1 rg 50 215 Td (10. Course Completion Period:) Tj ET`,
+    `BT /F1 7 Tf 0.2 0.2 0.2 rg 50 206 Td (- Certificate / Diploma / Short-Term Courses: Within 12 months from date of admission.) Tj ET`,
+    `BT /F1 7 Tf 0.2 0.2 0.2 rg 50 197 Td (- Master Diploma Programmes: Within 24 months from date of admission.) Tj ET`,
+
+    `BT /F2 7.5 Tf 0.1 0.1 0.1 rg 50 183 Td (11. Course Modification Policy:) Tj ET`,
+    `BT /F1 7 Tf 0.2 0.2 0.2 rg 50 174 Td (Course upgrades permitted with approval and fee difference. Downgrades/lower value programs not allowed.) Tj ET`,
 
     // Page Number
     `BT /F1 8 Tf 0.5 0.5 0.5 rg 490 30 Td (Page 1 of 2) Tj ET`,
@@ -173,10 +190,6 @@ export function generateReceiptPdfBuffer(data: ReceiptPdfData): Buffer {
 
   // --- PAGE 2 CONTENT STREAM ---
   const page2Lines = [
-    `BT /F1 7.5 Tf 0.2 0.2 0.2 rg 50 780 Td (course by paying additional fee if required for the new combination.) Tj ET`,
-    `BT /F1 7.5 Tf 0.2 0.2 0.2 rg 50 765 Td (10. Complete course within 12 months for diploma/short term. 2 years for master diploma.) Tj ET`,
-    `BT /F1 7.5 Tf 0.2 0.2 0.2 rg 50 750 Td (11. Fee if paid in installment, all payments must be made per schedule discussed at admission.) Tj ET`,
-
     // Signature Line
     fillRoundedRect("0.5 0.5 0.5", 380, 620, 150, 1, 4),
     `BT /F2 9 Tf 0.2 0.2 0.2 rg 405 605 Td (Authorised Signatory) Tj ET`,
