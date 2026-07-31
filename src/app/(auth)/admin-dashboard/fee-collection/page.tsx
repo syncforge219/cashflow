@@ -722,6 +722,7 @@ export default function FeeCollectionPage() {
                         <label className="block text-[9px] uppercase tracking-widest text-slate-400 mb-1.5">Amount Received *</label>
                         <input
                           type="number"
+                          step="any"
                           value={amountReceived}
                           onChange={(e) => setAmountReceived(e.target.value)}
                           placeholder="e.g. 10000"

@@ -1559,6 +1559,7 @@ export default function ExpensesPage() {
                       </label>
                       <input
                         type="number"
+                        step="any"
                         required
                         min="0"
                         placeholder="15000"
