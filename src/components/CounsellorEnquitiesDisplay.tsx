@@ -395,31 +395,49 @@ export default function CounsellorEnquiriesDisplay() {
 
                     {(() => {
                         const sourceStats = filteredEnquiries.reduce((acc, curr) => {
-                            const source = curr.leadSource || "Other";
+                            const source = curr.leadSource || "Direct Walkin";
                             acc[source] = (acc[source] || 0) + 1;
                             return acc;
                         }, {} as Record<string, number>);
 
                         const totalSources = filteredEnquiries.length || 1;
 
-                        const sourceColors: Record<string, string> = {
-                            "Google Ads": "#6366f1",
-                            "Google Search": "#06b6d4",
-                            "Website": "#f43f5e",
-                            "Other": "#94a3b8"
-                        };
+                        const VIBRANT_PALETTE = [
+                            "#6366f1", // Indigo
+                            "#3b82f6", // Royal Blue
+                            "#06b6d4", // Cyber Cyan
+                            "#10b981", // Emerald Green
+                            "#f59e0b", // Amber Orange
+                            "#f43f5e", // Rose Pink
+                            "#8b5cf6", // Purple
+                            "#d946ef", // Fuchsia
+                            "#14b8a6", // Teal
+                            "#ec4899", // Hot Pink
+                            "#0284c7", // Sky Blue
+                            "#84cc16", // Lime
+                            "#a855f7", // Bright Violet
+                        ];
 
-                        const tailwindColors: Record<string, string> = {
-                            "Google Ads": "bg-indigo-500",
-                            "Google Search": "bg-cyan-500",
-                            "Website": "bg-rose-500",
-                            "Other": "bg-slate-400"
+                        const getSourceColor = (sourceName: string, index: number): string => {
+                            const s = (sourceName || "").toLowerCase().trim();
+                            if (s.includes("google")) return "#6366f1";
+                            if (s.includes("meta") || s.includes("facebook") || s.includes("fb") || s.includes("insta")) return "#3b82f6";
+                            if (s.includes("ivr") || s.includes("telephonic") || s.includes("call") || s.includes("phone")) return "#8b5cf6";
+                            if (s.includes("search") || s.includes("internet") || s.includes("site") || s.includes("website") || s.includes("online")) return "#06b6d4";
+                            if (s.includes("walkin") || s.includes("walk-in") || s.includes("direct")) return "#10b981";
+                            if (s.includes("justdial") || s.includes("just dial")) return "#f59e0b";
+                            if (s.includes("whatsapp")) return "#059669";
+                            if (s.includes("seminar")) return "#f43f5e";
+                            if (s.includes("hoarding") || s.includes("banner")) return "#d946ef";
+                            if (s.includes("reference") || s.includes("referral")) return "#ec4899";
+                            return VIBRANT_PALETTE[index % VIBRANT_PALETTE.length];
                         };
 
                         let currentAngle = 0;
-                        const gradientStops = Object.entries(sourceStats).map(([source, count]) => {
-                            const percentage = (count as number / totalSources) * 100;
-                            const color = sourceColors[source] || sourceColors["Other"];
+                        const sourceEntries = Object.entries(sourceStats);
+                        const gradientStops = sourceEntries.map(([source, count], idx) => {
+                            const percentage = ((count as number) / totalSources) * 100;
+                            const color = getSourceColor(source, idx);
                             const start = currentAngle;
                             const end = currentAngle + percentage;
                             currentAngle = end;
@@ -431,12 +449,12 @@ export default function CounsellorEnquiriesDisplay() {
                                 <div className="my-auto py-3 flex items-center justify-center">
                                     {filteredEnquiries.length > 0 ? (
                                         <div
-                                            className="w-28 h-28 sm:w-32 sm:h-32 rounded-full shadow-sm flex items-center justify-center relative"
+                                            className="w-28 h-28 sm:w-32 sm:h-32 rounded-full shadow-md flex items-center justify-center relative transition-all"
                                             style={{
                                                 background: `conic-gradient(${gradientStops})`,
                                             }}
                                         >
-                                            <div className="w-18 h-18 sm:w-20 sm:h-20 bg-white rounded-full shadow-inner flex flex-col items-center justify-center text-center">
+                                            <div className="w-18 h-18 sm:w-20 sm:h-20 bg-white rounded-full shadow-inner flex flex-col items-center justify-center text-center border border-slate-50">
                                                 <span className="text-base sm:text-lg font-black text-slate-800 tracking-tight">{filteredEnquiries.length}</span>
                                                 <span className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase select-none">Total</span>
                                             </div>
@@ -448,25 +466,26 @@ export default function CounsellorEnquiriesDisplay() {
                                     )}
                                 </div>
 
-                                <div className="space-y-2.5 pt-3 border-t border-slate-100">
-                                    {Object.entries(sourceStats).map(([source, count]) => {
+                                <div className="space-y-2.5 pt-3 border-t border-slate-100 max-h-48 overflow-y-auto pr-1">
+                                    {sourceEntries.map(([source, count], idx) => {
                                         const pct = Math.round(((count as number) / totalSources) * 100);
+                                        const color = getSourceColor(source, idx);
                                         return (
                                             <div key={source} className="space-y-1">
                                                 <div className="flex items-center justify-between text-xs">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className={`h-2.5 w-2.5 rounded-full ${tailwindColors[source] || tailwindColors["Other"]}`}></span>
-                                                        <span className="font-semibold text-slate-700">{source}</span>
+                                                    <div className="flex items-center gap-2 min-w-0">
+                                                        <span className="h-2.5 w-2.5 rounded-full shrink-0 shadow-2xs" style={{ backgroundColor: color }}></span>
+                                                        <span className="font-semibold text-slate-700 truncate">{source}</span>
                                                     </div>
-                                                    <div className="flex items-center gap-2">
+                                                    <div className="flex items-center gap-1.5 shrink-0 ml-2">
                                                         <span className="font-extrabold text-slate-800">{pct}%</span>
                                                         <span className="text-[10px] font-semibold text-slate-400">({String(count)})</span>
                                                     </div>
                                                 </div>
                                                 <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
                                                     <div
-                                                        className={`h-full rounded-full transition-all ${tailwindColors[source] || tailwindColors["Other"]}`}
-                                                        style={{ width: `${pct}%` }}
+                                                        className="h-full rounded-full transition-all duration-500"
+                                                        style={{ width: `${pct}%`, backgroundColor: color }}
                                                     ></div>
                                                 </div>
                                             </div>
