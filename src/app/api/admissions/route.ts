@@ -69,50 +69,54 @@ export async function POST(req: NextRequest) {
     data.companyAssigned = data.companyAssigned?.trim() || "Cash";
     data.brand = data.brand?.trim() || "Cadd Mantra";
 
-    // Auto Company Allocation Engine (Case-insensitive matching for Brand & Company)
-    let finalCompany = "Cash";
+    // Auto Company Allocation Engine: Respect explicitly selected company if provided by user
+    let finalCompany = (data.companyAssigned || data.company || "").trim();
 
-    if (data.paymentMode && data.paymentMode !== "Cash") {
-      const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const brandStr = (data.brand || "").trim();
-      const brandRegex = new RegExp(`^${escapeRegExp(brandStr)}$`, "i");
+    if (!finalCompany || finalCompany === "Auto" || finalCompany === "Select Company..." || finalCompany === "Unallocated" || finalCompany === "Cash (Unallocated)") {
+      if (data.paymentMode && data.paymentMode !== "Cash") {
+        const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const brandStr = (data.brand || "").trim();
+        const brandRegex = new RegExp(`^${escapeRegExp(brandStr)}$`, "i");
 
-      const brandDoc = await Brand.findOne({ name: { $regex: brandRegex } }).lean();
-      const brandCompanies = brandDoc?.companies || [];
+        const brandDoc = await Brand.findOne({ name: { $regex: brandRegex } }).lean();
+        const brandCompanies = brandDoc?.companies || [];
 
-      const safeCompRegexes = brandCompanies.map((c: string) => new RegExp(`^${escapeRegExp(c.trim())}$`, "i"));
+        const safeCompRegexes = brandCompanies.map((c: string) => new RegExp(`^${escapeRegExp(c.trim())}$`, "i"));
 
-      const availableCompanies = await Company.find({
-        $or: [
-          { brand: { $regex: brandRegex } },
-          { brands: { $regex: brandRegex } },
-          ...(safeCompRegexes.length > 0 ? [{ name: { $in: safeCompRegexes } }] : [])
-        ],
-        status: "ACTIVE"
-      });
-
-      if (availableCompanies.length > 0) {
-        // Sort by remaining capacity descending
-        availableCompanies.sort((a, b) => {
-          const capA = (a.annualCapacityCap || 1949999) - (a.collectedRevenue || 0);
-          const capB = (b.annualCapacityCap || 1949999) - (b.collectedRevenue || 0);
-          return capB - capA;
+        const availableCompanies = await Company.find({
+          $or: [
+            { brand: { $regex: brandRegex } },
+            { brands: { $regex: brandRegex } },
+            ...(safeCompRegexes.length > 0 ? [{ name: { $in: safeCompRegexes } }] : [])
+          ],
+          status: "ACTIVE"
         });
 
-        finalCompany = availableCompanies[0].name;
-      } else {
-        finalCompany = "Unallocated";
-      }
+        if (availableCompanies.length > 0) {
+          availableCompanies.sort((a, b) => {
+            const capA = (a.annualCapacityCap || 1949999) - (a.collectedRevenue || 0);
+            const capB = (b.annualCapacityCap || 1949999) - (b.collectedRevenue || 0);
+            return capB - capA;
+          });
 
-      // Update Ledger (increment collectedRevenue)
-      if (finalCompany && finalCompany !== "Cash" && finalCompany !== "Unallocated") {
-        if (Number(data.amountReceivedToday) > 0) {
-          const compRegex = new RegExp(`^${escapeRegExp(finalCompany.trim())}$`, "i");
-          await Company.updateOne(
-            { name: { $regex: compRegex } },
-            { $inc: { collectedRevenue: Number(data.amountReceivedToday) } }
-          );
+          finalCompany = availableCompanies[0].name;
+        } else {
+          finalCompany = "Unallocated";
         }
+      } else {
+        finalCompany = "Cash";
+      }
+    }
+
+    // Update Ledger (increment collectedRevenue)
+    if (finalCompany && finalCompany !== "Cash" && finalCompany !== "Unallocated" && finalCompany !== "Cash (Unallocated)") {
+      if (Number(data.amountReceivedToday) > 0) {
+        const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const compRegex = new RegExp(`^${escapeRegExp(finalCompany.trim())}$`, "i");
+        await Company.updateOne(
+          { $or: [{ name: { $regex: compRegex } }, { legalName: { $regex: compRegex } }] },
+          { $inc: { collectedRevenue: Number(data.amountReceivedToday) } }
+        );
       }
     }
 
@@ -134,12 +138,19 @@ export async function POST(req: NextRequest) {
 
     data.companyAssigned = finalCompany;
 
-    // Detect if this is an upgrade admission
-    if (!data.isUpgrade && data.mobileNumber) {
-      const existingAdmCount = await Admission.countDocuments({ mobileNumber: data.mobileNumber });
-      if (existingAdmCount > 0) {
-        data.isUpgrade = true;
-      }
+    // Determine if this is an Upgrade or Fresh Admission
+    if (data.enquiryId || data.isUpgrade === false) {
+      data.isUpgrade = false;
+    } else if (data.isUpgrade === true) {
+      data.isUpgrade = true;
+    } else if (data.mobileNumber) {
+      const existingAdmCount = await Admission.countDocuments({
+        mobileNumber: data.mobileNumber.trim(),
+        status: { $ne: "Cancelled" }
+      });
+      data.isUpgrade = existingAdmCount > 0;
+    } else {
+      data.isUpgrade = false;
     }
 
     const admission = new Admission(data);

@@ -113,7 +113,7 @@ export async function POST(req: Request) {
   try {
     await dbConnect();
     const body = await req.json();
-    let { name, code, logoUrl, description, phone, email, website, address, companies, receiptTemplateUrl, receiptTerms } = body;
+    let { name, code, logoUrl, description, phone, email, website, address, companies, receiptTemplateUrl, receiptTerms, youtubeUrl, facebookUrl, instagramUrl, brochureDriveUrl } = body;
 
     const randomSuffix = Math.floor(1000 + Math.random() * 9000);
     name = (name?.trim() || `New Brand ${randomSuffix}`).toUpperCase();
@@ -147,6 +147,10 @@ export async function POST(req: Request) {
       companies: Array.isArray(companies) ? Array.from(new Set(companies)) : [],
       receiptTemplateUrl,
       receiptTerms,
+      youtubeUrl,
+      facebookUrl,
+      instagramUrl,
+      brochureDriveUrl,
       status: "ACTIVE",
     });
 

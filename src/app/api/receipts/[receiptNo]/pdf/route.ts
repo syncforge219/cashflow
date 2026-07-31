@@ -31,12 +31,25 @@ export async function GET(
     const admissionId = admission?.admissionId || "ADM-N/A";
     const courseName = admission?.course || "Course";
     const amountPaid = payment?.amountReceived || 0;
-    const paymentDate = new Date(
-      payment?.createdAt || payment?.paymentDate || Date.now()
-    ).toLocaleDateString("en-IN", {
+    const paymentDateObj = payment?.createdAt || payment?.paymentDate ? new Date(payment?.createdAt || payment?.paymentDate) : new Date();
+    const paymentDate = paymentDateObj.toLocaleString("en-IN", {
       day: "2-digit",
       month: "short",
       year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+    });
+
+    const generatedAtStr = new Date().toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
     });
 
     const finalFee = Number(admission?.finalFee || admission?.courseFee || 0);
@@ -70,7 +83,7 @@ export async function GET(
 
     const rawCompany = payment?.company || admission?.companyAssigned || brand?.companies?.[0];
     let companyObj: any = null;
-    if (rawCompany && rawCompany !== "Cash" && rawCompany !== "Unallocated") {
+    if (rawCompany && rawCompany !== "Cash" && rawCompany !== "Unallocated" && rawCompany !== "Cash (Unallocated)") {
       companyObj = await Company.findOne({
         $or: [
           { name: { $regex: new RegExp(`^${rawCompany.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") } },
@@ -79,11 +92,10 @@ export async function GET(
       }).lean();
     }
 
-    if (!companyObj) {
-      companyObj = await Company.findOne().lean();
-    }
+    const companyName = (rawCompany && rawCompany !== "Cash" && rawCompany !== "Unallocated" && rawCompany !== "Cash (Unallocated)")
+      ? rawCompany
+      : (companyObj?.legalName || companyObj?.name || "INSTITUTE OF CREATIVE STUDIES");
 
-    const companyName = companyObj?.legalName || companyObj?.name || rawCompany || "INSTITUTE OF CREATIVE STUDIES";
     const companyAddress = companyObj?.address || brand?.address || "No listed street, No City, No State, PIN";
 
     const pdfBuffer = generateReceiptPdfBuffer({
@@ -96,12 +108,13 @@ export async function GET(
       paymentMode: payment?.paymentMode || "Cash",
       referenceNo: payment?.referenceNo || "N/A",
       brandName: targetBrandName,
-      brandAddress: brand?.address || undefined,
+      brandAddress: brand?.address || "G 11 , Murli Bhawan , 10- A, Ashok Marg , Lucknow",
       companyName,
       companyAddress,
       totalFee: finalFee,
       totalPaidToDate,
       remainingBalance,
+      generatedAtStr,
     });
 
     return new NextResponse(Uint8Array.from(pdfBuffer), {
