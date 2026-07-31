@@ -96,10 +96,15 @@ export async function PUT(
       userRole === "centre head" ||
       userRole === "centre_head" ||
       userRole === "center head" ||
-      userRole === "center_head";
+      userRole === "center_head" ||
+      userRole === "teacher" ||
+      userRole === "faculty" ||
+      userRole === "instructor" ||
+      userRole === "counsellor" ||
+      userRole === "counselor";
 
     if (!isAuthorized) {
-      return NextResponse.json({ success: false, message: "Forbidden: Only Admins, Brand Managers and Centre Heads can edit student records." }, { status: 403 });
+      return NextResponse.json({ success: false, message: "Forbidden: Authorized roles only can edit student records." }, { status: 403 });
     }
 
     const body = await req.json();

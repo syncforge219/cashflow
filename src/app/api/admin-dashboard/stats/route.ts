@@ -333,12 +333,8 @@ export async function GET(req: Request) {
     const statusMap = new Map(statusCountsGroup.map((g: any) => [g._id, g.count]));
     const standardStages = [
       { stage: "New Lead", status: "New", color: "bg-blue-500" },
-      { stage: "Contacted", status: "Contacted", color: "bg-sky-500" },
-      { stage: "Counselling Scheduled", status: "Counselling Scheduled", color: "bg-orange-400" },
-      { stage: "Visited", status: "Visited", color: "bg-purple-500" },
       { stage: "Demo Attended", status: "Demo Attended", color: "bg-teal-500" },
-      { stage: "Negotiation", status: "Negotiation", color: "bg-amber-500" },
-      { stage: "Admission", status: "Admitted", color: "bg-emerald-500" }
+      { stage: "Admitted", status: "Admitted", color: "bg-emerald-500" }
     ];
 
     const pipeline = standardStages.map((item) => {

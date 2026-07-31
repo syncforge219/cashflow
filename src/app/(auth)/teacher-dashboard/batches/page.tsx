@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import TeacherSidebar from "@/components/TeacherSidebar";
-import BatchDisplay from "@/components/BatchDisplay";
 import { useUser } from "@/app/component/context/user-context";
 
 export default function TeacherBatchesPage() {
@@ -137,43 +136,20 @@ export default function TeacherBatchesPage() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto p-6 md:p-8 space-y-6">
         
-        {/* Header Title & Switch Tabs */}
+        {/* Header Title */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
           <div>
             <div className="text-xs font-bold text-slate-400 flex items-center gap-1.5 mb-1">
               <span>Teacher Portal</span>
               <span>/</span>
-              <span className="text-indigo-600 font-extrabold">Batch & Student Allocation</span>
+              <span className="text-indigo-600 font-extrabold">Student Batch Allocation</span>
             </div>
             <h1 className="text-2xl font-black text-slate-800 tracking-tight">
-              Teacher Batches & Enrolled Students
+              Student Batch Allocation
             </h1>
             <p className="text-xs font-semibold text-slate-500 mt-0.5">
-              Create new batches for your courses and assign enrolled students into active batch schedules.
+              Assign enrolled students to active course batches created by branch management.
             </p>
-          </div>
-
-          <div className="flex items-center gap-2 bg-slate-100/80 p-1 rounded-2xl border border-slate-200/60 self-start sm:self-auto">
-            <button
-              onClick={() => setActiveTab("assign")}
-              className={`px-4 py-2 text-xs font-extrabold rounded-xl transition-all cursor-pointer ${
-                activeTab === "assign"
-                  ? "bg-white text-indigo-600 shadow-sm border border-slate-200/80"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              🎓 Assign Students to Batches
-            </button>
-            <button
-              onClick={() => setActiveTab("directory")}
-              className={`px-4 py-2 text-xs font-extrabold rounded-xl transition-all cursor-pointer ${
-                activeTab === "directory"
-                  ? "bg-white text-indigo-600 shadow-sm border border-slate-200/80"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              📅 Manage Batches Directory
-            </button>
           </div>
         </div>
 
@@ -187,9 +163,8 @@ export default function TeacherBatchesPage() {
           </div>
         )}
 
-        {/* Tab 1: Assign Students to Batches */}
-        {activeTab === "assign" && (
-          <div className="space-y-6">
+        {/* Student Batch Allocation Section */}
+        <div className="space-y-6">
             
             {/* KPI Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -366,14 +341,6 @@ export default function TeacherBatchesPage() {
               </div>
             </div>
           </div>
-        )}
-
-        {/* Tab 2: Full Batches Directory & Creation Modal */}
-        {activeTab === "directory" && (
-          <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-xs">
-            <BatchDisplay />
-          </div>
-        )}
 
       </div>
     </div>
