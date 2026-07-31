@@ -62,57 +62,62 @@ export async function POST(req: Request) {
       );
     }
 
-    // Auto Company Allocation Engine
-    let finalCompany = "Cash";
+    // 2. Company Allocation Engine: Use explicitly selected company if provided by user in receipt form
+    let finalCompany = (company || body.allocatedCompany || body.companyAssigned || "").trim();
 
-    if (paymentMode !== "Cash") {
-      const previousNonCashPayment = await Payment.findOne({
-        admissionId,
-        paymentMode: { $ne: "Cash" },
-        company: { $nin: ["Cash", "Unallocated"] }
-      });
-
-      if (previousNonCashPayment && previousNonCashPayment.company) {
-        finalCompany = previousNonCashPayment.company;
+    if (!finalCompany || finalCompany === "Auto" || finalCompany === "Select Company..." || finalCompany === "Unallocated" || finalCompany === "Cash (Unallocated)") {
+      if (paymentMode === "Cash") {
+        finalCompany = "Cash";
       } else {
-        const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const brandStr = (admission.brand || "").trim();
-        const brandRegex = new RegExp(`^${escapeRegExp(brandStr)}$`, "i");
-
-        const brandDoc = await Brand.findOne({ name: { $regex: brandRegex } }).lean();
-        const brandCompanies = brandDoc?.companies || [];
-
-        const safeCompRegexes = brandCompanies.map((c: string) => new RegExp(`^${escapeRegExp(c.trim())}$`, "i"));
-
-        const availableCompanies = await Company.find({
-          $or: [
-            { brand: { $regex: brandRegex } },
-            { brands: { $regex: brandRegex } },
-            ...(safeCompRegexes.length > 0 ? [{ name: { $in: safeCompRegexes } }] : [])
-          ],
-          status: "ACTIVE"
+        const previousNonCashPayment = await Payment.findOne({
+          admissionId,
+          paymentMode: { $ne: "Cash" },
+          company: { $nin: ["Cash", "Unallocated", "Cash (Unallocated)"] }
         });
 
-        if (availableCompanies.length > 0) {
-          // Sort by remaining capacity descending
-          availableCompanies.sort((a, b) => {
-            const capA = (a.annualCapacityCap || 1949999) - (a.collectedRevenue || 0);
-            const capB = (b.annualCapacityCap || 1949999) - (b.collectedRevenue || 0);
-            return capB - capA;
+        if (previousNonCashPayment && previousNonCashPayment.company) {
+          finalCompany = previousNonCashPayment.company;
+        } else {
+          const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const brandStr = (admission.brand || "").trim();
+          const brandRegex = new RegExp(`^${escapeRegExp(brandStr)}$`, "i");
+
+          const brandDoc = await Brand.findOne({ name: { $regex: brandRegex } }).lean();
+          const brandCompanies = brandDoc?.companies || [];
+
+          const safeCompRegexes = brandCompanies.map((c: string) => new RegExp(`^${escapeRegExp(c.trim())}$`, "i"));
+
+          const availableCompanies = await Company.find({
+            $or: [
+              { brand: { $regex: brandRegex } },
+              { brands: { $regex: brandRegex } },
+              ...(safeCompRegexes.length > 0 ? [{ name: { $in: safeCompRegexes } }] : [])
+            ],
+            status: "ACTIVE"
           });
 
-          finalCompany = availableCompanies[0].name;
-        } else {
-          finalCompany = company || "Unallocated";
+          if (availableCompanies.length > 0) {
+            availableCompanies.sort((a, b) => {
+              const capA = (a.annualCapacityCap || 1949999) - (a.collectedRevenue || 0);
+              const capB = (b.annualCapacityCap || 1949999) - (b.collectedRevenue || 0);
+              return capB - capA;
+            });
+
+            finalCompany = availableCompanies[0].name;
+          } else {
+            finalCompany = "Unallocated";
+          }
         }
       }
+    }
 
-      // Update Ledger (increment collectedRevenue) & check 95% capacity threshold
-      if (finalCompany && finalCompany !== "Cash" && finalCompany !== "Unallocated") {
+    // Update Ledger (increment collectedRevenue) for the assigned company
+    if (finalCompany && finalCompany !== "Cash" && finalCompany !== "Unallocated" && finalCompany !== "Cash (Unallocated)") {
+      if (Number(amountReceived) > 0) {
         const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const compRegex = new RegExp(`^${escapeRegExp(finalCompany.trim())}$`, "i");
         const updatedComp = await Company.findOneAndUpdate(
-          { name: { $regex: compRegex } },
+          { $or: [{ name: { $regex: compRegex } }, { legalName: { $regex: compRegex } }] },
           { $inc: { collectedRevenue: Number(amountReceived) } },
           { new: true }
         );

@@ -70,7 +70,7 @@ export async function GET(
 
     const rawCompany = payment?.company || admission?.companyAssigned || brand?.companies?.[0];
     let companyObj: any = null;
-    if (rawCompany && rawCompany !== "Cash" && rawCompany !== "Unallocated") {
+    if (rawCompany && rawCompany !== "Cash" && rawCompany !== "Unallocated" && rawCompany !== "Cash (Unallocated)") {
       companyObj = await Company.findOne({
         $or: [
           { name: { $regex: new RegExp(`^${rawCompany.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") } },
@@ -79,11 +79,10 @@ export async function GET(
       }).lean();
     }
 
-    if (!companyObj) {
-      companyObj = await Company.findOne().lean();
-    }
+    const companyName = (rawCompany && rawCompany !== "Cash" && rawCompany !== "Unallocated" && rawCompany !== "Cash (Unallocated)")
+      ? rawCompany
+      : (companyObj?.legalName || companyObj?.name || "INSTITUTE OF CREATIVE STUDIES");
 
-    const companyName = companyObj?.legalName || companyObj?.name || rawCompany || "INSTITUTE OF CREATIVE STUDIES";
     const companyAddress = companyObj?.address || brand?.address || "No listed street, No City, No State, PIN";
 
     const pdfBuffer = generateReceiptPdfBuffer({
