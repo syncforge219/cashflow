@@ -40,6 +40,7 @@ export default function PublicBrandEnquiryPage({ params }: PublicEnquiryPageProp
             const normCourseBrand = String(c.brand).toLowerCase().replace(/[^a-z0-9]/g, "");
             return normCourseBrand === normTarget || normCourseBrand.includes(normTarget) || normTarget.includes(normCourseBrand);
           });
+          filtered.sort((a: any, b: any) => (a.name || a.title || "").localeCompare(b.name || b.title || "", undefined, { sensitivity: "base", numeric: true }));
           setCourses(filtered);
         }
       })
@@ -251,6 +252,7 @@ export default function PublicBrandEnquiryPage({ params }: PublicEnquiryPageProp
                   selectedCourses={selectedCourses}
                   onChange={setSelectedCourses}
                   placeholder={`-- Search & Select Course(s) for ${brandName} --`}
+                  showFees={false}
                 />
               </div>
 
