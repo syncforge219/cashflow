@@ -6,12 +6,14 @@ import LeadProfile from "./LeadProfile";
 import ImportLeadsModal from "./ImportLeadsModal";
 import GoogleFormIntegrationModal from "./GoogleFormIntegrationModal";
 import LeadSourceManagerModal from "./LeadSourceManagerModal";
+import JustdialIntegrationModal from "./JustdialIntegrationModal";
 
 export default function EnquiriesDisplay() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isLeadSourceModalOpen, setIsLeadSourceModalOpen] = useState(false);
+  const [isJustdialModalOpen, setIsJustdialModalOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<any | null>(null);
 
   const [enquiries, setEnquiries] = useState<any[]>([]);
@@ -303,7 +305,14 @@ export default function EnquiriesDisplay() {
         </div>
 
         {/* Buttons */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setIsJustdialModalOpen(true)}
+            className="flex items-center gap-1.5 text-xs font-extrabold bg-gradient-to-r from-blue-700 via-indigo-600 to-orange-500 hover:from-blue-800 hover:to-orange-600 text-white rounded-xl px-4 py-2 shadow-xs transition-all cursor-pointer border border-blue-400/30"
+          >
+            <span className="font-black text-[10px] bg-blue-950/50 text-orange-400 px-1.5 py-0.5 rounded border border-orange-400/30">JD</span>
+            <span>Justdial Connector</span>
+          </button>
           <button
             onClick={() => setIsGoogleFormModalOpen(true)}
             className="flex items-center gap-1.5 text-xs font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 rounded-xl px-4 py-2 shadow-xs transition-all cursor-pointer"
@@ -798,6 +807,14 @@ export default function EnquiriesDisplay() {
             return [...prev, { name: newSrc }];
           });
         }}
+      />
+
+      <JustdialIntegrationModal
+        isOpen={isJustdialModalOpen}
+        onClose={() => setIsJustdialModalOpen(false)}
+        counsellorsList={counsellorsList}
+        dbLeadSources={dbLeadSources}
+        onConfigSaved={fetchEnquiries}
       />
 
     </div>

@@ -15,6 +15,7 @@ interface CourseMultiSelectProps {
   onChange: (selected: string[]) => void;
   disabled?: boolean;
   placeholder?: string;
+  showFees?: boolean;
 }
 
 export default function CourseMultiSelect({
@@ -23,6 +24,7 @@ export default function CourseMultiSelect({
   onChange,
   disabled = false,
   placeholder = "-- Select Course(s) --",
+  showFees = true,
 }: CourseMultiSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -40,9 +42,13 @@ export default function CourseMultiSelect({
   }, []);
 
   const filteredCourses = useMemo(() => {
-    if (!searchQuery.trim()) return courses;
-    const q = searchQuery.toLowerCase().trim();
-    return courses.filter((c) => c.name.toLowerCase().includes(q));
+    let list = courses;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = courses.filter((c) => c.name.toLowerCase().includes(q));
+    }
+    // Alphabetical sorting A-Z
+    return [...list].sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base", numeric: true }));
   }, [courses, searchQuery]);
 
   const toggleCourse = (courseName: string) => {
@@ -209,7 +215,7 @@ export default function CourseMultiSelect({
                       <span className="truncate">{c.name}</span>
                     </div>
 
-                    {c.fee && c.fee !== "₹0" && (
+                    {showFees && c.fee && c.fee !== "₹0" && (
                       <span className="text-[10px] font-extrabold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200 shrink-0">
                         {c.fee}
                       </span>

@@ -18,17 +18,45 @@ export default function PublicBrandEnquiryPage({ params }: PublicEnquiryPageProp
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [submittedEnquiryId, setSubmittedEnquiryId] = useState("");
+  const [leadSources, setLeadSources] = useState<string[]>([
+    "Website",
+    "Google Ads",
+    "Meta Ads",
+    "Instagram",
+    "Facebook",
+    "Seminar",
+    "Hoarding",
+    "Reference / Friend",
+    "Internet Search",
+    "Paper Ads",
+    "Direct Walkin",
+    "Other",
+  ]);
 
   const [formData, setFormData] = useState({
     studentFullName: "",
     primaryPhoneMobile: "",
     emailAddress: "",
     currentCity: "",
+    leadSource: "Website",
     targetCourse: "",
     remarks: "",
   });
 
   useEffect(() => {
+    // Fetch lead sources dynamically from DB
+    fetch("/api/lead-sources")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+          const names = data.data.map((s: any) => (typeof s === "string" ? s : s.name)).filter(Boolean);
+          if (names.length > 0) {
+            setLeadSources(Array.from(new Set([...names, "Website", "Google Ads", "Meta Ads", "Reference / Friend", "Other"])));
+          }
+        }
+      })
+      .catch(console.error);
+
     // Fetch courses available strictly for this brand
     fetch(`/api/courses?brand=${encodeURIComponent(brandName)}`)
       .then((res) => res.json())
@@ -40,6 +68,7 @@ export default function PublicBrandEnquiryPage({ params }: PublicEnquiryPageProp
             const normCourseBrand = String(c.brand).toLowerCase().replace(/[^a-z0-9]/g, "");
             return normCourseBrand === normTarget || normCourseBrand.includes(normTarget) || normTarget.includes(normCourseBrand);
           });
+          filtered.sort((a: any, b: any) => (a.name || a.title || "").localeCompare(b.name || b.title || "", undefined, { sensitivity: "base", numeric: true }));
           setCourses(filtered);
         }
       })
@@ -77,7 +106,7 @@ export default function PublicBrandEnquiryPage({ params }: PublicEnquiryPageProp
         courses: selectedCourses,
         targetCourses: selectedCourses,
         targetCourse: selectedCourses.length > 0 ? selectedCourses.join(", ") : "General Course",
-        leadSource: "Online Inquiry Form",
+        leadSource: formData.leadSource || "Website",
         remarks: formData.remarks,
       };
 
@@ -157,6 +186,7 @@ export default function PublicBrandEnquiryPage({ params }: PublicEnquiryPageProp
                       primaryPhoneMobile: "",
                       emailAddress: "",
                       currentCity: "",
+                      leadSource: "Website",
                       targetCourse: "",
                       remarks: "",
                     });
@@ -241,6 +271,26 @@ export default function PublicBrandEnquiryPage({ params }: PublicEnquiryPageProp
                 </div>
               </div>
 
+              {/* Inquiry Source Dropdown */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  How Did You Hear About Us? (Inquiry Source)
+                </label>
+                <select
+                  name="leadSource"
+                  value={formData.leadSource}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-800 text-xs font-semibold focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all cursor-pointer shadow-2xs"
+                >
+                  <option value="">-- Select Source / Channel --</option>
+                  {leadSources.map((source) => (
+                    <option key={source} value={source}>
+                      {source}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               {/* Course Selection */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">
@@ -251,6 +301,7 @@ export default function PublicBrandEnquiryPage({ params }: PublicEnquiryPageProp
                   selectedCourses={selectedCourses}
                   onChange={setSelectedCourses}
                   placeholder={`-- Search & Select Course(s) for ${brandName} --`}
+                  showFees={false}
                 />
               </div>
 

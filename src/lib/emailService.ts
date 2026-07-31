@@ -1,6 +1,5 @@
 import nodemailer from "nodemailer";
 import ExcelJS from "exceljs";
-import PDFDocument from "pdfkit";
 import { generateReceiptPdfBuffer } from "@/lib/pdfGenerator";
 import dbConnect from "@/lib/db";
 import Admission from "@/models/Admission";
@@ -32,122 +31,19 @@ const transporter = nodemailer.createTransport({
  * Helper: Generate Official Admission Fee Receipt PDF Buffer
  */
 export async function generateAdmissionReceiptPDF(admissionData: any): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    try {
-      const doc = new PDFDocument({ size: "A4", margin: 40 });
-      const chunks: Buffer[] = [];
-
-      doc.on("data", (chunk: any) => chunks.push(chunk));
-      doc.on("end", () => resolve(Buffer.concat(chunks)));
-      doc.on("error", (err: any) => reject(err));
-
-      const formatCurrency = (amt: number) => `₹${Number(amt || 0).toLocaleString("en-IN")}`;
-      const formatDate = (d: any) =>
-        d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "N/A";
-
-      // 1. Header Box
-      doc.rect(40, 40, 515, 60).fill("#1e1b4b");
-      doc.fillColor("#ffffff").fontSize(18).font("Helvetica-Bold").text("COACHFLOW ACADEMICS", 40, 52, { align: "center" });
-      doc.fontSize(10).font("Helvetica").text("OFFICIAL ADMISSION FEE RECEIPT", 40, 75, { align: "center" });
-
-      // 2. Receipt Details
-      doc.fillColor("#0f172a").fontSize(10).font("Helvetica-Bold").text(`RECEIPT NO: REC-${admissionData.admissionId || "2026-001"}`, 40, 115);
-      doc.font("Helvetica").text(`DATE: ${formatDate(admissionData.admissionDate || new Date())}`, 400, 115, { align: "right" });
-
-      doc.moveTo(40, 130).lineTo(555, 130).strokeColor("#cbd5e1").lineWidth(1).stroke();
-
-      // 3. Student Details Box
-      doc.rect(40, 140, 515, 95).fill("#f8fafc").strokeColor("#e2e8f0").stroke();
-      
-      doc.fillColor("#475569").fontSize(9).font("Helvetica-Bold").text("STUDENT DETAILS", 55, 150);
-      
-      doc.fillColor("#0f172a").fontSize(10).font("Helvetica-Bold").text("Full Name:", 55, 168);
-      doc.font("Helvetica").text(admissionData.fullName || "N/A", 140, 168);
-
-      doc.font("Helvetica-Bold").text("Admission ID:", 330, 168);
-      doc.font("Helvetica").text(admissionData.admissionId || "Confirmed", 410, 168);
-
-      doc.font("Helvetica-Bold").text("Course:", 55, 185);
-      doc.font("Helvetica").text(admissionData.course || "N/A", 140, 185);
-
-      doc.font("Helvetica-Bold").text("Batch Assigned:", 330, 185);
-      doc.font("Helvetica").text(admissionData.batch || "Regular", 410, 185);
-
-      doc.font("Helvetica-Bold").text("Brand Domain:", 55, 202);
-      doc.font("Helvetica").text(admissionData.brand || "Design Gateway", 140, 202);
-
-      doc.font("Helvetica-Bold").text("Company:", 330, 202);
-      doc.font("Helvetica").text(admissionData.companyAssigned || "CoachFlow Training Services", 410, 202);
-
-      // 4. Financial Table Header
-      let y = 250;
-      doc.rect(40, y, 515, 24).fill("#4338ca");
-      doc.fillColor("#ffffff").fontSize(9).font("Helvetica-Bold");
-      doc.text("Particulars / Fee Breakdown", 55, y + 7);
-      doc.text("Amount (INR)", 400, y + 7, { align: "right" });
-
-      y += 24;
-
-      const feeItems = [
-        { label: "Base Course Fee", amount: admissionData.courseFee || admissionData.finalFee || 0 },
-        { label: "Scholarships / Discounts Offered", amount: -(admissionData.totalDiscount || 0) },
-        { label: "Net Payable Course Fee", amount: admissionData.finalFee || 0 },
-        { label: "Amount Paid Today (Registration / Installment 1)", amount: admissionData.amountReceivedToday || 0 },
-        { label: "Remaining Balance Outstanding", amount: admissionData.remainingBalance || 0 },
-      ];
-
-      feeItems.forEach((item, i) => {
-        const bg = i % 2 === 0 ? "#ffffff" : "#f8fafc";
-        doc.rect(40, y, 515, 22).fill(bg);
-        doc.fillColor(item.label.includes("Outstanding") ? "#dc2626" : item.label.includes("Today") ? "#16a34a" : "#1e293b");
-        doc.font(i >= 2 ? "Helvetica-Bold" : "Helvetica").fontSize(9);
-        doc.text(item.label, 55, y + 6);
-        doc.text(formatCurrency(item.amount), 400, y + 6, { align: "right" });
-        y += 22;
-      });
-
-      doc.rect(40, 250, 515, y - 250).strokeColor("#cbd5e1").lineWidth(1).stroke();
-
-      // 5. EMI Schedule if applicable
-      if (admissionData.hasEmi && admissionData.customEmiPlan?.length > 0) {
-        y += 15;
-        doc.fillColor("#1e293b").fontSize(10).font("Helvetica-Bold").text("SCHEDULED EMI INSTALLMENTS", 40, y);
-        y += 15;
-
-        doc.rect(40, y, 515, 20).fill("#e2e8f0");
-        doc.fillColor("#475569").fontSize(8).font("Helvetica-Bold");
-        doc.text("Installment No.", 55, y + 6);
-        doc.text("Due Date", 220, y + 6);
-        doc.text("Amount (INR)", 400, y + 6, { align: "right" });
-        y += 20;
-
-        admissionData.customEmiPlan.forEach((emi: any, idx: number) => {
-          doc.rect(40, y, 515, 18).fill(idx % 2 === 0 ? "#ffffff" : "#f8fafc");
-          doc.fillColor("#334155").fontSize(8).font("Helvetica");
-          doc.text(`Installment ${idx + 1}`, 55, y + 5);
-          doc.text(formatDate(emi.dueDate), 220, y + 5);
-          doc.font("Helvetica-Bold").text(formatCurrency(emi.amount), 400, y + 5, { align: "right" });
-          y += 18;
-        });
-
-        doc.rect(40, y - (admissionData.customEmiPlan.length * 18 + 20), 515, admissionData.customEmiPlan.length * 18 + 20).strokeColor("#cbd5e1").stroke();
-      }
-
-      // 6. Sign & Authorization Footer
-      y = Math.max(y + 30, 650);
-      doc.moveTo(40, y).lineTo(555, y).strokeColor("#e2e8f0").stroke();
-      y += 15;
-
-      doc.fillColor("#64748b").fontSize(8).font("Helvetica");
-      doc.text("Note: This is a computer-generated official admission receipt. No physical signature is required.", 40, y);
-      doc.text("For any fee query or billing ledger verification, please contact support@coachflow.academics or your assigned counselor.", 40, y + 12);
-
-      doc.fillColor("#4338ca").fontSize(9).font("Helvetica-Bold").text("CoachFlow Academics & ERP Systems", 400, y + 30, { align: "right" });
-
-      doc.end();
-    } catch (err) {
-      reject(err);
-    }
+  return generateReceiptPdfBuffer({
+    receiptNo: `REC-${admissionData.admissionId || "2026-001"}`,
+    studentName: admissionData.fullName || "Student",
+    admissionId: admissionData.admissionId || "ADM-001",
+    courseName: admissionData.course || "Course",
+    amountPaid: admissionData.amountReceivedToday || admissionData.registrationAmount || 0,
+    paymentDate: admissionData.admissionDate ? new Date(admissionData.admissionDate).toLocaleDateString("en-IN") : new Date().toLocaleDateString("en-IN"),
+    paymentMode: admissionData.paymentMode || "UPI",
+    referenceNo: admissionData.referenceNo || "N/A",
+    brandName: admissionData.brand || "CADD MANTRA",
+    companyName: admissionData.companyAssigned || "INSTITUTE OF CREATIVE STUDIES",
+    totalFee: admissionData.finalFee || admissionData.courseFee || 0,
+    remainingBalance: admissionData.remainingBalance || 0
   });
 }
 
@@ -156,12 +52,7 @@ export async function generateAdmissionReceiptPDF(admissionData: any): Promise<B
  */
 export async function sendAdmissionConfirmationEmail(admissionData: any) {
   try {
-    if (!admissionData.email) {
-      console.log(`[EmailService] No email address provided for student: ${admissionData.fullName}`);
-      return { success: false, message: "No student email address" };
-    }
-
-    const formatCurrency = (amt: number) => `₹${Number(amt || 0).toLocaleString("en-IN")}`;
+    const formatCurrency = (amt: number) => "₹" + Number(amt || 0).toLocaleString("en-IN");
     const formatDate = (d: any) => d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "N/A";
 
     const customEmiRows = (admissionData.customEmiPlan || []).map((emi: any, idx: number) => `

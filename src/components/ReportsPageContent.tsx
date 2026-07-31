@@ -2142,23 +2142,44 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
                   )}
                 </div>
 
-                <button
-                  onClick={handleGenerateReport}
-                  disabled={isGenerating}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs px-6 py-3.5 rounded-xl shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 min-w-[240px]"
-                >
-                  {isGenerating ? (
-                    <>
-                      <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      Generating Excel Workbook...
-                    </>
-                  ) : (
-                    <>
-                      <span>📥</span>
-                      <span>Download {activeReportTab === "super" ? "Super Master Excel" : "Excel Report"}</span>
-                    </>
+                <div className="flex items-center gap-3">
+                  {activeReportTab === "expenses" && (
+                    <button
+                      onClick={() => {
+                        const params = new URLSearchParams();
+                        if (selectedBrandFilter && selectedBrandFilter !== "All Brands") params.append("brand", selectedBrandFilter);
+                        if (selectedCompanyFilter && selectedCompanyFilter !== "All Companies") params.append("company", selectedCompanyFilter);
+                        if (selectedCategoryFilter && selectedCategoryFilter !== "All") params.append("category", selectedCategoryFilter);
+                        if (startDate) params.append("startDate", startDate);
+                        if (endDate) params.append("endDate", endDate);
+
+                        window.open(`/api/expenses/pdf?${params.toString()}`, "_blank");
+                      }}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs px-6 py-3.5 rounded-xl shadow-md shadow-indigo-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer min-w-[220px]"
+                    >
+                      <span>📄</span>
+                      <span>Download Expense PDF Report</span>
+                    </button>
                   )}
-                </button>
+
+                  <button
+                    onClick={handleGenerateReport}
+                    disabled={isGenerating}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs px-6 py-3.5 rounded-xl shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 min-w-[240px]"
+                  >
+                    {isGenerating ? (
+                      <>
+                        <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        Generating Excel Workbook...
+                      </>
+                    ) : (
+                      <>
+                        <span>📥</span>
+                        <span>Download {activeReportTab === "super" ? "Super Master Excel" : "Excel Report"}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
 
             </div>
