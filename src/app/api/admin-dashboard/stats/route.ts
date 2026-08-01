@@ -162,7 +162,7 @@ export async function GET(req: Request) {
 
       // Counsellor data
       User.find({ role: "counsellor" }).select("name").lean(),
-      Admission.find().select("counsellor brand finalFee").lean(),
+      Admission.find(globalFilter).select("counsellor brand finalFee").lean(),
       Enquiry.aggregate([
         {
           $group: {
