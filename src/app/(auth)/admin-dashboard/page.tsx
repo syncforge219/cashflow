@@ -244,9 +244,9 @@ export default function AdminDashboard() {
       pillClass: "text-emerald-700 bg-emerald-50 border-emerald-200/60"
     },
     {
-      name: "Monthly Collection",
+      name: filterLabel === "Today" || filterLabel === "Overall" ? "Monthly Collection" : "Period Collection",
       value: data?.kpis?.monthlyCollection || "₹0 L",
-      trend: "Current Month",
+      trend: filterLabel === "Overall" || filterLabel === "Today" ? "Current Month" : filterLabel,
       isGreen: true,
       borderAccent: "border-l-4 border-purple-500",
       hoverGradient: "hover:bg-gradient-to-br hover:from-purple-50/90 hover:via-indigo-50/50 hover:to-white hover:border-purple-300",

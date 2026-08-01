@@ -107,7 +107,7 @@ export async function GET(req: Request) {
       Admission.countDocuments({ ...globalFilter, remainingBalance: { $gt: 0 } }),
       Payment.find(isFiltered ? { createdAt: dateRangeFilter } : {}).select("amountReceived createdAt").lean(),
       Payment.find({ createdAt: { $gte: startOfDay, $lte: endOfDay } }).select("amountReceived").lean(),
-      Payment.find({ createdAt: { $gte: firstDayOfMonth, $lte: endOfDay } }).select("amountReceived").lean(),
+      Payment.find(isFiltered ? { createdAt: dateRangeFilter } : { createdAt: { $gte: firstDayOfMonth, $lte: endOfDay } }).select("amountReceived").lean(),
       Admission.find({ remainingBalance: { $gt: 0 } }).select("fullName remainingBalance").lean(),
       Enquiry.countDocuments({
         followUps: {
