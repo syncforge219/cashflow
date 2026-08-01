@@ -406,7 +406,7 @@ export default function PaymentReceiptModal({
     if (!receiptNo) return;
     setIsDownloadingPdf(true);
     try {
-      const pdfUrl = `/api/receipts/${encodeURIComponent(receiptNo)}/pdf`;
+      const pdfUrl = `/api/receipts/${encodeURIComponent(receiptNo)}/pdf?t=${Date.now()}`;
       const res = await fetch(pdfUrl);
       if (!res.ok) throw new Error("Failed to fetch receipt PDF");
       const blob = await res.blob();
@@ -422,7 +422,7 @@ export default function PaymentReceiptModal({
     } catch (err) {
       console.error("Direct PDF Download Error:", err);
       // Fallback to direct URL window opening if blob download fails
-      window.open(`/api/receipts/${encodeURIComponent(receiptNo)}/pdf`, "_blank");
+      window.open(`/api/receipts/${encodeURIComponent(receiptNo)}/pdf?t=${Date.now()}`, "_blank");
     } finally {
       setIsDownloadingPdf(false);
     }

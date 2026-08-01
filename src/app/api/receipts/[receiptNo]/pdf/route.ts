@@ -161,7 +161,7 @@ export async function GET(
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `inline; filename="Fee_Receipt_${receiptNo}.pdf"`,
-        "Cache-Control": "public, max-age=3600",
+        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
       },
     });
   } catch (error: any) {
