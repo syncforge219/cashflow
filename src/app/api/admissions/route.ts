@@ -35,23 +35,6 @@ export async function POST(req: NextRequest) {
     data.pincode = data.pincode?.trim() || "000000";
     data.counsellor = data.counsellor?.trim() || user?.name || "Counsellor";
     
-    // Duplicate Submission Guard: Check if an admission for the same mobile number & course was created in the last 15 seconds
-    if (data.mobileNumber) {
-      const cleanMobile = String(data.mobileNumber).trim();
-      const fifteenSecsAgo = new Date(Date.now() - 15000);
-      const recentDuplicate = await Admission.findOne({
-        mobileNumber: cleanMobile,
-        createdAt: { $gte: fifteenSecsAgo }
-      });
-      if (recentDuplicate) {
-        return NextResponse.json({
-          success: true,
-          message: "Admission already created recently.",
-          data: recentDuplicate
-        });
-      }
-    }
-    
     // Process multi-selected courses
     let coursesList: string[] = [];
     if (Array.isArray(data.courses) && data.courses.length > 0) {
@@ -60,6 +43,41 @@ export async function POST(req: NextRequest) {
       coursesList = data.targetCourses.map((c: any) => String(c).trim()).filter(Boolean);
     } else if (typeof data.course === "string" && data.course.trim()) {
       coursesList = data.course.split(",").map((c: string) => c.trim()).filter(Boolean);
+    }
+
+    if (coursesList.length === 0) {
+      coursesList = ["General Course"];
+    }
+
+    // Strict Duplicate Admission Guard: A student with the same Name/Mobile and Course cannot be added multiple times
+    const studentFullName = (data.fullName || "").trim();
+    const cleanMobile = (data.mobileNumber || "").trim();
+    const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const nameRegex = studentFullName ? new RegExp(`^${escapeRegExp(studentFullName)}$`, "i") : null;
+    const courseRegexes = coursesList.map((c) => new RegExp(escapeRegExp(c), "i"));
+
+    const duplicateFilter: any = {
+      $or: [
+        ...(cleanMobile ? [{ mobileNumber: cleanMobile }] : []),
+        ...(nameRegex ? [{ fullName: nameRegex }] : [])
+      ],
+      $and: [
+        {
+          $or: [
+            { course: { $in: courseRegexes } },
+            { courses: { $elemMatch: { $in: courseRegexes } } },
+            { targetCourses: { $elemMatch: { $in: courseRegexes } } }
+          ]
+        }
+      ]
+    };
+
+    const existingStudentAdmission = await Admission.findOne(duplicateFilter);
+    if (existingStudentAdmission) {
+      return NextResponse.json({
+        success: false,
+        message: `Duplicate Admission Blocked: Student "${existingStudentAdmission.fullName}" is already enrolled in "${existingStudentAdmission.course}" (Admission ID: ${existingStudentAdmission.admissionId}). A student cannot be admitted to the same course multiple times.`
+      }, { status: 400 });
     }
 
     if (coursesList.length === 0) {
