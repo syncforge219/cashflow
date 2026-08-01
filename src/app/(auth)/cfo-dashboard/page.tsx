@@ -817,7 +817,7 @@ export default function CfoDashboardPage() {
           </div>
         </div>
 
-        {/* 2 & 3. SUMMARY DONUT & TREASURY PIE WITH TABLES */}
+        {/* 2 & 3. SUMMARY DONUT & QUARTERLY PERFORMANCE BARS WITH TABLES */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* 2. OVERALL FINANCE SUMMARY DONUT & TABLE */}
           <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-5 flex flex-col justify-between">
@@ -863,95 +863,54 @@ export default function CfoDashboardPage() {
             </div>
           </div>
 
-          {/* 3. BANK VS CASH PIE & TABLE */}
+          {/* 3. QUARTERLY PERFORMANCE BARS & TABLE */}
           <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-5 flex flex-col justify-between">
             <div className="space-y-4">
               <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
                 <div>
-                  <h3 className="text-base font-extrabold text-slate-800">🥧 3. Bank Balance vs Cash Balance</h3>
-                  <p className="text-xs text-slate-400 font-medium">Distribution between Bank Account Reserves and Cash Vault</p>
+                  <h3 className="text-base font-extrabold text-slate-800">📊 3. Quarterly Performance</h3>
+                  <p className="text-xs text-slate-400 font-medium">Comparison across Q1, Q2, Q3, and Q4 periods</p>
                 </div>
               </div>
 
-              <SvgPieChart data={treasuryPieData} size={210} onHover={handleHover} onLeave={handleLeave} />
+              <SvgBarGraph
+                data={quarterlyBarData}
+                height={210}
+                color1="#4f46e5"
+                color2="#ef4444"
+                label1="Money In"
+                label2="Money Out"
+                onHover={handleHover}
+                onLeave={handleLeave}
+              />
             </div>
 
             <div className="pt-2 border-t border-slate-100">
-              <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">📋 Treasury Numbers Table</h4>
+              <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">📋 Quarterly Numbers Table</h4>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs font-semibold border border-slate-200/60 rounded-xl overflow-hidden shadow-xs">
                   <thead className="bg-slate-100/80 text-slate-600 uppercase text-[10px]">
                     <tr>
-                      <th className="py-2.5 px-3">Account Type</th>
-                      <th className="py-2.5 px-3">Balance (₹)</th>
-                      <th className="py-2.5 px-3 text-right">Share (%)</th>
+                      <th className="py-2.5 px-3">Quarter</th>
+                      <th className="py-2.5 px-3">Money In (₹)</th>
+                      <th className="py-2.5 px-3">Money Out (₹)</th>
+                      <th className="py-2.5 px-3 text-right">Net Savings</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-slate-700">
-                    {treasuryPieData.map((d) => {
-                      const totTreasury = Math.max(1, summary.bankReserves + summary.cashReserves);
-                      const pct = ((d.value / totTreasury) * 100).toFixed(1);
-                      return (
-                        <tr key={d.name} className="hover:bg-slate-50 transition-colors">
-                          <td className="py-2.5 px-3 font-bold flex items-center gap-2">
-                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
-                            <span className="truncate">{d.name}</span>
-                          </td>
-                          <td className="py-2.5 px-3 font-bold text-slate-900">₹{d.value.toLocaleString("en-IN")}</td>
-                          <td className="py-2.5 px-3 text-right font-extrabold text-emerald-600">{pct}%</td>
-                        </tr>
-                      );
-                    })}
+                    {quarterlyTrends.map((q: any) => (
+                      <tr key={q.quarter} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-2.5 px-3 font-bold text-slate-900">{q.quarter}</td>
+                        <td className="py-2.5 px-3 font-bold text-emerald-600">₹{q.revenue.toLocaleString("en-IN")}</td>
+                        <td className="py-2.5 px-3 font-bold text-rose-600">₹{q.expense.toLocaleString("en-IN")}</td>
+                        <td className={`py-2.5 px-3 text-right font-black ${q.netProfit >= 0 ? "text-indigo-600" : "text-rose-600"}`}>
+                          ₹{q.netProfit.toLocaleString("en-IN")}
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
-            </div>
-          </div>
-        </div>
-
-        {/* 4. QUARTERLY PERFORMANCE BARS & TABLE */}
-        <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm space-y-5">
-          <div className="border-b border-slate-100 pb-3">
-            <h3 className="text-base font-extrabold text-slate-800">📊 4. Quarterly Performance</h3>
-            <p className="text-xs text-slate-400 font-medium">Comparison across Q1, Q2, Q3, and Q4 periods</p>
-          </div>
-
-          <SvgBarGraph
-            data={quarterlyBarData}
-            height={230}
-            color1="#4f46e5"
-            color2="#ef4444"
-            label1="Money In"
-            label2="Money Out"
-            onHover={handleHover}
-            onLeave={handleLeave}
-          />
-
-          <div className="pt-2 border-t border-slate-100">
-            <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">📋 Quarterly Numbers Table</h4>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs font-semibold border border-slate-200/60 rounded-xl overflow-hidden shadow-xs">
-                <thead className="bg-slate-100/80 text-slate-600 uppercase text-[10px]">
-                  <tr>
-                    <th className="py-2.5 px-3">Quarter</th>
-                    <th className="py-2.5 px-3">Money In (₹)</th>
-                    <th className="py-2.5 px-3">Money Out (₹)</th>
-                    <th className="py-2.5 px-3 text-right">Net Savings</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-700">
-                  {quarterlyTrends.map((q: any) => (
-                    <tr key={q.quarter} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-2.5 px-3 font-bold text-slate-900">{q.quarter}</td>
-                      <td className="py-2.5 px-3 font-bold text-emerald-600">₹{q.revenue.toLocaleString("en-IN")}</td>
-                      <td className="py-2.5 px-3 font-bold text-rose-600">₹{q.expense.toLocaleString("en-IN")}</td>
-                      <td className={`py-2.5 px-3 text-right font-black ${q.netProfit >= 0 ? "text-indigo-600" : "text-rose-600"}`}>
-                        ₹{q.netProfit.toLocaleString("en-IN")}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             </div>
           </div>
         </div>
