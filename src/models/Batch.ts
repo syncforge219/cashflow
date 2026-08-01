@@ -9,9 +9,14 @@ const BatchSchema = new Schema(
     },
     course: {
       type: String,
-      required: [true, "Course name is required"],
       trim: true,
     },
+    courses: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
     courseCode: {
       type: String,
       trim: true,
@@ -86,7 +91,12 @@ BatchSchema.index({ brand: 1 });
 BatchSchema.index({ teacherId: 1 });
 BatchSchema.index({ status: 1 });
 BatchSchema.index({ course: 1 });
+BatchSchema.index({ courses: 1 });
 
-const Batch = mongoose.models.Batch || mongoose.model("Batch", BatchSchema);
+if (mongoose.models.Batch) {
+  delete mongoose.models.Batch;
+}
+
+const Batch = mongoose.model("Batch", BatchSchema);
 
 export default Batch;

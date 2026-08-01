@@ -35,7 +35,7 @@ export async function GET(request: Request) {
         const batchObj = await Batch.findById(batchId);
         if (batchObj) {
           targetBatchName = batchObj.batchName;
-          targetCourse = batchObj.course;
+          targetCourse = batchObj.course || "";
         }
       }
 

@@ -12,12 +12,12 @@ interface AddBatchModalProps {
 
 function CourseSearchSelect({
   courses,
-  selectedCourse,
-  onSelectCourse,
+  selectedCourses,
+  onSelectCourses,
 }: {
   courses: any[];
-  selectedCourse: string;
-  onSelectCourse: (courseName: string, courseCode: string) => void;
+  selectedCourses: string[];
+  onSelectCourses: (selectedNames: string[], combinedCodes: string) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -56,35 +56,88 @@ function CourseSearchSelect({
     );
   }, [courses, searchQuery]);
 
-  const selectedObj = courses.find((c) => (c.name || c.courseName) === selectedCourse);
+  const toggleCourse = (cName: string) => {
+    let updated: string[];
+    if (selectedCourses.includes(cName)) {
+      updated = selectedCourses.filter((name) => name !== cName);
+    } else {
+      updated = [...selectedCourses, cName];
+    }
+    
+    // Collect codes for all selected names
+    const codes = updated
+      .map((name) => {
+        const found = courses.find((c) => (c.name || c.courseName) === name);
+        return found?.code || found?.courseCode || "";
+      })
+      .filter(Boolean);
+
+    onSelectCourses(updated, Array.from(new Set(codes)).join(", "));
+  };
+
+  const handleSelectAllFiltered = () => {
+    const filteredNames = filteredCourses.map((c) => c.name || c.courseName).filter(Boolean);
+    const combinedNames = Array.from(new Set([...selectedCourses, ...filteredNames]));
+    const codes = combinedNames
+      .map((name) => {
+        const found = courses.find((c) => (c.name || c.courseName) === name);
+        return found?.code || found?.courseCode || "";
+      })
+      .filter(Boolean);
+
+    onSelectCourses(combinedNames, Array.from(new Set(codes)).join(", "));
+  };
+
+  const handleClearAll = () => {
+    onSelectCourses([], "");
+  };
+
+  const renderTriggerText = () => {
+    if (selectedCourses.length === 0) {
+      return <span className="text-slate-400 font-normal">-- Select Courses --</span>;
+    }
+    if (selectedCourses.length === 1) {
+      const singleName = selectedCourses[0];
+      const singleObj = courses.find((c) => (c.name || c.courseName) === singleName);
+      return (
+        <span className="text-slate-900 font-bold truncate">
+          {singleName}{" "}
+          {singleObj?.code && (
+            <span className="text-[10px] font-extrabold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 ml-1">
+              [{singleObj.code}]
+            </span>
+          )}
+        </span>
+      );
+    }
+    return (
+      <div className="flex items-center gap-1.5 flex-wrap truncate">
+        <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
+          {selectedCourses.length} Courses Selected
+        </span>
+        <span className="text-xs font-semibold text-slate-700 truncate max-w-[200px]">
+          {selectedCourses.join(", ")}
+        </span>
+      </div>
+    );
+  };
 
   return (
     <div className="relative w-full" ref={containerRef}>
       <div
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus-within:bg-white focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 font-semibold cursor-pointer transition-all flex items-center justify-between gap-2"
+        className="w-full min-h-[42px] px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus-within:bg-white focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 font-semibold cursor-pointer transition-all flex items-center justify-between gap-2"
       >
-        <span className={selectedCourse ? "text-slate-900 font-bold truncate" : "text-slate-400 font-normal"}>
-          {selectedCourse ? (
-            <>
-              {selectedCourse}{" "}
-              {selectedObj?.code && (
-                <span className="text-[10px] font-extrabold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 ml-1">
-                  [{selectedObj.code}]
-                </span>
-              )}
-            </>
-          ) : (
-            "-- Search & Select Course --"
-          )}
-        </span>
+        <div className="flex items-center gap-2 overflow-hidden">
+          {renderTriggerText()}
+        </div>
         <svg
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
           viewBox="0 0 24 24"
           strokeWidth={2}
           stroke="currentColor"
-          className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
+          className={`w-4 h-4 text-slate-400 transition-transform shrink-0 ${isOpen ? "rotate-180" : ""}`}
         >
           <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
         </svg>
@@ -92,7 +145,7 @@ function CourseSearchSelect({
 
       {isOpen && (
         <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden animate-fade-in font-sans">
-          <div className="p-2 border-b border-slate-100 bg-slate-50/80">
+          <div className="p-2 border-b border-slate-100 bg-slate-50/80 space-y-2">
             <div className="relative">
               <input
                 ref={searchInputRef}
@@ -113,6 +166,27 @@ function CourseSearchSelect({
                 </button>
               )}
             </div>
+
+            <div className="flex items-center justify-between text-[11px] px-1 font-bold text-slate-600">
+              <span>{selectedCourses.length} selected</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleSelectAllFiltered}
+                  className="text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
+                >
+                  Select All
+                </button>
+                <span>•</span>
+                <button
+                  type="button"
+                  onClick={handleClearAll}
+                  className="text-rose-600 hover:text-rose-800 hover:underline cursor-pointer"
+                >
+                  Clear All
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className="max-h-56 overflow-y-auto p-1 divide-y divide-slate-50 text-xs">
@@ -120,31 +194,33 @@ function CourseSearchSelect({
               filteredCourses.map((c, idx) => {
                 const cName = c.name || c.courseName || `Course #${idx + 1}`;
                 const cCode = c.code || c.courseCode || "";
-                const isSelected = selectedCourse === cName;
+                const isSelected = selectedCourses.includes(cName);
 
                 return (
                   <div
                     key={c._id || idx}
-                    onClick={() => {
-                      onSelectCourse(cName, cCode);
-                      setIsOpen(false);
-                      setSearchQuery("");
-                    }}
-                    className={`px-3 py-2 rounded-xl cursor-pointer transition-colors flex items-center justify-between ${
+                    onClick={() => toggleCourse(cName)}
+                    className={`px-3 py-2 rounded-xl cursor-pointer transition-colors flex items-center justify-between select-none ${
                       isSelected
-                        ? "bg-indigo-50 text-indigo-900 font-bold"
+                        ? "bg-indigo-50/80 text-indigo-900 font-bold"
                         : "hover:bg-slate-50 text-slate-700 font-medium"
                     }`}
                   >
-                    <div className="flex items-center gap-2 truncate pr-2">
-                      <span>{cName}</span>
+                    <div className="flex items-center gap-2.5 truncate pr-2">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => {}} // handled by row click
+                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer shrink-0"
+                      />
+                      <span className="truncate">{cName}</span>
                       {cCode && (
-                        <span className="text-[10px] font-mono font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                        <span className="text-[10px] font-mono font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 shrink-0">
                           {cCode}
                         </span>
                       )}
                     </div>
-                    {isSelected && <span className="text-indigo-600 font-bold text-xs">✓</span>}
+                    {isSelected && <span className="text-indigo-600 font-bold text-xs shrink-0">✓</span>}
                   </div>
                 );
               })
@@ -168,7 +244,7 @@ export default function AddBatchModal({
 }: AddBatchModalProps) {
   const { user } = useUser();
   const [batchName, setBatchName] = useState("");
-  const [course, setCourse] = useState("");
+  const [selectedCourses, setSelectedCourses] = useState<string[]>([]);
   const [courseCode, setCourseCode] = useState("");
   const [teacherId, setTeacherId] = useState("");
   const [brand, setBrand] = useState("");
@@ -188,12 +264,6 @@ export default function AddBatchModal({
 
   const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-  const handleCourseChange = (selectedName: string) => {
-    setCourse(selectedName);
-    const matched = coursesList.find((c) => (c.name || c.courseName) === selectedName);
-    setCourseCode(matched?.code || matched?.courseCode || "");
-  };
-
   // Fetch available courses, teachers, and brands
   useEffect(() => {
     if (!isOpen) return;
@@ -210,11 +280,13 @@ export default function AddBatchModal({
         if (coursesRes.success || coursesRes.courses) {
           const cList = coursesRes.data || coursesRes.courses || [];
           setCoursesList(cList);
-          if (cList.length > 0 && !course) {
+          if (cList.length > 0 && selectedCourses.length === 0) {
             const initialCourse = cList[0];
             const initialName = initialCourse.name || initialCourse.courseName || "";
-            setCourse(initialName);
-            setCourseCode(initialCourse.code || initialCourse.courseCode || "");
+            if (initialName) {
+              setSelectedCourses([initialName]);
+              setCourseCode(initialCourse.code || initialCourse.courseCode || "");
+            }
           }
         }
 
@@ -249,7 +321,7 @@ export default function AddBatchModal({
     fetchOptions();
   }, [isOpen, initialBrandScope, user]);
 
-  const filteredTeachersList = React.useMemo(() => {
+  const filteredTeachersList = useMemo(() => {
     const activeBrand = (brand || user?.brandScope || initialBrandScope || "").trim().toLowerCase();
     if (!activeBrand || activeBrand === "all brands" || activeBrand === "all" || activeBrand === "*") {
       return teachersList;
@@ -285,8 +357,8 @@ export default function AddBatchModal({
       setErrorMsg("Batch name is required.");
       return;
     }
-    if (!course) {
-      setErrorMsg("Please select a course.");
+    if (selectedCourses.length === 0) {
+      setErrorMsg("Please select at least one course.");
       return;
     }
     if (!teacherId) {
@@ -310,7 +382,8 @@ export default function AddBatchModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           batchName: batchName.trim(),
-          course,
+          course: selectedCourses.join(", "),
+          courses: selectedCourses,
           courseCode: courseCode.trim() || undefined,
           teacherId,
           teacherName,
@@ -333,6 +406,7 @@ export default function AddBatchModal({
         onClose();
         // Reset form
         setBatchName("");
+        setSelectedCourses([]);
         setCourseCode("");
         setEndDate("");
         setNotes("");
@@ -394,7 +468,7 @@ export default function AddBatchModal({
             </div>
           )}
 
-          {/* Batch Name, Course & Course Code Row */}
+          {/* Batch Name, Courses & Course Code Row */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
@@ -412,21 +486,21 @@ export default function AddBatchModal({
 
             <div>
               <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                Course / Specialization <span className="text-rose-500">*</span>
+                Courses / Specializations <span className="text-rose-500">*</span>
               </label>
               <CourseSearchSelect
                 courses={coursesList}
-                selectedCourse={course}
-                onSelectCourse={(cName, cCode) => {
-                  setCourse(cName);
-                  setCourseCode(cCode);
+                selectedCourses={selectedCourses}
+                onSelectCourses={(selectedNames, combinedCodes) => {
+                  setSelectedCourses(selectedNames);
+                  setCourseCode(combinedCodes);
                 }}
               />
             </div>
 
             <div>
               <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center justify-between">
-                <span>Course Code</span>
+                <span>Course Code(s)</span>
                 {courseCode && <span className="text-[10px] text-emerald-600 font-extrabold">✓ Auto-Fetched</span>}
               </label>
               <input
@@ -449,31 +523,36 @@ export default function AddBatchModal({
                 required
                 value={teacherId}
                 onChange={(e) => setTeacherId(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-bold text-indigo-700 cursor-pointer transition-all"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-semibold cursor-pointer transition-all"
               >
-                <option value="" disabled>Select Faculty</option>
-                {filteredTeachersList.map((t) => (
-                  <option key={t._id} value={t._id}>
-                    {t.name} ({t.brandScope || "Faculty"})
+                {filteredTeachersList.length > 0 ? (
+                  filteredTeachersList.map((t: any) => (
+                    <option key={t._id} value={t._id}>
+                      {t.name} {t.designation ? `(${t.designation})` : ""} {t.brandScope ? `[${t.brandScope}]` : ""}
+                    </option>
+                  ))
+                ) : (
+                  <option value="" disabled>
+                    -- No Teachers Available for {brand || "Selected Brand"} --
                   </option>
-                ))}
+                )}
               </select>
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                Brand Scope <span className="text-rose-500">*</span>
+              <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center justify-between">
+                <span>Brand Scope</span>
+                {isBrandLocked && <span className="text-[10px] text-amber-600 font-bold">🔒 Locked by Role</span>}
               </label>
               <select
-                required
-                disabled={isBrandLocked && !!user?.brandScope}
-                value={brand || user?.brandScope || "CADD Mantra"}
+                disabled={isBrandLocked}
+                value={brand}
                 onChange={(e) => setBrand(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-semibold cursor-pointer disabled:opacity-75 transition-all"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-semibold cursor-pointer transition-all disabled:opacity-75 disabled:cursor-not-allowed"
               >
                 {brandsList.length > 0 ? (
-                  brandsList.map((b) => (
-                    <option key={b} value={b}>
+                  brandsList.map((b, idx) => (
+                    <option key={idx} value={b}>
                       {b}
                     </option>
                   ))
@@ -486,8 +565,8 @@ export default function AddBatchModal({
             </div>
           </div>
 
-          {/* Schedule & Timing Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* Schedule Row */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
                 Start Date <span className="text-rose-500">*</span>
@@ -497,18 +576,6 @@ export default function AddBatchModal({
                 required
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-semibold transition-all"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                End Date (Optional)
-              </label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
                 className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-semibold transition-all"
               />
             </div>
@@ -528,9 +595,9 @@ export default function AddBatchModal({
             </div>
           </div>
 
-          {/* Days Selection */}
+          {/* Class Days Row */}
           <div>
-            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
               Class Days
             </label>
             <div className="flex flex-wrap gap-2">
@@ -541,7 +608,7 @@ export default function AddBatchModal({
                     key={day}
                     type="button"
                     onClick={() => handleDayToggle(day)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
                       isSelected
                         ? "bg-indigo-600 text-white shadow-xs"
                         : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -554,7 +621,7 @@ export default function AddBatchModal({
             </div>
           </div>
 
-          {/* Capacity & Notes Row */}
+          {/* Max Capacity & Notes Row */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
@@ -572,7 +639,7 @@ export default function AddBatchModal({
 
             <div className="sm:col-span-2">
               <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                Notes / Syllabus Remarks
+                Batch Notes / Instructions
               </label>
               <input
                 type="text"
@@ -584,24 +651,23 @@ export default function AddBatchModal({
             </div>
           </div>
 
-          {/* Footer Actions */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+          {/* Action Buttons */}
+          <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 font-bold transition-all"
+              className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting || isLoadingOptions}
-              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md shadow-indigo-600/20 transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-xl shadow-md shadow-indigo-600/20 transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer"
             >
               {isSubmitting ? (
                 <>
-                  <span className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                  Creating Batch...
+                  <span className="animate-spin text-sm">⏳</span> Creating...
                 </>
               ) : (
                 "Create Faculty Batch"

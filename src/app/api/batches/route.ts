@@ -32,7 +32,8 @@ export async function GET(request: Request) {
       query.status = status;
     }
     if (course) {
-      query.course = { $regex: new RegExp(course.trim(), "i") };
+      const cRegex = new RegExp(course.trim(), "i");
+      query.$or = [{ course: { $regex: cRegex } }, { courses: { $regex: cRegex } }];
     }
 
     const batches = await Batch.find(query).sort({ createdAt: -1 }).lean();
@@ -60,6 +61,7 @@ export async function POST(request: Request) {
     const {
       batchName,
       course,
+      courses,
       courseCode,
       teacherId,
       teacherName,
@@ -74,11 +76,17 @@ export async function POST(request: Request) {
       creatorRole,
     } = body;
 
-    if (!batchName || !course || !teacherId || !brand || !startDate || !timing) {
+    const coursesArr: string[] = Array.isArray(courses) && courses.length > 0
+      ? courses.map((c: any) => String(c).trim()).filter(Boolean)
+      : (course ? [String(course).trim()] : []);
+
+    const courseStr = course ? String(course).trim() : coursesArr.join(", ");
+
+    if (!batchName || (coursesArr.length === 0 && !courseStr) || !teacherId || !brand || !startDate || !timing) {
       return NextResponse.json(
         {
           success: false,
-          error: "Batch Name, Course, Faculty, Brand, Start Date, and Timing are required.",
+          error: "Batch Name, Course(s), Faculty, Brand, Start Date, and Timing are required.",
         },
         { status: 400 }
       );
@@ -95,7 +103,8 @@ export async function POST(request: Request) {
 
     const newBatch = await Batch.create({
       batchName,
-      course,
+      course: courseStr,
+      courses: coursesArr,
       courseCode: courseCode?.trim() || undefined,
       teacherId,
       teacherName: assignedFacultyName || "Unassigned Faculty",
