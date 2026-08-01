@@ -473,6 +473,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
   };
 
   const handleGenerateAdmission = async (generateReceipt = false) => {
+    if (isSubmitting) return;
     setIsSubmitting(true);
     try {
       const defaultPlan = generateDefaultEmiItems(numInstallments > 0 ? numInstallments : 1, remainingBalance).map((item, idx) => ({

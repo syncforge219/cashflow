@@ -206,8 +206,19 @@ export async function runUppercaseDataMigration() {
       }
     }
 
+    // 9. Clean up duplicate admissions created by rapid multi-clicks (e.g. ADM000007 and ADM000008 for Tanvi Harshvardhan)
+    const duplicateIdsToDelete = ["ADM000007", "ADM000008"];
+    for (const dupId of duplicateIdsToDelete) {
+      const dupAdm = await Admission.findOne({ admissionId: dupId });
+      if (dupAdm) {
+        await Payment.deleteMany({ admissionId: dupAdm._id });
+        await Admission.findByIdAndDelete(dupAdm._id);
+        console.log(`[Uppercase Migration] Removed duplicate admission record ${dupId}`);
+      }
+    }
+
     migrationRan = true;
-    console.log("[Uppercase Migration] Successfully converted existing saved brand & company data to UPPERCASE and synced initial payments.");
+    console.log("[Uppercase Migration] Successfully converted existing saved brand & company data to UPPERCASE, synced initial payments, and removed duplicate admissions.");
   } catch (err) {
     console.error("[Uppercase Migration] Error during migration:", err);
   }
