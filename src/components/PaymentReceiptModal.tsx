@@ -396,12 +396,47 @@ export default function PaymentReceiptModal({
     }
   };
 
+  const [isDownloadingPdf, setIsDownloadingPdf] = React.useState(false);
+
   const handlePrint = () => {
     triggerCleanPrint();
   };
 
-  const handleDownloadPDF = () => {
-    triggerCleanPrint();
+  const handleDownloadPDF = async () => {
+    const element = document.getElementById("printable-receipt-content");
+    if (!element) {
+      triggerCleanPrint();
+      return;
+    }
+
+    setIsDownloadingPdf(true);
+    try {
+      if (!(window as any).html2pdf) {
+        await new Promise<void>((resolve, reject) => {
+          const script = document.createElement("script");
+          script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
+          script.onload = () => resolve();
+          script.onerror = () => reject(new Error("Failed to load html2pdf script"));
+          document.body.appendChild(script);
+        });
+      }
+
+      const filename = `Receipt_${student?.admissionId || "STD"}_${receiptNo}.pdf`;
+      const opt = {
+        margin: [6, 6, 6, 6],
+        filename: filename,
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+      };
+
+      await (window as any).html2pdf().set(opt).from(element).save();
+    } catch (err) {
+      console.error("Direct PDF Download Error:", err);
+      triggerCleanPrint();
+    } finally {
+      setIsDownloadingPdf(false);
+    }
   };
 
   return (
@@ -742,7 +777,8 @@ export default function PaymentReceiptModal({
           </button>
           <button
             onClick={handleDownloadPDF}
-            className="px-4 py-2 bg-slate-800 text-white hover:bg-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
+            disabled={isDownloadingPdf}
+            className="px-4 py-2 bg-slate-800 text-white hover:bg-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -758,7 +794,7 @@ export default function PaymentReceiptModal({
                 d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
               />
             </svg>
-            Download PDF
+            {isDownloadingPdf ? "Downloading PDF..." : "Download PDF"}
           </button>
           <button
             onClick={handlePrint}
