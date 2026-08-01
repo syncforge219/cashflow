@@ -5,6 +5,7 @@ import Sidebar from "@/components/Sidebar";
 import ManagerSidebar from "@/components/ManagerSidebar";
 import CounsellorSidebar from "@/components/CounsellorSidebar";
 import TeacherSidebar from "@/components/TeacherSidebar";
+import CrmSidebar from "@/components/CrmSidebar";
 import AddFollowupModal from "@/components/AddFollowupModal";
 import Student360Modal from "@/components/Student360Modal";
 import PaymentReceiptModal from "@/components/PaymentReceiptModal";
@@ -101,12 +102,34 @@ export default function PendingCollectionPage() {
     fetchPendingData();
   }, [user, selectedBrand, selectedCourse, selectedBatch, selectedCounsellor, selectedCompany, activeBucket]);
 
-  const userRole = (user?.role || "").toLowerCase();
-  const isTeacher = userRole === "teacher" || userRole === "faculty";
-  const isCounsellor = userRole === "crm" || userRole === "counsellor" || userRole === "counselor";
+  const userRole = (user?.role || (user as any)?.crmRole || (user as any)?.designation || "").toLowerCase().trim();
+
+  const isSuperOrAdmin =
+    userRole === "admin" ||
+    userRole === "super admin" ||
+    userRole === "super_admin" ||
+    userRole === "director" ||
+    (userRole.includes("admin") && !userRole.includes("centre") && !userRole.includes("center")) ||
+    userRole.includes("director");
+
+  const isCounsellor =
+    userRole.includes("counsellor") ||
+    userRole.includes("counselor") ||
+    userRole.includes("sales executive");
+
+  const isTeacher =
+    userRole.includes("teacher") ||
+    userRole.includes("faculty");
+
+  const isManager =
+    userRole.includes("manager") ||
+    userRole.includes("centre") ||
+    userRole.includes("center") ||
+    userRole.includes("branch") ||
+    userRole.includes("head");
 
   const renderSidebar = () => {
-    if (userRole === "admin" || userRole === "super admin" || userRole === "super_admin") {
+    if (isSuperOrAdmin) {
       return <Sidebar />;
     }
     if (isCounsellor) {
@@ -114,6 +137,12 @@ export default function PendingCollectionPage() {
     }
     if (isTeacher) {
       return <TeacherSidebar />;
+    }
+    if (isManager) {
+      return <ManagerSidebar />;
+    }
+    if (userRole.includes("crm")) {
+      return <CrmSidebar />;
     }
     return <ManagerSidebar />;
   };
@@ -243,7 +272,7 @@ export default function PendingCollectionPage() {
       {renderSidebar()}
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto p-6 md:p-8 space-y-6">
+      <div className="flex-1 h-screen overflow-y-auto min-w-0 p-6 md:p-8 pb-32 space-y-6">
         
         {/* Top Header */}
         <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
