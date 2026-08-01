@@ -114,12 +114,20 @@ export async function GET(req: Request) {
 
     // Total collections from Payment model
     const paymentQuery: any = {};
-    if (filterByBrand) {
-      const brandAdmissionQuery: any = { brand: { $regex: new RegExp(`^${selectedBrand!.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } };
-      const brandAdmissions = await Admission.find(brandAdmissionQuery).select("_id").lean();
+    const effectiveBrands = filterByBrand ? [selectedBrand!] : allowedBrands;
+
+    if (effectiveBrands && effectiveBrands.length > 0) {
+      const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regexArray = effectiveBrands.map((b) => new RegExp(`^${escapeRegExp(b.trim())}$`, "i"));
+      const brandAdmissions = await Admission.find({ brand: { $in: regexArray } }).select("_id").lean();
       const brandAdmissionIds = brandAdmissions.map((a: any) => a._id);
-      paymentQuery.admissionId = { $in: brandAdmissionIds };
+
+      paymentQuery.$or = [
+        { brand: { $in: regexArray } },
+        { admissionId: { $in: brandAdmissionIds } }
+      ];
     }
+
     if (isFiltered) {
       paymentQuery.createdAt = dateRangeFilter;
     }

@@ -16,6 +16,10 @@ export async function GET(req: Request) {
     const user = await getUserFromCookies();
     const { searchParams } = new URL(req.url);
     const admissionId = searchParams.get("admissionId");
+    const brandParam = searchParams.get("brand");
+    const startDateParam = searchParams.get("startDate");
+    const endDateParam = searchParams.get("endDate");
+    const filterParam = searchParams.get("filter");
 
     const userBrand = (user?.brandScope || (user as any)?.brand || "").trim();
     const isBrandRestricted = userBrand && userBrand !== "All Brands" && userBrand !== "All" && userBrand !== "*" && userBrand !== "global";
@@ -24,11 +28,49 @@ export async function GET(req: Request) {
     if (admissionId) {
       query.admissionId = admissionId;
     }
-    if (isBrandRestricted) {
-      query.brand = { $regex: new RegExp(`^${userBrand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") };
+
+    const targetBrand = brandParam && brandParam !== "All Brands" && brandParam !== "all" ? brandParam : isBrandRestricted ? userBrand : null;
+
+    if (targetBrand) {
+      const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const targetBrandsArr = targetBrand.split(",").map((b: string) => b.trim()).filter(Boolean);
+      const regexArray = targetBrandsArr.map((b: string) => new RegExp(`^${escapeRegExp(b)}$`, "i"));
+
+      const brandAdmissions = await Admission.find({ brand: { $in: regexArray } }).select("_id").lean();
+      const brandAdmissionIds = brandAdmissions.map((a: any) => a._id);
+
+      query.$or = [
+        { brand: { $in: regexArray } },
+        { admissionId: { $in: brandAdmissionIds } }
+      ];
     }
 
-    const payments = await Payment.find(query).sort({ createdAt: -1 });
+    if (startDateParam && endDateParam) {
+      const s = new Date(startDateParam);
+      s.setHours(0, 0, 0, 0);
+      const e = new Date(endDateParam);
+      e.setHours(23, 59, 59, 999);
+      query.createdAt = { $gte: s, $lte: e };
+    } else if (filterParam === "today") {
+      const s = new Date();
+      s.setHours(0, 0, 0, 0);
+      const e = new Date();
+      e.setHours(23, 59, 59, 999);
+      query.createdAt = { $gte: s, $lte: e };
+    } else if (filterParam === "thisMonth") {
+      const now = new Date();
+      const s = new Date(now.getFullYear(), now.getMonth(), 1);
+      s.setHours(0, 0, 0, 0);
+      const e = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      e.setHours(23, 59, 59, 999);
+      query.createdAt = { $gte: s, $lte: e };
+    }
+
+    const payments = await Payment.find(query)
+      .populate("admissionId", "fullName admissionId brand course batch counsellor mobileNumber remainingBalance finalFee")
+      .sort({ createdAt: -1 })
+      .lean();
+
     return NextResponse.json({ success: true, data: payments });
   } catch (error: any) {
     console.error("Error fetching payments:", error);
