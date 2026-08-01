@@ -115,8 +115,10 @@ export async function GET(req: Request) {
     // Total collections from Payment model
     const paymentQuery: any = {};
     if (filterByBrand) {
-      const admissionIds = admissionsList.map((a: any) => a._id);
-      paymentQuery.admissionId = { $in: admissionIds };
+      const brandAdmissionQuery: any = { brand: { $regex: new RegExp(`^${selectedBrand!.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } };
+      const brandAdmissions = await Admission.find(brandAdmissionQuery).select("_id").lean();
+      const brandAdmissionIds = brandAdmissions.map((a: any) => a._id);
+      paymentQuery.admissionId = { $in: brandAdmissionIds };
     }
     if (isFiltered) {
       paymentQuery.createdAt = dateRangeFilter;

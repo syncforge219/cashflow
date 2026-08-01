@@ -8,6 +8,7 @@ import ProfileDisplay from "@/components/ProfileDisplay";
 import CommandPalette from "@/components/CommandPalette";
 import AddBatchModal from "@/components/AddBatchModal";
 import AdmissionBreakdownModal from "@/components/AdmissionBreakdownModal";
+import PaymentBreakdownModal from "@/components/PaymentBreakdownModal";
 
 import DashboardFilter from "@/components/DashboardFilter";
 
@@ -88,6 +89,7 @@ export default function ManagerDashboard() {
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const [isAdmissionBreakdownOpen, setIsAdmissionBreakdownOpen] = useState(false);
+  const [isPaymentBreakdownOpen, setIsPaymentBreakdownOpen] = useState(false);
 
   useEffect(() => {
     if (user?.role === "counsellor") {
@@ -380,17 +382,27 @@ export default function ManagerDashboard() {
               <p className="text-[10px] font-bold text-emerald-600">{filterLabel === "Overall" ? "Booked Course Fees" : filterLabel}</p>
             </div>
 
-            <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+            <div
+              onClick={() => setIsPaymentBreakdownOpen(true)}
+              className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm cursor-pointer hover:border-blue-300 hover:shadow-md transition-all ring-2 ring-blue-500/10"
+            >
               <div className="flex justify-between items-start mb-2">
                 <div>
-                  <h3 className="text-xs font-bold text-slate-500 mb-1">{filterLabel === "Today" || filterLabel === "Overall" ? "Collection" : "Period Collection"}</h3>
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="text-xs font-bold text-slate-500">
+                      {filterLabel === "Today" || filterLabel === "Overall" ? "Collection" : "Period Collection"}
+                    </h3>
+                    <span className="text-[8px] font-black text-blue-600 bg-blue-50 px-1 py-0.5 rounded uppercase">
+                      Details
+                    </span>
+                  </div>
                   <p className="text-xl font-extrabold text-slate-800">{loading ? "..." : (stats?.kpis?.collection ?? "₹0 L")}</p>
                 </div>
                 <div className="h-8 w-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" /></svg>
                 </div>
               </div>
-              <p className="text-[10px] font-bold text-blue-600">{filterLabel === "Overall" ? "Payments Received" : filterLabel}</p>
+              <p className="text-[10px] font-bold text-blue-600">{filterLabel === "Overall" ? "Payments Received" : filterLabel} • Click for Details</p>
             </div>
 
             <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
@@ -682,6 +694,14 @@ export default function ManagerDashboard() {
         onClose={() => setIsAdmissionBreakdownOpen(false)}
         brandScope={selectedBrand}
         filterLabel={selectedBrand !== "all" ? selectedBrand : "Overall Scope"}
+      />
+      <PaymentBreakdownModal
+        isOpen={isPaymentBreakdownOpen}
+        onClose={() => setIsPaymentBreakdownOpen(false)}
+        filterLabel={filterLabel}
+        startDate={startDate}
+        endDate={endDate}
+        brandScope={selectedBrand !== "all" ? selectedBrand : user?.brandScope}
       />
     </div>
   );

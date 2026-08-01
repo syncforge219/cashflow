@@ -11,6 +11,7 @@ import DeleteConfirmModal from "@/components/DeleteConfirmModal";
 import StudentSearchCenter from "@/components/StudentSearchCenter";
 import AddBatchModal from "@/components/AddBatchModal";
 import AdmissionBreakdownModal from "@/components/AdmissionBreakdownModal";
+import PaymentBreakdownModal from "@/components/PaymentBreakdownModal";
 
 export default function AdminDashboard() {
   const { user, logout } = useUser();
@@ -19,6 +20,7 @@ export default function AdminDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const [isAdmissionBreakdownOpen, setIsAdmissionBreakdownOpen] = useState(false);
+  const [isPaymentBreakdownOpen, setIsPaymentBreakdownOpen] = useState(false);
 
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -624,16 +626,19 @@ export default function AdminDashboard() {
             ) : (
               metrics.map((card, i) => {
                 const isAdmCard = card.name.toLowerCase().includes("admission");
+                const isPaymentCard = card.name.toLowerCase().includes("collection") || card.name.toLowerCase().includes("payment");
                 return (
                   <div
                     key={i}
                     onClick={() => {
                       if (isAdmCard) {
                         setIsAdmissionBreakdownOpen(true);
+                      } else if (isPaymentCard) {
+                        setIsPaymentBreakdownOpen(true);
                       }
                     }}
                     className={`bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs flex flex-col justify-between transition-all duration-300 hover:shadow-lg hover:-translate-y-1 group ${card.borderAccent || ""} ${card.hoverGradient || ""} ${
-                      isAdmCard
+                      isAdmCard || isPaymentCard
                         ? "cursor-pointer ring-2 ring-indigo-500/10 hover:border-indigo-400"
                         : ""
                     }`}
@@ -642,7 +647,7 @@ export default function AdminDashboard() {
                       <span className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider select-none leading-snug group-hover:text-slate-700 transition-colors">
                         {card.name}
                       </span>
-                      {isAdmCard && (
+                      {(isAdmCard || isPaymentCard) && (
                         <span className="text-[9px] font-black text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded uppercase">
                           Click for Details
                         </span>
@@ -1259,6 +1264,20 @@ export default function AdminDashboard() {
           setIsBatchModalOpen(false);
           window.location.reload();
         }}
+      />
+      <AdmissionBreakdownModal
+        isOpen={isAdmissionBreakdownOpen}
+        onClose={() => setIsAdmissionBreakdownOpen(false)}
+        filterLabel={filterLabel}
+        startDate={startDate}
+        endDate={endDate}
+      />
+      <PaymentBreakdownModal
+        isOpen={isPaymentBreakdownOpen}
+        onClose={() => setIsPaymentBreakdownOpen(false)}
+        filterLabel={filterLabel}
+        startDate={startDate}
+        endDate={endDate}
       />
     </div>
   );
