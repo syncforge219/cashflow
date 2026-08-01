@@ -9,6 +9,8 @@ import CommandPalette from "@/components/CommandPalette";
 import AddBatchModal from "@/components/AddBatchModal";
 import AdmissionBreakdownModal from "@/components/AdmissionBreakdownModal";
 
+import DashboardFilter from "@/components/DashboardFilter";
+
 interface DashboardStats {
   selectedBrand: string;
   availableBrands: string[];
@@ -60,6 +62,26 @@ export default function ManagerDashboard() {
   const { user, logout } = useUser();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+
+  const formatDateStr = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
+
+  const defaultStart = formatDateStr(new Date(currentYear, currentMonth, 1));
+  const defaultEnd = formatDateStr(new Date(currentYear, currentMonth + 1, 0));
+  const defaultLabel = `${MONTHS[currentMonth]} ${currentYear}`;
+
+  const [startDate, setStartDate] = useState<string | null>(defaultStart);
+  const [endDate, setEndDate] = useState<string | null>(defaultEnd);
+  const [filterLabel, setFilterLabel] = useState<string>(defaultLabel);
+
   const [selectedBrand, setSelectedBrand] = useState<string>("all");
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -76,11 +98,20 @@ export default function ManagerDashboard() {
   }, [user, router]);
 
   // Fetch Dashboard Stats from Backend API
-  const fetchStats = async (brandParam?: string) => {
+  const fetchStats = async (brandParam?: string, startP?: string | null, endP?: string | null) => {
     try {
       setLoading(true);
       const b = brandParam !== undefined ? brandParam : selectedBrand;
-      const url = b && b !== "all" ? `/api/manager-dashboard/stats?brand=${encodeURIComponent(b)}` : "/api/manager-dashboard/stats";
+      const s = startP !== undefined ? startP : startDate;
+      const e = endP !== undefined ? endP : endDate;
+
+      let url = "/api/manager-dashboard/stats?";
+      const params = new URLSearchParams();
+      if (b && b !== "all") params.append("brand", b);
+      if (s) params.append("startDate", s);
+      if (e) params.append("endDate", e);
+
+      url += params.toString();
       const res = await fetch(url);
       const data = await res.json();
       if (data.success) {
@@ -94,8 +125,8 @@ export default function ManagerDashboard() {
   };
 
   useEffect(() => {
-    fetchStats(selectedBrand);
-  }, [selectedBrand]);
+    fetchStats(selectedBrand, startDate, endDate);
+  }, [selectedBrand, startDate, endDate]);
 
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -243,6 +274,36 @@ export default function ManagerDashboard() {
         {/* Dashboard Content */}
         <main className="p-8 pb-32 space-y-6">
 
+          {/* Dashboard Filter & Brand Controls */}
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+            <DashboardFilter
+              currentLabel={filterLabel}
+              onFilterChange={(start, end, label) => {
+                setStartDate(start);
+                setEndDate(end);
+                setFilterLabel(label);
+              }}
+            />
+
+            {stats?.availableBrands && stats.availableBrands.length > 1 && (
+              <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200/80 shadow-xs shrink-0">
+                <span className="text-xs font-bold text-slate-500">Brand Filter:</span>
+                <select
+                  value={selectedBrand}
+                  onChange={(e) => setSelectedBrand(e.target.value)}
+                  className="text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                >
+                  <option value="all">All Brands ({stats.availableBrands.length})</option>
+                  {stats.availableBrands.map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
           {/* KPI Row */}
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
 
@@ -256,33 +317,33 @@ export default function ManagerDashboard() {
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>
                 </div>
               </div>
-              <p className="text-[10px] font-bold text-emerald-600">Active Pipeline</p>
+              <p className="text-[10px] font-bold text-indigo-600">{filterLabel === "Overall" ? "Active Pipeline" : `Filtered: ${filterLabel}`}</p>
             </div>
 
             <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
               <div className="flex justify-between items-start mb-2">
                 <div>
-                  <h3 className="text-xs font-bold text-slate-500 mb-1">New Leads</h3>
+                  <h3 className="text-xs font-bold text-slate-500 mb-1">{filterLabel === "Today" ? "New Leads Today" : "New Leads"}</h3>
                   <p className="text-xl font-extrabold text-slate-800">{loading ? "..." : (stats?.kpis?.newLeads ?? 0)}</p>
                 </div>
                 <div className="h-8 w-8 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z" /></svg>
                 </div>
               </div>
-              <p className="text-[10px] font-bold text-emerald-600">Fresh Prospects</p>
+              <p className="text-[10px] font-bold text-emerald-600">{filterLabel === "Overall" ? "Fresh Prospects" : filterLabel}</p>
             </div>
 
             <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
               <div className="flex justify-between items-start mb-2">
                 <div>
-                  <h3 className="text-xs font-bold text-slate-500 mb-1">Follow-ups Today</h3>
+                  <h3 className="text-xs font-bold text-slate-500 mb-1">{filterLabel === "Today" ? "Follow-ups Today" : "Follow-ups"}</h3>
                   <p className="text-xl font-extrabold text-slate-800">{loading ? "..." : (stats?.kpis?.followUpsToday ?? 0)}</p>
                 </div>
                 <div className="h-8 w-8 bg-amber-50 text-amber-500 rounded-lg flex items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>
                 </div>
               </div>
-              <p className="text-[10px] font-bold text-amber-600">Scheduled</p>
+              <p className="text-[10px] font-bold text-amber-600">{filterLabel === "Today" ? "Scheduled" : filterLabel}</p>
             </div>
 
             <div
@@ -292,7 +353,7 @@ export default function ManagerDashboard() {
               <div className="flex justify-between items-start mb-2">
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <h3 className="text-xs font-bold text-slate-500">Admissions</h3>
+                    <h3 className="text-xs font-bold text-slate-500">{filterLabel === "Today" ? "Today's Admissions" : "Admissions"}</h3>
                     <span className="text-[8px] font-black text-purple-600 bg-purple-50 px-1 py-0.5 rounded uppercase">
                       Details
                     </span>
@@ -303,40 +364,40 @@ export default function ManagerDashboard() {
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342M6.75 15a.75.75 0 100-1.5.75.75 0 000 1.5zm0 0v-3.675A55.378 55.378 0 0112 8.443m-7.007 11.55A5.981 5.981 0 006.75 15.75v-1.5" /></svg>
                 </div>
               </div>
-              <p className="text-[10px] font-bold text-purple-600">Total Enrolled • Click for Breakdown</p>
+              <p className="text-[10px] font-bold text-purple-600">{filterLabel === "Overall" ? "Total Enrolled" : filterLabel} • Click for Details</p>
             </div>
 
             <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
               <div className="flex justify-between items-start mb-2">
                 <div>
                   <h3 className="text-xs font-bold text-slate-500 mb-1">Revenue</h3>
-                  <p className="text-xl font-extrabold text-slate-800">{loading ? "..." : (stats?.kpis?.revenue ?? "â‚¹0 L")}</p>
+                  <p className="text-xl font-extrabold text-slate-800">{loading ? "..." : (stats?.kpis?.revenue ?? "₹0 L")}</p>
                 </div>
                 <div className="h-8 w-8 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" /></svg>
                 </div>
               </div>
-              <p className="text-[10px] font-bold text-emerald-600">Booked Course Fees</p>
+              <p className="text-[10px] font-bold text-emerald-600">{filterLabel === "Overall" ? "Booked Course Fees" : filterLabel}</p>
             </div>
 
             <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
               <div className="flex justify-between items-start mb-2">
                 <div>
-                  <h3 className="text-xs font-bold text-slate-500 mb-1">Collection</h3>
-                  <p className="text-xl font-extrabold text-slate-800">{loading ? "..." : (stats?.kpis?.collection ?? "â‚¹0 L")}</p>
+                  <h3 className="text-xs font-bold text-slate-500 mb-1">{filterLabel === "Today" || filterLabel === "Overall" ? "Collection" : "Period Collection"}</h3>
+                  <p className="text-xl font-extrabold text-slate-800">{loading ? "..." : (stats?.kpis?.collection ?? "₹0 L")}</p>
                 </div>
                 <div className="h-8 w-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" /></svg>
                 </div>
               </div>
-              <p className="text-[10px] font-bold text-blue-600">Payments Received</p>
+              <p className="text-[10px] font-bold text-blue-600">{filterLabel === "Overall" ? "Payments Received" : filterLabel}</p>
             </div>
 
             <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
               <div className="flex justify-between items-start mb-2">
                 <div>
                   <h3 className="text-xs font-bold text-slate-500 mb-1">Pending Fees</h3>
-                  <p className="text-xl font-extrabold text-slate-800">{loading ? "..." : (stats?.kpis?.pendingFees ?? "â‚¹0 L")}</p>
+                  <p className="text-xl font-extrabold text-slate-800">{loading ? "..." : (stats?.kpis?.pendingFees ?? "₹0 L")}</p>
                 </div>
                 <div className="h-8 w-8 bg-rose-50 text-rose-500 rounded-lg flex items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>

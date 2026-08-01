@@ -14,8 +14,30 @@ export async function GET(req: Request) {
     
     const { searchParams } = new URL(req.url);
     let selectedBrand = searchParams.get("brand");
+    const startDateParam = searchParams.get("startDate");
+    const endDateParam = searchParams.get("endDate");
 
+    const now = new Date();
+    const todayStr = now.toISOString().split("T")[0];
 
+    let targetStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    let targetEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    let startStr = todayStr;
+    let endStr = todayStr;
+
+    let isFiltered = false;
+    if (startDateParam && endDateParam) {
+      targetStart = new Date(startDateParam);
+      targetStart.setHours(0, 0, 0, 0);
+      targetEnd = new Date(endDateParam);
+      targetEnd.setHours(23, 59, 59, 999);
+      startStr = startDateParam;
+      endStr = endDateParam;
+      isFiltered = true;
+    }
+
+    const dateRangeFilter = { $gte: targetStart, $lte: targetEnd };
+    const stringDateFilter = { $gte: startStr, $lte: endStr };
 
     // Get list of all available brands
     const companyBrands = await Company.distinct("brand");
@@ -44,7 +66,6 @@ export async function GET(req: Request) {
     const companyQuery: any = {};
 
     if (allowedBrands) {
-      // If employee is brand restricted, verify selectedBrand is within allowedBrands
       if (filterByBrand && allowedBrands.some(b => b.toLowerCase() === selectedBrand!.toLowerCase())) {
         enquiryQuery.targetBrand = { $regex: new RegExp(`^${selectedBrand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
         admissionQuery.brand = { $regex: new RegExp(`^${selectedBrand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
@@ -61,19 +82,22 @@ export async function GET(req: Request) {
       companyQuery.brand = { $regex: new RegExp(`^${selectedBrand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
     }
 
+    if (isFiltered) {
+      enquiryQuery.createdAt = dateRangeFilter;
+      admissionQuery.createdAt = dateRangeFilter;
+    }
+
     // 1. KPI Calculations
     const totalLeads = await Enquiry.countDocuments(enquiryQuery);
     const convertedLeads = await Enquiry.countDocuments({ ...enquiryQuery, $or: [{ isAdmitted: true }, { status: { $in: ["Admitted", "Admission", "Converted"] } }] });
-    const newLeads = await Enquiry.countDocuments({ ...enquiryQuery, status: "New" });
+    const newLeads = await Enquiry.countDocuments(
+      isFiltered ? { ...enquiryQuery, status: "New" } : { ...enquiryQuery, status: "New", createdAt: dateRangeFilter }
+    );
 
-    // Today's date format (YYYY-MM-DD and start/end of day)
-    const now = new Date();
-    const todayStr = now.toISOString().split("T")[0];
-
-    // Follow-ups scheduled for today
+    // Follow-ups scheduled in date range
     const followUpsToday = await Enquiry.countDocuments({
       ...enquiryQuery,
-      "followUps.date": todayStr
+      "followUps.date": stringDateFilter
     });
 
     const admissionsCount = await Admission.countDocuments(admissionQuery);
@@ -94,13 +118,16 @@ export async function GET(req: Request) {
       const admissionIds = admissionsList.map((a: any) => a._id);
       paymentQuery.admissionId = { $in: admissionIds };
     }
+    if (isFiltered) {
+      paymentQuery.createdAt = dateRangeFilter;
+    }
     const paymentsList = await Payment.find(paymentQuery).lean();
     let totalCollection = 0;
     paymentsList.forEach((p: any) => {
       totalCollection += Number(p.amountReceived || 0);
     });
 
-    // 2. Lead Pipeline Breakdown (Streamlined stages: New Lead, Demo Attended, Admitted)
+    // 2. Lead Pipeline Breakdown
     const pipelineStages = [
       { stage: "New Lead", status: "New", color: "bg-[#2563eb]" },
       { stage: "Demo Attended", status: "Demo Attended", color: "bg-[#06b6d4]" },
@@ -115,32 +142,50 @@ export async function GET(req: Request) {
       })
     );
 
-    // 3. 15-Day Leads Trend Data
+    // 3. Dynamic Trend Data based on date range
+    const fourteenDaysAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 14);
+    fourteenDaysAgo.setHours(0, 0, 0, 0);
+
+    const trendStart = isFiltered ? targetStart : fourteenDaysAgo;
+    const trendEnd = targetEnd;
+
     const trendDays: { dateLabel: string; newLeads: number; admissions: number; lostLeads: number }[] = [];
-    for (let i = 14; i >= 0; i--) {
-      const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
-      const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i, 23, 59, 59, 999);
-      
+    let curDate = new Date(trendStart);
+
+    let dayCount = 0;
+    while (curDate <= trendEnd && dayCount < 31) {
+      dayCount++;
+      const dayStart = new Date(curDate);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(curDate);
+      dayEnd.setHours(23, 59, 59, 999);
+
+      const yyyy = dayStart.getFullYear();
+      const mm = String(dayStart.getMonth() + 1).padStart(2, "0");
+      const dd = String(dayStart.getDate()).padStart(2, "0");
+      const dayStr = `${yyyy}-${mm}-${dd}`;
       const dayLabel = `${dayStart.getDate()} ${dayStart.toLocaleString("en-US", { month: "short" })}`;
 
-      const dayNewLeads = await Enquiry.countDocuments({
-        ...enquiryQuery,
-        createdAt: { $gte: dayStart, $lte: dayEnd }
-      });
+      const dayEnquiryQuery = { ...enquiryQuery };
+      delete dayEnquiryQuery.createdAt;
 
-      const dayAdmissions = await Admission.countDocuments({
-        ...admissionQuery,
-        createdAt: { $gte: dayStart, $lte: dayEnd }
-      });
+      const dayAdmissionQuery = { ...admissionQuery };
+      delete dayAdmissionQuery.createdAt;
 
-      const dayLost = await import("@/models/LostLeadCounter").then(m => m.default.findOne({ date: dayStart.toISOString().split("T")[0] }).lean());
+      const [dayNewLeads, dayAdmissions, dayLostDoc] = await Promise.all([
+        Enquiry.countDocuments({ ...dayEnquiryQuery, createdAt: { $gte: dayStart, $lte: dayEnd } }),
+        Admission.countDocuments({ ...dayAdmissionQuery, createdAt: { $gte: dayStart, $lte: dayEnd } }),
+        import("@/models/LostLeadCounter").then((m) => m.default.findOne({ date: dayStr }).lean())
+      ]);
 
       trendDays.push({
         dateLabel: dayLabel,
         newLeads: dayNewLeads,
         admissions: dayAdmissions,
-        lostLeads: dayLost ? dayLost.count : 0
+        lostLeads: dayLostDoc ? dayLostDoc.count : 0
       });
+
+      curDate.setDate(curDate.getDate() + 1);
     }
 
     // 4. Top Counsellors Stats
@@ -192,11 +237,10 @@ export async function GET(req: Request) {
       })
     );
 
-    // Sort counsellors by admissions count descending
     counsellorStats.sort((a, b) => b.adm - a.adm || b.rawRev - a.rawRev);
     counsellorStats.forEach((c, idx) => { c.rank = idx + 1; });
 
-    // 5. Enquiries by Source Breakdown (Dynamic with Fuzzy & Case-Insensitive Normalization)
+    // 5. Enquiries by Source Breakdown
     const normalizeSource = (srcRaw?: string) => {
       if (!srcRaw || !srcRaw.trim()) return "Direct Walkin";
       const s = srcRaw.toLowerCase().trim();
@@ -268,19 +312,19 @@ export async function GET(req: Request) {
       ];
     }
 
-    // 6. Today's Follow-ups List
+    // 6. Follow-ups List in date range
     const todayEnquiries = await Enquiry.find({
       ...enquiryQuery,
-      "followUps.date": todayStr
+      "followUps.date": stringDateFilter
     }).limit(5).lean();
 
     const todayFollowupsList = todayEnquiries.map((e: any) => {
-      const todayFollowup = e.followUps?.find((f: any) => f.date === todayStr);
+      const todayFollowup = e.followUps?.find((f: any) => f.date >= startStr && f.date <= endStr);
       return {
         id: e._id,
         name: e.studentFullName,
         initials: e.studentFullName ? e.studentFullName.split(" ").map((n: string) => n[0]).join("").substring(0, 2).toUpperCase() : "S",
-        time: todayFollowup?.time || "Today",
+        time: todayFollowup?.time || todayFollowup?.date || "Scheduled",
         action: todayFollowup?.typeOfContact || "Follow-up",
         phone: e.primaryPhoneMobile
       };
@@ -308,7 +352,7 @@ export async function GET(req: Request) {
       });
     });
 
-    // Calculate unlinked course upgrades so totalLeads includes incoming leads + course upgrades
+    // Calculate unlinked course upgrades
     let unlinkedUpgradesCount = 0;
     for (const adm of admissionsList) {
       const isUpg = (adm as any).isUpgrade || (await Admission.exists({
