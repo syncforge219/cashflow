@@ -521,7 +521,7 @@ export default function TeacherDashboard() {
                               </div>
                               <div>
                                 <p className="text-slate-800 font-bold">{demo.studentFullName || "Student"}</p>
-                                <p className="text-[10px] text-slate-400 font-medium">{demo.primaryPhoneMobile || demo.enquiryId}</p>
+                                <p className="text-[10px] text-slate-400 font-medium">{demo.enquiryId || "Demo ID"}</p>
                               </div>
                             </div>
                           </td>
@@ -579,7 +579,6 @@ export default function TeacherDashboard() {
                     <th className="py-3.5 px-6">Student Name</th>
                     <th className="py-3.5 px-6">Enrolled Course</th>
                     <th className="py-3.5 px-6">Brand Branch</th>
-                    <th className="py-3.5 px-6">Contact Number</th>
                     <th className="py-3.5 px-6">Status</th>
                     <th className="py-3.5 px-6 text-right">Actions</th>
                   </tr>
@@ -615,7 +614,6 @@ export default function TeacherDashboard() {
                           </td>
                           <td className="py-3.5 px-6 font-semibold text-slate-700">{student.targetCourse}</td>
                           <td className="py-3.5 px-6 font-medium text-slate-600">{student.targetBrand}</td>
-                          <td className="py-3.5 px-6 font-medium text-slate-600">{student.primaryPhoneMobile}</td>
                           <td className="py-3.5 px-6">
                             <span className="inline-block px-2 py-0.5 bg-emerald-50 text-emerald-700 font-bold text-[10px] rounded-md border border-emerald-200">
                               ADMITTED
@@ -630,7 +628,7 @@ export default function TeacherDashboard() {
                       ))
                   ) : (
                     <tr>
-                      <td colSpan={6} className="py-8 text-center text-slate-400 font-medium">
+                      <td colSpan={5} className="py-8 text-center text-slate-400 font-medium">
                         No enrolled students found in database.
                       </td>
                     </tr>
