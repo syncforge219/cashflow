@@ -44,10 +44,42 @@ export async function POST(req: Request) {
     }
 
     // Fallbacks for optional form fields
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const generateUniqueCodeBackend = async (providedCode?: string, brandName?: string, courseName?: string) => {
+      if (providedCode && providedCode.trim()) return providedCode.trim().toUpperCase();
+
+      let prefix = "";
+      if (courseName && courseName.trim().length >= 2) {
+        const words = courseName.trim().split(/\s+/);
+        prefix = words.length >= 2 ? (words[0][0] + words[1][0]).toUpperCase() : courseName.trim().substring(0, 2).toUpperCase();
+      } else if (brandName && brandName.trim().length >= 2) {
+        const words = brandName.trim().split(/\s+/);
+        prefix = words.length >= 2 ? (words[0][0] + words[1][0]).toUpperCase() : brandName.trim().substring(0, 2).toUpperCase();
+      }
+
+      prefix = prefix.replace(/[^A-Z]/gi, "").toUpperCase();
+      while (prefix.length < 2) {
+        prefix += alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+      }
+
+      let attempts = 0;
+      while (attempts < 100) {
+        const num = Math.floor(1000 + Math.random() * 9000);
+        const candidate = `${prefix}${num}`;
+        const existing = await Course.findOne({ code: { $regex: new RegExp(`^${candidate}$`, "i") } });
+        if (!existing) return candidate;
+        attempts++;
+      }
+
+      const r1 = alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+      const r2 = alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+      return `${r1}${r2}${Math.floor(1000 + Math.random() * 9000)}`;
+    };
+
     const randomSuffix = Math.floor(1000 + Math.random() * 9000);
     body.name = body.name?.trim() || `New Course ${randomSuffix}`;
-    body.code = body.code?.trim() || `CRS-${randomSuffix}`;
     body.brand = body.brand?.trim() || "Cadd Mantra";
+    body.code = await generateUniqueCodeBackend(body.code, body.brand, body.name);
     body.category = body.category?.trim() || "General";
     body.duration = body.duration?.trim() || "6 Months";
     body.fee = body.fee?.trim() || "₹0";

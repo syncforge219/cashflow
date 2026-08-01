@@ -36,21 +36,90 @@ export default function AddCourseModal({ isOpen, onClose, onSuccess }: AddCourse
     setDiscountLimitMode(newMode);
   };
 
+  const [courseCode, setCourseCode] = useState<string>("");
+  const [courseNameInput, setCourseNameInput] = useState<string>("");
+  const [selectedBrand, setSelectedBrand] = useState<string>("");
+  const [existingCodes, setExistingCodes] = useState<Set<string>>(new Set());
+
+  const generateUniqueCourseCode = (existingSet: Set<string>, brandName?: string, courseName?: string): string => {
+    let prefix = "";
+    if (courseName && courseName.trim().length >= 2) {
+      const words = courseName.trim().split(/\s+/);
+      if (words.length >= 2) {
+        prefix = (words[0][0] + words[1][0]).toUpperCase();
+      } else {
+        prefix = courseName.trim().substring(0, 2).toUpperCase();
+      }
+    } else if (brandName && brandName.trim().length >= 2) {
+      const words = brandName.trim().split(/\s+/);
+      if (words.length >= 2) {
+        prefix = (words[0][0] + words[1][0]).toUpperCase();
+      } else {
+        prefix = brandName.trim().substring(0, 2).toUpperCase();
+      }
+    }
+
+    prefix = prefix.replace(/[^A-Z]/gi, "").toUpperCase();
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    while (prefix.length < 2) {
+      prefix += alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+    }
+
+    let attempts = 0;
+    while (attempts < 500) {
+      const randomNum = Math.floor(1000 + Math.random() * 9000);
+      const candidate = `${prefix}${randomNum}`;
+      if (!existingSet.has(candidate.toLowerCase())) {
+        return candidate;
+      }
+      attempts++;
+    }
+
+    const r1 = alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+    const r2 = alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+    const randomNum = Math.floor(1000 + Math.random() * 9000);
+    return `${r1}${r2}${randomNum}`;
+  };
+
   React.useEffect(() => {
     if (!isOpen) return;
-    const fetchBrands = async () => {
+    const fetchInitialData = async () => {
       try {
-        const res = await fetch("/api/brands");
-        const data = await res.json();
-        if (res.ok && data.success && Array.isArray(data.brands)) {
-          const names = data.brands.map((b: any) => b.name).filter(Boolean);
-          if (names.length > 0) setDbBrands(names);
+        const [brandRes, courseRes] = await Promise.all([
+          fetch("/api/brands"),
+          fetch("/api/courses"),
+        ]);
+
+        let loadedBrands: string[] = [];
+        if (brandRes.ok) {
+          const brandData = await brandRes.json();
+          if (brandData.success && Array.isArray(brandData.brands)) {
+            loadedBrands = brandData.brands.map((b: any) => b.name).filter(Boolean);
+            if (loadedBrands.length > 0) setDbBrands(loadedBrands);
+          }
         }
+
+        const codeSet = new Set<string>();
+        if (courseRes.ok) {
+          const courseData = await courseRes.json();
+          if (courseData.success && Array.isArray(courseData.data)) {
+            courseData.data.forEach((c: any) => {
+              if (c.code) codeSet.add(String(c.code).trim().toLowerCase());
+            });
+            setExistingCodes(codeSet);
+          }
+        }
+
+        const defaultBrand = loadedBrands[0] || "Cadd Mantra";
+        setSelectedBrand(defaultBrand);
+        setCourseNameInput("");
+        const newUniqueCode = generateUniqueCourseCode(codeSet, defaultBrand, "");
+        setCourseCode(newUniqueCode);
       } catch (err) {
-        console.error("Failed fetching brands:", err);
+        console.error("Failed fetching initial course data:", err);
       }
     };
-    fetchBrands();
+    fetchInitialData();
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -196,6 +265,8 @@ export default function AddCourseModal({ isOpen, onClose, onSuccess }: AddCourse
               <input
                 name="name"
                 type="text"
+                value={courseNameInput}
+                onChange={(e) => setCourseNameInput(e.target.value)}
                 placeholder="e.g. AutoCAD, ETABS, Python Development"
                 required
                 className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
@@ -204,15 +275,30 @@ export default function AddCourseModal({ isOpen, onClose, onSuccess }: AddCourse
 
             {/* Course Code */}
             <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">
-                Course Code *
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                  Course Code *
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newCode = generateUniqueCourseCode(existingCodes, selectedBrand, courseNameInput);
+                    setCourseCode(newCode);
+                  }}
+                  className="text-[9px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded-md transition-colors cursor-pointer"
+                  title="Auto Generate 2-Letter + 4-Digit Unique Code"
+                >
+                  <span>⚡ Auto Generate</span>
+                </button>
+              </div>
               <input
                 name="code"
                 type="text"
-                placeholder="e.g. CM-CAD-09"
+                value={courseCode}
+                onChange={(e) => setCourseCode(e.target.value.toUpperCase())}
+                placeholder="e.g. DG4092"
                 required
-                className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 font-mono"
+                className="w-full text-xs font-bold text-indigo-950 bg-indigo-50/50 border border-indigo-200/80 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 font-mono tracking-wider"
               />
             </div>
 
@@ -224,7 +310,8 @@ export default function AddCourseModal({ isOpen, onClose, onSuccess }: AddCourse
               <select
                 name="brand"
                 required
-                defaultValue={brandOptions[0]}
+                value={selectedBrand || brandOptions[0]}
+                onChange={(e) => setSelectedBrand(e.target.value)}
                 className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
               >
                 {brandOptions.map((brandName: string, idx: number) => (
