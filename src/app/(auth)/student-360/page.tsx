@@ -27,6 +27,14 @@ export default function Student360PortalPage() {
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [is360ModalOpen, setIs360ModalOpen] = useState(false);
 
+  // Pagination state (10 admissions per page)
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedBrand, selectedCompany, selectedFeeStatus]);
+
   // Role validation
   const userRole = (user?.role || "").toLowerCase();
   const isCounsellor =
@@ -344,7 +352,7 @@ export default function Student360PortalPage() {
                     </td>
                   </tr>
                 ) : (
-                  filteredStudents.map((s) => {
+                  filteredStudents.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((s) => {
                     const finalFee = Number(s.finalFee) || 0;
                     const remBal = Number(s.remainingBalance) || 0;
                     const paid = Math.max(0, finalFee - remBal);
@@ -440,6 +448,49 @@ export default function Student360PortalPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Footer Controls */}
+          {filteredStudents.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-semibold text-slate-500">
+              <div>
+                Showing <span className="font-extrabold text-slate-800">{(currentPage - 1) * itemsPerPage + 1}</span> to{" "}
+                <span className="font-extrabold text-slate-800">{Math.min(currentPage * itemsPerPage, filteredStudents.length)}</span> of{" "}
+                <span className="font-extrabold text-slate-800">{filteredStudents.length}</span> admissions
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-slate-700 transition-colors shadow-xs cursor-pointer"
+                >
+                  Previous
+                </button>
+
+                {Array.from({ length: Math.max(1, Math.ceil(filteredStudents.length / itemsPerPage)) }, (_, i) => i + 1).map((pageNum) => (
+                  <button
+                    key={pageNum}
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`h-8 w-8 rounded-xl font-extrabold text-xs transition-colors flex items-center justify-center cursor-pointer ${
+                      currentPage === pageNum
+                        ? "bg-indigo-600 text-white shadow-xs"
+                        : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                ))}
+
+                <button
+                  disabled={currentPage === Math.max(1, Math.ceil(filteredStudents.length / itemsPerPage))}
+                  onClick={() => setCurrentPage((prev) => Math.min(Math.max(1, Math.ceil(filteredStudents.length / itemsPerPage)), prev + 1))}
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-slate-700 transition-colors shadow-xs cursor-pointer"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Render 360° Modal Drawer */}
