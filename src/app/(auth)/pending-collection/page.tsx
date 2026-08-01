@@ -118,6 +118,15 @@ export default function PendingCollectionPage() {
     return <ManagerSidebar />;
   };
 
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedBrand, selectedCourse, selectedBatch, selectedCounsellor, selectedCompany, activeBucket, searchQuery]);
+
   // Sort & Filter local records
   const processedRecords = useMemo(() => {
     if (!data?.records) return [];
@@ -153,6 +162,13 @@ export default function PendingCollectionPage() {
 
     return list;
   }, [data?.records, searchQuery, sortField, sortDirection]);
+
+  const totalPages = Math.ceil(processedRecords.length / itemsPerPage) || 1;
+
+  const paginatedRecords = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return processedRecords.slice(start, start + itemsPerPage);
+  }, [processedRecords, currentPage, itemsPerPage]);
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
@@ -608,7 +624,7 @@ export default function PendingCollectionPage() {
                     </td>
                   </tr>
                 ) : (
-                  processedRecords.map((rec) => {
+                  paginatedRecords.map((rec) => {
                     const isOverdue = rec.diffDays < 0;
                     const isDueToday = rec.diffDays === 0;
 
@@ -754,8 +770,58 @@ export default function PendingCollectionPage() {
               </tbody>
             </table>
           </div>
-        </div>
 
+          {/* Pagination Controls Footer */}
+          {processedRecords.length > 0 && (
+            <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-50/50">
+              <div className="text-xs font-semibold text-slate-500">
+                Showing <span className="font-extrabold text-slate-800">{Math.min((currentPage - 1) * itemsPerPage + 1, processedRecords.length)}</span> to{" "}
+                <span className="font-extrabold text-slate-800">{Math.min(currentPage * itemsPerPage, processedRecords.length)}</span> of{" "}
+                <span className="font-extrabold text-indigo-600">{processedRecords.length}</span> records
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+                >
+                  Previous
+                </button>
+
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((page) => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1)
+                  .map((page, idx, array) => {
+                    const prevPage = array[idx - 1];
+                    const showEllipsis = prevPage && page - prevPage > 1;
+                    return (
+                      <React.Fragment key={page}>
+                        {showEllipsis && <span className="px-1 text-slate-400 font-bold text-xs">...</span>}
+                        <button
+                          onClick={() => setCurrentPage(page)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                            currentPage === page
+                              ? "bg-indigo-600 text-white shadow-xs"
+                              : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      </React.Fragment>
+                    );
+                  })}
+
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Modals Integration */}
