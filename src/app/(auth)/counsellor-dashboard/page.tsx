@@ -138,8 +138,15 @@ export default function CounsellorDashboardPage() {
           }
         });
 
-        // Pending Admissions (Negotiation / Hot Leads)
-        const pendingAdmCount = myEnquiries.filter((e: any) => e.status === "Negotiation" || e.priorityLevel === "High").length;
+        // Pending Admissions (Negotiation / Hot Leads that are not yet admitted)
+        const pendingAdmCount = myEnquiries.filter(
+          (e: any) =>
+            !e.isAdmitted &&
+            e.status !== "Admitted" &&
+            e.status !== "Converted" &&
+            e.status !== "Admission" &&
+            (e.status === "Negotiation" || e.priorityLevel === "High")
+        ).length;
 
         const rawConvRate = myEnquiries.length > 0 ? (counsellorAdmissions.length / myEnquiries.length) * 100 : 0;
         const convRate = Math.min(100, Number(rawConvRate.toFixed(1))) + "%";
