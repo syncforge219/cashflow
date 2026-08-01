@@ -403,37 +403,26 @@ export default function PaymentReceiptModal({
   };
 
   const handleDownloadPDF = async () => {
-    const element = document.getElementById("printable-receipt-content");
-    if (!element) {
-      triggerCleanPrint();
-      return;
-    }
-
+    if (!receiptNo) return;
     setIsDownloadingPdf(true);
     try {
-      if (!(window as any).html2pdf) {
-        await new Promise<void>((resolve, reject) => {
-          const script = document.createElement("script");
-          script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
-          script.onload = () => resolve();
-          script.onerror = () => reject(new Error("Failed to load html2pdf script"));
-          document.body.appendChild(script);
-        });
-      }
+      const pdfUrl = `/api/receipts/${encodeURIComponent(receiptNo)}/pdf`;
+      const res = await fetch(pdfUrl);
+      if (!res.ok) throw new Error("Failed to fetch receipt PDF");
+      const blob = await res.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
 
-      const filename = `Receipt_${student?.admissionId || "STD"}_${receiptNo}.pdf`;
-      const opt = {
-        margin: [6, 6, 6, 6],
-        filename: filename,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-      };
-
-      await (window as any).html2pdf().set(opt).from(element).save();
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = `Official_Fee_Receipt_${receiptNo}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
     } catch (err) {
       console.error("Direct PDF Download Error:", err);
-      triggerCleanPrint();
+      // Fallback to direct URL window opening if blob download fails
+      window.open(`/api/receipts/${encodeURIComponent(receiptNo)}/pdf`, "_blank");
     } finally {
       setIsDownloadingPdf(false);
     }
