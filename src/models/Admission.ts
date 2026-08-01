@@ -13,6 +13,7 @@ const AdmissionSchema = new Schema(
     // 1. Student Information
     fullName: { type: String },
     mobileNumber: { type: String },
+    primaryPhoneMobile: { type: String },
     email: { type: String },
     parentName: { type: String },
     parentPhone: { type: String },
