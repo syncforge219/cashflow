@@ -200,24 +200,6 @@ export default function ManagerSidebar() {
           ),
         },
         {
-          name: "Fee Collection",
-          href: "/manager-dashboard/fee-collection",
-          icon: (
-            <span className="font-semibold text-lg flex items-center justify-center h-5 w-5 leading-none">
-              ₹
-            </span>
-          ),
-        },
-        {
-          name: "Companies",
-          href: "/companies",
-          icon: (
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M14 6.75h.75m-.75 3h.75m-.75 3h.75m3-3h.75m-.75 3h.75" />
-            </svg>
-          ),
-        },
-        {
           name: "Logout",
           href: "#",
           isLogout: true,
