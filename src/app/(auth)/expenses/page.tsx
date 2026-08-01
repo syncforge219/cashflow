@@ -178,9 +178,22 @@ export default function ExpensesPage() {
   const [companies, setCompanies] = useState<string[]>([]);
   const [rawBrands, setRawBrands] = useState<any[]>([]);
   const [rawCompanies, setRawCompanies] = useState<any[]>([]);
-  const [datePreset, setDatePreset] = useState("all");
-  const [startDateFilter, setStartDateFilter] = useState("");
-  const [endDateFilter, setEndDateFilter] = useState("");
+  const getInitialThisMonth = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return {
+      preset: "this_month",
+      start: `${year}-${month}-01`,
+      end: `${year}-${month}-${day}`,
+    };
+  };
+
+  const initMonth = getInitialThisMonth();
+  const [datePreset, setDatePreset] = useState(initMonth.preset);
+  const [startDateFilter, setStartDateFilter] = useState(initMonth.start);
+  const [endDateFilter, setEndDateFilter] = useState(initMonth.end);
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
 
   const handleDatePresetChange = (preset: string) => {
