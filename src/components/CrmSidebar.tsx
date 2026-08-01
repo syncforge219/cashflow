@@ -65,9 +65,6 @@ export default function CrmSidebar() {
         <SidebarBrandHeader isCollapsed={false} />
       </div>
 
-      {/* Lead2Ledger AI Copilot Trigger */}
-      <SidebarAiButton isCollapsed={false} />
-
       {/* Navigation Group Items */}
       <div className="flex-1 overflow-y-auto px-3.5 py-4 space-y-6 scrollbar-none">
         {groups.map((group, idx) => (

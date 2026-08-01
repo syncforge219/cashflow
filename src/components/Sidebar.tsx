@@ -460,9 +460,6 @@ export default function Sidebar() {
       {/* Brand Header */}
       <SidebarBrandHeader isCollapsed={effectiveCollapsed} />
 
-      {/* CashFlow AI Copilot Trigger */}
-      <SidebarAiButton isCollapsed={effectiveCollapsed} />
-
       {/* Navigation Groups */}
       <nav className="flex-1 space-y-6 overflow-y-auto pr-1 mt-2">
         {displayedGroups.map((group) => (

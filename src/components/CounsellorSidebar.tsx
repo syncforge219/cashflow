@@ -168,9 +168,6 @@ export default function CounsellorSidebar() {
       {/* Brand Header */}
       <SidebarBrandHeader isCollapsed={effectiveCollapsed} subtitle="Counsellor Portal" />
 
-      {/* CashFlow AI Copilot Trigger */}
-      <SidebarAiButton isCollapsed={effectiveCollapsed} />
-
       {/* Navigation Groups */}
       <nav className="flex-1 space-y-6 overflow-y-auto pr-1">
         {groups.map((group) => (

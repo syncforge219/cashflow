@@ -9,6 +9,7 @@ import AddEnquiryModal from "@/components/AddEnquiryModal";
 import AdmissionModal from "@/components/AdmissionModal";
 import AddBatchModal from "@/components/AddBatchModal";
 import LeadProfile from "@/components/LeadProfile";
+import DashboardFilter from "@/components/DashboardFilter";
 import StudentSearchCenter from "@/components/StudentSearchCenter";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -16,6 +17,26 @@ export default function CounsellorDashboardPage() {
   const { user, logout } = useUser();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+
+  const formatDateStr = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
+
+  const defaultStart = formatDateStr(new Date(currentYear, currentMonth, 1));
+  const defaultEnd = formatDateStr(new Date(currentYear, currentMonth + 1, 0));
+  const defaultLabel = `${MONTHS[currentMonth]} ${currentYear}`;
+
+  const [startDate, setStartDate] = useState<string | null>(defaultStart);
+  const [endDate, setEndDate] = useState<string | null>(defaultEnd);
+  const [filterLabel, setFilterLabel] = useState<string>(defaultLabel);
 
   // Quick Action Modals
   const [isAddLeadModalOpen, setIsAddLeadModalOpen] = useState(false);
@@ -72,8 +93,30 @@ export default function CounsellorDashboardPage() {
       const taskData = await taskRes.json();
 
       if (enqData.success && admData.success) {
-        const allEnquiries = enqData.data || [];
-        const allAdmissions = admData.data || [];
+        let rawEnquiries = enqData.data || [];
+        let rawAdmissions = admData.data || [];
+
+        if (startDate && endDate) {
+          const s = new Date(startDate);
+          s.setHours(0, 0, 0, 0);
+          const e = new Date(endDate);
+          e.setHours(23, 59, 59, 999);
+
+          rawEnquiries = rawEnquiries.filter((item: any) => {
+            if (!item.createdAt) return true;
+            const d = new Date(item.createdAt);
+            return d >= s && d <= e;
+          });
+
+          rawAdmissions = rawAdmissions.filter((item: any) => {
+            if (!item.createdAt) return true;
+            const d = new Date(item.createdAt);
+            return d >= s && d <= e;
+          });
+        }
+
+        const allEnquiries = rawEnquiries;
+        const allAdmissions = rawAdmissions;
 
         const uName = ((user as any)?.name || (user as any)?.fullName || (user as any)?.username || "").trim().toLowerCase();
         const uBrand = (user?.brandScope || "").trim().toLowerCase();
@@ -179,7 +222,7 @@ export default function CounsellorDashboardPage() {
 
   useEffect(() => {
     fetchCounsellorData();
-  }, [user]);
+  }, [user, startDate, endDate]);
 
   if (!user) return null;
 
@@ -364,13 +407,22 @@ export default function CounsellorDashboardPage() {
         {/* MAIN COUNSELLOR DASHBOARD METRICS */}
         <div className="p-8 space-y-8">
           
+          <DashboardFilter
+            currentLabel={filterLabel}
+            onFilterChange={(start, end, label) => {
+              setStartDate(start);
+              setEndDate(end);
+              setFilterLabel(label);
+            }}
+          />
+
           {/* 7 Specified Counsellor Metric Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             
             <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">My Leads</span>
               <span className="text-2xl font-black text-slate-800">{stats.myLeads}</span>
-              <span className="text-xs text-slate-400 font-medium block mt-1">Total Assigned Enquiries</span>
+              <span className="text-xs text-slate-400 font-medium block mt-1">{filterLabel === "Overall" ? "Total Assigned Enquiries" : `Filtered: ${filterLabel}`}</span>
             </div>
 
             <div className="bg-white border border-blue-200/80 rounded-2xl p-5 shadow-xs">

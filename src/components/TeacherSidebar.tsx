@@ -96,9 +96,6 @@ export default function TeacherSidebar() {
         <SidebarBrandHeader isCollapsed={isCollapsed} subtitle="Teacher Portal" />
       </div>
 
-      {/* Lead2Ledger AI Copilot Trigger */}
-      <SidebarAiButton isCollapsed={isCollapsed} />
-
       {/* Navigation Groups */}
       <div className="flex-1 overflow-y-auto py-6 px-4 space-y-8 custom-scrollbar">
         {groups.map((group, idx) => (
