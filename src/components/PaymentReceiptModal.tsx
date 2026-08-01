@@ -402,30 +402,8 @@ export default function PaymentReceiptModal({
     triggerCleanPrint();
   };
 
-  const handleDownloadPDF = async () => {
-    if (!receiptNo) return;
-    setIsDownloadingPdf(true);
-    try {
-      const pdfUrl = `/api/receipts/${encodeURIComponent(receiptNo)}/pdf?t=${Date.now()}`;
-      const res = await fetch(pdfUrl);
-      if (!res.ok) throw new Error("Failed to fetch receipt PDF");
-      const blob = await res.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-
-      const link = document.createElement("a");
-      link.href = blobUrl;
-      link.download = `Official_Fee_Receipt_${receiptNo}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(blobUrl);
-    } catch (err) {
-      console.error("Direct PDF Download Error:", err);
-      // Fallback to direct URL window opening if blob download fails
-      window.open(`/api/receipts/${encodeURIComponent(receiptNo)}/pdf?t=${Date.now()}`, "_blank");
-    } finally {
-      setIsDownloadingPdf(false);
-    }
+  const handleDownloadPDF = () => {
+    triggerCleanPrint();
   };
 
   return (
@@ -766,8 +744,7 @@ export default function PaymentReceiptModal({
           </button>
           <button
             onClick={handleDownloadPDF}
-            disabled={isDownloadingPdf}
-            className="px-4 py-2 bg-slate-800 text-white hover:bg-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
+            className="px-4 py-2 bg-slate-800 text-white hover:bg-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -783,7 +760,7 @@ export default function PaymentReceiptModal({
                 d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
               />
             </svg>
-            {isDownloadingPdf ? "Downloading PDF..." : "Download PDF"}
+            Download PDF
           </button>
           <button
             onClick={handlePrint}
