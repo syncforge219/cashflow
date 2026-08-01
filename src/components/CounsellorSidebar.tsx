@@ -80,6 +80,15 @@ export default function CounsellorSidebar() {
           ),
         },
         {
+          name: "Pending Collection",
+          href: "/pending-collection",
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5h16.5a1.5 1.5 0 011.5 1.5v9.75a1.5 1.5 0 01-1.5 1.5H3.75a1.5 1.5 0 01-1.5-1.5V6a1.5 1.5 0 011.5-1.5z" />
+            </svg>
+          ),
+        },
+        {
           name: "Fee Collection",
           href: "/counsellor-dashboard/finance",
           icon: (
