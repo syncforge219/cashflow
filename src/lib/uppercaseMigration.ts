@@ -217,6 +217,20 @@ export async function runUppercaseDataMigration() {
       }
     }
 
+    // 10. Synchronize primaryPhoneMobile and mobileNumber on all existing Admission documents
+    const allAdmissionsToSync = await Admission.find({}).select("_id mobileNumber primaryPhoneMobile").lean();
+    for (const adm of allAdmissionsToSync) {
+      const phone = (adm.mobileNumber || (adm as any).primaryPhoneMobile || "").trim();
+      if (phone) {
+        if (!adm.mobileNumber || !(adm as any).primaryPhoneMobile) {
+          await Admission.findByIdAndUpdate(adm._id, {
+            mobileNumber: phone,
+            primaryPhoneMobile: phone
+          });
+        }
+      }
+    }
+
     migrationRan = true;
     console.log("[Uppercase Migration] Successfully converted existing saved brand & company data to UPPERCASE, synced initial payments, and removed duplicate admissions.");
   } catch (err) {

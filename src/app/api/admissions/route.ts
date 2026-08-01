@@ -25,7 +25,9 @@ export async function POST(req: NextRequest) {
 
     // Fallbacks for optional form fields
     data.fullName = data.fullName?.trim() || "Student";
-    data.mobileNumber = data.mobileNumber?.trim() || "0000000000";
+    const cleanPhone = (data.mobileNumber || data.primaryPhoneMobile || "0000000000").trim();
+    data.mobileNumber = cleanPhone;
+    data.primaryPhoneMobile = cleanPhone;
     data.parentsFullName = data.parentsFullName?.trim() || data.parentName?.trim() || "";
     data.parentsPhoneNumber = data.parentsPhoneNumber?.trim() || data.parentPhone?.trim() || "";
     data.parentName = data.parentsFullName;
