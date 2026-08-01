@@ -31,22 +31,29 @@ export default function DashboardFilter({ onFilterChange, currentLabel }: Dashbo
     years.push(y);
   }
 
+  const formatDateStr = (dateObj: Date) => {
+    const y = dateObj.getFullYear();
+    const m = String(dateObj.getMonth() + 1).padStart(2, "0");
+    const d = String(dateObj.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  };
+
   // Update dates whenever selected dropdowns change, but only if they are the active tab
   useEffect(() => {
     if (activeTab === "yearly") {
       const start = new Date(selectedYear, 0, 1);
       const end = new Date(selectedYear, 11, 31, 23, 59, 59);
-      onFilterChange(start.toISOString().split("T")[0], end.toISOString().split("T")[0], `Year: ${selectedYear}`);
+      onFilterChange(formatDateStr(start), formatDateStr(end), `Year: ${selectedYear}`);
     } else if (activeTab === "monthly") {
       const start = new Date(selectedYear, selectedMonth, 1);
       const end = new Date(selectedYear, selectedMonth + 1, 0, 23, 59, 59);
-      onFilterChange(start.toISOString().split("T")[0], end.toISOString().split("T")[0], `${MONTHS[selectedMonth]} ${selectedYear}`);
+      onFilterChange(formatDateStr(start), formatDateStr(end), `${MONTHS[selectedMonth]} ${selectedYear}`);
     } else if (activeTab === "weekly") {
       const startDay = (selectedWeek - 1) * 7 + 1;
       const endDay = Math.min(selectedWeek * 7, new Date(selectedYear, selectedMonth + 1, 0).getDate());
       const start = new Date(selectedYear, selectedMonth, startDay);
       const end = new Date(selectedYear, selectedMonth, endDay, 23, 59, 59);
-      onFilterChange(start.toISOString().split("T")[0], end.toISOString().split("T")[0], `Week ${selectedWeek}, ${MONTHS[selectedMonth]} ${selectedYear}`);
+      onFilterChange(formatDateStr(start), formatDateStr(end), `Week ${selectedWeek}, ${MONTHS[selectedMonth]} ${selectedYear}`);
     }
   }, [selectedYear, selectedMonth, selectedWeek, activeTab]);
 
@@ -55,7 +62,7 @@ export default function DashboardFilter({ onFilterChange, currentLabel }: Dashbo
     if (tab === "today") {
       const start = new Date();
       const end = new Date();
-      onFilterChange(start.toISOString().split("T")[0], end.toISOString().split("T")[0], "Today");
+      onFilterChange(formatDateStr(start), formatDateStr(end), "Today");
     }
   };
 

@@ -28,8 +28,15 @@ export default function AdminDashboard() {
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth();
 
-  const defaultStart = new Date(currentYear, currentMonth, 1).toISOString().split("T")[0];
-  const defaultEnd = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59).toISOString().split("T")[0];
+  const formatDateStr = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
+
+  const defaultStart = formatDateStr(new Date(currentYear, currentMonth, 1));
+  const defaultEnd = formatDateStr(new Date(currentYear, currentMonth + 1, 0));
   const defaultLabel = `${MONTHS[currentMonth]} ${currentYear}`;
 
   const [startDate, setStartDate] = useState<string | null>(defaultStart);
@@ -219,9 +226,9 @@ export default function AdminDashboard() {
       pillClass: "text-blue-700 bg-blue-50 border-blue-200/60"
     },
     {
-      name: "Today's Admissions",
+      name: filterLabel === "Today" ? "Today's Admissions" : "Admissions",
       value: data?.kpis?.admissionsToday || 0,
-      trend: "Today",
+      trend: filterLabel === "Overall" ? "Overall" : filterLabel === "Today" ? "Today" : filterLabel,
       isGreen: true,
       borderAccent: "border-l-4 border-teal-500",
       hoverGradient: "hover:bg-gradient-to-br hover:from-teal-50/90 hover:via-emerald-50/50 hover:to-white hover:border-teal-300",
