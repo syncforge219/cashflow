@@ -717,7 +717,12 @@ export default function PendingCollectionPage() {
                             {/* Record Payment */}
                             <button
                               onClick={() => {
-                                window.location.href = `/manager-dashboard/fee-collection?admissionId=${rec.admissionId}`;
+                                const feeUrl = (userRole === "admin" || userRole === "super admin" || userRole === "super_admin")
+                                  ? `/admin-dashboard/fee-collection?admissionId=${rec.admissionId}`
+                                  : isCounsellor
+                                  ? `/counsellor-dashboard/finance?admissionId=${rec.admissionId}`
+                                  : `/manager-dashboard/fee-collection?admissionId=${rec.admissionId}`;
+                                window.location.href = feeUrl;
                               }}
                               className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-[11px] rounded-lg border border-emerald-200 transition-colors cursor-pointer"
                               title="Record Payment"
