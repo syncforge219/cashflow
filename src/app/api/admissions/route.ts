@@ -284,13 +284,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Automatically generate a Payment record for the initial payment collected during admission
+    // Automatically generate a Payment record for the initial payment collected during admission (Registration + Downpayment)
     let initialPaymentObj = null;
-    if (data.amountReceivedToday > 0) {
+    const initialCollectedAmount = Number(data.amountReceivedToday) > 0
+      ? Number(data.amountReceivedToday)
+      : ((Number(data.registrationAmount) || 0) + (Number(data.downpaymentAmount) || 0));
+
+    if (initialCollectedAmount > 0) {
       const initialPayment = new Payment({
         admissionId: admission._id,
         studentName: admission.fullName,
-        amountReceived: Number(data.amountReceivedToday),
+        amountReceived: initialCollectedAmount,
         paymentMode: data.paymentMode || "Cash",
         referenceNo: data.transactionNo || "N/A",
         company: finalCompany,
@@ -298,7 +302,7 @@ export async function POST(req: NextRequest) {
         paymentDate: admission.paymentDate || new Date(),
         particulars: {
           courseFeeDue: 0,
-          registrationFeeDue: 0,
+          registrationFeeDue: Number(data.registrationAmount || 0),
           materialFeeDue: 0,
           examFeeDue: 0
         },
