@@ -51,6 +51,14 @@ export default function FeeFollowupModal({
       const res = await fetch(`/api/admissions/${record._id}`);
       const json = await res.json();
       if (json.success && json.data) {
+        const adm = json.data.admission || {};
+        const savedFeeFollowups = (adm.feeFollowups || []).map((f: any) => ({
+          _id: f._id || Math.random().toString(),
+          title: `Fee Follow-up (${f.status || "PTP"})`,
+          description: `Remarks: ${f.remarks || "-"}${f.ptpAmount ? `\nPromised Amount: ₹${f.ptpAmount}` : ""}${f.ptpDate ? `\nPTP Date: ${new Date(f.ptpDate).toLocaleDateString("en-IN")}` : ""}${f.expectedPaymentMode ? `\nExpected Mode: ${f.expectedPaymentMode}` : ""}`,
+          createdAt: f.createdAt,
+        }));
+
         const tasks = json.data.tasks || [];
         const feeTasks = tasks.filter(
           (t: any) =>
@@ -59,7 +67,11 @@ export default function FeeFollowupModal({
             (t.title || "").toLowerCase().includes("fee") ||
             (t.title || "").toLowerCase().includes("emi")
         );
-        setHistoryItems(feeTasks);
+
+        const combined = [...savedFeeFollowups, ...feeTasks].sort(
+          (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+        );
+        setHistoryItems(combined);
       }
     } catch (err) {
       console.error("Error fetching fee follow-up history:", err);
@@ -79,11 +91,24 @@ export default function FeeFollowupModal({
 
     setIsSubmitting(true);
     try {
-      // 1. Update Admission record with last fee follow-up details
+      // 1. Update Admission record with last fee follow-up details & push to feeFollowups array
       const updatePayload = {
         lastFollowupDate: new Date().toISOString(),
         lastFollowupNotes: `[${followupStatus}] ${remarks}${ptpAmount ? ` | Promised Amount: ₹${ptpAmount}` : ""}${ptpDate ? ` | PTP Date: ${ptpDate}` : ""}`,
         nextFollowupDate: nextFollowupDate ? new Date(nextFollowupDate).toISOString() : null,
+        ptpDate: ptpDate ? new Date(ptpDate).toISOString() : null,
+        ptpAmount: ptpAmount ? Number(ptpAmount) : 0,
+        feeFollowup: {
+          status: followupStatus,
+          ptpDate: ptpDate ? new Date(ptpDate).toISOString() : null,
+          ptpAmount: ptpAmount ? Number(ptpAmount) : 0,
+          expectedPaymentMode,
+          nextFollowupDate: nextFollowupDate ? new Date(nextFollowupDate).toISOString() : null,
+          nextFollowupTime,
+          priority,
+          remarks,
+          assignedTo: assignedTo || "Staff",
+        },
       };
 
       await fetch(`/api/admissions/${record._id}`, {

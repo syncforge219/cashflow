@@ -80,6 +80,23 @@ const AdmissionSchema = new Schema(
       lastReminderStatus: { type: String }
     }],
     lastEmiReminderSentAt: { type: Date },
+    lastFollowupDate: { type: Date },
+    lastFollowupNotes: { type: String },
+    nextFollowupDate: { type: Date },
+    ptpDate: { type: Date },
+    ptpAmount: { type: Number },
+    feeFollowups: [{
+      status: { type: String },
+      ptpDate: { type: Date },
+      ptpAmount: { type: Number },
+      expectedPaymentMode: { type: String },
+      nextFollowupDate: { type: Date },
+      nextFollowupTime: { type: String },
+      priority: { type: String },
+      remarks: { type: String },
+      assignedTo: { type: String },
+      createdAt: { type: Date, default: Date.now }
+    }],
   },
   {
     timestamps: true,
