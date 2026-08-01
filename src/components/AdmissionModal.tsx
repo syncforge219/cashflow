@@ -473,6 +473,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
   };
 
   const handleGenerateAdmission = async (generateReceipt = false) => {
+    if (isSubmitting) return;
     setIsSubmitting(true);
     try {
       const defaultPlan = generateDefaultEmiItems(numInstallments > 0 ? numInstallments : 1, remainingBalance).map((item, idx) => ({
@@ -502,7 +503,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
         targetCourses: selectedCourses,
         batch, duration, startDate, academicYear, admissionDate, companyAssigned,
         courseFee, scholarshipType, scholarshipAmount, discountType, discountAmount, additionalDiscount, totalDiscount, finalFee,
-        paymentMode, transactionNo, amountReceivedToday: Number(registrationAmount), registrationAmount: Number(registrationAmount), downpaymentAmount: Number(downpaymentAmount), downpaymentDueDate, paymentDate, remainingBalance, hasEmi,
+        paymentMode, transactionNo, amountReceivedToday: (Number(registrationAmount) || 0) + (Number(downpaymentAmount) || 0), registrationAmount: Number(registrationAmount), downpaymentAmount: Number(downpaymentAmount), downpaymentDueDate, paymentDate, remainingBalance, hasEmi,
         numInstallments: customEmiItems.length || numInstallments,
         installmentAmount: customEmiItems.length > 0 ? Math.round(scheduledEmiSum / customEmiItems.length) : installmentAmount,
         customEmiPlan

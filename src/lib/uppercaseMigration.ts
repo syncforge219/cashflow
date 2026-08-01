@@ -8,6 +8,7 @@ import Enquiry from "@/models/Enquiry";
 import Course from "@/models/Course";
 import Batch from "@/models/Batch";
 import Expense from "@/models/Expense";
+import Payment from "@/models/Payment";
 
 let migrationRan = false;
 
@@ -170,8 +171,54 @@ export async function runUppercaseDataMigration() {
       }
     }
 
+    // 8. Sync existing Initial Payment documents with Admission collected amounts
+    for (const adm of allAdmissions) {
+      const finalFee = Number(adm.finalFee || adm.courseFee || 0);
+      const remBal = Number(adm.remainingBalance || 0);
+      const expectedCollected = Math.max(0, finalFee - remBal);
+
+      if (expectedCollected > 0) {
+        const existingPayments = await Payment.find({ admissionId: adm._id }).sort({ createdAt: 1 });
+        if (existingPayments.length > 0) {
+          const firstPayment = existingPayments[0];
+          const totalPaidForAdm = existingPayments.reduce((sum, p) => sum + (Number(p.amountReceived) || 0), 0);
+          if (totalPaidForAdm < expectedCollected) {
+            const diff = expectedCollected - totalPaidForAdm;
+            await Payment.findByIdAndUpdate(firstPayment._id, {
+              amountReceived: Number(firstPayment.amountReceived || 0) + diff
+            });
+          }
+        } else {
+          const admAny = adm as any;
+          await Payment.create({
+            admissionId: adm._id,
+            studentName: adm.fullName || "Student",
+            amountReceived: expectedCollected,
+            paymentMode: adm.paymentMode || "Cash",
+            referenceNo: adm.transactionNo || "N/A",
+            company: admAny.companyAssigned || admAny.company || "N/A",
+            brand: adm.brand || "ALL BRANDS",
+            paymentDate: adm.paymentDate || adm.createdAt || new Date(),
+            particulars: { courseFeeDue: 0, registrationFeeDue: 0, materialFeeDue: 0, examFeeDue: 0 },
+            remarks: "Initial payment upon admission"
+          });
+        }
+      }
+    }
+
+    // 9. Clean up duplicate admissions created by rapid multi-clicks (e.g. ADM000007 and ADM000008 for Tanvi Harshvardhan)
+    const duplicateIdsToDelete = ["ADM000007", "ADM000008"];
+    for (const dupId of duplicateIdsToDelete) {
+      const dupAdm = await Admission.findOne({ admissionId: dupId });
+      if (dupAdm) {
+        await Payment.deleteMany({ admissionId: dupAdm._id });
+        await Admission.findByIdAndDelete(dupAdm._id);
+        console.log(`[Uppercase Migration] Removed duplicate admission record ${dupId}`);
+      }
+    }
+
     migrationRan = true;
-    console.log("[Uppercase Migration] Successfully converted existing saved brand & company data to UPPERCASE.");
+    console.log("[Uppercase Migration] Successfully converted existing saved brand & company data to UPPERCASE, synced initial payments, and removed duplicate admissions.");
   } catch (err) {
     console.error("[Uppercase Migration] Error during migration:", err);
   }

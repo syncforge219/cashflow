@@ -49,6 +49,41 @@ export async function POST(req: NextRequest) {
       coursesList = ["General Course"];
     }
 
+    // Strict Duplicate Admission Guard: A student with the same Name/Mobile and Course cannot be added multiple times
+    const studentFullName = (data.fullName || "").trim();
+    const cleanMobile = (data.mobileNumber || "").trim();
+    const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const nameRegex = studentFullName ? new RegExp(`^${escapeRegExp(studentFullName)}$`, "i") : null;
+    const courseRegexes = coursesList.map((c) => new RegExp(escapeRegExp(c), "i"));
+
+    const duplicateFilter: any = {
+      $or: [
+        ...(cleanMobile ? [{ mobileNumber: cleanMobile }] : []),
+        ...(nameRegex ? [{ fullName: nameRegex }] : [])
+      ],
+      $and: [
+        {
+          $or: [
+            { course: { $in: courseRegexes } },
+            { courses: { $elemMatch: { $in: courseRegexes } } },
+            { targetCourses: { $elemMatch: { $in: courseRegexes } } }
+          ]
+        }
+      ]
+    };
+
+    const existingStudentAdmission = await Admission.findOne(duplicateFilter);
+    if (existingStudentAdmission) {
+      return NextResponse.json({
+        success: false,
+        message: `Duplicate Admission Blocked: Student "${existingStudentAdmission.fullName}" is already enrolled in "${existingStudentAdmission.course}" (Admission ID: ${existingStudentAdmission.admissionId}). A student cannot be admitted to the same course multiple times.`
+      }, { status: 400 });
+    }
+
+    if (coursesList.length === 0) {
+      coursesList = ["General Course"];
+    }
+
     data.courses = coursesList;
     data.targetCourses = coursesList;
     data.course = coursesList.join(", ");
@@ -284,13 +319,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Automatically generate a Payment record for the initial payment collected during admission
+    // Automatically generate a Payment record for the initial payment collected during admission (Registration + Downpayment)
     let initialPaymentObj = null;
-    if (data.amountReceivedToday > 0) {
+    const initialCollectedAmount = Number(data.amountReceivedToday) > 0
+      ? Number(data.amountReceivedToday)
+      : ((Number(data.registrationAmount) || 0) + (Number(data.downpaymentAmount) || 0));
+
+    if (initialCollectedAmount > 0) {
       const initialPayment = new Payment({
         admissionId: admission._id,
         studentName: admission.fullName,
-        amountReceived: Number(data.amountReceivedToday),
+        amountReceived: initialCollectedAmount,
         paymentMode: data.paymentMode || "Cash",
         referenceNo: data.transactionNo || "N/A",
         company: finalCompany,
@@ -298,7 +337,7 @@ export async function POST(req: NextRequest) {
         paymentDate: admission.paymentDate || new Date(),
         particulars: {
           courseFeeDue: 0,
-          registrationFeeDue: 0,
+          registrationFeeDue: Number(data.registrationAmount || 0),
           materialFeeDue: 0,
           examFeeDue: 0
         },
