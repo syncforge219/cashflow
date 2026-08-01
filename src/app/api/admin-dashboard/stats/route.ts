@@ -273,8 +273,8 @@ export async function GET(req: Request) {
     const netProfitNum = totalCollection - totalOutflow;
     const profitMarginPct = totalCollection > 0 ? ((netProfitNum / totalCollection) * 100).toFixed(1) + "%" : "0%";
 
-    const totalLeadsCalculated = Math.max(totalLeads + unlinkedUpgradesCount, admissionsTotal);
-    const totalConvertedCalculated = convertedLeadsCount + unlinkedUpgradesCount;
+    const totalLeadsCalculated = Math.max(totalLeads, admissionsTotal);
+    const totalConvertedCalculated = Math.max(convertedLeadsCount, admissionsTotal);
 
     const rawConv = totalLeadsCalculated > 0 ? (totalConvertedCalculated / totalLeadsCalculated) * 100 : 0;
     const conversionRate = Math.min(100, Math.max(0, Number(rawConv.toFixed(1)))).toFixed(1) + "%";
