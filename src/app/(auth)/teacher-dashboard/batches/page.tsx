@@ -281,7 +281,7 @@ export default function TeacherBatchesPage() {
                                     {student.fullName || student.studentFullName || "Student"}
                                   </span>
                                   <span className="text-[10px] text-slate-400 font-medium block">
-                                    {student.admissionId || "ADM-N/A"} • {student.mobileNumber || student.phone || "No phone"}
+                                    {student.admissionId || "ADM-N/A"}
                                   </span>
                                 </div>
                               </div>

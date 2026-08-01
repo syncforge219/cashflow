@@ -327,7 +327,7 @@ export default function TeacherCalendarPage() {
                             {hoveredItemId === demo._id && (
                               <div className="absolute top-0 right-full mr-3 w-64 bg-slate-900 text-white p-3 rounded-xl shadow-xl z-50 text-xs font-medium space-y-1.5">
                                 <p className="font-bold text-purple-300">Demo Details</p>
-                                <p className="text-[11px]">Mobile: {demo.primaryPhoneMobile || "N/A"}</p>
+                                <p className="text-[11px]">Status: {demo.status || "Scheduled"}</p>
                                 <p className="text-[11px]">Mode: {demo.demoMode || "Online"}</p>
                                 <p className="text-[11px]">Instructor: {demo.assignedTeacher}</p>
                                 {demo.notes && <p className="text-[10px] text-slate-300 italic">{demo.notes}</p>}
