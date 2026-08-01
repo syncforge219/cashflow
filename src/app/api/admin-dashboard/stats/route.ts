@@ -289,7 +289,7 @@ export async function GET(req: Request) {
       newLeadsToday,
       followUpsToday,
       walkinsToday,
-      admissionsToday,
+      admissionsToday: isFiltered ? admissionsToday : admissionsTotal,
       lostLeadsToday: (Array.isArray(lostLeadsToday) ? lostLeadsToday : []).reduce((sum, item) => sum + (item.count || 0), 0),
       conversionRate,
       revenue: formatLakhsOrRupees(totalBilledRevenue),
