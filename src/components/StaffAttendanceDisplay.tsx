@@ -689,7 +689,7 @@ export default function StaffAttendanceDisplay() {
             >
               My Attendance History ({myAttendanceHistory.length})
             </button>
-            {officeLocation && (
+            {isAdmin && officeLocation && (
               <button
                 onClick={() => setActiveTab("location")}
                 className={`pb-4 px-3 font-semibold text-sm transition-all border-b-2 cursor-pointer ${
@@ -927,7 +927,7 @@ export default function StaffAttendanceDisplay() {
         )}
 
         {/* Tab 3: Office Location Configuration */}
-        {activeTab === "location" && (
+        {activeTab === "location" && isAdmin && (
           <div className="p-6 space-y-6 max-w-4xl">
             <div className="flex items-center justify-between">
               <div>
