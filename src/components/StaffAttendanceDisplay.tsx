@@ -112,9 +112,12 @@ export default function StaffAttendanceDisplay() {
   });
 
   useEffect(() => {
+    if (!isAdmin) {
+      setActiveTab("history");
+    }
     fetchBrands();
     fetchData("All");
-  }, []);
+  }, [isAdmin]);
 
   const fetchBrands = async () => {
     try {
@@ -591,76 +594,130 @@ export default function StaffAttendanceDisplay() {
 
       {/* Metric Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Staff */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
-          <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Staff</p>
-            <h3 className="text-2xl font-black text-slate-800 mt-1">{stats.totalStaff}</h3>
-            <p className="text-xs text-slate-500 mt-0.5">Active team members</p>
-          </div>
-          <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
-          </div>
-        </div>
+        {isAdmin ? (
+          <>
+            {/* Total Staff */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Staff</p>
+                <h3 className="text-2xl font-black text-slate-800 mt-1">{stats.totalStaff}</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Active team members</p>
+              </div>
+              <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+            </div>
 
-        {/* Present Today */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
-          <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Present Today</p>
-            <h3 className="text-2xl font-black text-emerald-600 mt-1">{stats.totalPresent}</h3>
-            <p className="text-xs text-emerald-600 font-medium mt-0.5">
-              {stats.totalStaff > 0 ? `${Math.round((stats.totalPresent / stats.totalStaff) * 100)}% turnout` : "0% turnout"}
-            </p>
-          </div>
-          <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl">
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-        </div>
-
-        {/* Face Registered */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
-          <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Face ID Registered</p>
-            <h3 className="text-2xl font-black text-amber-600 mt-1">{stats.totalFaceRegistered}</h3>
-            <p className="text-xs text-slate-500 mt-0.5">{stats.totalStaff - stats.totalFaceRegistered} pending registration</p>
-          </div>
-          <div className="p-3 bg-amber-50 text-amber-600 rounded-2xl">
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-        </div>
-
-        {/* Office Location Status */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
-          <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Office Location</p>
-            {officeLocation ? (
-              <>
-                <h3 className="text-base font-bold text-slate-800 mt-1 truncate max-w-[170px]">
-                  {officeLocation.address || `${officeLocation.latitude.toFixed(4)}, ${officeLocation.longitude.toFixed(4)}`}
-                </h3>
+            {/* Present Today */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Present Today</p>
+                <h3 className="text-2xl font-black text-emerald-600 mt-1">{stats.totalPresent}</h3>
                 <p className="text-xs text-emerald-600 font-medium mt-0.5">
-                  Radius: {officeLocation.radiusMeters || 200}m
+                  {stats.totalStaff > 0 ? `${Math.round((stats.totalPresent / stats.totalStaff) * 100)}% turnout` : "0% turnout"}
                 </p>
-              </>
-            ) : (
-              <>
-                <h3 className="text-sm font-bold text-rose-500 mt-1">Not Uploaded</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Admin setup required</p>
-              </>
-            )}
-          </div>
-          <div className={`p-3 rounded-2xl ${officeLocation ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-500"}`}>
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-            </svg>
-          </div>
-        </div>
+              </div>
+              <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+
+            {/* Face Registered */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Face ID Registered</p>
+                <h3 className="text-2xl font-black text-amber-600 mt-1">{stats.totalFaceRegistered}</h3>
+                <p className="text-xs text-slate-500 mt-0.5">{stats.totalStaff - stats.totalFaceRegistered} pending registration</p>
+              </div>
+              <div className="p-3 bg-amber-50 text-amber-600 rounded-2xl">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+
+            {/* Office Location Status */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Office Location</p>
+                {officeLocation ? (
+                  <>
+                    <h3 className="text-base font-bold text-slate-800 mt-1 truncate max-w-[170px]">
+                      {officeLocation.address || `${officeLocation.latitude.toFixed(4)}, ${officeLocation.longitude.toFixed(4)}`}
+                    </h3>
+                    <p className="text-xs text-emerald-600 font-medium mt-0.5">
+                      Radius: {officeLocation.radiusMeters || 200}m
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-sm font-bold text-rose-500 mt-1">Not Uploaded</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">Admin setup required</p>
+                  </>
+                )}
+              </div>
+              <div className={`p-3 rounded-2xl ${officeLocation ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-500"}`}>
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                </svg>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* My Today's Attendance Status */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between col-span-1 sm:col-span-2">
+              <div>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">My Status Today</p>
+                {currentUserStatus.isMarkedToday ? (
+                  <>
+                    <h3 className="text-2xl font-black text-emerald-600 mt-1">PRESENT</h3>
+                    <p className="text-xs text-emerald-600 font-medium mt-0.5">
+                      Check-in Time: {currentUserStatus.todayLog?.checkInTime || "Marked"}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-2xl font-black text-amber-500 mt-1">NOT MARKED</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">Click &quot;Mark Today&apos;s Attendance&quot; above</p>
+                  </>
+                )}
+              </div>
+              <div className={`p-3 rounded-2xl ${currentUserStatus.isMarkedToday ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-500"}`}>
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+
+            {/* My Face ID Status */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between col-span-1 sm:col-span-2">
+              <div>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">My Face ID</p>
+                {currentUserStatus.isFaceRegistered ? (
+                  <>
+                    <h3 className="text-xl font-black text-emerald-600 mt-1">REGISTERED ✓</h3>
+                    <p className="text-xs text-slate-500 mt-0.5">Face ID active for daily check-in</p>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-xl font-black text-amber-500 mt-1">NOT REGISTERED</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">Click &quot;Register Face ID&quot; above</p>
+                  </>
+                )}
+              </div>
+              <div className={`p-3 rounded-2xl ${currentUserStatus.isFaceRegistered ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-500"}`}>
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Main Content Tabs Container */}
@@ -668,16 +725,18 @@ export default function StaffAttendanceDisplay() {
         {/* Navigation Tabs */}
         <div className="border-b border-slate-200 px-6 pt-4 flex items-center justify-between gap-4 overflow-x-auto">
           <div className="flex gap-2">
-            <button
-              onClick={() => setActiveTab("roster")}
-              className={`pb-4 px-3 font-semibold text-sm transition-all border-b-2 cursor-pointer ${
-                activeTab === "roster"
-                  ? "border-indigo-600 text-indigo-600"
-                  : "border-transparent text-slate-500 hover:text-slate-900"
-              }`}
-            >
-              Staff Daily Roster ({filteredStaffRoster.length})
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => setActiveTab("roster")}
+                className={`pb-4 px-3 font-semibold text-sm transition-all border-b-2 cursor-pointer ${
+                  activeTab === "roster"
+                    ? "border-indigo-600 text-indigo-600"
+                    : "border-transparent text-slate-500 hover:text-slate-900"
+                }`}
+              >
+                Staff Daily Roster ({filteredStaffRoster.length})
+              </button>
+            )}
             <button
               onClick={() => setActiveTab("history")}
               className={`pb-4 px-3 font-semibold text-sm transition-all border-b-2 cursor-pointer ${
@@ -704,7 +763,7 @@ export default function StaffAttendanceDisplay() {
         </div>
 
         {/* Tab 1: Staff Roster Table */}
-        {activeTab === "roster" && (
+        {activeTab === "roster" && isAdmin && (
           <div className="p-6 space-y-4">
             {/* Search & Filters */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">

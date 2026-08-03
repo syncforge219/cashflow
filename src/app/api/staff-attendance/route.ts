@@ -45,6 +45,13 @@ export async function GET(request: Request) {
 
     const allLocations = await OfficeLocation.find({}).sort({ brand: 1 }).lean();
 
+    const userRoleLower = (currentUser.role || "").toLowerCase().trim();
+    const isUserAdmin =
+      userRoleLower === "super admin" ||
+      userRoleLower === "admin" ||
+      userRoleLower === "superadmin" ||
+      (userRoleLower.includes("admin") && !userRoleLower.includes("manager") && !userRoleLower.includes("cfo"));
+
     // 2. Fetch Staff Roster (Excluding Super Admin & Admin by default from marking roster)
     const userQuery: any = {};
     if (roleFilter && roleFilter !== "All") {
@@ -59,6 +66,12 @@ export async function GET(request: Request) {
       userQuery._id = userIdFilter;
     }
 
+    // SECURITY: Except admins, non-admin staff can NEVER see attendance of other staff members
+    if (!isUserAdmin) {
+      const currentId = currentUser._id || (currentUser as any).id;
+      userQuery._id = currentId;
+    }
+
     const allStaffUsers = await User.find(userQuery)
       .select("name email role brandScope isFaceRegistered faceRegisteredAt createdAt")
       .sort({ name: 1 })
@@ -71,6 +84,12 @@ export async function GET(request: Request) {
     }
     if (userIdFilter) {
       attendanceQuery.userId = userIdFilter;
+    }
+
+    // SECURITY: Except admins, non-admin staff can NEVER see attendance of other staff members
+    if (!isUserAdmin) {
+      const currentId = currentUser._id || (currentUser as any).id;
+      attendanceQuery.userId = currentId;
     }
 
     const attendanceLogs = await StaffAttendance.find(attendanceQuery)
