@@ -435,7 +435,7 @@ export async function getDailyBiReportData(targetDate?: Date): Promise<DailyBiRe
   });
 
   // 8. Daily Collection Summary by Payment Mode
-  const modeMap: { [key: string]: number } = { "UPI": 0, "Bank Transfer": 0, "Cash": 0, "Credit Card": 0, "NEFT/RTGS": 0 };
+  const modeMap: { [key: string]: number } = { "UPI": 0, "Bank Transfer": 0, "Cash": 0, "Credit Card": 0, "Cheque": 0, "NEFT/RTGS": 0 };
   todayPayments.forEach((p: any) => {
     const m = p.paymentMode || "UPI";
     modeMap[m] = (modeMap[m] || 0) + (Number(p.amountReceived) || 0);
