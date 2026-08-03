@@ -18,7 +18,8 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const dateStr = searchParams.get("dateStr") || new Date().toISOString().split("T")[0];
+    const todayIST = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    const dateStr = searchParams.get("dateStr") || todayIST;
     const roleFilter = searchParams.get("role");
     const userIdFilter = searchParams.get("userId");
     let brand = searchParams.get("brand");
@@ -96,6 +97,20 @@ export async function GET(request: Request) {
       .sort({ createdAt: -1 })
       .lean();
 
+    // Helper to format log checkInTime in IST timezone
+    const formatLogCheckIn = (log: any) => {
+      if (!log) return null;
+      if (log.date || log.createdAt) {
+        return new Date(log.date || log.createdAt).toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+          timeZone: "Asia/Kolkata",
+        });
+      }
+      return log.checkInTime || null;
+    };
+
     // Map attendance status onto staff roster
     const attendanceMap = new Map();
     attendanceLogs.forEach((log: any) => {
@@ -114,7 +129,7 @@ export async function GET(request: Request) {
         isFaceRegistered: Boolean(u.isFaceRegistered),
         faceRegisteredAt: u.faceRegisteredAt,
         statusToday: todayLog ? todayLog.status : "Absent",
-        checkInTime: todayLog ? todayLog.checkInTime : null,
+        checkInTime: todayLog ? formatLogCheckIn(todayLog) : null,
         distanceMeters: todayLog ? todayLog.distanceMeters : null,
         confidence: todayLog ? todayLog.confidence : null,
         locationVerified: todayLog ? todayLog.locationVerified : false,
@@ -134,6 +149,11 @@ export async function GET(request: Request) {
     const currentUserProfile = await User.findById(currentUserIdStr).select("isFaceRegistered faceRegisteredAt").lean();
     const currentUserTodayLog = attendanceLogs.find((l: any) => l.userId.toString() === currentUserIdStr);
 
+    const formattedAttendanceLogs = attendanceLogs.map((log: any) => ({
+      ...log,
+      checkInTime: formatLogCheckIn(log),
+    }));
+
     return NextResponse.json({
       success: true,
       dateStr,
@@ -149,10 +169,15 @@ export async function GET(request: Request) {
         isFaceRegistered: Boolean(currentUserProfile?.isFaceRegistered),
         faceRegisteredAt: currentUserProfile?.faceRegisteredAt || null,
         isMarkedToday: Boolean(currentUserTodayLog),
-        todayLog: currentUserTodayLog || null,
+        todayLog: currentUserTodayLog
+          ? {
+              ...currentUserTodayLog,
+              checkInTime: formatLogCheckIn(currentUserTodayLog),
+            }
+          : null,
       },
       staffRoster,
-      attendanceLogs,
+      attendanceLogs: formattedAttendanceLogs,
     });
   } catch (error: any) {
     console.error("GET /api/staff-attendance Error:", error);

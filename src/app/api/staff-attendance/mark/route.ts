@@ -134,11 +134,12 @@ export async function POST(request: Request) {
 
     // 5. Mark Attendance Present
     const now = new Date();
-    const dateStr = now.toISOString().split("T")[0]; // YYYY-MM-DD
+    const dateStr = now.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }); // YYYY-MM-DD in IST
     const checkInTime = now.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
       hour12: true,
+      timeZone: "Asia/Kolkata",
     });
 
     const attendanceRecord = await StaffAttendance.findOneAndUpdate(
