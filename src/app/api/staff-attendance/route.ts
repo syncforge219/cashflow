@@ -111,6 +111,19 @@ export async function GET(request: Request) {
       return log.checkInTime || null;
     };
 
+    const formatLogCheckOut = (log: any) => {
+      if (!log || !log.checkOutTime) return null;
+      if (log.checkOutDate) {
+        return new Date(log.checkOutDate).toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+          timeZone: "Asia/Kolkata",
+        });
+      }
+      return log.checkOutTime || null;
+    };
+
     // Map attendance status onto staff roster
     const attendanceMap = new Map();
     attendanceLogs.forEach((log: any) => {
@@ -130,6 +143,7 @@ export async function GET(request: Request) {
         faceRegisteredAt: u.faceRegisteredAt,
         statusToday: todayLog ? todayLog.status : "Absent",
         checkInTime: todayLog ? formatLogCheckIn(todayLog) : null,
+        checkOutTime: todayLog ? formatLogCheckOut(todayLog) : null,
         distanceMeters: todayLog ? todayLog.distanceMeters : null,
         confidence: todayLog ? todayLog.confidence : null,
         locationVerified: todayLog ? todayLog.locationVerified : false,
@@ -152,6 +166,7 @@ export async function GET(request: Request) {
     const formattedAttendanceLogs = attendanceLogs.map((log: any) => ({
       ...log,
       checkInTime: formatLogCheckIn(log),
+      checkOutTime: formatLogCheckOut(log),
     }));
 
     return NextResponse.json({
@@ -173,6 +188,7 @@ export async function GET(request: Request) {
           ? {
               ...currentUserTodayLog,
               checkInTime: formatLogCheckIn(currentUserTodayLog),
+              checkOutTime: formatLogCheckOut(currentUserTodayLog),
             }
           : null,
       },

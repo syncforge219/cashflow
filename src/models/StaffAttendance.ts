@@ -40,6 +40,14 @@ const StaffAttendanceSchema = new Schema(
       type: String, // e.g. "09:30 AM"
       required: true,
     },
+    checkOutTime: {
+      type: String, // e.g. "06:30 PM"
+      default: null,
+    },
+    checkOutDate: {
+      type: Date,
+      default: null,
+    },
     status: {
       type: String,
       enum: ["Present", "Absent", "Late"],

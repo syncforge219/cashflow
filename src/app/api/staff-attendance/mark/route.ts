@@ -132,43 +132,61 @@ export async function POST(request: Request) {
       );
     }
 
-    // 5. Mark Attendance Present
+    // 5. Check existing attendance record for today
     const now = new Date();
     const dateStr = now.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }); // YYYY-MM-DD in IST
-    const checkInTime = now.toLocaleTimeString("en-US", {
+    const currentTimeStr = now.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
       hour12: true,
       timeZone: "Asia/Kolkata",
     });
 
-    const attendanceRecord = await StaffAttendance.findOneAndUpdate(
-      { userId: userDoc._id, dateStr },
-      {
-        userId: userDoc._id,
-        userName: userDoc.name,
-        userEmail: userDoc.email,
-        role: userDoc.role || "Staff",
-        brand: userBrand || "All",
-        date: now,
-        dateStr,
-        checkInTime,
-        status: "Present",
-        locationVerified: true,
-        faceVerified: true,
-        latitude: Number(latitude),
-        longitude: Number(longitude),
-        distanceMeters: locationCheck.distanceMeters,
-        confidence: faceMatchResult.confidencePct,
-        notes: `Verified via Face ID (${faceMatchResult.confidencePct}%) & GPS (${locationCheck.distanceMeters}m away)`,
-      },
-      { upsert: true, new: true, runValidators: true }
-    );
+    const existingRecord = await StaffAttendance.findOne({ userId: userDoc._id, dateStr });
+
+    const isCheckoutAction = body.actionType === "checkout" || (existingRecord && existingRecord.checkInTime && !existingRecord.checkOutTime);
+
+    let attendanceRecord;
+    let responseMsg = "";
+
+    if (isCheckoutAction && existingRecord) {
+      existingRecord.checkOutTime = currentTimeStr;
+      existingRecord.checkOutDate = now;
+      existingRecord.status = "Present";
+      existingRecord.notes = `${existingRecord.notes || "Check-In Verified"} | Check-Out via Face ID (${faceMatchResult.confidencePct}%) & GPS (${locationCheck.distanceMeters}m away)`;
+      attendanceRecord = await existingRecord.save();
+      responseMsg = `Check-out recorded successfully for today at ${currentTimeStr}!`;
+    } else {
+      attendanceRecord = await StaffAttendance.findOneAndUpdate(
+        { userId: userDoc._id, dateStr },
+        {
+          userId: userDoc._id,
+          userName: userDoc.name,
+          userEmail: userDoc.email,
+          role: userDoc.role || "Staff",
+          brand: userBrand || "All",
+          date: now,
+          dateStr,
+          checkInTime: currentTimeStr,
+          status: "Present",
+          locationVerified: true,
+          faceVerified: true,
+          latitude: Number(latitude),
+          longitude: Number(longitude),
+          distanceMeters: locationCheck.distanceMeters,
+          confidence: faceMatchResult.confidencePct,
+          notes: `Verified via Face ID (${faceMatchResult.confidencePct}%) & GPS (${locationCheck.distanceMeters}m away)`,
+        },
+        { upsert: true, new: true, runValidators: true }
+      );
+      responseMsg = `Attendance marked PRESENT for today (${currentTimeStr})!`;
+    }
 
     return NextResponse.json({
       success: true,
-      message: `Attendance marked PRESENT for today (${checkInTime})!`,
+      message: responseMsg,
       attendance: attendanceRecord,
+      actionType: isCheckoutAction ? "checkout" : "checkin",
     });
   } catch (error: any) {
     console.error("POST /api/staff-attendance/mark Error:", error);

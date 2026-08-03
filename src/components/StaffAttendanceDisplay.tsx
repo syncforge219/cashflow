@@ -14,6 +14,7 @@ interface StaffMember {
   faceRegisteredAt?: string;
   statusToday: "Present" | "Absent" | "Late";
   checkInTime?: string;
+  checkOutTime?: string;
   distanceMeters?: number;
   confidence?: number;
   locationVerified?: boolean;
@@ -537,14 +538,7 @@ export default function StaffAttendanceDisplay() {
                       Re-Register Face ID
                     </button>
 
-                    {currentUserStatus.isMarkedToday ? (
-                      <div className="px-5 py-2.5 bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 font-bold rounded-xl text-sm flex items-center gap-2 backdrop-blur-md">
-                        <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                        </svg>
-                        Present Today ({currentUserStatus.todayLog?.checkInTime || "Marked"})
-                      </div>
-                    ) : (
+                    {!currentUserStatus.isMarkedToday ? (
                       <button
                         onClick={handleOpenMarkAttendanceModal}
                         className="px-5 py-2.5 bg-indigo-500 hover:bg-indigo-400 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-indigo-500/30 flex items-center gap-2 cursor-pointer"
@@ -552,8 +546,33 @@ export default function StaffAttendanceDisplay() {
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        Mark Today&apos;s Attendance
+                        Mark Check-In
                       </button>
+                    ) : !currentUserStatus.todayLog?.checkOutTime ? (
+                      <div className="flex items-center gap-2">
+                        <div className="px-4 py-2.5 bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 font-bold rounded-xl text-sm flex items-center gap-2 backdrop-blur-md">
+                          <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                          </svg>
+                          Present Today ({currentUserStatus.todayLog?.checkInTime || "Marked"})
+                        </div>
+                        <button
+                          onClick={handleOpenMarkAttendanceModal}
+                          className="px-4 py-2.5 bg-rose-500 hover:bg-rose-600 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-rose-500/30 flex items-center gap-2 cursor-pointer"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                          </svg>
+                          Check-Out Today
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="px-5 py-2.5 bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 font-bold rounded-xl text-sm flex items-center gap-2 backdrop-blur-md">
+                        <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Present Today (In: {currentUserStatus.todayLog?.checkInTime} | Out: {currentUserStatus.todayLog?.checkOutTime})
+                      </div>
                     )}
                   </div>
                 )}
@@ -676,9 +695,14 @@ export default function StaffAttendanceDisplay() {
                 {currentUserStatus.isMarkedToday ? (
                   <>
                     <h3 className="text-2xl font-black text-emerald-600 mt-1">PRESENT</h3>
-                    <p className="text-xs text-emerald-600 font-medium mt-0.5">
-                      Check-in Time: {currentUserStatus.todayLog?.checkInTime || "Marked"}
-                    </p>
+                    <div className="text-xs text-emerald-600 font-semibold mt-0.5 space-y-0.5">
+                      <p>Check-In Time: {currentUserStatus.todayLog?.checkInTime || "Marked"}</p>
+                      {currentUserStatus.todayLog?.checkOutTime ? (
+                        <p className="text-indigo-700 font-bold">Check-Out Time: {currentUserStatus.todayLog.checkOutTime}</p>
+                      ) : (
+                        <p className="text-amber-600 font-medium font-sans">Check-Out Pending (Click Check-Out Above)</p>
+                      )}
+                    </div>
                   </>
                 ) : (
                   <>
@@ -832,7 +856,8 @@ export default function StaffAttendanceDisplay() {
                       <th className="py-3.5 px-4">Role</th>
                       <th className="py-3.5 px-4">Face ID Status</th>
                       <th className="py-3.5 px-4">Today&apos;s Status</th>
-                      <th className="py-3.5 px-4">Check-In Time</th>
+                      <th className="py-3.5 px-4">Check-In</th>
+                      <th className="py-3.5 px-4">Check-Out</th>
                       <th className="py-3.5 px-4">Verification Details</th>
                       {isAdmin && <th className="py-3.5 px-4 text-right">Actions</th>}
                     </tr>
@@ -890,6 +915,14 @@ export default function StaffAttendanceDisplay() {
 
                         <td className="py-3.5 px-4 font-medium text-slate-700">
                           {member.checkInTime || "--"}
+                        </td>
+
+                        <td className="py-3.5 px-4 font-medium text-slate-700">
+                          {member.checkOutTime ? (
+                            <span className="text-emerald-700 font-bold">{member.checkOutTime}</span>
+                          ) : (
+                            <span className="text-slate-400">--</span>
+                          )}
                         </td>
 
                         <td className="py-3.5 px-4 text-xs">
@@ -951,7 +984,8 @@ export default function StaffAttendanceDisplay() {
                   <thead>
                     <tr className="bg-slate-50/80 text-slate-500 text-xs uppercase tracking-wider font-semibold border-b border-slate-200">
                       <th className="py-3.5 px-4">Date</th>
-                      <th className="py-3.5 px-4">Check-In Time</th>
+                      <th className="py-3.5 px-4">Check-In</th>
+                      <th className="py-3.5 px-4">Check-Out</th>
                       <th className="py-3.5 px-4">Status</th>
                       <th className="py-3.5 px-4">GPS Verification</th>
                       <th className="py-3.5 px-4">Face Verification</th>
@@ -962,10 +996,17 @@ export default function StaffAttendanceDisplay() {
                     {myAttendanceHistory.map((log) => (
                       <tr key={log._id} className="hover:bg-slate-50/50 transition-colors">
                         <td className="py-3.5 px-4 font-semibold text-slate-800">{log.dateStr}</td>
-                        <td className="py-3.5 px-4 font-medium text-slate-700">{log.checkInTime}</td>
+                        <td className="py-3.5 px-4 font-medium text-slate-700">{log.checkInTime || "--"}</td>
+                        <td className="py-3.5 px-4 font-medium text-slate-700">
+                          {log.checkOutTime ? (
+                            <span className="text-emerald-700 font-bold">{log.checkOutTime}</span>
+                          ) : (
+                            <span className="text-slate-400">--</span>
+                          )}
+                        </td>
                         <td className="py-3.5 px-4">
                           <span className="px-2.5 py-1 bg-emerald-500 text-white font-bold text-xs rounded-full">
-                            {log.status}
+                            {log.status || "Present"}
                           </span>
                         </td>
                         <td className="py-3.5 px-4 text-xs font-medium text-emerald-700">
@@ -1150,7 +1191,11 @@ export default function StaffAttendanceDisplay() {
           <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-100">
             <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
               <div>
-                <h3 className="text-lg font-bold text-slate-900">Mark Today&apos;s Attendance</h3>
+                <h3 className="text-lg font-bold text-slate-900">
+                  {currentUserStatus.isMarkedToday && !currentUserStatus.todayLog?.checkOutTime
+                    ? "Mark Today's Check-Out"
+                    : "Mark Today's Check-In"}
+                </h3>
                 <p className="text-xs text-slate-500">Verifying GPS Location & Face ID</p>
               </div>
               <button onClick={closeModals} className="text-slate-400 hover:text-slate-600 p-2">
@@ -1218,9 +1263,17 @@ export default function StaffAttendanceDisplay() {
                   type="button"
                   onClick={handleVerifyAndMarkAttendance}
                   disabled={isProcessing || !cameraActive}
-                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl shadow-lg shadow-emerald-600/30 disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+                  className={`px-6 py-2.5 text-white font-bold text-sm rounded-xl shadow-lg disabled:opacity-50 flex items-center gap-2 cursor-pointer ${
+                    currentUserStatus.isMarkedToday && !currentUserStatus.todayLog?.checkOutTime
+                      ? "bg-rose-600 hover:bg-rose-700 shadow-rose-600/30"
+                      : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30"
+                  }`}
                 >
-                  {isProcessing ? "Verifying..." : "Verify & Mark Present"}
+                  {isProcessing
+                    ? "Verifying..."
+                    : currentUserStatus.isMarkedToday && !currentUserStatus.todayLog?.checkOutTime
+                    ? "Verify & Check-Out"
+                    : "Verify & Mark Present"}
                 </button>
               </div>
             </div>
