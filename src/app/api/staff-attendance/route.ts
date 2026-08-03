@@ -124,24 +124,17 @@ export async function GET(request: Request) {
       return log.checkOutTime || null;
     };
 
-    const calculateWorkingHours = (log: any) => {
-      if (!log || !log.checkOutTime) return "--";
-
+    const getWorkingMins = (log: any): number => {
+      if (!log || !log.checkOutTime) return 0;
       let startMs = 0;
       let endMs = 0;
-
       if (log.date && log.checkOutDate) {
         startMs = new Date(log.date).getTime();
         endMs = new Date(log.checkOutDate).getTime();
       }
-
       if (endMs > startMs) {
-        const diffMins = Math.floor((endMs - startMs) / (1000 * 60));
-        const hh = String(Math.floor(diffMins / 60)).padStart(2, "0");
-        const mm = String(diffMins % 60).padStart(2, "0");
-        return `${hh}:${mm} hrs`;
+        return Math.floor((endMs - startMs) / (1000 * 60));
       }
-
       const parseTimeStr = (tStr: string) => {
         if (!tStr) return null;
         const match = tStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
@@ -153,20 +146,22 @@ export async function GET(request: Request) {
         if (period === "AM" && h === 12) h = 0;
         return h * 60 + m;
       };
-
       const inStr = formatLogCheckIn(log) || log.checkInTime;
       const outStr = formatLogCheckOut(log) || log.checkOutTime;
       const startMins = parseTimeStr(inStr);
       const endMins = parseTimeStr(outStr);
-
       if (startMins !== null && endMins !== null && endMins >= startMins) {
-        const diffMins = endMins - startMins;
-        const hh = String(Math.floor(diffMins / 60)).padStart(2, "0");
-        const mm = String(diffMins % 60).padStart(2, "0");
-        return `${hh}:${mm} hrs`;
+        return endMins - startMins;
       }
+      return 0;
+    };
 
-      return "--";
+    const calculateWorkingHours = (log: any) => {
+      if (!log || !log.checkOutTime) return "--";
+      const diffMins = getWorkingMins(log);
+      const hh = String(Math.floor(diffMins / 60)).padStart(2, "0");
+      const mm = String(diffMins % 60).padStart(2, "0");
+      return `${hh}:${mm} hrs`;
     };
 
     // Map attendance status onto staff roster
@@ -178,6 +173,11 @@ export async function GET(request: Request) {
     const staffRoster = allStaffUsers.map((u: any) => {
       const uIdStr = u._id.toString();
       const todayLog = attendanceMap.get(uIdStr);
+      let statusToday = todayLog ? todayLog.status : "Absent";
+      if (todayLog && todayLog.checkOutTime) {
+        statusToday = getWorkingMins(todayLog) >= 480 ? "Present" : "Absent";
+      }
+
       return {
         id: uIdStr,
         name: u.name,
@@ -186,7 +186,7 @@ export async function GET(request: Request) {
         brand: u.brandScope || "All",
         isFaceRegistered: Boolean(u.isFaceRegistered),
         faceRegisteredAt: u.faceRegisteredAt,
-        statusToday: todayLog ? todayLog.status : "Absent",
+        statusToday,
         checkInTime: todayLog ? formatLogCheckIn(todayLog) : null,
         checkOutTime: todayLog ? formatLogCheckOut(todayLog) : null,
         workingHours: todayLog ? calculateWorkingHours(todayLog) : "--",
@@ -209,12 +209,19 @@ export async function GET(request: Request) {
     const currentUserProfile = await User.findById(currentUserIdStr).select("isFaceRegistered faceRegisteredAt").lean();
     const currentUserTodayLog = attendanceLogs.find((l: any) => l.userId.toString() === currentUserIdStr);
 
-    const formattedAttendanceLogs = attendanceLogs.map((log: any) => ({
-      ...log,
-      checkInTime: formatLogCheckIn(log),
-      checkOutTime: formatLogCheckOut(log),
-      workingHours: calculateWorkingHours(log),
-    }));
+    const formattedAttendanceLogs = attendanceLogs.map((log: any) => {
+      let logStatus = log.status || "Present";
+      if (log.checkOutTime) {
+        logStatus = getWorkingMins(log) >= 480 ? "Present" : "Absent";
+      }
+      return {
+        ...log,
+        status: logStatus,
+        checkInTime: formatLogCheckIn(log),
+        checkOutTime: formatLogCheckOut(log),
+        workingHours: calculateWorkingHours(log),
+      };
+    });
 
     return NextResponse.json({
       success: true,
@@ -234,6 +241,7 @@ export async function GET(request: Request) {
         todayLog: currentUserTodayLog
           ? {
               ...currentUserTodayLog,
+              status: currentUserTodayLog.checkOutTime && getWorkingMins(currentUserTodayLog) < 480 ? "Absent" : (currentUserTodayLog.status || "Present"),
               checkInTime: formatLogCheckIn(currentUserTodayLog),
               checkOutTime: formatLogCheckOut(currentUserTodayLog),
               workingHours: calculateWorkingHours(currentUserTodayLog),

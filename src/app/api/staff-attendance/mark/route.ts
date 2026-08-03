@@ -152,10 +152,47 @@ export async function POST(request: Request) {
     if (isCheckoutAction && existingRecord) {
       existingRecord.checkOutTime = currentTimeStr;
       existingRecord.checkOutDate = now;
-      existingRecord.status = "Present";
-      existingRecord.notes = `${existingRecord.notes || "Check-In Verified"} | Check-Out via Face ID (${faceMatchResult.confidencePct}%) & GPS (${locationCheck.distanceMeters}m away)`;
+
+      // Calculate working minutes
+      const parseTimeStr = (tStr?: string) => {
+        if (!tStr) return null;
+        const match = tStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
+        if (!match) return null;
+        let h = parseInt(match[1], 10);
+        const m = parseInt(match[2], 10);
+        const period = match[3].toUpperCase();
+        if (period === "PM" && h < 12) h += 12;
+        if (period === "AM" && h === 12) h = 0;
+        return h * 60 + m;
+      };
+
+      let workingMins = 0;
+      if (existingRecord.date) {
+        const diffMs = now.getTime() - new Date(existingRecord.date).getTime();
+        if (diffMs > 0) workingMins = Math.floor(diffMs / (1000 * 60));
+      }
+
+      if (workingMins <= 0) {
+        const startMins = parseTimeStr(existingRecord.checkInTime);
+        const endMins = parseTimeStr(currentTimeStr);
+        if (startMins !== null && endMins !== null && endMins >= startMins) {
+          workingMins = endMins - startMins;
+        }
+      }
+
+      const isLessThan8Hours = workingMins < 480; // 8 hours = 480 minutes
+      existingRecord.status = isLessThan8Hours ? "Absent" : "Present";
+
+      const hh = String(Math.floor(workingMins / 60)).padStart(2, "0");
+      const mm = String(workingMins % 60).padStart(2, "0");
+      const durationStr = `${hh}:${mm} hrs`;
+
+      existingRecord.notes = `${existingRecord.notes || "Check-In Verified"} | Check-Out via Face ID (${faceMatchResult.confidencePct}%) & GPS (${locationCheck.distanceMeters}m away) [Work Duration: ${durationStr}]`;
+
       attendanceRecord = await existingRecord.save();
-      responseMsg = `Check-out recorded successfully for today at ${currentTimeStr}!`;
+      responseMsg = isLessThan8Hours
+        ? `Check-out recorded at ${currentTimeStr}. Working time (${durationStr}) is less than 8 hours, marked as ABSENT.`
+        : `Check-out recorded successfully at ${currentTimeStr} (${durationStr} worked)!`;
     } else {
       attendanceRecord = await StaffAttendance.findOneAndUpdate(
         { userId: userDoc._id, dateStr },

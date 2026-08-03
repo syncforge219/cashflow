@@ -695,13 +695,18 @@ export default function StaffAttendanceDisplay() {
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">My Status Today</p>
                 {currentUserStatus.isMarkedToday ? (
                   <>
-                    <h3 className="text-2xl font-black text-emerald-600 mt-1">PRESENT</h3>
-                    <div className="text-xs text-emerald-600 font-semibold mt-0.5 space-y-0.5">
-                      <p>Check-In Time: {currentUserStatus.todayLog?.checkInTime || "Marked"}</p>
+                    <h3 className={`text-2xl font-black mt-1 ${currentUserStatus.todayLog?.status === "Absent" ? "text-rose-600" : "text-emerald-600"}`}>
+                      {currentUserStatus.todayLog?.status === "Absent" ? "ABSENT (<8 hrs)" : "PRESENT"}
+                    </h3>
+                    <div className="text-xs font-semibold mt-0.5 space-y-0.5">
+                      <p className="text-slate-600">Check-In Time: {currentUserStatus.todayLog?.checkInTime || "Marked"}</p>
                       {currentUserStatus.todayLog?.checkOutTime ? (
                         <>
                           <p className="text-indigo-700 font-bold">Check-Out Time: {currentUserStatus.todayLog.checkOutTime}</p>
                           <p className="text-indigo-900 font-extrabold">Working Hours: {currentUserStatus.todayLog.workingHours || "--"}</p>
+                          {currentUserStatus.todayLog?.status === "Absent" && (
+                            <p className="text-rose-600 font-bold">⚠️ Less than 8 hours worked — status marked as ABSENT</p>
+                          )}
                         </>
                       ) : (
                         <p className="text-amber-600 font-medium font-sans">Check-Out Pending (Click Check-Out Above)</p>
@@ -1018,7 +1023,7 @@ export default function StaffAttendanceDisplay() {
                           {log.workingHours || "--"}
                         </td>
                         <td className="py-3.5 px-4">
-                          <span className="px-2.5 py-1 bg-emerald-500 text-white font-bold text-xs rounded-full">
+                          <span className={`px-2.5 py-1 text-white font-bold text-xs rounded-full ${log.status === "Absent" ? "bg-rose-500" : "bg-emerald-500"}`}>
                             {log.status || "Present"}
                           </span>
                         </td>
