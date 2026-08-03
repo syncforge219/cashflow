@@ -82,7 +82,7 @@ export default function StaffAttendanceDisplay() {
   const [locForm, setLocForm] = useState({
     latitude: "",
     longitude: "",
-    radiusMeters: "200",
+    radiusMeters: "500",
     address: "",
     brand: "All",
   });

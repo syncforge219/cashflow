@@ -32,7 +32,7 @@ export function isWithinOfficeRadius(
   staffLon: number,
   officeLat: number,
   officeLon: number,
-  radiusMeters: number = 200
+  radiusMeters: number = 500
 ): { isWithin: boolean; distanceMeters: number } {
   const distanceMeters = calculateDistanceMeters(staffLat, staffLon, officeLat, officeLon);
   return {

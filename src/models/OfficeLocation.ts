@@ -12,7 +12,7 @@ const OfficeLocationSchema = new Schema(
     },
     radiusMeters: {
       type: Number,
-      default: 200, // Default allowed attendance distance in meters
+      default: 500, // Default allowed attendance distance in meters to accommodate browser Wi-Fi accuracy
     },
     address: {
       type: String,
