@@ -1678,6 +1678,7 @@ export default function ExpensesPage() {
                         <option value="Credit Card">Credit Card</option>
                         <option value="NEFT">NEFT</option>
                         <option value="Cash">Cash</option>
+                        <option value="Cheque">Cheque</option>
                       </select>
                     </div>
                   </div>
