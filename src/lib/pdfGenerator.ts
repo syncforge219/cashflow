@@ -53,29 +53,41 @@ export function generateReceiptPdfBuffer(data: ReceiptPdfData): Buffer {
   const totalPaidVal = Number(data.totalPaidToDate || amountVal);
   const remainingVal = Number(data.remainingBalance || 0);
 
+  // Dynamic Brand Initials (e.g. DESIGN GATEWAY -> DG, CADD MANTRA -> CM)
+  const brandInitials = brand
+    .split(/\s+/)
+    .map((w: string) => w[0])
+    .filter(Boolean)
+    .join("")
+    .toUpperCase()
+    .slice(0, 3) || "CM";
+
+  // Format short date for table cells to avoid overlapping (e.g., "01 Aug 2026")
+  const shortPayDate = payDate.includes(",") ? payDate.split(",")[0].trim() : payDate;
+
   // --- PAGE 1 CONTENT STREAM ---
   const page1Lines = [
     // Header Left Logo + Company Details
-    `BT /F2 18 Tf 0.72 0.11 0.11 rg 50 765 Td (CM) Tj ET`,
-    `BT /F2 8.5 Tf 0.1 0.1 0.1 rg 50 750 Td (${brand}) Tj ET`,
+    `BT /F2 18 Tf 0.72 0.11 0.11 rg 50 765 Td (${brandInitials}) Tj ET`,
+    `BT /F2 8 Tf 0.1 0.1 0.1 rg 50 750 Td (${brand.slice(0, 15)}) Tj ET`,
 
-    `BT /F2 12 Tf 0.1 0.1 0.1 rg 135 778 Td (${company}) Tj ET`,
-    `BT /F1 7.5 Tf 0.3 0.3 0.3 rg 135 765 Td (Company Addr: ${companyAddress}) Tj ET`,
-    `BT /F2 8.5 Tf 0.1 0.5 0.2 rg 135 752 Td (Brand: ${brand} | Brand Addr: ${brandAddress}) Tj ET`,
+    `BT /F2 11 Tf 0.1 0.1 0.1 rg 115 778 Td (${company}) Tj ET`,
+    `BT /F1 7.5 Tf 0.3 0.3 0.3 rg 115 766 Td (Company Addr: ${companyAddress}) Tj ET`,
+    `BT /F2 8 Tf 0.1 0.5 0.2 rg 115 754 Td (Brand: ${brand} | Addr: ${brandAddress}) Tj ET`,
 
     // Header Right
-    `BT /F2 10 Tf 0.1 0.6 0.2 rg 360 780 Td (Receipt # ${receiptNo}) Tj ET`,
-    `BT /F1 7.5 Tf 0.4 0.4 0.4 rg 360 768 Td (Generated: ${generatedTime}) Tj ET`,
+    `BT /F2 9.5 Tf 0.1 0.6 0.2 rg 360 780 Td (Receipt # ${receiptNo}) Tj ET`,
+    `BT /F1 7 Tf 0.4 0.4 0.4 rg 360 768 Td (Generated: ${generatedTime}) Tj ET`,
     
     // Barcode Vector Graphic
     `0.1 0.1 0.1 rg`,
-    `360 742 180 25 re f`,
+    `360 742 180 20 re f`,
     `1 1 1 rg`,
-    `365 742 3 25 re f`, `372 742 2 25 re f`, `378 742 4 25 re f`,
-    `386 742 2 25 re f`, `392 742 5 25 re f`, `402 742 3 25 re f`,
-    `410 742 2 25 re f`, `416 742 4 25 re f`, `425 742 3 25 re f`,
-    `433 742 5 25 re f`, `442 742 2 25 re f`, `450 742 4 25 re f`,
-    `460 742 3 25 re f`, `470 742 2 25 re f`, `480 742 5 25 re f`,
+    `365 742 3 20 re f`, `372 742 2 20 re f`, `378 742 4 20 re f`,
+    `386 742 2 20 re f`, `392 742 5 20 re f`, `402 742 3 20 re f`,
+    `410 742 2 20 re f`, `416 742 4 20 re f`, `425 742 3 20 re f`,
+    `433 742 5 20 re f`, `442 742 2 20 re f`, `450 742 4 20 re f`,
+    `460 742 3 20 re f`, `470 742 2 20 re f`, `480 742 5 20 re f`,
 
     // Top Divider Line
     fillRoundedRect("0.85 0.85 0.85", 50, 730, 495, 1, 4),
@@ -84,15 +96,15 @@ export function generateReceiptPdfBuffer(data: ReceiptPdfData): Buffer {
     fillRoundedRect("0.96 0.96 0.96", 50, 625, 240, 95, 4),
     strokeRoundedRect("0.85 0.85 0.85", 50, 625, 240, 95, 4),
     `BT /F1 8.5 Tf 0.3 0.3 0.3 rg 55 707 Td (Receipt #) Tj ET`,
-    `BT /F2 8.5 Tf 0.1 0.1 0.1 rg 140 707 Td (${receiptNo}) Tj ET`,
+    `BT /F2 8.5 Tf 0.1 0.1 0.1 rg 160 707 Td (${receiptNo}) Tj ET`,
     `BT /F1 8.5 Tf 0.3 0.3 0.3 rg 55 688 Td (Receipt Date & Time) Tj ET`,
-    `BT /F1 8.5 Tf 0.1 0.1 0.1 rg 140 688 Td (${payDate}) Tj ET`,
+    `BT /F1 8.5 Tf 0.1 0.1 0.1 rg 160 688 Td (${payDate}) Tj ET`,
     `BT /F1 8.5 Tf 0.3 0.3 0.3 rg 55 669 Td (Received In) Tj ET`,
-    `BT /F1 8.5 Tf 0.1 0.1 0.1 rg 140 669 Td (${mode}) Tj ET`,
+    `BT /F1 8.5 Tf 0.1 0.1 0.1 rg 160 669 Td (${mode}) Tj ET`,
     `BT /F1 8.5 Tf 0.3 0.3 0.3 rg 55 650 Td (Cheque/Tran. Number) Tj ET`,
-    `BT /F1 8.5 Tf 0.1 0.1 0.1 rg 140 650 Td (${ref}) Tj ET`,
+    `BT /F1 8.5 Tf 0.1 0.1 0.1 rg 160 650 Td (${ref}) Tj ET`,
     `BT /F1 8.5 Tf 0.3 0.3 0.3 rg 55 631 Td (Received Fee) Tj ET`,
-    `BT /F2 8.5 Tf 0.1 0.1 0.1 rg 140 631 Td (${amountStr}) Tj ET`,
+    `BT /F2 8.5 Tf 0.1 0.1 0.1 rg 160 631 Td (${amountStr}) Tj ET`,
 
     // Right Column Received From & Green Pill
     fillRoundedRect("0.85 0.85 0.85", 305, 700, 240, 20, 4),
@@ -103,47 +115,47 @@ export function generateReceiptPdfBuffer(data: ReceiptPdfData): Buffer {
 
     // Solid Green Amount Pill
     fillRoundedRect("0.15 0.68 0.32", 305, 625, 240, 22, 4),
-    `BT /F2 12 Tf 1 1 1 rg 400 632 Td (INR ${amountStr}) Tj ET`,
+    `BT /F2 12 Tf 1 1 1 rg 380 632 Td (INR ${amountStr}) Tj ET`,
 
     // Invoice Details Section
     `BT /F2 10 Tf 0.1 0.1 0.1 rg 50 605 Td (Invoice Details) Tj ET`,
     fillRoundedRect("0.82 0.82 0.82", 50, 585, 495, 18, 4),
     `BT /F2 8 Tf 0.2 0.2 0.2 rg 55 590 Td (Received against Invoice #) Tj ET`,
     `BT /F2 8 Tf 0.2 0.2 0.2 rg 160 590 Td (Package Details) Tj ET`,
-    `BT /F2 8 Tf 0.2 0.2 0.2 rg 300 590 Td (Fees Details) Tj ET`,
-    `BT /F2 8 Tf 0.2 0.2 0.2 rg 370 590 Td (Invoice Date) Tj ET`,
-    `BT /F2 8 Tf 0.2 0.2 0.2 rg 440 590 Td (Due Fee) Tj ET`,
+    `BT /F2 8 Tf 0.2 0.2 0.2 rg 290 590 Td (Fees Details) Tj ET`,
+    `BT /F2 8 Tf 0.2 0.2 0.2 rg 360 590 Td (Invoice Date) Tj ET`,
+    `BT /F2 8 Tf 0.2 0.2 0.2 rg 435 590 Td (Due Fee) Tj ET`,
     `BT /F2 8 Tf 0.2 0.2 0.2 rg 490 590 Td (Received Fee) Tj ET`,
 
     `BT /F1 8 Tf 0.2 0.2 0.2 rg 55 570 Td (566) Tj ET`,
-    `BT /F1 8 Tf 0.2 0.2 0.2 rg 160 570 Td (${course}) Tj ET`,
-    `BT /F1 8 Tf 0.2 0.2 0.2 rg 300 570 Td (Course Fees) Tj ET`,
-    `BT /F1 8 Tf 0.2 0.2 0.2 rg 370 570 Td (${payDate}) Tj ET`,
-    `BT /F1 8 Tf 0.2 0.2 0.2 rg 440 570 Td (${amountVal}) Tj ET`,
+    `BT /F1 8 Tf 0.2 0.2 0.2 rg 160 570 Td (${course.slice(0, 22)}) Tj ET`,
+    `BT /F1 8 Tf 0.2 0.2 0.2 rg 290 570 Td (Course Fees) Tj ET`,
+    `BT /F1 8 Tf 0.2 0.2 0.2 rg 360 570 Td (${shortPayDate}) Tj ET`,
+    `BT /F1 8 Tf 0.2 0.2 0.2 rg 435 570 Td (${amountVal}) Tj ET`,
     `BT /F2 8 Tf 0.1 0.5 0.2 rg 490 570 Td (${amountVal}) Tj ET`,
 
     // Installment Payments Section
     `BT /F2 10 Tf 0.1 0.1 0.1 rg 50 545 Td (Installment Payments) Tj ET`,
     fillRoundedRect("0.82 0.82 0.82", 50, 525, 495, 18, 4),
     `BT /F2 8 Tf 0.2 0.2 0.2 rg 55 530 Td (Due Date) Tj ET`,
-    `BT /F2 8 Tf 0.2 0.2 0.2 rg 120 530 Td (Invoice) Tj ET`,
-    `BT /F2 8 Tf 0.2 0.2 0.2 rg 170 530 Td (Due Fee) Tj ET`,
-    `BT /F2 8 Tf 0.2 0.2 0.2 rg 230 530 Td (Received Fee) Tj ET`,
-    `BT /F2 8 Tf 0.2 0.2 0.2 rg 300 530 Td (Balance Fee) Tj ET`,
-    `BT /F2 8 Tf 0.2 0.2 0.2 rg 390 530 Td (Payment Details) Tj ET`,
+    `BT /F2 8 Tf 0.2 0.2 0.2 rg 125 530 Td (Invoice) Tj ET`,
+    `BT /F2 8 Tf 0.2 0.2 0.2 rg 165 530 Td (Due Fee) Tj ET`,
+    `BT /F2 8 Tf 0.2 0.2 0.2 rg 225 530 Td (Received Fee) Tj ET`,
+    `BT /F2 8 Tf 0.2 0.2 0.2 rg 295 530 Td (Balance Fee) Tj ET`,
+    `BT /F2 8 Tf 0.2 0.2 0.2 rg 365 530 Td (Payment Details) Tj ET`,
 
-    `BT /F1 8 Tf 0.2 0.2 0.2 rg 55 510 Td (${payDate}) Tj ET`,
-    `BT /F1 8 Tf 0.2 0.2 0.2 rg 120 510 Td (566) Tj ET`,
-    `BT /F1 8 Tf 0.2 0.2 0.2 rg 170 510 Td (${finalFeeVal}) Tj ET`,
-    `BT /F1 8 Tf 0.2 0.2 0.2 rg 230 510 Td (${totalPaidVal}) Tj ET`,
-    `BT /F1 8 Tf 0.2 0.2 0.2 rg 300 510 Td (${remainingVal}) Tj ET`,
-    `BT /F1 7.5 Tf 0.4 0.4 0.4 rg 390 510 Td (${receiptNo} ${payDate} ${amountVal} ${mode}) Tj ET`,
+    `BT /F1 8 Tf 0.2 0.2 0.2 rg 55 510 Td (${shortPayDate}) Tj ET`,
+    `BT /F1 8 Tf 0.2 0.2 0.2 rg 125 510 Td (566) Tj ET`,
+    `BT /F1 8 Tf 0.2 0.2 0.2 rg 165 510 Td (${finalFeeVal}) Tj ET`,
+    `BT /F1 8 Tf 0.2 0.2 0.2 rg 225 510 Td (${totalPaidVal}) Tj ET`,
+    `BT /F1 8 Tf 0.2 0.2 0.2 rg 295 510 Td (${remainingVal}) Tj ET`,
+    `BT /F1 7 Tf 0.4 0.4 0.4 rg 365 510 Td (${receiptNo} ${shortPayDate} ${amountVal} ${mode}) Tj ET`,
 
     // Totals Bar
     fillRoundedRect("0.88 0.88 0.88", 50, 490, 495, 16, 4),
-    `BT /F2 8 Tf 0.1 0.1 0.1 rg 170 494 Td (${finalFeeVal}) Tj ET`,
-    `BT /F2 8 Tf 0.1 0.5 0.2 rg 230 494 Td (${totalPaidVal}) Tj ET`,
-    `BT /F2 8 Tf 0.7 0.1 0.1 rg 300 494 Td (${remainingVal}) Tj ET`,
+    `BT /F2 8 Tf 0.1 0.1 0.1 rg 165 494 Td (${finalFeeVal}) Tj ET`,
+    `BT /F2 8 Tf 0.1 0.5 0.2 rg 225 494 Td (${totalPaidVal}) Tj ET`,
+    `BT /F2 8 Tf 0.7 0.1 0.1 rg 295 494 Td (${remainingVal}) Tj ET`,
 
     // Terms & Conditions Title
     `BT /F2 9.5 Tf 0.1 0.1 0.1 rg 50 465 Td (TERMS & CONDITIONS:) Tj ET`,
@@ -184,32 +196,23 @@ export function generateReceiptPdfBuffer(data: ReceiptPdfData): Buffer {
     `BT /F2 7.5 Tf 0.1 0.1 0.1 rg 50 183 Td (11. Course Modification Policy:) Tj ET`,
     `BT /F1 7 Tf 0.2 0.2 0.2 rg 50 174 Td (Course upgrades permitted with approval and fee difference. Downgrades/lower value programs not allowed.) Tj ET`,
 
-    // Page Number
-    `BT /F1 8 Tf 0.5 0.5 0.5 rg 490 30 Td (Page 1 of 2) Tj ET`,
-  ];
+    // Authorised Signatory Line
+    fillRoundedRect("0.5 0.5 0.5", 380, 110, 150, 1, 4),
+    `BT /F2 8.5 Tf 0.2 0.2 0.2 rg 405 95 Td (Authorised Signatory) Tj ET`,
 
-  // --- PAGE 2 CONTENT STREAM ---
-  const page2Lines = [
-    // Signature Line
-    fillRoundedRect("0.5 0.5 0.5", 380, 620, 150, 1, 4),
-    `BT /F2 9 Tf 0.2 0.2 0.2 rg 405 605 Td (Authorised Signatory) Tj ET`,
-
-    // Page Number
-    `BT /F1 8 Tf 0.5 0.5 0.5 rg 490 30 Td (Page 2 of 2) Tj ET`,
+    // Footer Page Number
+    `BT /F1 8 Tf 0.5 0.5 0.5 rg 490 30 Td (Page 1 of 1) Tj ET`,
   ];
 
   const p1Text = page1Lines.join("\n");
-  const p2Text = page2Lines.join("\n");
 
   const objects = [];
   objects.push(`1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj`);
-  objects.push(`2 0 obj\n<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>\nendobj`);
-  objects.push(`3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 7 0 R >>\nendobj`);
-  objects.push(`4 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 8 0 R >>\nendobj`);
-  objects.push(`5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj`);
-  objects.push(`6 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>\nendobj`);
-  objects.push(`7 0 obj\n<< /Length ${Buffer.byteLength(p1Text)} >>\nstream\n${p1Text}\nendstream\nendobj`);
-  objects.push(`8 0 obj\n<< /Length ${Buffer.byteLength(p2Text)} >>\nstream\n${p2Text}\nendstream\nendobj`);
+  objects.push(`2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj`);
+  objects.push(`3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>\nendobj`);
+  objects.push(`4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj`);
+  objects.push(`5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>\nendobj`);
+  objects.push(`6 0 obj\n<< /Length ${Buffer.byteLength(p1Text)} >>\nstream\n${p1Text}\nendstream\nendobj`);
 
   let header = "%PDF-1.4\n";
   let body = "";

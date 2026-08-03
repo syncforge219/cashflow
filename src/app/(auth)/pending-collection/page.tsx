@@ -7,6 +7,7 @@ import CounsellorSidebar from "@/components/CounsellorSidebar";
 import TeacherSidebar from "@/components/TeacherSidebar";
 import CrmSidebar from "@/components/CrmSidebar";
 import AddFollowupModal from "@/components/AddFollowupModal";
+import FeeFollowupModal from "@/components/FeeFollowupModal";
 import Student360Modal from "@/components/Student360Modal";
 import PaymentReceiptModal from "@/components/PaymentReceiptModal";
 import ProfileDisplay from "@/components/ProfileDisplay";
@@ -860,7 +861,7 @@ export default function PendingCollectionPage() {
 
       {/* Modals Integration */}
       {activeFollowupRecord && (
-        <AddFollowupModal
+        <FeeFollowupModal
           isOpen={Boolean(activeFollowupRecord)}
           onClose={() => setActiveFollowupRecord(null)}
           record={activeFollowupRecord}

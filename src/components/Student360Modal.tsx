@@ -439,24 +439,39 @@ export default function Student360Modal({
 
   if (!isOpen) return null;
 
-  const totalCollected = payments.reduce((acc, p) => acc + (Number(p.amountReceived) || 0), 0);
+  const totalAgreedFee = Number(studentData?.finalFee || studentData?.courseFee || 0);
   const regAmt = Number(studentData?.registrationAmount ?? studentData?.amountReceivedToday) || 0;
   const dpAmt = Number(studentData?.downpaymentAmount) || 0;
   const emiItems = studentData?.customEmiPlan || formData.customEmiPlan || [];
   const pendingEmisSum = emiItems.filter((e: any) => !e.isPaid).reduce((acc: number, e: any) => acc + (Number(e.amount) || 0), 0);
-  const remainingBalFromData = Number(studentData?.remainingBalance || 0);
-  
-  const computedBalance = studentData
-    ? (pendingEmisSum > 0
-        ? pendingEmisSum
-        : (remainingBalFromData > 0
-            ? remainingBalFromData
-            : Math.max(0, (studentData.finalFee || 0) - regAmt - dpAmt)))
-    : 0;
+  const remainingBalFromData = Number(studentData?.remainingBalance);
 
-  const feeProgress = studentData && studentData.finalFee > 0
-    ? Math.min(100, Math.round(((totalCollected || regAmt) / studentData.finalFee) * 100))
-    : 0;
+  let computedBalance = 0;
+  if (studentData) {
+    if (pendingEmisSum > 0) {
+      computedBalance = pendingEmisSum;
+    } else if (!isNaN(remainingBalFromData) && remainingBalFromData >= 0) {
+      computedBalance = remainingBalFromData;
+    } else {
+      computedBalance = Math.max(0, totalAgreedFee - regAmt - dpAmt);
+    }
+  }
+
+  const validPaymentsSum = payments.reduce((acc, p) => acc + (Number(p.amountReceived) || 0), 0);
+  let totalCollected = Math.max(0, totalAgreedFee - computedBalance);
+
+  if (validPaymentsSum > totalCollected && computedBalance === 0) {
+    totalCollected = validPaymentsSum;
+  }
+
+  let feeProgress = 0;
+  if (totalAgreedFee > 0) {
+    if (computedBalance <= 0) {
+      feeProgress = 100;
+    } else {
+      feeProgress = Math.min(99, Math.max(0, Math.round((totalCollected / totalAgreedFee) * 100)));
+    }
+  }
 
   // Task filtering
   const filteredTasks = tasks.filter((t) => {

@@ -38,7 +38,6 @@ jobs:
           # Connection Settings
           timeout: 120s
           command_timeout: 30m
-          script_stop: true
           debug: true
 
           script: |

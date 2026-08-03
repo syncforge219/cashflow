@@ -49,14 +49,6 @@ export default function NotificationPanel({
             read: false,
             createdAt: new Date(Date.now() - 3600000).toISOString(),
           },
-          {
-            _id: "notif-top-3",
-            title: "💬 WhatsApp Drip Triggered",
-            message: "1-Hour prior demo attendance reminder sent to 12 scheduled candidates.",
-            type: "drip",
-            read: true,
-            createdAt: new Date(Date.now() - 7200000).toISOString(),
-          },
         ]);
       }
     } catch (err) {
@@ -197,8 +189,6 @@ export default function NotificationPanel({
                       ? "⚡"
                       : notif.type === "cpl"
                       ? "💰"
-                      : notif.type === "drip"
-                      ? "💬"
                       : "🔔"}
                   </div>
 

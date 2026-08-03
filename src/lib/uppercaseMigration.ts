@@ -206,15 +206,67 @@ export async function runUppercaseDataMigration() {
       }
     }
 
-    // 9. Clean up duplicate admissions created by rapid multi-clicks (e.g. ADM000007 and ADM000008 for Tanvi Harshvardhan)
-    const duplicateIdsToDelete = ["ADM000007", "ADM000008"];
-    for (const dupId of duplicateIdsToDelete) {
-      const dupAdm = await Admission.findOne({ admissionId: dupId });
-      if (dupAdm) {
-        await Payment.deleteMany({ admissionId: dupAdm._id });
-        await Admission.findByIdAndDelete(dupAdm._id);
-        console.log(`[Uppercase Migration] Removed duplicate admission record ${dupId}`);
-      }
+    // 9. Restore and protect Akshita Gupta (ADM000007)
+    const akshita = await Admission.findOne({ $or: [{ admissionId: "ADM000007" }, { mobileNumber: "9454960684" }] });
+    if (!akshita) {
+      const generate18EmiItems = (totalAmount: number) => {
+        const perInst = Math.round(totalAmount / 18);
+        const plan = [];
+        const baseDate = new Date("2026-08-01T00:00:00.000Z");
+        for (let i = 1; i <= 18; i++) {
+          const dueDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + i, 15);
+          plan.push({
+            installmentName: `Installment ${i}`,
+            dueDate,
+            amount: i === 18 ? totalAmount - perInst * 17 : perInst,
+            isPaid: false
+          });
+        }
+        return plan;
+      };
+
+      const newAkshita = await Admission.create({
+        admissionId: "ADM000007",
+        fullName: "AKSHITA Gupta",
+        mobileNumber: "9454960684",
+        primaryPhoneMobile: "9454960684",
+        email: "guptaakshita737@gmail.com",
+        parentPhone: "8953031943",
+        parentsPhoneNumber: "8953031943",
+        brand: "DESIGN GATEWAY",
+        companyAssigned: "SP DESIGN GATEWAY TRAINING SERVICES",
+        course: "MBA in Interior Design",
+        courseFee: 265000,
+        finalFee: 265000,
+        registrationAmount: 35000,
+        amountReceivedToday: 35000,
+        remainingBalance: 230000,
+        paymentMode: "Bank Transfer",
+        hasEmi: true,
+        numInstallments: 18,
+        customEmiPlan: generate18EmiItems(230000),
+        counsellor: "Sahej Sharma",
+        createdAt: new Date("2026-07-31T00:00:00.000Z")
+      });
+
+      await Payment.create({
+        admissionId: newAkshita._id,
+        studentName: "AKSHITA Gupta",
+        amountReceived: 35000,
+        paymentMode: "Bank Transfer",
+        referenceNo: "REG-ADM000007",
+        company: "SP DESIGN GATEWAY TRAINING SERVICES",
+        brand: "DESIGN GATEWAY",
+        paymentDate: new Date("2026-07-31T00:00:00.000Z"),
+        remarks: "Initial registration payment"
+      });
+    }
+
+    // Safely remove ONLY the specific duplicate click entry for Tanvi Harshvardhan (ADM000008) while keeping ADM000006
+    const tanviDup = await Admission.findOne({ fullName: "Tanvi Harshvardhan", admissionId: "ADM000008" });
+    if (tanviDup) {
+      await Payment.deleteMany({ admissionId: tanviDup._id });
+      await Admission.findByIdAndDelete(tanviDup._id);
     }
 
     // 10. Synchronize primaryPhoneMobile and mobileNumber on all existing Admission documents

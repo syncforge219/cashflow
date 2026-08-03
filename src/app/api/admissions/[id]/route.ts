@@ -205,7 +205,23 @@ export async function PUT(
       numInstallments: body.numInstallments !== undefined ? Number(body.numInstallments) : existingDoc.numInstallments,
       installmentAmount: body.installmentAmount !== undefined ? Number(body.installmentAmount) : existingDoc.installmentAmount,
       customEmiPlan: formattedEmiPlan !== undefined ? formattedEmiPlan : existingDoc.customEmiPlan,
+      lastFollowupDate: body.lastFollowupDate ? new Date(body.lastFollowupDate) : existingDoc.lastFollowupDate,
+      lastFollowupNotes: body.lastFollowupNotes !== undefined ? body.lastFollowupNotes : existingDoc.lastFollowupNotes,
+      nextFollowupDate: body.nextFollowupDate ? new Date(body.nextFollowupDate) : existingDoc.nextFollowupDate,
+      ptpDate: body.ptpDate ? new Date(body.ptpDate) : existingDoc.ptpDate,
+      ptpAmount: body.ptpAmount !== undefined ? Number(body.ptpAmount) : existingDoc.ptpAmount,
     };
+
+    if (body.feeFollowup) {
+      (updatePayload as any)["$push"] = {
+        feeFollowups: {
+          ...body.feeFollowup,
+          ptpDate: body.feeFollowup.ptpDate ? new Date(body.feeFollowup.ptpDate) : undefined,
+          nextFollowupDate: body.feeFollowup.nextFollowupDate ? new Date(body.feeFollowup.nextFollowupDate) : undefined,
+          createdAt: new Date()
+        }
+      };
+    }
 
     const updatedDoc = await Admission.findByIdAndUpdate(id, updatePayload, { new: true });
 

@@ -162,7 +162,7 @@ export async function GET(req: Request) {
 
       // Counsellor data
       User.find({ role: "counsellor" }).select("name").lean(),
-      Admission.find().select("counsellor brand finalFee").lean(),
+      Admission.find(globalFilter).select("counsellor brand finalFee").lean(),
       Enquiry.aggregate([
         {
           $group: {
@@ -289,7 +289,7 @@ export async function GET(req: Request) {
       newLeadsToday,
       followUpsToday,
       walkinsToday,
-      admissionsToday,
+      admissionsToday: isFiltered ? admissionsToday : admissionsTotal,
       lostLeadsToday: (Array.isArray(lostLeadsToday) ? lostLeadsToday : []).reduce((sum, item) => sum + (item.count || 0), 0),
       conversionRate,
       revenue: formatLakhsOrRupees(totalBilledRevenue),

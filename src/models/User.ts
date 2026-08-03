@@ -70,6 +70,19 @@ const UserSchema = new Schema(
       default: "Coach",
       trim: true,
     },
+    // Staff Face Recognition fields
+    isFaceRegistered: {
+      type: Boolean,
+      default: false,
+    },
+    faceDescriptor: [
+      {
+        type: Number,
+      },
+    ],
+    faceRegisteredAt: {
+      type: Date,
+    },
   },
   {
     timestamps: true,

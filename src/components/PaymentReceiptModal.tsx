@@ -328,38 +328,64 @@ export default function PaymentReceiptModal({
   }, [isOpen, student, receipt]);
 
   const triggerCleanPrint = () => {
-    const printWin = window.open("", "_blank", "width=850,height=950");
-    if (!printWin) {
+    const receiptElement = document.getElementById("printable-receipt-content");
+    if (!receiptElement) {
       window.print();
       return;
     }
 
-    const receiptHtml = document.getElementById("printable-receipt-content")?.innerHTML;
-    printWin.document.write(`
+    const receiptHtml = receiptElement.innerHTML;
+
+    // Collect all in-memory stylesheets from current document (0 network requests, 0ms lag)
+    const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+      .map((s) => s.outerHTML)
+      .join("\n");
+
+    let iframe = document.getElementById("receipt-print-iframe") as HTMLIFrameElement;
+    if (!iframe) {
+      iframe = document.createElement("iframe");
+      iframe.id = "receipt-print-iframe";
+      iframe.style.position = "fixed";
+      iframe.style.right = "0";
+      iframe.style.bottom = "0";
+      iframe.style.width = "0";
+      iframe.style.height = "0";
+      iframe.style.border = "0";
+      document.body.appendChild(iframe);
+    }
+
+    const doc = iframe.contentWindow?.document;
+    if (!doc) {
+      window.print();
+      return;
+    }
+
+    doc.open();
+    doc.write(`
       <!DOCTYPE html>
       <html>
         <head>
           <title>Receipt - ${receiptNo}</title>
-          <script src="https://cdn.tailwindcss.com"></script>
+          ${styles}
           <style>
-            @page { size: A4 portrait; margin: 10mm; }
-            body { font-family: system-ui, -apple-system, sans-serif; padding: 15px; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            @page { size: A4 portrait; margin: 8mm; }
+            body { font-family: system-ui, -apple-system, sans-serif; padding: 0; margin: 0; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           </style>
         </head>
-        <body>
-          <div style="max-width: 750px; margin: 0 auto;">
+        <body class="bg-white">
+          <div style="max-width: 800px; margin: 0 auto;">
             ${receiptHtml}
           </div>
-          <script>
-            setTimeout(() => {
-              window.print();
-              window.close();
-            }, 600);
-          </script>
         </body>
       </html>
     `);
-    printWin.document.close();
+    doc.close();
+
+    // Trigger instant print dialog without delay
+    setTimeout(() => {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+    }, 50);
   };
 
   const [isSendingWhatsApp, setIsSendingWhatsApp] = React.useState(false);
@@ -395,6 +421,8 @@ export default function PaymentReceiptModal({
       setIsSendingWhatsApp(false);
     }
   };
+
+  const [isDownloadingPdf, setIsDownloadingPdf] = React.useState(false);
 
   const handlePrint = () => {
     triggerCleanPrint();
@@ -742,7 +770,7 @@ export default function PaymentReceiptModal({
           </button>
           <button
             onClick={handleDownloadPDF}
-            className="px-4 py-2 bg-slate-800 text-white hover:bg-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
+            className="px-4 py-2 bg-slate-800 text-white hover:bg-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
