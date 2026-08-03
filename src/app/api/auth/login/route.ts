@@ -4,9 +4,21 @@ import dbConnect from "@/lib/db";
 import User from "@/models/User";
 import { signJWT } from "@/lib/jwt";
 import { verifyRecaptchaToken } from "@/lib/recaptcha";
+import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 
 export async function POST(request: Request) {
   try {
+    // 1. Rate Limiting Protection (Max 5 login attempts per IP per minute)
+    const clientIp = getClientIp(request);
+    const rateCheck = checkRateLimit(`login_${clientIp}`, { limit: 5, windowMs: 60 * 1000 });
+    if (rateCheck.isLimited) {
+      console.warn(`[Rate Limited] Too many login attempts from IP ${clientIp}`);
+      return NextResponse.json(
+        { error: "Too many login attempts. Please wait 1 minute before trying again." },
+        { status: 429, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
     let body: any = {};
     try {
       body = await request.json();
