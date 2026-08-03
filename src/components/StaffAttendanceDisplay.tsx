@@ -568,11 +568,11 @@ export default function StaffAttendanceDisplay() {
                         </button>
                       </div>
                     ) : (
-                      <div className="px-5 py-2.5 bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 font-bold rounded-xl text-sm flex items-center gap-2 backdrop-blur-md">
-                        <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <div className={`px-5 py-2.5 border font-bold rounded-xl text-sm flex items-center gap-2 backdrop-blur-md ${currentUserStatus.todayLog?.status === "Absent" ? "bg-rose-500/20 border-rose-400/40 text-rose-200" : "bg-emerald-500/20 border-emerald-400/40 text-emerald-200"}`}>
+                        <svg className="w-5 h-5 text-current" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                         </svg>
-                        Present Today (In: {currentUserStatus.todayLog?.checkInTime} | Out: {currentUserStatus.todayLog?.checkOutTime})
+                        {currentUserStatus.todayLog?.status === "Absent" ? "Absent Today" : "Present Today"} (In: {currentUserStatus.todayLog?.checkInTime} | Out: {currentUserStatus.todayLog?.checkOutTime})
                       </div>
                     )}
                   </div>
@@ -696,20 +696,15 @@ export default function StaffAttendanceDisplay() {
                 {currentUserStatus.isMarkedToday ? (
                   <>
                     <h3 className={`text-2xl font-black mt-1 ${currentUserStatus.todayLog?.status === "Absent" ? "text-rose-600" : "text-emerald-600"}`}>
-                      {currentUserStatus.todayLog?.status === "Absent" ? "ABSENT (<8 hrs)" : "PRESENT"}
+                      {currentUserStatus.todayLog?.status === "Absent" ? "ABSENT" : "PRESENT"}
                     </h3>
                     <div className="text-xs font-semibold mt-0.5 space-y-0.5">
                       <p className="text-slate-600">Check-In Time: {currentUserStatus.todayLog?.checkInTime || "Marked"}</p>
-                      {currentUserStatus.todayLog?.checkOutTime ? (
+                      {currentUserStatus.todayLog?.checkOutTime && (
                         <>
                           <p className="text-indigo-700 font-bold">Check-Out Time: {currentUserStatus.todayLog.checkOutTime}</p>
                           <p className="text-indigo-900 font-extrabold">Working Hours: {currentUserStatus.todayLog.workingHours || "--"}</p>
-                          {currentUserStatus.todayLog?.status === "Absent" && (
-                            <p className="text-rose-600 font-bold">⚠️ Less than 8 hours worked — status marked as ABSENT</p>
-                          )}
                         </>
-                      ) : (
-                        <p className="text-amber-600 font-medium font-sans">Check-Out Pending (Click Check-Out Above)</p>
                       )}
                     </div>
                   </>
