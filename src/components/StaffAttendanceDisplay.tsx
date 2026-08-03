@@ -99,11 +99,10 @@ export default function StaffAttendanceDisplay() {
 
   const roleLower = (user?.role || "").toLowerCase().trim();
   const isAdmin =
-    roleLower.includes("admin") ||
-    roleLower.includes("head") ||
-    roleLower.includes("manager") ||
-    roleLower.includes("cfo") ||
-    roleLower.includes("director");
+    roleLower === "super admin" ||
+    roleLower === "admin" ||
+    roleLower === "superadmin" ||
+    (roleLower.includes("admin") && !roleLower.includes("manager") && !roleLower.includes("cfo"));
 
   const todayDateStr = new Date().toLocaleDateString("en-US", {
     weekday: "long",

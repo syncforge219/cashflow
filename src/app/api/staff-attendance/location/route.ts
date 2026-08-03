@@ -63,15 +63,14 @@ export async function POST(request: Request) {
 
     const roleLower = (user.role || "").toLowerCase().trim();
     const isAdmin =
-      roleLower.includes("admin") ||
-      roleLower.includes("head") ||
-      roleLower.includes("manager") ||
-      roleLower.includes("cfo") ||
-      roleLower.includes("director");
+      roleLower === "super admin" ||
+      roleLower === "admin" ||
+      roleLower === "superadmin" ||
+      (roleLower.includes("admin") && !roleLower.includes("manager") && !roleLower.includes("cfo"));
 
     if (!isAdmin) {
       return NextResponse.json(
-        { success: false, error: "Only Admin or Managers can configure office location" },
+        { success: false, error: "Only Admin or Super Admin can configure office location" },
         { status: 403 }
       );
     }
