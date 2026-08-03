@@ -15,6 +15,7 @@ interface StaffMember {
   statusToday: "Present" | "Absent" | "Late";
   checkInTime?: string;
   checkOutTime?: string;
+  workingHours?: string;
   distanceMeters?: number;
   confidence?: number;
   locationVerified?: boolean;
@@ -698,7 +699,10 @@ export default function StaffAttendanceDisplay() {
                     <div className="text-xs text-emerald-600 font-semibold mt-0.5 space-y-0.5">
                       <p>Check-In Time: {currentUserStatus.todayLog?.checkInTime || "Marked"}</p>
                       {currentUserStatus.todayLog?.checkOutTime ? (
-                        <p className="text-indigo-700 font-bold">Check-Out Time: {currentUserStatus.todayLog.checkOutTime}</p>
+                        <>
+                          <p className="text-indigo-700 font-bold">Check-Out Time: {currentUserStatus.todayLog.checkOutTime}</p>
+                          <p className="text-indigo-900 font-extrabold">Working Hours: {currentUserStatus.todayLog.workingHours || "--"}</p>
+                        </>
                       ) : (
                         <p className="text-amber-600 font-medium font-sans">Check-Out Pending (Click Check-Out Above)</p>
                       )}
@@ -858,6 +862,7 @@ export default function StaffAttendanceDisplay() {
                       <th className="py-3.5 px-4">Today&apos;s Status</th>
                       <th className="py-3.5 px-4">Check-In</th>
                       <th className="py-3.5 px-4">Check-Out</th>
+                      <th className="py-3.5 px-4">Working Hours</th>
                       <th className="py-3.5 px-4">Verification Details</th>
                       {isAdmin && <th className="py-3.5 px-4 text-right">Actions</th>}
                     </tr>
@@ -925,6 +930,10 @@ export default function StaffAttendanceDisplay() {
                           )}
                         </td>
 
+                        <td className="py-3.5 px-4 font-extrabold text-indigo-600">
+                          {member.workingHours || "--"}
+                        </td>
+
                         <td className="py-3.5 px-4 text-xs">
                           {member.statusToday === "Present" ? (
                             <div className="space-y-0.5">
@@ -986,6 +995,7 @@ export default function StaffAttendanceDisplay() {
                       <th className="py-3.5 px-4">Date</th>
                       <th className="py-3.5 px-4">Check-In</th>
                       <th className="py-3.5 px-4">Check-Out</th>
+                      <th className="py-3.5 px-4">Working Hours</th>
                       <th className="py-3.5 px-4">Status</th>
                       <th className="py-3.5 px-4">GPS Verification</th>
                       <th className="py-3.5 px-4">Face Verification</th>
@@ -1003,6 +1013,9 @@ export default function StaffAttendanceDisplay() {
                           ) : (
                             <span className="text-slate-400">--</span>
                           )}
+                        </td>
+                        <td className="py-3.5 px-4 font-extrabold text-indigo-600 font-mono">
+                          {log.workingHours || "--"}
                         </td>
                         <td className="py-3.5 px-4">
                           <span className="px-2.5 py-1 bg-emerald-500 text-white font-bold text-xs rounded-full">

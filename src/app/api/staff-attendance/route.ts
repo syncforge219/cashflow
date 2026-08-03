@@ -124,6 +124,51 @@ export async function GET(request: Request) {
       return log.checkOutTime || null;
     };
 
+    const calculateWorkingHours = (log: any) => {
+      if (!log || !log.checkOutTime) return "--";
+
+      let startMs = 0;
+      let endMs = 0;
+
+      if (log.date && log.checkOutDate) {
+        startMs = new Date(log.date).getTime();
+        endMs = new Date(log.checkOutDate).getTime();
+      }
+
+      if (endMs > startMs) {
+        const diffMins = Math.floor((endMs - startMs) / (1000 * 60));
+        const hh = String(Math.floor(diffMins / 60)).padStart(2, "0");
+        const mm = String(diffMins % 60).padStart(2, "0");
+        return `${hh}:${mm} hrs`;
+      }
+
+      const parseTimeStr = (tStr: string) => {
+        if (!tStr) return null;
+        const match = tStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
+        if (!match) return null;
+        let h = parseInt(match[1], 10);
+        const m = parseInt(match[2], 10);
+        const period = match[3].toUpperCase();
+        if (period === "PM" && h < 12) h += 12;
+        if (period === "AM" && h === 12) h = 0;
+        return h * 60 + m;
+      };
+
+      const inStr = formatLogCheckIn(log) || log.checkInTime;
+      const outStr = formatLogCheckOut(log) || log.checkOutTime;
+      const startMins = parseTimeStr(inStr);
+      const endMins = parseTimeStr(outStr);
+
+      if (startMins !== null && endMins !== null && endMins >= startMins) {
+        const diffMins = endMins - startMins;
+        const hh = String(Math.floor(diffMins / 60)).padStart(2, "0");
+        const mm = String(diffMins % 60).padStart(2, "0");
+        return `${hh}:${mm} hrs`;
+      }
+
+      return "--";
+    };
+
     // Map attendance status onto staff roster
     const attendanceMap = new Map();
     attendanceLogs.forEach((log: any) => {
@@ -144,6 +189,7 @@ export async function GET(request: Request) {
         statusToday: todayLog ? todayLog.status : "Absent",
         checkInTime: todayLog ? formatLogCheckIn(todayLog) : null,
         checkOutTime: todayLog ? formatLogCheckOut(todayLog) : null,
+        workingHours: todayLog ? calculateWorkingHours(todayLog) : "--",
         distanceMeters: todayLog ? todayLog.distanceMeters : null,
         confidence: todayLog ? todayLog.confidence : null,
         locationVerified: todayLog ? todayLog.locationVerified : false,
@@ -167,6 +213,7 @@ export async function GET(request: Request) {
       ...log,
       checkInTime: formatLogCheckIn(log),
       checkOutTime: formatLogCheckOut(log),
+      workingHours: calculateWorkingHours(log),
     }));
 
     return NextResponse.json({
@@ -189,6 +236,7 @@ export async function GET(request: Request) {
               ...currentUserTodayLog,
               checkInTime: formatLogCheckIn(currentUserTodayLog),
               checkOutTime: formatLogCheckOut(currentUserTodayLog),
+              workingHours: calculateWorkingHours(currentUserTodayLog),
             }
           : null,
       },
