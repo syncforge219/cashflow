@@ -89,7 +89,9 @@ export async function GET(request: Request) {
 
     const roleQuery = roleParam === "crm"
       ? { $in: ["crm", "crm-executive", "crm-advisor", "crm advisor", "crm executive"] }
-      : { $in: ["counsellor", "sales executive", "sales-executive"] };
+      : roleParam === "counsellor"
+      ? { $in: ["counsellor", "sales executive", "sales-executive"] }
+      : { $in: ["counsellor", "sales executive", "sales-executive", "crm", "crm-executive", "crm-advisor", "crm advisor", "crm executive"] };
 
     const query: any = { role: roleQuery };
 

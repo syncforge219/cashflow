@@ -31,7 +31,7 @@ export default function CounsellorDisplay() {
     try {
       setIsLoading(true);
       const [counsellorsRes, enquiriesRes, admissionsRes] = await Promise.all([
-        fetch("/api/counsellors"),
+        fetch("/api/counsellors?role=counsellor"),
         fetch("/api/enquiries"),
         fetch("/api/admissions")
       ]);
@@ -562,76 +562,7 @@ export default function CounsellorDisplay() {
                 </div>
               </div>
 
-              {/* Performance Ledger Goals & Analytics */}
-              <div className="space-y-3">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block select-none font-sans">
-                  Counselor Performance & Conversion Analytics
-                </label>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  <div className="bg-slate-50 border border-slate-100 rounded-xl p-3">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase block font-sans">
-                      Assigned Enquiries
-                    </span>
-                    <span className="text-sm font-extrabold text-slate-800 block mt-1 font-sans">
-                      {selectedCounsellor.assignedLeadsNum || 0} Leads
-                    </span>
-                  </div>
-                  <div className="bg-purple-50/50 border border-purple-100 rounded-xl p-3">
-                    <span className="text-[9px] font-bold text-purple-600 uppercase block font-sans">
-                      Demos Conducted
-                    </span>
-                    <span className="text-sm font-extrabold text-purple-700 block mt-1 font-sans">
-                      {selectedCounsellor.demosNum || 0} Demos
-                    </span>
-                  </div>
-                  <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl p-3">
-                    <span className="text-[9px] font-bold text-emerald-600 uppercase block font-sans">
-                      Converted Seats
-                    </span>
-                    <span className="text-sm font-extrabold text-emerald-700 block mt-1 font-sans">
-                      {selectedCounsellor.admissionsNum || 0} Seats
-                    </span>
-                  </div>
-                  <div className="bg-slate-50 border border-slate-100 rounded-xl p-3">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase block font-sans">
-                      Revenue Collected
-                    </span>
-                    <span className="text-sm font-extrabold text-indigo-600 block mt-1 font-sans">
-                      {selectedCounsellor.revenueCollected}
-                    </span>
-                  </div>
-                  <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-3">
-                    <span className="text-[9px] font-bold text-blue-600 uppercase block font-sans">
-                      Lead Conversion Rate
-                    </span>
-                    <span className="text-sm font-extrabold text-blue-700 block mt-1 font-sans">
-                      {selectedCounsellor.convRate || "0.0%"}
-                    </span>
-                  </div>
-                  <div className="bg-slate-50 border border-slate-100 rounded-xl p-3">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase block font-sans">
-                      Annual Target Goal
-                    </span>
-                    <span className="text-xs font-bold text-slate-700 block mt-1.5 font-sans">
-                      {selectedCounsellor.annualTarget}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="pt-1">
-                  <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 mb-1 font-sans">
-                    <span>Actual Goal Completion Ratio</span>
-                    <span className="text-indigo-600">{selectedCounsellor.percentage}</span>
-                  </div>
-                  <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                    <div
-                      className="bg-indigo-600 h-full transition-all duration-300"
-                      style={{ width: selectedCounsellor.percentage }}
-                    ></div>
-                  </div>
-                </div>
-              </div>
 
               {/* Registry Credentials */}
               <div className="space-y-4">

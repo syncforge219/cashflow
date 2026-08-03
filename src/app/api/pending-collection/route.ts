@@ -27,8 +27,10 @@ export async function GET(req: Request) {
     const query: any = { remainingBalance: { $gt: 0 } };
 
     // Brand Scoping for Brand Manager / Centre Head / Counsellor
-    const userRole = (user.role || "").toLowerCase();
+    const userRole = (user.role || (user as any).crmRole || (user as any).designation || "").toLowerCase().trim();
     const userBrandScope = (user.brandScope || "").toLowerCase().trim();
+    const isCrmRole = userRole === "crm" || userRole === "crm executive" || userRole === "crm_executive" || userRole.includes("crm");
+
     if (
       userBrandScope &&
       userBrandScope !== "all" &&
@@ -36,7 +38,8 @@ export async function GET(req: Request) {
       userBrandScope !== "*" &&
       userRole !== "admin" &&
       userRole !== "super admin" &&
-      userRole !== "super_admin"
+      userRole !== "super_admin" &&
+      !isCrmRole
     ) {
       query.brand = { $regex: new RegExp(`^${userBrandScope.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") };
     }

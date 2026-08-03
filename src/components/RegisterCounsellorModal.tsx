@@ -33,14 +33,20 @@ export default function RegisterCounsellorModal({ isOpen, onClose, onSuccess, ro
       try {
         const res = await fetch("/api/brands");
         const data = await res.json();
+        const defaultBrands = ["All Brands", "DIGIFOOTPRINTS", "CADD MANTRA", "DESIGN GATEWAY"];
         if (res.ok && data.success && Array.isArray(data.brands)) {
-          setDbBrands(data.brands);
-          if (data.brands.length > 0 && !formData.brandScope) {
-            setFormData(prev => ({ ...prev, brandScope: data.brands[0].name }));
+          const fetchedNames = data.brands.map((b: any) => (b.name || "").toUpperCase().trim()).filter(Boolean);
+          const combined = Array.from(new Set([...defaultBrands, ...fetchedNames]));
+          setDbBrands(combined.map((name) => ({ name })));
+          if (combined.length > 0) {
+            setFormData((prev) => ({ ...prev, brandScope: prev.brandScope || "All Brands" }));
           }
+        } else {
+          setDbBrands(defaultBrands.map((name) => ({ name })));
         }
       } catch (err) {
         console.error("Failed fetching brands:", err);
+        setDbBrands(["All Brands", "DIGIFOOTPRINTS", "CADD MANTRA", "DESIGN GATEWAY"].map((name) => ({ name })));
       }
     };
     fetchBrands();
@@ -52,9 +58,9 @@ export default function RegisterCounsellorModal({ isOpen, onClose, onSuccess, ro
         firstName: "",
         lastName: "",
         email: "",
-        phone: "+91 ",
+        phone: "+91",
         photoUrl: "",
-        brandScope: dbBrands[0]?.name || "Cadd Mantra",
+        brandScope: "All Brands",
         joiningDate: "2026-07-14",
         annualTarget: 500000,
         currentRevenue: 0,
@@ -63,7 +69,7 @@ export default function RegisterCounsellorModal({ isOpen, onClose, onSuccess, ro
       });
       setError("");
     }
-  }, [isOpen, dbBrands]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -80,7 +86,7 @@ export default function RegisterCounsellorModal({ isOpen, onClose, onSuccess, ro
     const digits = raw.replace(/^\+?91\s?/, "").replace(/\D/g, "").slice(0, 10);
     setFormData((prev) => ({
       ...prev,
-      phone: "+91 " + digits,
+      phone: "+91" + (digits ? " " + digits : ""),
     }));
   };
 
@@ -92,8 +98,8 @@ export default function RegisterCounsellorModal({ isOpen, onClose, onSuccess, ro
     const cleanDigits = formData.phone.replace(/^\+?91\s?/, "").replace(/\D/g, "");
     const payload = {
       ...formData,
-      brandScope: role === "crm" ? "All Brands" : formData.brandScope,
-      role,
+      brandScope: formData.brandScope || "DIGIFOOTPRINTS",
+      role: role || "counsellor",
       phone: cleanDigits ? `+91 ${cleanDigits}` : "",
     };
 
@@ -209,37 +215,37 @@ export default function RegisterCounsellorModal({ isOpen, onClose, onSuccess, ro
               name="phone"
               value={formData.phone}
               onChange={handlePhoneChange}
-              placeholder="e.g. +91 9988011223"
+              placeholder="+91"
               disabled={isLoading}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 disabled:opacity-50 text-slate-700 font-semibold"
             />
           </div>
 
-          {!isCrm && (
-            <div>
-              <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Assigned Brand Scope *</label>
-              <select
-                name="brandScope"
-                value={formData.brandScope}
-                onChange={handleChange}
-                disabled={isLoading}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-600 focus:outline-none disabled:opacity-50"
-              >
-                {dbBrands.length > 0 ? (
-                  dbBrands.map((b, idx) => (
-                    <option key={idx} value={b.name}>{b.name}</option>
-                  ))
-                ) : (
-                  <>
-                    <option value="Cadd Mantra">Cadd Mantra</option>
-                    <option value="Design Gateway">Design Gateway</option>
-                  </>
-                )}
-              </select>
-            </div>
-          )}
+          <div>
+            <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Assigned Brand Scope *</label>
+            <select
+              name="brandScope"
+              value={formData.brandScope}
+              onChange={handleChange}
+              disabled={isLoading}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 disabled:opacity-50 font-bold"
+            >
+              {dbBrands.length > 0 ? (
+                dbBrands.map((b, idx) => (
+                  <option key={idx} value={b.name}>{b.name}</option>
+                ))
+              ) : (
+                <>
+                  <option value="All Brands">All Brands</option>
+                  <option value="DIGIFOOTPRINTS">DIGIFOOTPRINTS</option>
+                  <option value="CADD MANTRA">CADD MANTRA</option>
+                  <option value="DESIGN GATEWAY">DESIGN GATEWAY</option>
+                </>
+              )}
+            </select>
+          </div>
 
-          <div className={isCrm ? "col-span-2" : ""}>
+          <div>
             <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Official Joining Date</label>
             <input
               type="date"
@@ -247,7 +253,7 @@ export default function RegisterCounsellorModal({ isOpen, onClose, onSuccess, ro
               value={formData.joiningDate}
               onChange={handleChange}
               disabled={isLoading}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-500 focus:outline-none disabled:opacity-50"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-600 focus:outline-none disabled:opacity-50 font-semibold"
             />
           </div>
 
@@ -260,7 +266,7 @@ export default function RegisterCounsellorModal({ isOpen, onClose, onSuccess, ro
               onChange={handleChange}
               required
               disabled={isLoading}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 disabled:opacity-50"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 disabled:opacity-50 font-semibold"
             />
           </div>
 
@@ -272,7 +278,7 @@ export default function RegisterCounsellorModal({ isOpen, onClose, onSuccess, ro
               value={formData.currentRevenue}
               onChange={handleChange}
               disabled={isLoading}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 disabled:opacity-50"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 disabled:opacity-50 font-semibold"
             />
           </div>
 
@@ -285,7 +291,7 @@ export default function RegisterCounsellorModal({ isOpen, onClose, onSuccess, ro
               onChange={handleChange}
               required
               disabled={isLoading}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 disabled:opacity-50"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 disabled:opacity-50 font-semibold"
             />
           </div>
 
@@ -324,3 +330,4 @@ export default function RegisterCounsellorModal({ isOpen, onClose, onSuccess, ro
     </div>
   );
 }
+
