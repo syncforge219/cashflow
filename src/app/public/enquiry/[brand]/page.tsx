@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, use } from "react";
 import CourseMultiSelect from "@/components/CourseMultiSelect";
+import { useRecaptcha } from "@/lib/useRecaptcha";
 
 interface PublicEnquiryPageProps {
   params: Promise<{ brand: string }>;
@@ -11,6 +12,7 @@ export default function PublicBrandEnquiryPage({ params }: PublicEnquiryPageProp
   const resolvedParams = use(params);
   const rawBrand = decodeURIComponent(resolvedParams?.brand || "CADD MANTRA");
   const brandName = rawBrand.toUpperCase().trim();
+  const { executeRecaptcha } = useRecaptcha();
 
   const [courses, setCourses] = useState<any[]>([]);
   const [selectedCourses, setSelectedCourses] = useState<string[]>([]);
@@ -97,6 +99,9 @@ export default function PublicBrandEnquiryPage({ params }: PublicEnquiryPageProp
     setErrorMessage("");
 
     try {
+      // Generate reCAPTCHA v3 token
+      const recaptchaToken = await executeRecaptcha("public_enquiry_submit");
+
       const payload = {
         studentFullName: formData.studentFullName,
         primaryPhoneMobile: formData.primaryPhoneMobile,
@@ -108,6 +113,7 @@ export default function PublicBrandEnquiryPage({ params }: PublicEnquiryPageProp
         targetCourse: selectedCourses.length > 0 ? selectedCourses.join(", ") : "General Course",
         leadSource: formData.leadSource || "Website",
         remarks: formData.remarks,
+        recaptchaToken,
       };
 
       const res = await fetch("/api/enquiries/google-form", {

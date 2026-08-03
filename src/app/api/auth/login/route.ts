@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
 import { signJWT } from "@/lib/jwt";
+import { verifyRecaptchaToken } from "@/lib/recaptcha";
 
 export async function POST(request: Request) {
   try {
@@ -19,6 +20,19 @@ export async function POST(request: Request) {
     const { email, password } = body;
     const cleanEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
     const cleanPassword = typeof password === "string" ? password : "";
+
+    // Server-side reCAPTCHA v3 verification if token is present
+    const recaptchaToken = body.recaptchaToken || body["g-recaptcha-response"];
+    if (recaptchaToken) {
+      const recaptchaCheck = await verifyRecaptchaToken(recaptchaToken, "user_login", 0.5);
+      if (!recaptchaCheck.success) {
+        console.warn(`[reCAPTCHA Blocked] Login attempt blocked for ${cleanEmail}: ${recaptchaCheck.error}`);
+        return NextResponse.json(
+          { error: recaptchaCheck.error || "reCAPTCHA verification failed." },
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+      }
+    }
 
     if (!cleanEmail || !cleanPassword) {
       return NextResponse.json(
