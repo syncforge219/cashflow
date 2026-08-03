@@ -31,12 +31,19 @@ export async function GET(request: Request) {
       brand = userBrand;
     }
 
-    // 1. Fetch Office Location
-    const locQuery: any = {};
+    // 1. Fetch Office Location for requested Brand
+    let officeLocation = null;
     if (brand && brand !== "All" && brand !== "All Brands") {
-      locQuery.brand = { $in: [brand, "All"] };
+      officeLocation = await OfficeLocation.findOne({ brand: { $regex: new RegExp(`^${brand.trim()}$`, "i") } }).lean();
     }
-    const officeLocation = await OfficeLocation.findOne(locQuery).sort({ updatedAt: -1 }).lean();
+    if (!officeLocation) {
+      officeLocation = await OfficeLocation.findOne({ brand: { $in: ["All", "All Brands", "global", ""] } }).sort({ updatedAt: -1 }).lean();
+    }
+    if (!officeLocation) {
+      officeLocation = await OfficeLocation.findOne({}).sort({ updatedAt: -1 }).lean();
+    }
+
+    const allLocations = await OfficeLocation.find({}).sort({ brand: 1 }).lean();
 
     // 2. Fetch Staff Roster (Excluding Super Admin & Admin by default from marking roster)
     const userQuery: any = {};
@@ -46,7 +53,7 @@ export async function GET(request: Request) {
       userQuery.role = { $nin: [/admin/i] };
     }
     if (brand && brand !== "All" && brand !== "All Brands") {
-      userQuery.brandScope = brand;
+      userQuery.brandScope = { $regex: new RegExp(`^${brand.trim()}$`, "i") };
     }
     if (userIdFilter) {
       userQuery._id = userIdFilter;
@@ -112,6 +119,7 @@ export async function GET(request: Request) {
       success: true,
       dateStr,
       officeLocation: officeLocation || null,
+      allLocations: allLocations || [],
       stats: {
         totalStaff,
         totalPresent,

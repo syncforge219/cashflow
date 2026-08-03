@@ -40,6 +40,7 @@ export default function StaffAttendanceDisplay() {
   const [successMsg, setSuccessMsg] = useState("");
 
   const [officeLocation, setOfficeLocation] = useState<OfficeLocationData | null>(null);
+  const [allOfficeLocations, setAllOfficeLocations] = useState<OfficeLocationData[]>([]);
   const [staffRoster, setStaffRoster] = useState<StaffMember[]>([]);
   const [attendanceLogs, setAttendanceLogs] = useState<any[]>([]);
   const [stats, setStats] = useState({
@@ -60,6 +61,10 @@ export default function StaffAttendanceDisplay() {
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("All");
 
+  // Brand categorization states
+  const [selectedBrand, setSelectedBrand] = useState("All");
+  const [availableBrands, setAvailableBrands] = useState<string[]>([]);
+
   // Modals state
   const [isFaceRegModalOpen, setIsFaceRegModalOpen] = useState(false);
   const [isMarkAttendanceModalOpen, setIsMarkAttendanceModalOpen] = useState(false);
@@ -79,6 +84,7 @@ export default function StaffAttendanceDisplay() {
     longitude: "",
     radiusMeters: "200",
     address: "",
+    brand: "All",
   });
   const [detectingGps, setDetectingGps] = useState(false);
 
@@ -107,17 +113,38 @@ export default function StaffAttendanceDisplay() {
   });
 
   useEffect(() => {
-    fetchData();
+    fetchBrands();
+    fetchData("All");
   }, []);
 
-  const fetchData = async () => {
+  const fetchBrands = async () => {
+    try {
+      const res = await fetch("/api/brands");
+      const data = await res.json();
+      if (res.ok && data.success && Array.isArray(data.brands)) {
+        const brandNames = data.brands.map((b: any) => b.name).filter(Boolean);
+        setAvailableBrands(brandNames);
+      }
+    } catch (err) {
+      console.error("Failed to fetch brands list:", err);
+    }
+  };
+
+  const fetchData = async (targetBrand?: string) => {
     setLoading(true);
     setErrorMsg("");
+    const brandToFetch = targetBrand !== undefined ? targetBrand : selectedBrand;
     try {
-      const res = await fetch("/api/staff-attendance");
+      const params = new URLSearchParams();
+      if (brandToFetch && brandToFetch !== "All") {
+        params.set("brand", brandToFetch);
+      }
+
+      const res = await fetch(`/api/staff-attendance?${params.toString()}`);
       const data = await res.json();
       if (res.ok && data.success) {
         setOfficeLocation(data.officeLocation);
+        setAllOfficeLocations(data.allLocations || []);
         setStaffRoster(data.staffRoster || []);
         setAttendanceLogs(data.attendanceLogs || []);
         setStats(data.stats || { totalStaff: 0, totalPresent: 0, totalAbsent: 0, totalFaceRegistered: 0 });
@@ -131,6 +158,7 @@ export default function StaffAttendanceDisplay() {
             longitude: String(data.officeLocation.longitude),
             radiusMeters: String(data.officeLocation.radiusMeters || 200),
             address: data.officeLocation.address || "",
+            brand: data.officeLocation.brand || brandToFetch || "All",
           });
         }
       } else {
@@ -694,20 +722,41 @@ export default function StaffAttendanceDisplay() {
                 </svg>
               </div>
 
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <label className="text-xs font-semibold text-slate-400">Role:</label>
-                <select
-                  value={roleFilter}
-                  onChange={(e) => setRoleFilter(e.target.value)}
-                  className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                >
-                  <option value="All">All Roles</option>
-                  <option value="super admin">Super Admin</option>
-                  <option value="counsellor">Counsellor</option>
-                  <option value="teacher">Teacher</option>
-                  <option value="cfo">CFO / Finance</option>
-                  <option value="crm">CRM</option>
-                </select>
+              <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-semibold text-slate-400">Brand Scope:</label>
+                  <select
+                    value={selectedBrand}
+                    onChange={(e) => {
+                      const newBrand = e.target.value;
+                      setSelectedBrand(newBrand);
+                      fetchData(newBrand);
+                    }}
+                    className="px-3 py-2 bg-indigo-50/80 border border-indigo-200 text-indigo-700 font-bold rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  >
+                    <option value="All">All Brands / Locations</option>
+                    {availableBrands.map((b) => (
+                      <option key={b} value={b}>
+                        {b}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-semibold text-slate-400">Role:</label>
+                  <select
+                    value={roleFilter}
+                    onChange={(e) => setRoleFilter(e.target.value)}
+                    className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  >
+                    <option value="All">All Roles</option>
+                    <option value="counsellor">Counsellor</option>
+                    <option value="teacher">Teacher</option>
+                    <option value="cfo">CFO / Finance</option>
+                    <option value="crm">CRM</option>
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -878,61 +927,95 @@ export default function StaffAttendanceDisplay() {
         )}
 
         {/* Tab 3: Office Location Configuration */}
-        {activeTab === "location" && officeLocation && (
-          <div className="p-6 space-y-6 max-w-2xl">
-            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-4">
-              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                <svg className="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                </svg>
-                Configured Office Coordinates
-              </h3>
-
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-xs font-semibold text-slate-400 uppercase">Latitude</p>
-                  <p className="font-bold text-slate-800 text-base">{officeLocation.latitude}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-slate-400 uppercase">Longitude</p>
-                  <p className="font-bold text-slate-800 text-base">{officeLocation.longitude}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-slate-400 uppercase">Allowed Radius</p>
-                  <p className="font-bold text-emerald-600 text-base">{officeLocation.radiusMeters} meters</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-slate-400 uppercase">Updated By</p>
-                  <p className="font-bold text-slate-800 text-base">{officeLocation.updatedBy || "Admin"}</p>
-                </div>
+        {activeTab === "location" && (
+          <div className="p-6 space-y-6 max-w-4xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-slate-800">Brand-wise Office Locations</h3>
+                <p className="text-xs text-slate-500">Each brand/branch can be configured with its own distinct GPS office coordinates</p>
               </div>
-
-              {officeLocation.address && (
-                <div>
-                  <p className="text-xs font-semibold text-slate-400 uppercase">Address / Name</p>
-                  <p className="font-semibold text-slate-700">{officeLocation.address}</p>
-                </div>
-              )}
-
-              <div className="pt-2 flex gap-3">
-                <a
-                  href={`https://www.google.com/maps?q=${officeLocation.latitude},${officeLocation.longitude}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-xs font-bold rounded-xl transition-colors inline-flex items-center gap-1.5"
+              {isAdmin && (
+                <button
+                  onClick={() => {
+                    setLocForm({
+                      latitude: "",
+                      longitude: "",
+                      radiusMeters: "200",
+                      address: "",
+                      brand: selectedBrand || "All",
+                    });
+                    setIsLocationModalOpen(true);
+                  }}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
                 >
-                  Open in Google Maps
-                </a>
-                {isAdmin && (
-                  <button
-                    onClick={() => setIsLocationModalOpen(true)}
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer"
-                  >
-                    Edit Location
-                  </button>
-                )}
-              </div>
+                  + Add / Update Brand Location
+                </button>
+              )}
             </div>
+
+            {allOfficeLocations.length === 0 ? (
+              <div className="py-12 text-center text-slate-400 text-sm bg-slate-50 rounded-2xl border border-slate-200">
+                No office locations configured yet. Click &quot;+ Add / Update Brand Location&quot; to upload GPS coordinates.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {allOfficeLocations.map((loc) => (
+                  <div key={loc._id || loc.brand} className="bg-slate-50 p-5 rounded-2xl border border-slate-200/80 space-y-3 relative group">
+                    <div className="flex items-center justify-between">
+                      <span className="px-3 py-1 bg-indigo-100 text-indigo-700 text-xs font-extrabold rounded-lg uppercase tracking-wider">
+                        {loc.brand || "All Brands"}
+                      </span>
+                      <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                        {loc.radiusMeters || 200}m Radius
+                      </span>
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Coordinates</p>
+                      <p className="text-sm font-bold text-slate-800 font-mono mt-0.5">
+                        {loc.latitude}, {loc.longitude}
+                      </p>
+                    </div>
+
+                    {loc.address && (
+                      <div>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Address / Landmark</p>
+                        <p className="text-xs font-medium text-slate-700 mt-0.5">{loc.address}</p>
+                      </div>
+                    )}
+
+                    <div className="pt-2 flex items-center justify-between border-t border-slate-200/60">
+                      <a
+                        href={`https://www.google.com/maps?q=${loc.latitude},${loc.longitude}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-indigo-600 hover:text-indigo-800 text-xs font-bold flex items-center gap-1"
+                      >
+                        Google Maps ↗
+                      </a>
+
+                      {isAdmin && (
+                        <button
+                          onClick={() => {
+                            setLocForm({
+                              latitude: String(loc.latitude),
+                              longitude: String(loc.longitude),
+                              radiusMeters: String(loc.radiusMeters || 200),
+                              address: loc.address || "",
+                              brand: loc.brand || "All",
+                            });
+                            setIsLocationModalOpen(true);
+                          }}
+                          className="px-3 py-1 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer"
+                        >
+                          Edit Location
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -1102,6 +1185,22 @@ export default function StaffAttendanceDisplay() {
             </div>
 
             <form onSubmit={handleSaveOfficeLocation} className="p-6 space-y-4">
+              <div>
+                <label className="text-xs font-semibold text-slate-600">Assign to Brand / Location Scope *</label>
+                <select
+                  value={locForm.brand}
+                  onChange={(e) => setLocForm({ ...locForm, brand: e.target.value })}
+                  className="w-full px-3 py-2 mt-1 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                >
+                  <option value="All">All Brands (Global Default)</option>
+                  {availableBrands.map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <button
                 type="button"
                 onClick={handleDetectCurrentLocation}

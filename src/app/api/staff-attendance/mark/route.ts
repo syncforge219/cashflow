@@ -71,13 +71,18 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2. Fetch Designated Office Location
+    // 2. Fetch Designated Office Location for Staff's Brand
     const userBrand = (userDoc.brandScope || (userDoc as any).brand || "").trim();
-    const locQuery: any = {};
+    let officeLoc = null;
     if (userBrand && userBrand !== "All Brands" && userBrand !== "All" && userBrand !== "*" && userBrand !== "global") {
-      locQuery.brand = { $in: [userBrand, "All"] };
+      officeLoc = await OfficeLocation.findOne({ brand: { $regex: new RegExp(`^${userBrand.trim()}$`, "i") } }).lean();
     }
-    const officeLoc = await OfficeLocation.findOne(locQuery).sort({ updatedAt: -1 }).lean();
+    if (!officeLoc) {
+      officeLoc = await OfficeLocation.findOne({ brand: { $in: ["All", "All Brands", "global", ""] } }).sort({ updatedAt: -1 }).lean();
+    }
+    if (!officeLoc) {
+      officeLoc = await OfficeLocation.findOne({}).sort({ updatedAt: -1 }).lean();
+    }
 
     if (!officeLoc) {
       return NextResponse.json(

@@ -20,12 +20,25 @@ export async function GET(request: Request) {
       query.brand = { $in: [brand, "All"] };
     }
 
-    // Find the latest location set for this brand or global office location
-    const officeLoc = await OfficeLocation.findOne(query).sort({ updatedAt: -1 }).lean();
+    // Find the location specific to this brand first, or fallback to global location
+    let officeLoc = null;
+    if (brand && brand !== "All" && brand !== "All Brands") {
+      officeLoc = await OfficeLocation.findOne({ brand: { $regex: new RegExp(`^${brand.trim()}$`, "i") } }).lean();
+    }
+    if (!officeLoc) {
+      officeLoc = await OfficeLocation.findOne({ brand: { $in: ["All", "All Brands", "global", ""] } }).sort({ updatedAt: -1 }).lean();
+    }
+    if (!officeLoc) {
+      officeLoc = await OfficeLocation.findOne({}).sort({ updatedAt: -1 }).lean();
+    }
+
+    // Fetch all brand location configurations
+    const allLocations = await OfficeLocation.find({}).sort({ brand: 1 }).lean();
 
     return NextResponse.json({
       success: true,
       location: officeLoc || null,
+      allLocations: allLocations || [],
     });
   } catch (error: any) {
     console.error("GET /api/staff-attendance/location Error:", error);
