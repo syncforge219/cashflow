@@ -47,6 +47,18 @@ export async function POST(request: Request) {
       );
     }
 
+    // Exclude Admin & Super Admin from marking attendance
+    const userRoleLower = (userDoc.role || "").toLowerCase().trim();
+    if (userRoleLower === "super admin" || userRoleLower === "admin") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Admins and Super Admins do not mark attendance. Attendance marking is strictly for staff members.",
+        },
+        { status: 400 }
+      );
+    }
+
     // Check if Face ID registered
     if (!userDoc.isFaceRegistered || !userDoc.faceDescriptor || userDoc.faceDescriptor.length === 0) {
       return NextResponse.json(

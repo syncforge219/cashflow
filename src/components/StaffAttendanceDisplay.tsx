@@ -482,48 +482,52 @@ export default function StaffAttendanceDisplay() {
               </button>
             )}
 
-            {!currentUserStatus.isFaceRegistered ? (
-              <button
-                onClick={() => handleOpenFaceRegModal()}
-                className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl text-sm transition-all shadow-lg shadow-amber-500/20 flex items-center gap-2 cursor-pointer"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Register Face ID
-              </button>
-            ) : (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleOpenFaceRegModal()}
-                  className="px-4 py-2.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-400/30 font-bold rounded-xl text-sm transition-all flex items-center gap-2 backdrop-blur-md cursor-pointer"
-                  title="Update or re-register your Face ID anytime"
-                >
-                  <svg className="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  Re-Register Face ID
-                </button>
-
-                {currentUserStatus.isMarkedToday ? (
-                  <div className="px-5 py-2.5 bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 font-bold rounded-xl text-sm flex items-center gap-2 backdrop-blur-md">
-                    <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                    </svg>
-                    Present Today ({currentUserStatus.todayLog?.checkInTime || "Marked"})
-                  </div>
-                ) : (
+            {!isAdmin && (
+              <>
+                {!currentUserStatus.isFaceRegistered ? (
                   <button
-                    onClick={handleOpenMarkAttendanceModal}
-                    className="px-5 py-2.5 bg-indigo-500 hover:bg-indigo-400 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-indigo-500/30 flex items-center gap-2 cursor-pointer"
+                    onClick={() => handleOpenFaceRegModal()}
+                    className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl text-sm transition-all shadow-lg shadow-amber-500/20 flex items-center gap-2 cursor-pointer"
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    Mark Today&apos;s Attendance
+                    Register Face ID
                   </button>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleOpenFaceRegModal()}
+                      className="px-4 py-2.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-400/30 font-bold rounded-xl text-sm transition-all flex items-center gap-2 backdrop-blur-md cursor-pointer"
+                      title="Update or re-register your Face ID anytime"
+                    >
+                      <svg className="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Re-Register Face ID
+                    </button>
+
+                    {currentUserStatus.isMarkedToday ? (
+                      <div className="px-5 py-2.5 bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 font-bold rounded-xl text-sm flex items-center gap-2 backdrop-blur-md">
+                        <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Present Today ({currentUserStatus.todayLog?.checkInTime || "Marked"})
+                      </div>
+                    ) : (
+                      <button
+                        onClick={handleOpenMarkAttendanceModal}
+                        className="px-5 py-2.5 bg-indigo-500 hover:bg-indigo-400 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-indigo-500/30 flex items-center gap-2 cursor-pointer"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Mark Today&apos;s Attendance
+                      </button>
+                    )}
+                  </div>
                 )}
-              </div>
+              </>
             )}
           </div>
         </div>

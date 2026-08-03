@@ -38,9 +38,13 @@ export async function GET(request: Request) {
     }
     const officeLocation = await OfficeLocation.findOne(locQuery).sort({ updatedAt: -1 }).lean();
 
-    // 2. Fetch Staff Roster (All Users/Staff)
+    // 2. Fetch Staff Roster (Excluding Super Admin & Admin by default from marking roster)
     const userQuery: any = {};
-    if (roleFilter) userQuery.role = roleFilter;
+    if (roleFilter && roleFilter !== "All") {
+      userQuery.role = roleFilter;
+    } else {
+      userQuery.role = { $nin: [/admin/i] };
+    }
     if (brand && brand !== "All" && brand !== "All Brands") {
       userQuery.brandScope = brand;
     }
