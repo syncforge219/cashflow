@@ -254,6 +254,9 @@ export default function ExpenseExcelReportModal({
   const [endRow, setEndRow] = useState<number>(expenses.length || 1);
   const [presetRowRange, setPresetRowRange] = useState<string>("all");
 
+  const [modalExpenses, setModalExpenses] = useState<ExpenseRecord[]>(expenses);
+  const [isFetchingModalData, setIsFetchingModalData] = useState<boolean>(false);
+
   useEffect(() => {
     setSelectedCategory(filters.category || "All");
     setSelectedBrand(filters.brand || "All Brands");
@@ -262,9 +265,52 @@ export default function ExpenseExcelReportModal({
     setStartDate(filters.startDate || "");
     setEndDate(filters.endDate || "");
     setStartRow(1);
-    setEndRow(expenses.length || 1);
     setPresetRowRange("all");
-  }, [isOpen, filters, expenses.length]);
+  }, [isOpen, filters]);
+
+  // Fetch expense records dynamically from API backend when modal date range or filters change
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let isMounted = true;
+    const fetchModalData = async () => {
+      setIsFetchingModalData(true);
+      try {
+        const params = new URLSearchParams();
+        if (selectedCategory && selectedCategory !== "All") params.append("category", selectedCategory);
+        if (selectedBrand && selectedBrand !== "All Brands" && selectedBrand !== "All") params.append("brand", selectedBrand);
+        if (selectedCompany && selectedCompany !== "All Companies" && selectedCompany !== "All") params.append("company", selectedCompany);
+        if (startDate) params.append("startDate", startDate);
+        if (endDate) params.append("endDate", endDate);
+        if (filters.searchQuery) params.append("search", filters.searchQuery);
+
+        const res = await fetch(`/api/expenses?${params.toString()}`);
+        const data = await res.json();
+        if (isMounted && data.success && Array.isArray(data.data)) {
+          setModalExpenses(data.data);
+          setEndRow(data.data.length || 1);
+        }
+      } catch (err) {
+        console.error("Error fetching modal expense records:", err);
+      } finally {
+        if (isMounted) setIsFetchingModalData(false);
+      }
+    };
+
+    fetchModalData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    isOpen,
+    selectedCategory,
+    selectedBrand,
+    selectedCompany,
+    startDate,
+    endDate,
+    filters.searchQuery,
+  ]);
 
   const handleDatePresetChange = (preset: string) => {
     setDatePreset(preset);
@@ -312,66 +358,27 @@ export default function ExpenseExcelReportModal({
     setPresetRowRange(preset);
     if (preset === "all") {
       setStartRow(1);
-      setEndRow(expenses.length || 1);
+      setEndRow(modalExpenses.length || 1);
     } else if (preset === "1_50") {
       setStartRow(1);
-      setEndRow(Math.min(50, expenses.length || 1));
+      setEndRow(Math.min(50, modalExpenses.length || 1));
     } else if (preset === "51_100") {
       setStartRow(51);
-      setEndRow(Math.min(100, expenses.length || 1));
+      setEndRow(Math.min(100, modalExpenses.length || 1));
     } else if (preset === "101_200") {
       setStartRow(101);
-      setEndRow(Math.min(200, expenses.length || 1));
+      setEndRow(Math.min(200, modalExpenses.length || 1));
     }
   };
 
-  // Calculate Scoped Expenses based on chosen date range, category, brand, company, and row range
+  // Calculate Scoped Expenses based on backend API response & row slicing
   const scopedExpenses = useMemo(() => {
-    let list = expenses;
-
-    // Filter by Category
-    if (selectedCategory && selectedCategory !== "All") {
-      list = list.filter(
-        (e) => (e.category || "").toLowerCase() === selectedCategory.toLowerCase()
-      );
-    }
-
-    // Filter by Brand
-    if (selectedBrand && selectedBrand !== "All Brands" && selectedBrand !== "All") {
-      list = list.filter(
-        (e) => (e.brand || "").toLowerCase() === selectedBrand.toLowerCase()
-      );
-    }
-
-    // Filter by Company
-    if (selectedCompany && selectedCompany !== "All Companies" && selectedCompany !== "All") {
-      list = list.filter(
-        (e) => (e.company || "").toLowerCase() === selectedCompany.toLowerCase()
-      );
-    }
-
-    // Filter by Date Range
-    if (startDate || endDate) {
-      list = list.filter((exp) => {
-        if (!exp.expenseDate) return true;
-        const d = new Date(exp.expenseDate).setHours(0, 0, 0, 0);
-        if (startDate && d < new Date(startDate).setHours(0, 0, 0, 0)) return false;
-        if (endDate && d > new Date(endDate).setHours(23, 59, 59, 999)) return false;
-        return true;
-      });
-    }
-
-    // Slice by Row Range
+    let list = modalExpenses;
     const sIdx = Math.max(1, startRow) - 1;
     const eIdx = Math.min(list.length, endRow || list.length);
     return list.slice(sIdx, eIdx);
   }, [
-    expenses,
-    selectedCategory,
-    selectedBrand,
-    selectedCompany,
-    startDate,
-    endDate,
+    modalExpenses,
     startRow,
     endRow,
   ]);
