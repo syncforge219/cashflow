@@ -490,10 +490,12 @@ export default function ExpensesPage() {
     };
   };
 
-  // Excel Report Generator with Visual Analytics & Graphs
+    // Excel Report Generator with Visual Analytics & Graphs (Filtered by Category & Date)
   const handleExportExcel = async () => {
-    if (!expenses || expenses.length === 0) {
-      alert("No expense records available to export.");
+    const targetExpenses = sortedExpenses && sortedExpenses.length > 0 ? sortedExpenses : filteredExpenses;
+
+    if (!targetExpenses || targetExpenses.length === 0) {
+      alert("No expense records matching the active filters to export.");
       return;
     }
 
@@ -505,28 +507,40 @@ export default function ExpensesPage() {
     const summarySheet = workbook.addWorksheet("📊 Executive Summary & Graphs");
 
     summarySheet.addRow(["COACHFLOW ERP - OPERATIONAL EXPENSE VISUAL ANALYTICS REPORT"]);
-    summarySheet.addRow([`Report Generated On: ${new Date().toLocaleString("en-IN")}`, `Total Records: ${expenses.length}`]);
+    
+    // Metadata Block with Filter Information
+    const dateRangeLabel = startDateFilter || endDateFilter
+      ? `${startDateFilter || "Start"} to ${endDateFilter || "Present"}`
+      : datePreset === "all" ? "All Time" : datePreset.replace("_", " ").toUpperCase();
+
+    summarySheet.addRow([`Report Generated On: ${new Date().toLocaleString("en-IN")}`]);
+    summarySheet.addRow([`Category Filter: ${selectedCategory || "All Categories"}`, `Date Range: ${dateRangeLabel}`]);
+    summarySheet.addRow([`Brand Tag: ${selectedBrand || "All Brands"}`, `Company Tag: ${selectedCompany || "All Companies"}`]);
+    summarySheet.addRow([`Total Filtered Records: ${targetExpenses.length}`, `Search Keyword: ${searchQuery || "None"}`]);
     summarySheet.addRow([]);
 
     summarySheet.getRow(1).font = { bold: true, size: 14, color: { argb: "FF4F46E5" } };
     summarySheet.getRow(2).font = { size: 10, color: { argb: "FF64748B" } };
+    summarySheet.getRow(3).font = { size: 10, color: { argb: "FF334155" } };
+    summarySheet.getRow(4).font = { size: 10, color: { argb: "FF334155" } };
+    summarySheet.getRow(5).font = { bold: true, size: 10, color: { argb: "FF059669" } };
 
-    const totalAmount = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-    const variableAmount = expenses
+    const totalAmount = targetExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    const variableAmount = targetExpenses
       .filter((e) => (e.expenseType || "variable").toLowerCase() === "variable")
       .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-    const fixedAmount = expenses
+    const fixedAmount = targetExpenses
       .filter((e) => (e.expenseType || "").toLowerCase() === "fixed")
       .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
 
-    const cashAmount = expenses
+    const cashAmount = targetExpenses
       .filter((e) => (e.paymentMode || "").toLowerCase() === "cash")
       .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
     const bankAmount = totalAmount - cashAmount;
 
     // KPI Highlights Grid
     summarySheet.addRow(["1. KEY PERFORMANCE INDICATORS"]);
-    summarySheet.getRow(4).font = { bold: true, size: 11, color: { argb: "FF1E293B" } };
+    summarySheet.getRow(7).font = { bold: true, size: 11, color: { argb: "FF1E293B" } };
 
     const kpiHeader = summarySheet.addRow([
       "Metric Name",
@@ -537,44 +551,44 @@ export default function ExpensesPage() {
     kpiHeader.font = { bold: true, color: { argb: "FFFFFFFF" } };
     kpiHeader.eachCell((c) => (c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4F46E5" } }));
 
-    summarySheet.addRow(["Total Operational Expenses", totalAmount, "100.0%", expenses.length]);
+    summarySheet.addRow(["Total Operational Expenses", totalAmount, "100.0%", targetExpenses.length]);
     summarySheet.addRow([
       "Variable Expenses",
       variableAmount,
       totalAmount > 0 ? `${((variableAmount / totalAmount) * 100).toFixed(1)}%` : "0%",
-      expenses.filter((e) => (e.expenseType || "variable").toLowerCase() === "variable").length,
+      targetExpenses.filter((e) => (e.expenseType || "variable").toLowerCase() === "variable").length,
     ]);
     summarySheet.addRow([
       "Fixed Expenses",
       fixedAmount,
       totalAmount > 0 ? `${((fixedAmount / totalAmount) * 100).toFixed(1)}%` : "0%",
-      expenses.filter((e) => (e.expenseType || "").toLowerCase() === "fixed").length,
+      targetExpenses.filter((e) => (e.expenseType || "").toLowerCase() === "fixed").length,
     ]);
     summarySheet.addRow([
       "Cash Payments",
       cashAmount,
       totalAmount > 0 ? `${((cashAmount / totalAmount) * 100).toFixed(1)}%` : "0%",
-      expenses.filter((e) => (e.paymentMode || "").toLowerCase() === "cash").length,
+      targetExpenses.filter((e) => (e.paymentMode || "").toLowerCase() === "cash").length,
     ]);
     summarySheet.addRow([
       "Digital / Bank Transfers",
       bankAmount,
       totalAmount > 0 ? `${((bankAmount / totalAmount) * 100).toFixed(1)}%` : "0%",
-      expenses.filter((e) => (e.paymentMode || "").toLowerCase() !== "cash").length,
+      targetExpenses.filter((e) => (e.paymentMode || "").toLowerCase() !== "cash").length,
     ]);
 
     summarySheet.addRow([]);
 
     // Category Breakdown Table
     summarySheet.addRow(["2. EXPENSE CATEGORY BREAKDOWN SUMMARY"]);
-    summarySheet.getRow(12).font = { bold: true, size: 11, color: { argb: "FF1E293B" } };
+    summarySheet.getRow(15).font = { bold: true, size: 11, color: { argb: "FF1E293B" } };
 
     const catHeader = summarySheet.addRow(["Category Name", "Total Billed (INR)", "% Share", "Transactions"]);
     catHeader.font = { bold: true, color: { argb: "FFFFFFFF" } };
     catHeader.eachCell((c) => (c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0284C7" } }));
 
     const categoryMap: Record<string, { total: number; count: number }> = {};
-    expenses.forEach((e) => {
+    targetExpenses.forEach((e) => {
       const cat = e.category || "Misc";
       if (!categoryMap[cat]) categoryMap[cat] = { total: 0, count: 0 };
       categoryMap[cat].total += Number(e.amount) || 0;
@@ -597,12 +611,12 @@ export default function ExpensesPage() {
 
     // Embed Visual Chart Graphics into Sheet 1
     try {
-      const { categoryPng, paymentPng, naturePng } = generateExpenseChartImages(expenses);
+      const { categoryPng, paymentPng, naturePng } = generateExpenseChartImages(targetExpenses);
 
       if (categoryPng) {
         const img1 = workbook.addImage({ base64: categoryPng, extension: "png" });
         summarySheet.addImage(img1, {
-          tl: { col: 5, row: 3 },
+          tl: { col: 5, row: 6 },
           ext: { width: 550, height: 280 },
         });
       }
@@ -610,7 +624,7 @@ export default function ExpensesPage() {
       if (paymentPng) {
         const img2 = workbook.addImage({ base64: paymentPng, extension: "png" });
         summarySheet.addImage(img2, {
-          tl: { col: 5, row: 18 },
+          tl: { col: 5, row: 21 },
           ext: { width: 450, height: 260 },
         });
       }
@@ -618,7 +632,7 @@ export default function ExpensesPage() {
       if (naturePng) {
         const img3 = workbook.addImage({ base64: naturePng, extension: "png" });
         summarySheet.addImage(img3, {
-          tl: { col: 10, row: 18 },
+          tl: { col: 10, row: 21 },
           ext: { width: 380, height: 260 },
         });
       }
@@ -626,7 +640,7 @@ export default function ExpensesPage() {
       console.error("Failed to render canvas chart graphics in Excel export:", err);
     }
 
-    // ── SHEET 2: EXPENSE DETAILED REGISTER (EXACT USER SCREENSHOT FORMAT) ──────
+    // ── SHEET 2: EXPENSE DETAILED REGISTER (RECORDS SHEET) ──────
     const sheet = workbook.addWorksheet("📋 Expense Detailed Register");
 
     const headerRow = sheet.addRow([
@@ -640,6 +654,7 @@ export default function ExpensesPage() {
       "Brand",
       "BANK",
       "VARIABLE / FIXED",
+      "Remarks",
     ]);
 
     headerRow.eachCell((cell) => {
@@ -663,7 +678,7 @@ export default function ExpensesPage() {
       };
     });
 
-    expenses.forEach((exp, idx) => {
+    targetExpenses.forEach((exp, idx) => {
       const formattedDate = exp.expenseDate
         ? new Date(exp.expenseDate).toLocaleDateString("en-US", {
             month: "numeric",
@@ -688,6 +703,7 @@ export default function ExpensesPage() {
         brandVal,
         bankVal,
         exp.expenseType || "variable",
+        exp.remarks || "",
       ]);
 
       row.eachCell((cell, colNumber) => {
@@ -706,6 +722,41 @@ export default function ExpensesPage() {
       });
     });
 
+    // Add Grand Total Row at the bottom of Sheet 2
+    const totalRowIndex = targetExpenses.length + 2;
+    const totalRow = sheet.addRow([
+      "",
+      "",
+      "",
+      "GRAND TOTAL",
+      { formula: `SUM(E2:E${totalRowIndex - 1})` },
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+    ]);
+
+    totalRow.eachCell((cell, colNumber) => {
+      cell.font = { name: "Arial", size: 10, bold: true };
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFE2EFDA" },
+      };
+      cell.border = {
+        top: { style: "thin", color: { argb: "FF000000" } },
+        left: { style: "thin", color: { argb: "FF000000" } },
+        bottom: { style: "double", color: { argb: "FF000000" } },
+        right: { style: "thin", color: { argb: "FF000000" } },
+      };
+      if (colNumber === 5) {
+        cell.numFmt = "₹#,##0";
+        cell.alignment = { horizontal: "right" };
+      }
+    });
+
     sheet.columns = [
       { width: 8 },  // s.no
       { width: 14 }, // Date
@@ -717,13 +768,15 @@ export default function ExpensesPage() {
       { width: 16 }, // Brand
       { width: 12 }, // BANK
       { width: 18 }, // VARIABLE / FIXED
+      { width: 28 }, // Remarks
     ];
 
+    const safeCategoryStr = selectedCategory && selectedCategory !== "All" ? `_${selectedCategory.replace(/[^a-zA-Z0-9]/g, "")}` : "";
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
-    saveAs(blob, `Expense_Report_${new Date().toISOString().split("T")[0]}.xlsx`);
+    saveAs(blob, `Expense_Report${safeCategoryStr}_${new Date().toISOString().split("T")[0]}.xlsx`);
   };
 
   useEffect(() => {
@@ -1210,7 +1263,29 @@ export default function ExpensesPage() {
             <h1 className="text-xl font-extrabold text-slate-900 mt-1">Company Expense Management</h1>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              onClick={() => setIsPdfModalOpen(true)}
+              className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md shadow-indigo-600/20 transition-all flex items-center gap-1.5 cursor-pointer"
+              title="Open Printable / Downloadable Visual PDF Report"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+              </svg>
+              <span>PDF Report</span>
+            </button>
+
+            <button
+              onClick={handleExportExcel}
+              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/20 transition-all flex items-center gap-1.5 cursor-pointer"
+              title="Download Excel Workbook with Graphs (Sheet 1) & Filtered Records (Sheet 2)"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              <span>Export Excel</span>
+            </button>
+
             <button
               onClick={handleOpenCreateModal}
               className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-md shadow-rose-600/20 transition-all flex items-center gap-2 cursor-pointer"
