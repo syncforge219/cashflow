@@ -44,6 +44,9 @@ export default function AdminDashboard() {
   const [startDate, setStartDate] = useState<string | null>(defaultStart);
   const [endDate, setEndDate] = useState<string | null>(defaultEnd);
   const [filterLabel, setFilterLabel] = useState<string>(defaultLabel);
+  const [selectedBrand, setSelectedBrand] = useState<string>("All Brands");
+  const [courseSortKey, setCourseSortKey] = useState<"leads" | "admissions" | "conversion">("leads");
+  const [courseSearch, setCourseSearch] = useState<string>("");
 
   const [trendMode, setTrendMode] = useState<"daily" | "cumulative">("daily");
   const [hoveredTrendDay, setHoveredTrendDay] = useState<any>(null);
@@ -53,6 +56,19 @@ export default function AdminDashboard() {
   const [enquiryToDelete, setEnquiryToDelete] = useState<any>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSendingWeeklyReport, setIsSendingWeeklyReport] = useState(false);
+
+  const getStatsUrl = (start: string | null, end: string | null, brand: string) => {
+    const params = new URLSearchParams();
+    if (start && end) {
+      params.append("startDate", start);
+      params.append("endDate", end);
+    }
+    if (brand && brand !== "All Brands" && brand !== "All") {
+      params.append("brand", brand);
+    }
+    const q = params.toString();
+    return `/api/admin-dashboard/stats${q ? `?${q}` : ""}`;
+  };
 
   const handleSendWeeklyReport = async () => {
     setIsSendingWeeklyReport(true);
@@ -116,11 +132,7 @@ export default function AdminDashboard() {
         fetchNotifications();
         // Also refresh dashboard stats so KPIs stay updated
         if (typeof window !== "undefined") {
-          let url = "/api/admin-dashboard/stats";
-          if (startDate && endDate) {
-            url += `?startDate=${startDate}&endDate=${endDate}`;
-          }
-          fetch(url)
+          fetch(getStatsUrl(startDate, endDate, selectedBrand))
             .then((r) => r.json())
             .then((d) => {
               if (d.success) setData(d.data);
@@ -185,11 +197,7 @@ export default function AdminDashboard() {
 
     if (role && isAdmin) {
       setIsLoading(true);
-      let url = "/api/admin-dashboard/stats";
-      if (startDate && endDate) {
-        url += `?startDate=${startDate}&endDate=${endDate}`;
-      }
-      fetch(url)
+      fetch(getStatsUrl(startDate, endDate, selectedBrand))
         .then(res => res.json())
         .then(resData => {
           if (resData.success) {
@@ -202,7 +210,7 @@ export default function AdminDashboard() {
           setIsLoading(false);
         });
     }
-  }, [user, startDate, endDate]);
+  }, [user, startDate, endDate, selectedBrand]);
 
   const roleLower = (user?.role || (user as any)?.crmRole || (user as any)?.designation || "").toLowerCase().trim();
   const isAdminUser =
@@ -354,6 +362,21 @@ export default function AdminDashboard() {
     });
   }, [data?.trendDays, trendMode]);
 
+  const filteredCourseStats = React.useMemo(() => {
+    if (!data?.courseWiseStats) return [];
+    let list = [...data.courseWiseStats];
+    if (courseSearch.trim()) {
+      const q = courseSearch.toLowerCase().trim();
+      list = list.filter((c: any) => (c.course || "").toLowerCase().includes(q));
+    }
+    list.sort((a: any, b: any) => {
+      if (courseSortKey === "admissions") return b.admissions - a.admissions || b.leads - a.leads;
+      if (courseSortKey === "conversion") return b.convPct - a.convPct || b.admissions - a.admissions;
+      return b.leads - a.leads || b.admissions - a.admissions;
+    });
+    return list;
+  }, [data?.courseWiseStats, courseSearch, courseSortKey]);
+
   // Trend line chart generation
   const maxVal = Math.max(
     ...(processedTrendDays.map((d: any) => Math.max(d.newLeads, d.admissions, d.lostLeads, d.followUps)) || [0]),
@@ -397,11 +420,7 @@ export default function AdminDashboard() {
       });
       const result = await res.json();
       if (result.success) {
-        let url = "/api/admin-dashboard/stats";
-        if (startDate && endDate) {
-          url += `?startDate=${startDate}&endDate=${endDate}`;
-        }
-        const refetchRes = await fetch(url);
+        const refetchRes = await fetch(getStatsUrl(startDate, endDate, selectedBrand));
         const refetchData = await refetchRes.json();
         if (refetchData.success) {
           setData(refetchData.data);
@@ -611,6 +630,9 @@ export default function AdminDashboard() {
               setEndDate(end);
               setFilterLabel(label);
             }}
+            selectedBrand={selectedBrand}
+            onBrandChange={(brand) => setSelectedBrand(brand)}
+            brandsList={data?.availableBrands || data?.brandPerformance?.map((b: any) => b.name) || []}
           />
 
           {/* 12 ELEGANT KPI METRIC CARDS WITH COLORFUL HOVER GRADIENTS */}
@@ -1037,6 +1059,143 @@ export default function AdminDashboard() {
                 ))}
               </div>
             </div>
+          </div>
+
+          {/* COURSE-WISE LEADS & ADMISSIONS GRAPH */}
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm font-bold text-slate-900 tracking-tight">Course-Wise Leads & Admissions Graph</h2>
+                  <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-100 uppercase">
+                    {selectedBrand !== "All Brands" ? selectedBrand : "All Brands"}
+                  </span>
+                </div>
+                <p className="text-[11px] font-medium text-slate-500 mt-0.5">
+                  Visual comparative analysis of total leads acquired versus student admissions per course
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Legend */}
+                <div className="flex items-center gap-3 text-[10px] font-bold text-slate-500 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/60 select-none">
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full bg-blue-500"></span> Total Leads
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-500"></span> Admissions
+                  </span>
+                </div>
+
+                {/* Course Search */}
+                <input
+                  type="text"
+                  placeholder="Filter courses..."
+                  value={courseSearch}
+                  onChange={(e) => setCourseSearch(e.target.value)}
+                  className="text-xs px-3 py-1.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 text-slate-700 font-medium w-36 sm:w-44"
+                />
+
+                {/* Sort Buttons */}
+                <div className="flex bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-[10px] font-bold select-none">
+                  <button
+                    type="button"
+                    onClick={() => setCourseSortKey("leads")}
+                    className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                      courseSortKey === "leads" ? "bg-white text-blue-600 shadow-xs" : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    Leads
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCourseSortKey("admissions")}
+                    className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                      courseSortKey === "admissions" ? "bg-white text-emerald-600 shadow-xs" : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    Admissions
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCourseSortKey("conversion")}
+                    className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                      courseSortKey === "conversion" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    Conv %
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Graph Bars Container */}
+            {filteredCourseStats.length === 0 ? (
+              <div className="py-12 text-center text-slate-400 text-xs font-semibold select-none">
+                No course data found for the selected filter criteria.
+              </div>
+            ) : (
+              <div className="space-y-3.5 pt-1">
+                {filteredCourseStats.map((item: any, idx: number) => {
+                  const maxCourseLeads = Math.max(
+                    ...(data?.courseWiseStats?.map((c: any) => c.leads) || [1]),
+                    1
+                  );
+                  const leadsPct = Math.min(100, Math.max(6, (item.leads / maxCourseLeads) * 100));
+                  const admissionsPct = Math.min(100, Math.max(3, (item.admissions / maxCourseLeads) * 100));
+
+                  return (
+                    <div key={idx} className="group space-y-1.5 bg-slate-50/60 p-3 rounded-xl border border-slate-100 hover:border-indigo-200 transition-all hover:bg-gradient-to-r hover:from-blue-50/30 hover:to-indigo-50/20">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-800 tracking-tight group-hover:text-indigo-600 transition-colors">
+                            {item.course}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2.5 text-[11px] font-bold">
+                          <span className="text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200/50">
+                            {item.leads} {item.leads === 1 ? "Lead" : "Leads"}
+                          </span>
+                          <span className="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/50">
+                            {item.admissions} {item.admissions === 1 ? "Admission" : "Admissions"}
+                          </span>
+                          <span className="text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                            Conv: <strong className="text-indigo-600">{item.conversion}</strong>
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Visual Bars Side by Side */}
+                      <div className="space-y-1 pt-1">
+                        {/* Leads Bar */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-[9px] font-bold text-slate-400 w-14 shrink-0 uppercase select-none">Leads</span>
+                          <div className="flex-1 bg-slate-200/70 h-3 rounded-full overflow-hidden">
+                            <div
+                              className="bg-gradient-to-r from-blue-500 to-indigo-500 h-full rounded-full transition-all duration-500 ease-out group-hover:from-blue-600 group-hover:to-indigo-600"
+                              style={{ width: `${leadsPct}%` }}
+                              title={`${item.course}: ${item.leads} Leads`}
+                            ></div>
+                          </div>
+                        </div>
+
+                        {/* Admissions Bar */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-[9px] font-bold text-slate-400 w-14 shrink-0 uppercase select-none">Admitted</span>
+                          <div className="flex-1 bg-slate-200/70 h-3 rounded-full overflow-hidden">
+                            <div
+                              className="bg-gradient-to-r from-emerald-500 to-teal-500 h-full rounded-full transition-all duration-500 ease-out group-hover:from-emerald-600 group-hover:to-teal-600"
+                              style={{ width: `${admissionsPct}%` }}
+                              title={`${item.course}: ${item.admissions} Admissions`}
+                            ></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* COUNSELLOR, BRAND, AND COMPANY PERFORMANCE TABLES GRID */}
