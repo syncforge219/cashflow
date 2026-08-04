@@ -8,6 +8,7 @@ import ProfileDisplay from "@/components/ProfileDisplay";
 import { useUser } from "@/app/component/context/user-context";
 import CfoSecurityGuard from "@/components/CfoSecurityGuard";
 import ExpensePdfReportModal from "@/components/ExpensePdfReportModal";
+import ExpenseExcelReportModal from "@/components/ExpenseExcelReportModal";
 import { TableSkeleton, CardSkeleton } from "@/components/Skeleton";
 
 interface ExpenseRecord {
@@ -195,6 +196,7 @@ export default function ExpensesPage() {
   const [startDateFilter, setStartDateFilter] = useState(initMonth.start);
   const [endDateFilter, setEndDateFilter] = useState(initMonth.end);
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
+  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
 
   const handleDatePresetChange = (preset: string) => {
     setDatePreset(preset);
@@ -1276,9 +1278,9 @@ export default function ExpensesPage() {
             </button>
 
             <button
-              onClick={handleExportExcel}
+              onClick={() => setIsExcelModalOpen(true)}
               className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/20 transition-all flex items-center gap-1.5 cursor-pointer"
-              title="Download Excel Workbook with Graphs (Sheet 1) & Filtered Records (Sheet 2)"
+              title="Open Custom Date Range & Filter Excel Download Modal"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
@@ -1926,6 +1928,24 @@ export default function ExpensesPage() {
           isOpen={isPdfModalOpen}
           onClose={() => setIsPdfModalOpen(false)}
           expenses={filteredExpenses}
+          filters={{
+            category: selectedCategory,
+            brand: selectedBrand,
+            company: selectedCompany,
+            datePreset,
+            startDate: startDateFilter,
+            endDate: endDateFilter,
+            searchQuery,
+          }}
+        />
+
+        <ExpenseExcelReportModal
+          isOpen={isExcelModalOpen}
+          onClose={() => setIsExcelModalOpen(false)}
+          expenses={expenses}
+          categories={EXPENSE_CATEGORIES}
+          brands={brands}
+          companies={availableFilterCompanies}
           filters={{
             category: selectedCategory,
             brand: selectedBrand,
