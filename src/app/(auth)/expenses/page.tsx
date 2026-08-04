@@ -160,6 +160,80 @@ function SvgDonutChart({
   );
 }
 
+function CategoryBarGraph({
+  data,
+  totalSum,
+  onHover,
+  onLeave,
+}: {
+  data: { name: string; value: number; color: string }[];
+  totalSum: number;
+  onHover: (item: TooltipItem, e: React.MouseEvent) => void;
+  onLeave: () => void;
+}) {
+  const maxVal = Math.max(...data.map((d) => d.value), 1);
+
+  return (
+    <div className="w-full space-y-2.5 max-h-[260px] overflow-y-auto pr-1">
+      {data.map((item, idx) => {
+        const pct = totalSum > 0 ? ((item.value / totalSum) * 100).toFixed(1) : "0.0";
+        const widthPct = Math.max(6, Math.round((item.value / maxVal) * 100));
+
+        return (
+          <div
+            key={item.name}
+            className="group space-y-1 p-2 rounded-xl hover:bg-slate-100/70 transition-all cursor-pointer border border-transparent hover:border-slate-200/80"
+            onMouseEnter={(e) =>
+              onHover(
+                { name: item.name, value: item.value, pct, category: "CATEGORY SPEND" },
+                e
+              )
+            }
+            onMouseMove={(e) =>
+              onHover(
+                { name: item.name, value: item.value, pct, category: "CATEGORY SPEND" },
+                e
+              )
+            }
+            onMouseLeave={onLeave}
+          >
+            <div className="flex items-center justify-between text-xs font-extrabold text-slate-700">
+              <div className="flex items-center gap-2 truncate">
+                <span
+                  className="w-2.5 h-2.5 rounded-full shrink-0"
+                  style={{ backgroundColor: item.color }}
+                />
+                <span className="truncate max-w-[170px] sm:max-w-[220px]">{item.name}</span>
+                <span className="text-[10px] text-slate-400 font-bold bg-white px-1.5 py-0.2 rounded border border-slate-200">
+                  #{idx + 1}
+                </span>
+              </div>
+              <div className="text-right shrink-0">
+                <span className="text-slate-900 font-black">
+                  ₹{item.value.toLocaleString("en-IN")}
+                </span>
+                <span className="text-[10px] text-slate-400 font-bold ml-1.5">
+                  ({pct}%)
+                </span>
+              </div>
+            </div>
+
+            <div className="w-full bg-slate-200/70 rounded-full h-2 overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-500 ease-out group-hover:brightness-110"
+                style={{
+                  width: `${widthPct}%`,
+                  backgroundColor: item.color,
+                }}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function ExpensesPage() {
   const { user, logout } = useUser();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -1322,18 +1396,55 @@ export default function ExpensesPage() {
           </div>
         </div>
 
-        {/* WHERE EXPENSES GO (CATEGORIES) DONUT & NUMBERS TABLE */}
+        {/* WHERE EXPENSES GO (CATEGORIES) VISUAL ANALYTICS - DONUT & BAR GRAPH */}
         <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-sm mb-6 space-y-5">
-          <div className="border-b border-slate-100 pb-3">
-            <h3 className="text-base font-extrabold text-slate-800">🍩 Where Expenses Go (Categories)</h3>
-            <p className="text-xs text-slate-400 font-medium">Category breakdown of operational expenditures</p>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+            <div>
+              <h3 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
+                <span>📊</span> Operational Expenditure Category Analytics
+              </h3>
+              <p className="text-xs text-slate-400 font-medium">Distribution donut share and category-wise spend breakdown bar graph</p>
+            </div>
+
+            <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-xl border border-slate-200 text-[11px] font-extrabold text-slate-600">
+              <span className="text-indigo-600">🍩 Donut Share</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-emerald-600">📊 Spend Bar Graph</span>
+            </div>
           </div>
 
           {categoryDonutData.length === 0 ? (
             <div className="py-12 text-xs font-semibold text-slate-400 text-center">No expense records found</div>
           ) : (
-            <SvgDonutChart data={categoryDonutData} size={210} onHover={handleHover} onLeave={handleLeave} />
-          )}        </div>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center pt-1">
+              {/* Donut Chart Column (5 Cols) */}
+              <div className="lg:col-span-5 flex flex-col items-center justify-center p-4 bg-slate-50/50 rounded-2xl border border-slate-100/90 h-full">
+                <span className="text-xs font-black text-slate-700 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <span>🍩</span> Allocation Share Donut
+                </span>
+                <SvgDonutChart data={categoryDonutData} size={200} onHover={handleHover} onLeave={handleLeave} />
+              </div>
+
+              {/* Category Spend Bar Graph Column (7 Cols) */}
+              <div className="lg:col-span-7 space-y-3 p-4 bg-slate-50/50 rounded-2xl border border-slate-100/90 h-full">
+                <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
+                  <span className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <span>📊</span> Category-Wise Spend Bar Graph
+                  </span>
+                  <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
+                    Top {categoryBreakdown.length} Categories
+                  </span>
+                </div>
+                <CategoryBarGraph
+                  data={categoryDonutData}
+                  totalSum={totalExpenseSum}
+                  onHover={handleHover}
+                  onLeave={handleLeave}
+                />
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Filter & Search Bar */}
         <div className="bg-white border border-slate-200/80 rounded-2xl p-4 mb-6 shadow-xs flex flex-col xl:flex-row items-center justify-between gap-4">
