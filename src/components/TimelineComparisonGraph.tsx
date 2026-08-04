@@ -13,7 +13,8 @@ export default function TimelineComparisonGraph({ selectedBrand }: TimelineCompa
   const [periodBStart, setPeriodBStart] = useState<string>("");
   const [periodBEnd, setPeriodBEnd] = useState<string>("");
 
-  const [activeMetric, setActiveMetric] = useState<"revenue" | "admissions" | "leads" | "expenses" | "netProfit">("revenue");
+  const [activeMetric, setActiveMetric] = useState<"revenue" | "admissions" | "leads" | "expenses" | "netProfit">("leads");
+  const [chartType, setChartType] = useState<"bar" | "line">("bar");
 
   const [comparisonData, setComparisonData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -85,6 +86,7 @@ export default function TimelineComparisonGraph({ selectedBrand }: TimelineCompa
         keyB: "revenueB",
         colorA: "#059669", // Emerald
         colorB: "#6366f1", // Indigo
+        isCurrency: true,
       };
     } else if (activeMetric === "admissions") {
       return {
@@ -97,6 +99,7 @@ export default function TimelineComparisonGraph({ selectedBrand }: TimelineCompa
         keyB: "admissionsB",
         colorA: "#06b6d4", // Cyan
         colorB: "#8b5cf6", // Purple
+        isCurrency: false,
       };
     } else if (activeMetric === "leads") {
       return {
@@ -109,6 +112,7 @@ export default function TimelineComparisonGraph({ selectedBrand }: TimelineCompa
         keyB: "leadsB",
         colorA: "#3b82f6", // Blue
         colorB: "#f59e0b", // Amber
+        isCurrency: false,
       };
     } else if (activeMetric === "expenses") {
       return {
@@ -121,6 +125,7 @@ export default function TimelineComparisonGraph({ selectedBrand }: TimelineCompa
         keyB: "expensesB",
         colorA: "#f43f5e", // Rose
         colorB: "#eab308", // Yellow
+        isCurrency: true,
       };
     } else {
       return {
@@ -133,29 +138,58 @@ export default function TimelineComparisonGraph({ selectedBrand }: TimelineCompa
         keyB: "netProfitB",
         colorA: "#10b981", // Emerald
         colorB: "#64748b", // Slate
+        isCurrency: true,
       };
     }
   }, [activeMetric, pA, pB, deltas]);
 
   // Max value for dual chart scaling
   const maxSeriesVal = useMemo(() => {
-    if (!series || series.length === 0) return 1;
-    let max = 1;
+    if (!series || series.length === 0) return 5;
+    let max = 0;
     series.forEach((s: any) => {
-      const vA = s[metricConfig.keyA] || s.revenueA || 0;
-      const vB = s[metricConfig.keyB] || s.revenueB || 0;
+      const vA = Number(s[metricConfig.keyA]) || 0;
+      const vB = Number(s[metricConfig.keyB]) || 0;
       if (vA > max) max = vA;
       if (vB > max) max = vB;
     });
-    return max;
+    return max > 0 ? max : 5;
   }, [series, metricConfig]);
+
+  // SVG Line paths generation
+  const linePaths = useMemo(() => {
+    if (!series || series.length === 0) return { pathA: "", pathB: "" };
+    const width = 600;
+    const height = 180;
+    const count = series.length;
+    const step = count > 1 ? width / (count - 1) : width;
+
+    const pointsA = series.map((s: any, idx: number) => {
+      const vA = Number(s[metricConfig.keyA]) || 0;
+      const x = idx * step;
+      const y = height - (vA / maxSeriesVal) * (height - 20);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    });
+
+    const pointsB = series.map((s: any, idx: number) => {
+      const vB = Number(s[metricConfig.keyB]) || 0;
+      const x = idx * step;
+      const y = height - (vB / maxSeriesVal) * (height - 20);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    });
+
+    return {
+      pathA: pointsA.length > 0 ? `M ${pointsA.join(" L ")}` : "",
+      pathB: pointsB.length > 0 ? `M ${pointsB.join(" L ")}` : "",
+    };
+  }, [series, metricConfig, maxSeriesVal]);
 
   return (
     <div className="bg-white border border-slate-200/90 rounded-3xl p-6 shadow-sm space-y-6 relative overflow-hidden">
-      {/* Background Subtle Gradient Glow */}
+      {/* Background Glow */}
       <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-indigo-500/5 via-purple-500/5 to-transparent rounded-full blur-3xl pointer-events-none" />
 
-      {/* Floating Interactive Tooltip */}
+      {/* Floating Tooltip */}
       {hoveredPoint && (
         <div
           className="fixed z-50 pointer-events-none bg-slate-900/95 text-white text-xs font-bold px-4 py-3 rounded-2xl shadow-2xl border border-slate-700 backdrop-blur-md transform -translate-x-1/2 -translate-y-full transition-all duration-100"
@@ -164,31 +198,31 @@ export default function TimelineComparisonGraph({ selectedBrand }: TimelineCompa
           <div className="text-[10px] font-black text-indigo-300 uppercase tracking-wider mb-1 flex items-center gap-1.5">
             <span>📅 {hoveredPoint.dayLabel}</span>
           </div>
-          <div className="space-y-1 text-[11px]">
+          <div className="space-y-1.5 text-[11px]">
             <div className="flex items-center justify-between gap-4">
-              <span className="text-emerald-400 font-extrabold flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              <span className="text-emerald-400 font-extrabold flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
                 {pA.label || "Timeline A"} ({hoveredPoint.dateA}):
               </span>
-              <span className="font-black text-white">
-                {metricConfig.fmt(hoveredPoint[metricConfig.keyA] || hoveredPoint.revenueA || 0)}
+              <span className="font-black text-white ml-2">
+                {metricConfig.fmt(Number(hoveredPoint[metricConfig.keyA]) || 0)}
               </span>
             </div>
 
             <div className="flex items-center justify-between gap-4">
-              <span className="text-indigo-400 font-extrabold flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-indigo-400" />
+              <span className="text-indigo-400 font-extrabold flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-indigo-400" />
                 {pB.label || "Timeline B"} ({hoveredPoint.dateB}):
               </span>
-              <span className="font-black text-white">
-                {metricConfig.fmt(hoveredPoint[metricConfig.keyB] || hoveredPoint.revenueB || 0)}
+              <span className="font-black text-white ml-2">
+                {metricConfig.fmt(Number(hoveredPoint[metricConfig.keyB]) || 0)}
               </span>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── CARD HEADER & PRESETS ────────────────────────────────────────── */}
+      {/* ── HEADER & PRESET TOOLBAR ──────────────────────────────────────── */}
       <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 border-b border-slate-100 pb-4">
         <div>
           <div className="inline-flex items-center gap-2 bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border border-indigo-100 mb-1">
@@ -200,7 +234,7 @@ export default function TimelineComparisonGraph({ selectedBrand }: TimelineCompa
           </p>
         </div>
 
-        {/* Timeline Comparison Presets Toolbar */}
+        {/* Timeline Presets Toolbar */}
         <div className="flex flex-wrap items-center gap-1.5 bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200">
           {[
             { id: "this_month_vs_last_month", label: "Month vs Last Month" },
@@ -225,7 +259,7 @@ export default function TimelineComparisonGraph({ selectedBrand }: TimelineCompa
         </div>
       </div>
 
-      {/* ── CUSTOM TIMELINES INPUT BAR (If Custom Selected) ──────────────── */}
+      {/* ── CUSTOM TIMELINES INPUT FORM ─────────────────────────────────── */}
       {preset === "custom" && (
         <form
           onSubmit={handleApplyCustomComparison}
@@ -235,7 +269,6 @@ export default function TimelineComparisonGraph({ selectedBrand }: TimelineCompa
             <span>🎯</span> Define Custom Period A & Period B Date Ranges
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Timeline A Input */}
             <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-2">
               <span className="text-[11px] font-black text-emerald-700 uppercase flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full bg-emerald-500" />
@@ -258,7 +291,6 @@ export default function TimelineComparisonGraph({ selectedBrand }: TimelineCompa
               </div>
             </div>
 
-            {/* Timeline B Input */}
             <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-2">
               <span className="text-[11px] font-black text-indigo-700 uppercase flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full bg-indigo-500" />
@@ -293,30 +325,53 @@ export default function TimelineComparisonGraph({ selectedBrand }: TimelineCompa
         </form>
       )}
 
-      {/* ── METRIC SELECTION TABS & SCORECARD SUMMARY ───────────────────── */}
+      {/* ── METRIC SELECTION TABS & SCORECARD GRID ───────────────────────── */}
       <div className="space-y-4">
-        {/* Metric Tabs */}
-        <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 pb-3">
-          {[
-            { id: "revenue", label: "💰 Revenue / Collections" },
-            { id: "admissions", label: "🎓 Admissions" },
-            { id: "leads", label: "📥 Total Leads" },
-            { id: "expenses", label: "💸 Expenses & Overhead" },
-            { id: "netProfit", label: "📈 Net Profit" },
-          ].map((m) => (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {[
+              { id: "leads", label: "📥 Total Leads" },
+              { id: "revenue", label: "💰 Revenue / Collections" },
+              { id: "admissions", label: "🎓 Admissions" },
+              { id: "expenses", label: "💸 Expenses & Overhead" },
+              { id: "netProfit", label: "📈 Net Profit" },
+            ].map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => setActiveMetric(m.id as any)}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                  activeMetric === m.id
+                    ? "bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-600/20"
+                    : "bg-slate-50 text-slate-700 border-slate-200/80 hover:bg-slate-100"
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Chart View Toggle */}
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold">
             <button
-              key={m.id}
               type="button"
-              onClick={() => setActiveMetric(m.id as any)}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
-                activeMetric === m.id
-                  ? "bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-600/20"
-                  : "bg-slate-50 text-slate-700 border-slate-200/80 hover:bg-slate-100"
+              onClick={() => setChartType("bar")}
+              className={`px-3 py-1 rounded-lg transition-all ${
+                chartType === "bar" ? "bg-white text-slate-900 shadow-xs" : "text-slate-500 hover:text-slate-800"
               }`}
             >
-              {m.label}
+              📊 Dual Bars
             </button>
-          ))}
+            <button
+              type="button"
+              onClick={() => setChartType("line")}
+              className={`px-3 py-1 rounded-lg transition-all ${
+                chartType === "line" ? "bg-white text-slate-900 shadow-xs" : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              📈 Line Overlay
+            </button>
+          </div>
         </div>
 
         {/* Dual-Timeline KPI Scorecards Grid */}
@@ -396,7 +451,7 @@ export default function TimelineComparisonGraph({ selectedBrand }: TimelineCompa
 
       {/* ── DUAL-SERIES COMPARISON VISUAL GRAPH ─────────────────────────── */}
       <div className="bg-slate-50/70 border border-slate-200/80 rounded-2xl p-5 space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between border-b border-slate-200/70 pb-3">
           <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
             <span>📊</span> Dual-Timeline {metricConfig.title} Day-by-Day Normalized Chart
           </h3>
@@ -413,7 +468,7 @@ export default function TimelineComparisonGraph({ selectedBrand }: TimelineCompa
           </div>
         </div>
 
-        {/* Dual Bar / Line SVG Chart Canvas */}
+        {/* Dual Bar / Line SVG Chart Canvas Container */}
         {isLoading ? (
           <div className="h-64 flex items-center justify-center text-xs text-slate-400 font-semibold animate-pulse">
             Loading timeline comparison analytics...
@@ -424,71 +479,111 @@ export default function TimelineComparisonGraph({ selectedBrand }: TimelineCompa
           </div>
         ) : (
           <div className="space-y-2">
-            <div className="w-full overflow-x-auto custom-scrollbar pt-4 pb-2">
-              <div className="min-w-[640px] h-60 relative flex items-end justify-between gap-2 px-4 border-b border-slate-200/80">
-                {/* Horizontal Reference Gridlines */}
-                {[0.25, 0.5, 0.75, 1.0].map((step, idx) => (
-                  <div
-                    key={idx}
-                    className="absolute left-0 right-0 border-b border-slate-200/40 pointer-events-none flex items-center justify-end pr-2"
-                    style={{ bottom: `${step * 100}%` }}
-                  >
-                    <span className="text-[9px] font-bold text-slate-400">
-                      {metricConfig.fmt(Math.round(maxSeriesVal * step))}
+            <div className="w-full overflow-x-auto custom-scrollbar pt-2 pb-2">
+              <div className="min-w-[700px] flex items-stretch">
+                {/* Y-Axis Label Column Gutter (Prevents Text Overlapping Bars) */}
+                <div className="w-24 shrink-0 h-60 flex flex-col justify-between items-end pr-3 border-r border-slate-200/80 text-[10px] font-extrabold text-slate-400 py-1">
+                  {[1.0, 0.75, 0.5, 0.25, 0].map((step, idx) => (
+                    <span key={idx} className="truncate max-w-full">
+                      {metricConfig.isCurrency
+                        ? fmtCurrency(Math.round(maxSeriesVal * step))
+                        : `${Math.round(maxSeriesVal * step)}`}
                     </span>
-                  </div>
-                ))}
+                  ))}
+                </div>
 
-                {/* Dual Bars for Each Normalized Day */}
-                {series.map((item: any, idx: number) => {
-                  const valA = item[metricConfig.keyA] || item.revenueA || 0;
-                  const valB = item[metricConfig.keyB] || item.revenueB || 0;
-
-                  const heightA = Math.max(4, Math.round((valA / maxSeriesVal) * 190));
-                  const heightB = Math.max(4, Math.round((valB / maxSeriesVal) * 190));
-
-                  return (
+                {/* Main Graph Plotting Canvas */}
+                <div className="flex-1 h-60 relative flex items-end justify-between gap-2 pl-4 pr-4 border-b border-slate-200/80">
+                  {/* Horizontal Gridlines */}
+                  {[0.25, 0.5, 0.75, 1.0].map((step, idx) => (
                     <div
                       key={idx}
-                      className="flex-1 flex flex-col items-center justify-end group h-full relative cursor-pointer"
-                      onMouseEnter={(e) => {
-                        setHoveredPoint(item);
-                        setTooltipPos({ x: e.clientX, y: e.clientY });
-                      }}
-                      onMouseMove={(e) => {
-                        setHoveredPoint(item);
-                        setTooltipPos({ x: e.clientX, y: e.clientY });
-                      }}
-                      onMouseLeave={() => setHoveredPoint(null)}
-                    >
-                      {/* Dual Bar Columns Container */}
-                      <div className="flex items-end gap-1 w-full justify-center">
-                        {/* Timeline A Bar */}
-                        <div
-                          className="w-1/2 max-w-[16px] rounded-t-md transition-all duration-300 group-hover:brightness-110 shadow-xs"
-                          style={{
-                            height: `${heightA}px`,
-                            backgroundColor: metricConfig.colorA,
-                          }}
-                        />
+                      className="absolute left-0 right-0 border-b border-slate-200/40 pointer-events-none"
+                      style={{ bottom: `${step * 100}%` }}
+                    />
+                  ))}
 
-                        {/* Timeline B Bar */}
+                  {/* Rendering Mode A: Dual Bar Chart */}
+                  {chartType === "bar" &&
+                    series.map((item: any, idx: number) => {
+                      const valA = Number(item[metricConfig.keyA]) || 0;
+                      const valB = Number(item[metricConfig.keyB]) || 0;
+
+                      const heightA = valA > 0 ? Math.max(6, Math.round((valA / maxSeriesVal) * 190)) : 0;
+                      const heightB = valB > 0 ? Math.max(6, Math.round((valB / maxSeriesVal) * 190)) : 0;
+
+                      return (
                         <div
-                          className="w-1/2 max-w-[16px] rounded-t-md transition-all duration-300 opacity-85 group-hover:opacity-100 group-hover:brightness-110 shadow-xs"
-                          style={{
-                            height: `${heightB}px`,
-                            backgroundColor: metricConfig.colorB,
+                          key={idx}
+                          className="flex-1 flex flex-col items-center justify-end group h-full relative cursor-pointer"
+                          onMouseEnter={(e) => {
+                            setHoveredPoint(item);
+                            setTooltipPos({ x: e.clientX, y: e.clientY });
                           }}
-                        />
+                          onMouseMove={(e) => {
+                            setHoveredPoint(item);
+                            setTooltipPos({ x: e.clientX, y: e.clientY });
+                          }}
+                          onMouseLeave={() => setHoveredPoint(null)}
+                        >
+                          <div className="flex items-end gap-1 w-full justify-center">
+                            {/* Timeline A Bar */}
+                            <div
+                              className="w-1/2 max-w-[14px] rounded-t-md transition-all duration-300 group-hover:brightness-110 shadow-xs"
+                              style={{
+                                height: `${heightA}px`,
+                                backgroundColor: metricConfig.colorA,
+                              }}
+                            />
+
+                            {/* Timeline B Bar */}
+                            <div
+                              className="w-1/2 max-w-[14px] rounded-t-md transition-all duration-300 opacity-85 group-hover:opacity-100 group-hover:brightness-110 shadow-xs"
+                              style={{
+                                height: `${heightB}px`,
+                                backgroundColor: metricConfig.colorB,
+                              }}
+                            />
+                          </div>
+
+                          <span className="text-[10px] font-bold text-slate-400 group-hover:text-slate-900 mt-2 truncate">
+                            D{item.dayIndex}
+                          </span>
+                        </div>
+                      );
+                    })}
+
+                  {/* Rendering Mode B: Line Overlay Chart */}
+                  {chartType === "line" && (
+                    <div className="absolute inset-0 pt-4 pb-6 px-4">
+                      <svg width="100%" height="100%" viewBox="0 0 600 180" preserveAspectRatio="none" className="overflow-visible">
+                        <path d={linePaths.pathB} fill="none" stroke={metricConfig.colorB} strokeWidth="3" strokeDasharray="4 4" className="opacity-75" />
+                        <path d={linePaths.pathA} fill="none" stroke={metricConfig.colorA} strokeWidth="3.5" className="drop-shadow-xs" />
+                      </svg>
+                      <div className="absolute inset-0 flex items-end justify-between">
+                        {series.map((item: any, idx: number) => (
+                          <div
+                            key={idx}
+                            className="flex-1 flex flex-col items-center justify-end group h-full cursor-pointer"
+                            onMouseEnter={(e) => {
+                              setHoveredPoint(item);
+                              setTooltipPos({ x: e.clientX, y: e.clientY });
+                            }}
+                            onMouseMove={(e) => {
+                              setHoveredPoint(item);
+                              setTooltipPos({ x: e.clientX, y: e.clientY });
+                            }}
+                            onMouseLeave={() => setHoveredPoint(null)}
+                          >
+                            <span className="text-[10px] font-bold text-slate-400 group-hover:text-slate-900 mt-2">
+                              D{item.dayIndex}
+                            </span>
+                          </div>
+                        ))}
                       </div>
-
-                      {/* Bottom Day Label */}
-                      <span className="text-[10px] font-bold text-slate-400 group-hover:text-slate-900 mt-2 truncate">
-                        D{item.dayIndex}
-                      </span>
                     </div>
-                  );
-                })}
+                  )}
+                </div>
               </div>
             </div>
             <div className="flex items-center justify-between text-[11px] text-slate-400 font-semibold px-2">

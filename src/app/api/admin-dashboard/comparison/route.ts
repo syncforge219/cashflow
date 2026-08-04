@@ -128,13 +128,15 @@ export async function GET(req: Request) {
         ...(brandRegex ? { brand: brandRegex } : {}),
       };
 
-      const [leadsCount, admissionsCount, paymentsList, expensesList] = await Promise.all([
-        Enquiry.countDocuments(enquiryFilter),
-        Admission.countDocuments(admissionFilter),
+      const [leadsList, admissionsList, paymentsList, expensesList] = await Promise.all([
+        Enquiry.find(enquiryFilter).select("createdAt").lean(),
+        Admission.find(admissionFilter).select("createdAt").lean(),
         Payment.find(paymentFilter).select("amountReceived createdAt").lean(),
         Expense.find(expenseFilter).select("amount expenseDate").lean(),
       ]);
 
+      const leadsCount = leadsList.length;
+      const admissionsCount = admissionsList.length;
       const totalRevenue = paymentsList.reduce((sum, p) => sum + (Number(p.amountReceived) || 0), 0);
       const totalExpenses = expensesList.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
       const netProfit = totalRevenue - totalExpenses;
@@ -149,6 +151,8 @@ export async function GET(req: Request) {
         totalExpenses,
         netProfit,
         conversionRate,
+        leadsList,
+        admissionsList,
         paymentsList,
         expensesList,
       };
@@ -191,6 +195,14 @@ export async function GET(req: Request) {
       const dateBStr = formatDateStr(dateB);
 
       // Aggregates for Period A Day
+      const leadsA = statsA.leadsList.filter(
+        (l: any) => l.createdAt && formatDateStr(new Date(l.createdAt)) === dateAStr
+      ).length;
+
+      const admissionsA = statsA.admissionsList.filter(
+        (a: any) => a.createdAt && formatDateStr(new Date(a.createdAt)) === dateAStr
+      ).length;
+
       const revA = statsA.paymentsList
         .filter((p: any) => p.createdAt && formatDateStr(new Date(p.createdAt)) === dateAStr)
         .reduce((sum: number, p: any) => sum + (Number(p.amountReceived) || 0), 0);
@@ -200,6 +212,14 @@ export async function GET(req: Request) {
         .reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
 
       // Aggregates for Period B Day
+      const leadsB = statsB.leadsList.filter(
+        (l: any) => l.createdAt && formatDateStr(new Date(l.createdAt)) === dateBStr
+      ).length;
+
+      const admissionsB = statsB.admissionsList.filter(
+        (a: any) => a.createdAt && formatDateStr(new Date(a.createdAt)) === dateBStr
+      ).length;
+
       const revB = statsB.paymentsList
         .filter((p: any) => p.createdAt && formatDateStr(new Date(p.createdAt)) === dateBStr)
         .reduce((sum: number, p: any) => sum + (Number(p.amountReceived) || 0), 0);
@@ -215,10 +235,27 @@ export async function GET(req: Request) {
         dateB: dateBStr,
         revenueA: revA,
         revenueB: revB,
+        leadsA,
+        leadsB,
+        admissionsA,
+        admissionsB,
         expensesA: expA,
         expensesB: expB,
+        netProfitA: revA - expA,
+        netProfitB: revB - expB,
       });
     }
+
+    // Omit massive raw lists from JSON payload
+    delete (statsA as any).leadsList;
+    delete (statsA as any).admissionsList;
+    delete (statsA as any).paymentsList;
+    delete (statsA as any).expensesList;
+
+    delete (statsB as any).leadsList;
+    delete (statsB as any).admissionsList;
+    delete (statsB as any).paymentsList;
+    delete (statsB as any).expensesList;
 
     return NextResponse.json({
       success: true,
