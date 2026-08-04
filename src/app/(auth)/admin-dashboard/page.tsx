@@ -12,6 +12,7 @@ import StudentSearchCenter from "@/components/StudentSearchCenter";
 import AddBatchModal from "@/components/AddBatchModal";
 import AdmissionBreakdownModal from "@/components/AdmissionBreakdownModal";
 import PaymentBreakdownModal from "@/components/PaymentBreakdownModal";
+import TimelineComparisonGraph from "@/components/TimelineComparisonGraph";
 
 export default function AdminDashboard() {
   const { user, logout } = useUser();
@@ -708,6 +709,9 @@ export default function AdminDashboard() {
             startDate={startDate}
             endDate={endDate}
           />
+
+          {/* DUAL-TIMELINE PERFORMANCE COMPARISON GRAPH */}
+          <TimelineComparisonGraph selectedBrand={selectedBrand} />
 
           {/* FINANCIAL PROFIT & LOSS COMMAND CENTER WITH GRADIENT HOVER CARDS */}
           <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs space-y-4">
