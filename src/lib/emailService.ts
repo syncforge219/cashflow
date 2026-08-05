@@ -683,3 +683,39 @@ export async function sendWeeklyExecutiveExcelReport(targetAdminEmail?: string) 
     return { success: false, error: error.message };
   }
 }
+
+/**
+ * Send Login OTP Email to User
+ */
+export async function sendLoginOtpEmail({ email, otp, userName }: { email: string; otp: string; userName: string }) {
+  try {
+    const mailOptions = {
+      from: `"Coach Security" <${SMTP_USER}>`,
+      to: email,
+      subject: `Your Login OTP: ${otp}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+          <div style="text-align: center; margin-bottom: 20px;">
+            <h2 style="color: #4f46e5; margin: 0; font-size: 22px; font-weight: 800;">Coach Verification</h2>
+            <p style="color: #64748b; font-size: 13px; margin-top: 4px;">Secure Email Login Authentication</p>
+          </div>
+          <p style="color: #334155; font-size: 15px; line-height: 1.5;">Hello <strong>${userName}</strong>,</p>
+          <p style="color: #475569; font-size: 14px; line-height: 1.5;">Your One-Time Password (OTP) for logging in to your Coach account is:</p>
+          <div style="margin: 24px 0; text-align: center;">
+            <span style="font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #1e1b4b; background-color: #f1f5f9; padding: 14px 28px; border-radius: 12px; display: inline-block; border: 1.5px solid #cbd5e1;">${otp}</span>
+          </div>
+          <p style="color: #64748b; font-size: 13px; line-height: 1.5;">This code is valid for <strong>5 minutes</strong>. Do not share this code with anyone.</p>
+          <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 20px 0;" />
+          <p style="color: #94a3b8; font-size: 11px; text-align: center; margin: 0;">If you did not request this OTP, please ignore this email.</p>
+        </div>
+      `,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`[EmailService] Login OTP email sent to ${email}. MessageId: ${info.messageId}`);
+    return { success: true, messageId: info.messageId };
+  } catch (error: any) {
+    console.error("[EmailService] Error sending login OTP email:", error);
+    return { success: false, error: error.message };
+  }
+}
