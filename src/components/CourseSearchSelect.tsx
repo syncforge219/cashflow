@@ -95,10 +95,10 @@ export default function CourseSearchSelect({
       const singleName = selectedCourses[0];
       const singleObj = courses.find((c) => (c.name || c.courseName) === singleName);
       return (
-        <span className="text-slate-900 font-bold truncate">
+        <span className="text-slate-900 font-bold truncate" title={singleName}>
           {singleName}{" "}
           {singleObj?.code && (
-            <span className="text-[10px] font-extrabold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 ml-1">
+            <span className="text-[10px] font-extrabold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 ml-1 shrink-0">
               [{singleObj.code}]
             </span>
           )}
@@ -106,11 +106,11 @@ export default function CourseSearchSelect({
       );
     }
     return (
-      <div className="flex items-center gap-1.5 flex-wrap truncate">
-        <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
-          {selectedCourses.length} Courses Selected
+      <div className="flex items-center gap-1.5 flex-wrap truncate" title={selectedCourses.join(", ")}>
+        <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200 shrink-0">
+          {selectedCourses.length} Selected
         </span>
-        <span className="text-xs font-semibold text-slate-700 truncate max-w-[200px]">
+        <span className="text-xs font-semibold text-slate-700 truncate max-w-[280px]">
           {selectedCourses.join(", ")}
         </span>
       </div>
@@ -139,7 +139,7 @@ export default function CourseSearchSelect({
       </div>
 
       {isOpen && (
-        <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden animate-fade-in font-sans">
+        <div className="absolute left-0 top-full mt-1.5 min-w-[320px] sm:min-w-[420px] max-w-[90vw] bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden animate-fade-in font-sans">
           <div className="p-2 border-b border-slate-100 bg-slate-50/80 space-y-2">
             <div className="relative">
               <input
@@ -195,20 +195,20 @@ export default function CourseSearchSelect({
                   <div
                     key={c._id || idx}
                     onClick={() => toggleCourse(cName)}
-                    className={`px-3 py-2 rounded-xl cursor-pointer transition-colors flex items-center justify-between select-none ${
+                    className={`px-3 py-2.5 rounded-xl cursor-pointer transition-colors flex items-center justify-between select-none gap-2 ${
                       isSelected
                         ? "bg-indigo-50/80 text-indigo-900 font-bold"
                         : "hover:bg-slate-50 text-slate-700 font-medium"
                     }`}
                   >
-                    <div className="flex items-center gap-2.5 truncate pr-2">
+                    <div className="flex items-center gap-2.5 min-w-0 pr-2">
                       <input
                         type="checkbox"
                         checked={isSelected}
                         onChange={() => {}} // handled by row click
                         className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer shrink-0"
                       />
-                      <span className="truncate">{cName}</span>
+                      <span className="font-bold text-slate-800 break-words leading-tight">{cName}</span>
                       {cCode && (
                         <span className="text-[10px] font-mono font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 shrink-0">
                           {cCode}

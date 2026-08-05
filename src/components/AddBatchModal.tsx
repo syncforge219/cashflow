@@ -52,18 +52,21 @@ export default function AddBatchModal({
           fetch("/api/brands").then((r) => r.json().catch(() => ({}))),
         ]);
 
-        if (coursesRes.success || coursesRes.courses) {
-          const cList = coursesRes.data || coursesRes.courses || [];
-          setCoursesList(cList);
-          if (cList.length > 0 && selectedCourses.length === 0) {
-            const initialCourse = cList[0];
-            const initialName = initialCourse.name || initialCourse.courseName || "";
-            if (initialName) {
-              setSelectedCourses([initialName]);
-              setCourseCode(initialCourse.code || initialCourse.courseCode || "");
+          if (coursesRes.success || coursesRes.courses) {
+            const cList = coursesRes.data || coursesRes.courses || [];
+            setCoursesList(cList);
+            if (cList.length > 0 && selectedCourses.length === 0) {
+              const initialCourse = cList[0];
+              const initialName = initialCourse.name || initialCourse.courseName || "";
+              if (initialName) {
+                setSelectedCourses([initialName]);
+                setCourseCode(initialCourse.code || initialCourse.courseCode || "");
+                if (!batchName) {
+                  setBatchName(initialName);
+                }
+              }
             }
           }
-        }
 
         if (teachersRes.success || teachersRes.teachers) {
           const tList = teachersRes.data || teachersRes.teachers || [];
@@ -269,6 +272,9 @@ export default function AddBatchModal({
                 onSelectCourses={(selectedNames, combinedCodes) => {
                   setSelectedCourses(selectedNames);
                   setCourseCode(combinedCodes);
+                  if (!batchName.trim() || selectedCourses.includes(batchName.trim())) {
+                    setBatchName(selectedNames.join(", "));
+                  }
                 }}
               />
             </div>
@@ -341,7 +347,7 @@ export default function AddBatchModal({
           </div>
 
           {/* Schedule Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
                 Start Date <span className="text-rose-500">*</span>
@@ -351,6 +357,18 @@ export default function AddBatchModal({
                 required
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-semibold transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                End Date (Optional)
+              </label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
                 className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-semibold transition-all"
               />
             </div>

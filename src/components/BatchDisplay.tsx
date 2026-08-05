@@ -248,8 +248,13 @@ export default function BatchDisplay() {
                       </span>
                     </td>
                     <td className="py-4 px-6 text-slate-600 font-bold">{batch.timing}</td>
-                    <td className="py-4 px-6 text-slate-600">
-                      {batch.startDate ? new Date(batch.startDate).toLocaleDateString("en-GB") : "-"}
+                    <td className="py-4 px-6 text-slate-600 font-bold">
+                      <div>{batch.startDate ? new Date(batch.startDate).toLocaleDateString("en-GB") : "-"}</div>
+                      {batch.endDate && (
+                        <div className="text-[10px] text-slate-400 font-medium mt-0.5">
+                          End: {new Date(batch.endDate).toLocaleDateString("en-GB")}
+                        </div>
+                      )}
                     </td>
                     <td className="py-4 px-6">
                       <span className="inline-block px-2 py-0.5 bg-slate-100 text-slate-700 font-bold text-[10px] rounded-md border border-slate-200">
