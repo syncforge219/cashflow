@@ -68,10 +68,31 @@ export async function GET() {
         targetDate = adm.createdAt ? new Date(adm.createdAt) : new Date();
       }
 
+      // Reconcile customEmiPlan against paid amount
+      const totalFee = Number((adm as any).finalFee || (adm as any).totalFee || 0);
+      const remainingBal = Number(adm.remainingBalance) || 0;
+      const paidAmt = Math.max(0, totalFee - remainingBal);
+
+      let emiUpdated = false;
+      if (Array.isArray(adm.customEmiPlan) && adm.customEmiPlan.length > 0) {
+        let credit = paidAmt;
+        for (const item of adm.customEmiPlan) {
+          const itemAmt = Number(item.amount) || 0;
+          if (credit >= itemAmt) {
+            if (!item.isPaid) {
+              item.isPaid = true;
+              item.paidDate = item.paidDate || new Date();
+              emiUpdated = true;
+            }
+            credit -= itemAmt;
+          } else break;
+        }
+      }
+
       const currentAdmDateStr = adm.admissionDate ? new Date(adm.admissionDate).toISOString() : null;
       const targetDateStr = targetDate.toISOString();
 
-      if (!adm.admissionDate || currentAdmDateStr !== targetDateStr) {
+      if (!adm.admissionDate || currentAdmDateStr !== targetDateStr || emiUpdated) {
         adm.admissionDate = targetDate;
         await adm.save();
         updatedRecords.push({
@@ -80,6 +101,7 @@ export async function GET() {
           oldAdmissionDate: currentAdmDateStr,
           fixedAdmissionDate: targetDateStr,
           formatted: targetDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
+          emiUpdated,
         });
       }
     }
