@@ -303,8 +303,22 @@ export async function GET(req: Request) {
     // 1. Process KPIs
     // 1. Process KPIs & Financial Summary
     let totalCollection = 0;
+    const paymentAdmissionIds = new Set<string>();
+
     totalPayments.forEach((p: any) => {
       totalCollection += Number(p.amountReceived || 0);
+      if (p.admissionId) paymentAdmissionIds.add(p.admissionId.toString());
+    });
+
+    const periodAdmissionsList = await Admission.find(admissionGlobalFilter).select("finalFee amountReceivedToday paidAmount remainingBalance _id").lean();
+
+    periodAdmissionsList.forEach((a: any) => {
+      if (!paymentAdmissionIds.has(a._id.toString())) {
+        const initPaid = Number(a.amountReceivedToday) || Math.max(0, Number(a.finalFee || 0) - Number(a.remainingBalance || 0));
+        if (initPaid > 0) {
+          totalCollection += initPaid;
+        }
+      }
     });
 
     let todayCollectionSum = 0;
@@ -323,12 +337,13 @@ export async function GET(req: Request) {
     });
 
     let totalBilledRevenue = 0;
-    admissionsList.forEach((a: any) => {
+    periodAdmissionsList.forEach((a: any) => {
       totalBilledRevenue += Number(a.finalFee || 0);
     });
     if (totalBilledRevenue === 0) totalBilledRevenue = totalCollection;
 
-    const displayRevenue = isFiltered ? totalCollection : totalBilledRevenue;
+    const displayRevenue = totalBilledRevenue;
+    const displayCollection = isFiltered ? totalCollection : monthlyCollectionSum;
 
     // Compute Payroll & Expenses Totals
     let totalPayrollSum = 0;
@@ -393,7 +408,7 @@ export async function GET(req: Request) {
       revenue: formatLakhsOrRupees(displayRevenue),
       rawRevenue: displayRevenue,
       todayCollection: `₹${todayCollectionSum.toLocaleString("en-IN")}`,
-      monthlyCollection: formatLakhsOrRupees(monthlyCollectionSum),
+      monthlyCollection: formatLakhsOrRupees(displayCollection),
       emiOverdueCount: overdueAdmissions.length,
       emiOverdueAmount: formatLakhsOrRupees(totalOverdueAmount),
       pendingApprovals: hotLeads,
