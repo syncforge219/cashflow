@@ -223,6 +223,44 @@ export async function PUT(
       };
     }
 
+    // Re-balance company collected revenue if company assigned or final fee changes
+    const oldCompany = (existingDoc.companyAssigned || "").trim();
+    const newCompany = (updatePayload.companyAssigned || "").trim();
+
+    const oldFee = Number(existingDoc.finalFee) > 0 ? Number(existingDoc.finalFee) : (Number(existingDoc.courseFee) || 0);
+    const newFee = Number(updatePayload.finalFee) > 0 ? Number(updatePayload.finalFee) : (Number(updatePayload.courseFee) || 0);
+
+    const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    const isOldValidComp = oldCompany && oldCompany !== "Cash" && oldCompany !== "Unallocated" && oldCompany !== "Cash (Unallocated)";
+    const isNewValidComp = newCompany && newCompany !== "Cash" && newCompany !== "Unallocated" && newCompany !== "Cash (Unallocated)";
+
+    if (isOldValidComp && isNewValidComp && oldCompany.toLowerCase() === newCompany.toLowerCase()) {
+      const feeDiff = newFee - oldFee;
+      if (feeDiff !== 0) {
+        const compRegex = new RegExp(`^${escapeRegExp(newCompany)}$`, "i");
+        await Company.updateOne(
+          { $or: [{ name: { $regex: compRegex } }, { legalName: { $regex: compRegex } }] },
+          { $inc: { collectedRevenue: feeDiff } }
+        );
+      }
+    } else {
+      if (isOldValidComp && oldFee > 0) {
+        const oldCompRegex = new RegExp(`^${escapeRegExp(oldCompany)}$`, "i");
+        await Company.updateOne(
+          { $or: [{ name: { $regex: oldCompRegex } }, { legalName: { $regex: oldCompRegex } }] },
+          { $inc: { collectedRevenue: -oldFee } }
+        );
+      }
+      if (isNewValidComp && newFee > 0) {
+        const newCompRegex = new RegExp(`^${escapeRegExp(newCompany)}$`, "i");
+        await Company.updateOne(
+          { $or: [{ name: { $regex: newCompRegex } }, { legalName: { $regex: newCompRegex } }] },
+          { $inc: { collectedRevenue: newFee } }
+        );
+      }
+    }
+
     const updatedDoc = await Admission.findByIdAndUpdate(id, updatePayload, { new: true });
 
     return NextResponse.json({
@@ -311,14 +349,17 @@ export async function DELETE(
       }
     );
 
-    // 4. Reverse Company Collected Revenue Cap
-    const regAmt = Number(admission.registrationAmount || admission.amountReceivedToday) || 0;
-    if (regAmt > 0 && admission.companyAssigned && admission.companyAssigned !== "Cash" && admission.companyAssigned !== "Unallocated") {
+    // 4. Reverse Company Blocked Revenue Cap (unblock full student fee)
+    const amountToUnblock = Number(admission.finalFee) > 0 
+      ? Number(admission.finalFee) 
+      : (Number(admission.courseFee) > 0 ? Number(admission.courseFee) : (Number(admission.registrationAmount || admission.amountReceivedToday) || 0));
+
+    if (amountToUnblock > 0 && admission.companyAssigned && admission.companyAssigned !== "Cash" && admission.companyAssigned !== "Unallocated" && admission.companyAssigned !== "Cash (Unallocated)") {
       const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const compRegex = new RegExp(`^${escapeRegExp(admission.companyAssigned.trim())}$`, "i");
       await Company.updateOne(
-        { name: { $regex: compRegex } },
-        { $inc: { collectedRevenue: -regAmt } }
+        { $or: [{ name: { $regex: compRegex } }, { legalName: { $regex: compRegex } }] },
+        { $inc: { collectedRevenue: -amountToUnblock } }
       );
     }
 
