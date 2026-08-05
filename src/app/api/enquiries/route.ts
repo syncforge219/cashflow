@@ -3,7 +3,7 @@ import dbConnect from "@/lib/db";
 import Enquiry from "@/models/Enquiry";
 import Task from "@/models/Task";
 import { getUserFromCookies } from "@/lib/helper";
-import { sendWhatsAppDemoReminder } from "@/lib/msg91";
+import { sendWhatsAppDemoReminder, sendWhatsAppWelcomeEnquiry } from "@/lib/msg91";
 import { verifyRecaptchaToken } from "@/lib/recaptcha";
 
 export async function POST(req: Request) {
@@ -139,6 +139,22 @@ export async function POST(req: Request) {
     }
 
     const newEnquiry = await Enquiry.create(body);
+
+    // AUTO WHATSAPP WELCOME ENQUIRY: Dispatch welcome_enquiry template upon lead creation
+    try {
+      const recipientPhone = newEnquiry.primaryPhoneMobile || newEnquiry.parentsPhoneNumber || body.primaryPhoneMobile || body.parentsPhoneNumber || "";
+      if (recipientPhone) {
+        sendWhatsAppWelcomeEnquiry({
+          studentName: newEnquiry.studentFullName || body.studentFullName || "Student",
+          mobileNumber: recipientPhone,
+          brandName: newEnquiry.targetBrand || (newEnquiry as any).brand || body.targetBrand || body.brand || "CADD Mantra",
+          courseName: newEnquiry.targetCourse || body.targetCourse || "Course",
+        }).then((res) => console.log(`[Enquiry API] Welcome enquiry WhatsApp sent to ${recipientPhone}:`, res))
+          .catch((err) => console.error("[Enquiry API] Welcome enquiry WhatsApp error:", err));
+      }
+    } catch (waErr) {
+      console.error("[Enquiry API] Error triggering welcome enquiry WhatsApp:", waErr);
+    }
 
     // AUTO TASK ENGINE: Generate Call Lead task
     try {

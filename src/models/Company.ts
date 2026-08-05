@@ -56,6 +56,10 @@ const CompanySchema = new Schema(
       default: "ACTIVE",
       enum: ["ACTIVE", "INACTIVE"],
     },
+    alerted80Percent: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

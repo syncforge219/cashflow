@@ -3,7 +3,7 @@ import Admission from "@/models/Admission";
 import Payment from "@/models/Payment";
 import Task from "@/models/Task";
 import User from "@/models/User";
-import { sendWhatsAppEmiReminder, sendWhatsAppCounsellorEmiReminder } from "@/lib/msg91";
+import { sendWhatsAppEmiReminder } from "@/lib/msg91";
 
 export interface EmiReminderResult {
   checkedAdmissions: number;
@@ -68,7 +68,7 @@ export async function checkAndSendOverdueEmiReminders(options?: { force?: boolea
 
       if (hasCustomEmi) {
         // ────────────────────────────────────────────────────────────────────
-        // CASE 1: Check each customEmiPlan entry directly — isPaid=false + dueDate passed
+        // CASE 1: Check each customEmiPlan entry — send ONLY 1 day before due date
         // ────────────────────────────────────────────────────────────────────
         for (let i = 0; i < admission.customEmiPlan.length; i++) {
           const entry = admission.customEmiPlan[i] as any;
@@ -84,30 +84,24 @@ export async function checkAndSendOverdueEmiReminders(options?: { force?: boolea
           }
 
           const dueDate = new Date(entry.dueDate);
-          const dueStart = new Date(dueDate);
-          dueStart.setHours(0, 0, 0, 0);
-
-          // Calculate exact days difference between due date and today
+          const dueStart = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
           const timeDiffMs = dueStart.getTime() - todayStart.getTime();
           const daysDifference = Math.round(timeDiffMs / (1000 * 60 * 60 * 24));
 
-          // Trigger conditions:
-          // 1) 3 days prior to due date (daysDifference === 3)
-          // 2) Due today or overdue (daysDifference <= 0)
-          const is3DaysPrior = daysDifference === 3;
-          const isDueOrOverdue = daysDifference <= 0;
-          const shouldSendReminder = is3DaysPrior || isDueOrOverdue;
+          // Rule: Send reminder ONLY 1 day before installment due date (daysDifference === 1).
+          // No repeated daily messages on due date or overdue dates.
+          const isOneDayPrior = daysDifference === 1;
+          const shouldSendReminder = isOneDayPrior || (force && daysDifference > 0);
 
           const lastSentDateStr = entry.reminderSentAt
             ? new Date(entry.reminderSentAt).toDateString()
             : null;
 
-          console.log(`[EMI REMINDER] ${admission.fullName} | Inst ${i + 1}: dueDate=${dueDate.toISOString().split("T")[0]}, daysUntilDue=${daysDifference}, shouldSend=${shouldSendReminder}, lastSent=${lastSentDateStr}`);
+          console.log(`[EMI REMINDER] ${admission.fullName} | Inst ${i + 1}: dueDate=${dueDate.toISOString().split("T")[0]}, daysUntilDue=${daysDifference}, isOneDayPrior=${isOneDayPrior}, shouldSend=${shouldSendReminder}, lastSent=${lastSentDateStr}`);
 
           if (shouldSendReminder) {
-            if (force || lastSentDateStr !== todayStr) {
-              const statusTag = is3DaysPrior ? " (Due in 3 Days)" : isDueOrOverdue ? " (Overdue/Due Today)" : "";
-              const instLabel = `${i + 1}${i + 1 === 1 ? "st" : i + 1 === 2 ? "nd" : i + 1 === 3 ? "rd" : "th"} Installment${statusTag}`;
+            if (force || !lastSentDateStr || lastSentDateStr !== todayStr) {
+              const instLabel = `${i + 1}${i + 1 === 1 ? "st" : i + 1 === 2 ? "nd" : i + 1 === 3 ? "rd" : "th"} Installment`;
               overdueItems.push({
                 installmentName: instLabel,
                 amount: Number(entry.amount) || remainingBalance,
@@ -119,32 +113,28 @@ export async function checkAndSendOverdueEmiReminders(options?: { force?: boolea
         }
       } else {
         // ────────────────────────────────────────────────────────────────────
-        // CASE 2: No EMI plan — check if 30 days since admission has passed (or 3 days prior)
+        // CASE 2: No EMI plan — check 30 days after admission date (1 day prior)
         // ────────────────────────────────────────────────────────────────────
         const admissionDate = new Date(admission.admissionDate || admission.createdAt || now);
         const dueDate = new Date(admissionDate);
         dueDate.setDate(dueDate.getDate() + 30);
 
-        const dueStart = new Date(dueDate);
-        dueStart.setHours(0, 0, 0, 0);
-
+        const dueStart = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
         const timeDiffMs = dueStart.getTime() - todayStart.getTime();
         const daysDifference = Math.round(timeDiffMs / (1000 * 60 * 60 * 24));
 
-        const is3DaysPrior = daysDifference === 3;
-        const isDueOrOverdue = daysDifference <= 0;
-        const shouldSendReminder = is3DaysPrior || isDueOrOverdue;
+        const isOneDayPrior = daysDifference === 1;
+        const shouldSendReminder = isOneDayPrior || (force && daysDifference > 0);
 
         const lastSentDateStr = admission.lastEmiReminderSentAt
           ? new Date(admission.lastEmiReminderSentAt).toDateString()
           : null;
 
-        console.log(`[EMI REMINDER] ${admission.fullName} | (No EMI) remaining=₹${remainingBalance}, dueDate=${dueDate.toISOString().split("T")[0]}, daysUntilDue=${daysDifference}, shouldSend=${shouldSendReminder}, lastSent=${lastSentDateStr}`);
+        console.log(`[EMI REMINDER] ${admission.fullName} | (No EMI) remaining=₹${remainingBalance}, dueDate=${dueDate.toISOString().split("T")[0]}, daysUntilDue=${daysDifference}, isOneDayPrior=${isOneDayPrior}, lastSent=${lastSentDateStr}`);
 
-        if (shouldSendReminder && (force || lastSentDateStr !== todayStr)) {
-          const statusTag = is3DaysPrior ? " (Due in 3 Days)" : " (Overdue/Due Today)";
+        if (shouldSendReminder && (force || !lastSentDateStr || lastSentDateStr !== todayStr)) {
           overdueItems.push({
-            installmentName: `Outstanding Balance${statusTag}`,
+            installmentName: "Outstanding Balance",
             amount: remainingBalance,
             dueDate,
             installmentIndex: 0,
@@ -179,35 +169,7 @@ export async function checkAndSendOverdueEmiReminders(options?: { force?: boolea
         if (whatsappRes.success) {
           results.remindersSent++;
 
-          // Also notify the counsellor via WhatsApp
-          try {
-            const counsellorName = String(admission.counsellor || "").trim();
-            if (counsellorName) {
-              const counsellorUser = await User.findOne({
-                name: { $regex: new RegExp(`^${counsellorName}$`, "i") },
-                role: "counsellor",
-              });
-              const counsellorPhone = counsellorUser?.phone;
-              const counsellorEmail = counsellorUser?.email || "N/A";
-              if (counsellorPhone) {
-                const cRes = await sendWhatsAppCounsellorEmiReminder({
-                  counsellorName,
-                  counsellorMobile: counsellorPhone,
-                  studentName: admission.fullName || "Student",
-                  courseName: admission.course || "Course",
-                  studentMobile: phone,
-                  studentEmail: String(admission.email || "N/A"),
-                  amountDue: item.amount,
-                  dueDate: item.dueDate,
-                });
-                console.log(`[EMI REMINDER] Counsellor reminder result for ${counsellorName}:`, JSON.stringify(cRes));
-              } else {
-                console.warn(`[EMI REMINDER] Counsellor "${counsellorName}" has no phone number in User model — skipping counsellor WhatsApp.`);
-              }
-            }
-          } catch (cErr: any) {
-            console.error("[EMI REMINDER] Failed to send counsellor reminder:", cErr);
-          }
+          // Counsellor reminder (feeremindercounsellor) disabled per requirement.
 
           // Mark reminder sent timestamp
           if (hasCustomEmi && Array.isArray(admission.customEmiPlan) && admission.customEmiPlan[item.installmentIndex]) {

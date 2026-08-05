@@ -3,6 +3,7 @@ import dbConnect from "@/lib/db";
 import Enquiry from "@/models/Enquiry";
 import User from "@/models/User";
 import Task from "@/models/Task";
+import { sendWhatsAppWelcomeEnquiry } from "@/lib/msg91";
 
 
 import { verifyRecaptchaToken } from "@/lib/recaptcha";
@@ -194,7 +195,16 @@ export async function POST(req: Request) {
         dueDate,
       });
 
-
+      // Dispatch MSG91 WhatsApp Welcome Enquiry message (welcome_enquiry template)
+      if (primaryPhoneMobile) {
+        sendWhatsAppWelcomeEnquiry({
+          studentName: studentFullName || "Student",
+          mobileNumber: primaryPhoneMobile,
+          brandName: targetBrand || "CADD Mantra",
+          courseName: targetCourse || "Course",
+        }).then((res) => console.log(`[Public Form API] Welcome enquiry WhatsApp sent to ${primaryPhoneMobile}:`, res))
+          .catch((err) => console.error("[Public Form API] Welcome enquiry WhatsApp error:", err));
+      }
     } catch (taskErr) {
       console.error("Failed creating Google Form lead task/WhatsApp:", taskErr);
     }

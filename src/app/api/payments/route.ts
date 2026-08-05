@@ -5,7 +5,7 @@ import Admission from "@/models/Admission";
 import Company from "@/models/Company";
 import Brand from "@/models/Brand";
 import { getUserFromCookies } from "@/lib/helper";
-import { sendWhatsAppFeeReceipt, sendWhatsAppCompanyCapacityAlert } from "@/lib/msg91";
+import { sendWhatsAppFeeReceipt, sendWhatsAppCompanyCapacityAlert, sendWhatsAppCompanyLimit80Alert } from "@/lib/msg91";
 import { sendFeePaymentReceiptEmail } from "@/lib/emailService";
 
 
@@ -168,6 +168,17 @@ export async function POST(req: Request) {
           const cap = updatedComp.annualCapacityCap || 1949999;
           const collected = updatedComp.collectedRevenue || 0;
           const pct = cap > 0 ? (collected / cap) * 100 : 0;
+
+          // Automatically send WhatsApp alert ONLY to Super Admin when capacity reaches 80%+
+          if (pct >= 80 && !(updatedComp as any).alerted80Percent) {
+            (updatedComp as any).alerted80Percent = true;
+            await updatedComp.save();
+
+            sendWhatsAppCompanyLimit80Alert({
+              companyName: updatedComp.name,
+              brandName: admission.brand || (admission as any).brandName,
+            }).catch((err) => console.error("[Payment API] WhatsApp 80% Capacity Limit Alert error:", err));
+          }
 
           // Automatically send WhatsApp notification to Admin when capacity reaches 95%+
           if (pct >= 95) {

@@ -1,5 +1,6 @@
 import dbConnect from "@/lib/db";
 import Brand from "@/models/Brand";
+import User from "@/models/User";
 
 export interface FeeReceiptWhatsAppParams {
   studentName?: string | null;
@@ -673,33 +674,35 @@ export async function sendWhatsAppMonthlyReport(params: {
 export interface FeeReminderWhatsAppParams {
   studentName: string;
   mobileNumber: string;
-  courseName: string;
-  amountDue: number | string;
+  courseName?: string;
+  amountDue?: number | string;
   dueDate: string | Date;
   brandName?: string | null;
   integratedNumber?: string | null;
 }
 
 /**
- * Dispatch MSG91 WhatsApp Fee Reminder Outbound Message for Overdue EMIs
+ * Dispatch MSG91 WhatsApp Fee Reminder Outbound Message for Student EMI Reminders
  * Template: "feeremainderstudent"
  * Namespace: "610ca09d_29b3_4193_8bab_18e0fab26f84"
+ * Variables:
+ *   body_1: Student Name
+ *   body_2: Next Installment Due Date
+ *   body_3: Brand Name
  */
 export async function sendWhatsAppEmiReminder(params: FeeReminderWhatsAppParams) {
   try {
     const authKey =
       process.env.MSG91_AUTHKEY || "478610A465a065I869fed7fdP1";
-    const integratedNumber = await getIntegratedNumberForBrand(params.brandName, params.integratedNumber);
+
+    const brandName = (params.brandName || "CADD MANTRA").trim();
+    const integratedNumber = await getIntegratedNumberForBrand(brandName, params.integratedNumber);
 
     const formattedPhone = formatPhoneNumber(params.mobileNumber);
     if (!formattedPhone) {
       console.warn("MSG91 WhatsApp Warning: Missing or invalid phone number for fee reminder.");
       return { success: false, error: "Invalid recipient phone number." };
     }
-
-    const formattedAmount = typeof params.amountDue === "number"
-      ? `₹${params.amountDue.toLocaleString("en-IN")}`
-      : (String(params.amountDue).startsWith("₹") ? String(params.amountDue) : `₹${params.amountDue}`);
 
     const formattedDueDate = formatDateOnly(
       typeof params.dueDate === "string" ? params.dueDate : params.dueDate.toISOString()
@@ -728,15 +731,11 @@ export async function sendWhatsAppEmiReminder(params: FeeReminderWhatsAppParams)
                 },
                 body_2: {
                   type: "text",
-                  value: params.courseName || "Course",
+                  value: formattedDueDate,
                 },
                 body_3: {
                   type: "text",
-                  value: formattedAmount,
-                },
-                body_4: {
-                  type: "text",
-                  value: formattedDueDate,
+                  value: brandName,
                 },
               },
             },
@@ -754,7 +753,7 @@ export async function sendWhatsAppEmiReminder(params: FeeReminderWhatsAppParams)
     }
 
     console.log(
-      `MSG91 WhatsApp Sending Overdue Fee Reminder (feeremainderstudent) to ${formattedPhone} for ${params.studentName}...`
+      `MSG91 WhatsApp Sending Fee Reminder (feeremainderstudent) from ${integratedNumber} to ${formattedPhone} for ${params.studentName} (Due: ${formattedDueDate}, Brand: ${brandName})...`
     );
 
     const response = await fetch(
@@ -821,23 +820,41 @@ export interface CounsellorEmiReminderParams {
  *   body_7: due date
  */
 export async function sendWhatsAppCounsellorEmiReminder(params: CounsellorEmiReminderParams) {
+  console.log(`[MSG91] Counsellor fee reminder template (feeremindercounsellor) is disabled per user request.`);
+  return {
+    success: false,
+    message: "Counsellor fee reminder template (feeremindercounsellor) is stopped.",
+  };
+}
+
+export interface BirthdayReminderWhatsAppParams {
+  studentName: string;
+  mobileNumber: string;
+  brandName?: string | null;
+  integratedNumber?: string | null;
+}
+
+/**
+ * Dispatch MSG91 WhatsApp Outbound Message for Student Birthday Wish
+ * Template: "happy_birthday"
+ * Namespace: "610ca09d_29b3_4193_8bab_18e0fab26f84"
+ * Variables:
+ *   body_1: studentName
+ *   body_2: brandName
+ */
+export async function sendWhatsAppBirthdayReminder(params: BirthdayReminderWhatsAppParams) {
   try {
-    const authKey = process.env.MSG91_AUTHKEY || "478610A465a065I869fed7fdP1";
-    const integratedNumber = await getIntegratedNumberForBrand(params.brandName, params.integratedNumber);
+    const authKey =
+      process.env.MSG91_AUTHKEY || "478610A465a065I869fed7fdP1";
 
-    const formattedPhone = formatPhoneNumber(params.counsellorMobile);
+    const brandName = (params.brandName || "CADD MANTRA").trim();
+    const integratedNumber = await getIntegratedNumberForBrand(brandName, params.integratedNumber);
+
+    const formattedPhone = formatPhoneNumber(params.mobileNumber);
     if (!formattedPhone) {
-      console.warn(`[MSG91] Counsellor ${params.counsellorName} has no valid phone — skipping.`);
-      return { success: false, error: "Invalid counsellor phone number." };
+      console.warn("MSG91 WhatsApp Warning: Missing or invalid phone number for birthday reminder.");
+      return { success: false, error: "Invalid recipient phone number." };
     }
-
-    const formattedAmount = typeof params.amountDue === "number"
-      ? `₹${params.amountDue.toLocaleString("en-IN")}`
-      : (String(params.amountDue).startsWith("₹") ? String(params.amountDue) : `₹${params.amountDue}`);
-
-    const formattedDueDate = formatDateOnly(
-      typeof params.dueDate === "string" ? params.dueDate : params.dueDate.toISOString()
-    );
 
     const payload = {
       integrated_number: integratedNumber,
@@ -846,20 +863,24 @@ export async function sendWhatsAppCounsellorEmiReminder(params: CounsellorEmiRem
         messaging_product: "whatsapp",
         type: "template",
         template: {
-          name: "feeremindercounsellor",
-          language: { code: "en", policy: "deterministic" },
+          name: "happy_birthday",
+          language: {
+            code: "en",
+            policy: "deterministic",
+          },
           namespace: "610ca09d_29b3_4193_8bab_18e0fab26f84",
           to_and_components: [
             {
               to: [formattedPhone],
               components: {
-                body_1: { type: "text", value: params.counsellorName || "Counsellor" },
-                body_2: { type: "text", value: params.studentName || "Student" },
-                body_3: { type: "text", value: params.courseName || "Course" },
-                body_4: { type: "text", value: params.studentMobile || "N/A" },
-                body_5: { type: "text", value: params.studentEmail || "N/A" },
-                body_6: { type: "text", value: formattedAmount },
-                body_7: { type: "text", value: formattedDueDate },
+                body_1: {
+                  type: "text",
+                  value: params.studentName || "Student",
+                },
+                body_2: {
+                  type: "text",
+                  value: brandName,
+                },
               },
             },
           ],
@@ -867,30 +888,181 @@ export async function sendWhatsAppCounsellorEmiReminder(params: CounsellorEmiRem
       },
     };
 
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (authKey) headers["authkey"] = authKey;
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
 
-    console.log(`[MSG91] Sending Counsellor Reminder (feeremindercounsellor) to ${params.counsellorName} (${formattedPhone}) for student ${params.studentName}...`);
+    if (authKey) {
+      headers["authkey"] = authKey;
+    }
+
+    console.log(
+      `MSG91 WhatsApp Sending Birthday Wish (happy_birthday) from ${integratedNumber} to ${formattedPhone} for ${params.studentName} (Brand: ${brandName})...`
+    );
 
     const response = await fetch(
       "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/",
-      { method: "POST", headers, body: JSON.stringify(payload) }
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload),
+      }
     );
 
     const resText = await response.text();
     let resJson: any = null;
-    try { resJson = JSON.parse(resText); } catch (_) {}
+    try {
+      resJson = JSON.parse(resText);
+    } catch (_) {}
 
-    console.log("[MSG91] Counsellor Reminder Response:", resText);
+    console.log("MSG91 Birthday Wish Response:", resText);
 
     if (response.ok) {
-      return { success: true, data: resJson || resText };
+      return {
+        success: true,
+        data: resJson || resText,
+      };
     } else {
-      return { success: false, error: resJson?.message || resText || "Failed to send counsellor reminder." };
+      return {
+        success: false,
+        error: resJson?.message || resText || "Failed to send MSG91 WhatsApp birthday wish.",
+      };
     }
   } catch (error: any) {
-    console.error("[MSG91] Counsellor Reminder Error:", error);
-    return { success: false, error: error.message || "Network error during counsellor reminder." };
+    console.error("MSG91 Birthday Wish Error:", error);
+    return {
+      success: false,
+      error: error.message || "Network error during MSG91 birthday wish dispatch.",
+    };
+  }
+}
+
+export interface WelcomeEnquiryWhatsAppParams {
+  studentName: string;
+  mobileNumber: string;
+  brandName?: string | null;
+  courseName?: string | null;
+  integratedNumber?: string | null;
+}
+
+/**
+ * Dispatch MSG91 WhatsApp Outbound Welcome Message upon New Enquiry Creation
+ * Template: "welcome_enquiry"
+ * Namespace: "610ca09d_29b3_4193_8bab_18e0fab26f84"
+ * Variables:
+ *   body_1: studentName
+ *   body_2: brandName
+ *   body_3: courseName
+ *   body_4: brandName
+ *   body_5: brandName
+ */
+export async function sendWhatsAppWelcomeEnquiry(params: WelcomeEnquiryWhatsAppParams) {
+  try {
+    const authKey =
+      process.env.MSG91_AUTHKEY || "478610A465a065I869fed7fdP1";
+
+    const brandName = (params.brandName || "CADD MANTRA").trim();
+    const integratedNumber = await getIntegratedNumberForBrand(brandName, params.integratedNumber);
+
+    const formattedPhone = formatPhoneNumber(params.mobileNumber);
+    if (!formattedPhone) {
+      console.warn("MSG91 WhatsApp Warning: Missing or invalid phone number for welcome_enquiry.");
+      return { success: false, error: "Invalid recipient phone number." };
+    }
+
+    const studentName = (params.studentName || "Student").trim();
+    const courseName = (params.courseName || "Course").trim();
+
+    const payload = {
+      integrated_number: integratedNumber,
+      content_type: "template",
+      payload: {
+        messaging_product: "whatsapp",
+        type: "template",
+        template: {
+          name: "welcome_enquiry",
+          language: {
+            code: "en",
+            policy: "deterministic",
+          },
+          namespace: "610ca09d_29b3_4193_8bab_18e0fab26f84",
+          to_and_components: [
+            {
+              to: [formattedPhone],
+              components: {
+                body_1: {
+                  type: "text",
+                  value: studentName,
+                },
+                body_2: {
+                  type: "text",
+                  value: brandName,
+                },
+                body_3: {
+                  type: "text",
+                  value: courseName,
+                },
+                body_4: {
+                  type: "text",
+                  value: brandName,
+                },
+                body_5: {
+                  type: "text",
+                  value: brandName,
+                },
+              },
+            },
+          ],
+        },
+      },
+    };
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+
+    if (authKey) {
+      headers["authkey"] = authKey;
+    }
+
+    console.log(
+      `MSG91 WhatsApp Sending Welcome Enquiry (welcome_enquiry) from ${integratedNumber} to ${formattedPhone} for ${studentName} (Brand: ${brandName}, Course: ${courseName})...`
+    );
+
+    const response = await fetch(
+      "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/",
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload),
+      }
+    );
+
+    const resText = await response.text();
+    let resJson: any = null;
+    try {
+      resJson = JSON.parse(resText);
+    } catch (_) {}
+
+    console.log("MSG91 Welcome Enquiry Response:", resText);
+
+    if (response.ok) {
+      return {
+        success: true,
+        data: resJson || resText,
+      };
+    } else {
+      return {
+        success: false,
+        error: resJson?.message || resText || "Failed to send MSG91 WhatsApp welcome enquiry message.",
+      };
+    }
+  } catch (error: any) {
+    console.error("MSG91 Welcome Enquiry Error:", error);
+    return {
+      success: false,
+      error: error.message || "Network error during MSG91 welcome enquiry dispatch.",
+    };
   }
 }
 
@@ -1274,6 +1446,144 @@ export async function sendWhatsAppBrandWelcome(params: BrandWelcomeWhatsAppParam
   } catch (error: any) {
     console.error("MSG91 Welcome WhatsApp Error:", error);
     return { success: false, error: error.message || "Network error during welcome WhatsApp dispatch." };
+  }
+}
+
+export interface CompanyLimit80AlertParams {
+  superAdminName?: string;
+  superAdminMobile?: string;
+  companyName: string;
+  brandName?: string | null;
+  integratedNumber?: string | null;
+}
+
+/**
+ * Dispatch MSG91 WhatsApp Outbound Alert ONLY to Super Admin when a Legal Company hits 80%+ Capacity Limit
+ * Template: "limit"
+ * Namespace: "610ca09d_29b3_4193_8bab_18e0fab26f84"
+ * Variables:
+ *   body_1: Super Admin Name
+ *   body_2: Company Name
+ */
+export async function sendWhatsAppCompanyLimit80Alert(params: CompanyLimit80AlertParams) {
+  try {
+    const authKey =
+      process.env.MSG91_AUTHKEY || "478610A465a065I869fed7fdP1";
+
+    let superAdminPhone = formatPhoneNumber(
+      params.superAdminMobile || process.env.ADMIN_WHATSAPP_NUMBER || process.env.ADMIN_PHONE || ""
+    );
+    let superAdminName = (params.superAdminName || "Super Admin").trim();
+
+    if (!superAdminPhone) {
+      try {
+        await dbConnect();
+        const superAdminUser = await User.findOne({
+          role: { $in: ["super admin", "super_admin"] },
+          phone: { $exists: true, $ne: "" },
+        }).lean();
+
+        if (superAdminUser && (superAdminUser as any).phone) {
+          superAdminPhone = formatPhoneNumber((superAdminUser as any).phone);
+          if ((superAdminUser as any).name) {
+            superAdminName = (superAdminUser as any).name;
+          }
+        }
+      } catch (dbErr) {
+        console.error("[MSG91 80% Limit Alert] Error fetching super admin user:", dbErr);
+      }
+    }
+
+    if (!superAdminPhone) {
+      const envNumRaw = process.env.MSG91_INTEGRATED_NUMBER || "";
+      superAdminPhone = formatPhoneNumber(envNumRaw.split(",")[0] || "919335913286");
+    }
+
+    if (!superAdminPhone) {
+      console.warn("MSG91 Company 80% Limit Alert Warning: Missing super admin phone number.");
+      return { success: false, error: "Invalid super admin phone number." };
+    }
+
+    const integratedNumber = await getIntegratedNumberForBrand(params.brandName, params.integratedNumber);
+
+    const payload = {
+      integrated_number: integratedNumber,
+      content_type: "template",
+      payload: {
+        messaging_product: "whatsapp",
+        type: "template",
+        template: {
+          name: "limit",
+          language: {
+            code: "en",
+            policy: "deterministic",
+          },
+          namespace: "610ca09d_29b3_4193_8bab_18e0fab26f84",
+          to_and_components: [
+            {
+              to: [superAdminPhone],
+              components: {
+                body_1: {
+                  type: "text",
+                  value: superAdminName,
+                },
+                body_2: {
+                  type: "text",
+                  value: params.companyName || "Company",
+                },
+              },
+            },
+          ],
+        },
+      },
+    };
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+
+    if (authKey) {
+      headers["authkey"] = authKey;
+    }
+
+    console.log(
+      `MSG91 WhatsApp Sending Company 80% Capacity Limit Alert (template: limit) from ${integratedNumber} to Super Admin ${superAdminName} (${superAdminPhone}) for Company: ${params.companyName}...`
+    );
+
+    const response = await fetch(
+      "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/",
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload),
+      }
+    );
+
+    const resText = await response.text();
+    let resJson: any = null;
+    try {
+      resJson = JSON.parse(resText);
+    } catch (_) {}
+
+    console.log("MSG91 Company 80% Limit Alert Response:", resText);
+
+    if (response.ok) {
+      return {
+        success: true,
+        data: resJson || resText,
+      };
+    } else {
+      return {
+        success: false,
+        error: resJson?.message || resText || "Failed to send MSG91 WhatsApp company limit alert.",
+      };
+    }
+  } catch (error: any) {
+    console.error("MSG91 Company 80% Limit Alert Error:", error);
+    return {
+      success: false,
+      error: error.message || "Network error during MSG91 company limit alert dispatch.",
+    };
   }
 }
 

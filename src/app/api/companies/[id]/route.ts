@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Company from "@/models/Company";
-import { sendWhatsAppCompanyCapacityAlert } from "@/lib/msg91";
+import { sendWhatsAppCompanyCapacityAlert, sendWhatsAppCompanyLimit80Alert } from "@/lib/msg91";
 
 export async function DELETE(
   req: Request,
@@ -56,6 +56,15 @@ export async function PUT(
     const cap = updated.annualCapacityCap || 1949999;
     const collected = updated.collectedRevenue || 0;
     const pct = cap > 0 ? (collected / cap) * 100 : 0;
+
+    if (pct >= 80 && !(updated as any).alerted80Percent) {
+      (updated as any).alerted80Percent = true;
+      await updated.save();
+
+      sendWhatsAppCompanyLimit80Alert({
+        companyName: updated.name,
+      }).catch((err) => console.error("[Company PUT API] WhatsApp 80% Limit Alert error:", err));
+    }
 
     if (pct >= 95) {
       sendWhatsAppCompanyCapacityAlert({
