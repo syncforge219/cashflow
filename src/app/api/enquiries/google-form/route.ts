@@ -5,6 +5,8 @@ import User from "@/models/User";
 import Task from "@/models/Task";
 
 
+import { verifyRecaptchaToken } from "@/lib/recaptcha";
+
 // Handling OPTIONS request for CORS preflight
 export async function OPTIONS() {
   return NextResponse.json(
@@ -40,6 +42,22 @@ export async function POST(req: Request) {
         body = JSON.parse(text);
       } catch {
         body = {};
+      }
+    }
+
+    // Server-side Google reCAPTCHA v3 verification
+    const recaptchaToken = body.recaptchaToken || body["g-recaptcha-response"];
+    if (recaptchaToken) {
+      const recaptchaCheck = await verifyRecaptchaToken(recaptchaToken, "public_enquiry_submit", 0.5);
+      if (!recaptchaCheck.success) {
+        console.warn(`[reCAPTCHA Blocked] Google Form Submission blocked: ${recaptchaCheck.error}`);
+        return NextResponse.json(
+          {
+            success: false,
+            error: recaptchaCheck.error || "reCAPTCHA verification failed. Submission blocked.",
+          },
+          { status: 400 }
+        );
       }
     }
 

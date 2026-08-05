@@ -18,6 +18,10 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const startDateParam = searchParams.get("startDate");
     const endDateParam = searchParams.get("endDate");
+    const brandParam = searchParams.get("brand");
+
+    const isBrandFiltered = Boolean(brandParam && brandParam !== "All" && brandParam !== "All Brands");
+    const brandRegex = isBrandFiltered && brandParam ? new RegExp(`^${brandParam.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')}$`, "i") : null;
 
     const now = new Date();
     const todayStr = now.toISOString().split("T")[0];
@@ -50,6 +54,21 @@ export async function GET(req: Request) {
     const globalFilter = isFiltered ? { createdAt: { $gte: targetStart, $lte: targetEnd } } : {};
     const dateRangeFilter = { $gte: targetStart, $lte: targetEnd };
     const stringDateFilter = { $gte: startStr, $lte: endStr };
+
+    const enquiryGlobalFilter: any = {
+      ...globalFilter,
+      ...(isBrandFiltered && brandRegex ? { targetBrand: brandRegex } : {})
+    };
+
+    const admissionGlobalFilter: any = {
+      ...globalFilter,
+      ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {})
+    };
+
+    const paymentGlobalFilter: any = {
+      ...(isFiltered ? { createdAt: dateRangeFilter } : {}),
+      ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {})
+    };
 
     const thirtyDaysAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29);
     thirtyDaysAgo.setHours(0, 0, 0, 0);
@@ -94,22 +113,25 @@ export async function GET(req: Request) {
       recentLeadDocs,
       allEnquiries,
       allPayrolls,
-      allExpenses
+      allExpenses,
+      enquiryCourseGroup,
+      admissionCourseGroup
     ] = await Promise.all([
-      Enquiry.countDocuments(globalFilter),
-      Enquiry.countDocuments({ ...globalFilter, $or: [{ isAdmitted: true }, { status: { $in: ["Admitted", "Admission", "Converted"] } }] }),
-      Enquiry.countDocuments({ createdAt: dateRangeFilter, status: "New" }),
-      Enquiry.countDocuments({ "followUps.date": stringDateFilter }),
-      Enquiry.countDocuments({ createdAt: dateRangeFilter, leadSource: "Direct Walkin" }),
-      Admission.countDocuments(globalFilter),
-      Admission.countDocuments({ createdAt: dateRangeFilter }),
+      Enquiry.countDocuments(enquiryGlobalFilter),
+      Enquiry.countDocuments({ ...enquiryGlobalFilter, $or: [{ isAdmitted: true }, { status: { $in: ["Admitted", "Admission", "Converted"] } }] }),
+      Enquiry.countDocuments({ createdAt: dateRangeFilter, status: "New", ...(isBrandFiltered && brandRegex ? { targetBrand: brandRegex } : {}) }),
+      Enquiry.countDocuments({ "followUps.date": stringDateFilter, ...(isBrandFiltered && brandRegex ? { targetBrand: brandRegex } : {}) }),
+      Enquiry.countDocuments({ createdAt: dateRangeFilter, leadSource: "Direct Walkin", ...(isBrandFiltered && brandRegex ? { targetBrand: brandRegex } : {}) }),
+      Admission.countDocuments(admissionGlobalFilter),
+      Admission.countDocuments({ createdAt: dateRangeFilter, ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {}) }),
       LostLeadCounter.find({ date: { $gte: startStr, $lte: endStr } }).lean(),
-      Admission.countDocuments({ ...globalFilter, remainingBalance: { $gt: 0 } }),
-      Payment.find(isFiltered ? { createdAt: dateRangeFilter } : {}).select("amountReceived createdAt").lean(),
-      Payment.find({ createdAt: { $gte: startOfDay, $lte: endOfDay } }).select("amountReceived").lean(),
-      Payment.find(isFiltered ? { createdAt: dateRangeFilter } : { createdAt: { $gte: firstDayOfMonth, $lte: endOfDay } }).select("amountReceived").lean(),
-      Admission.find({ remainingBalance: { $gt: 0 } }).select("fullName remainingBalance").lean(),
+      Admission.countDocuments({ ...admissionGlobalFilter, remainingBalance: { $gt: 0 } }),
+      Payment.find(paymentGlobalFilter).select("amountReceived createdAt").lean(),
+      Payment.find({ createdAt: { $gte: startOfDay, $lte: endOfDay }, ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {}) }).select("amountReceived").lean(),
+      Payment.find(isFiltered ? { createdAt: dateRangeFilter, ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {}) } : { createdAt: { $gte: firstDayOfMonth, $lte: endOfDay }, ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {}) }).select("amountReceived").lean(),
+      Admission.find({ remainingBalance: { $gt: 0 }, ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {}) }).select("fullName remainingBalance").lean(),
       Enquiry.countDocuments({
+        ...(isBrandFiltered && brandRegex ? { targetBrand: brandRegex } : {}),
         followUps: {
           $elemMatch: {
             date: stringDateFilter,
@@ -117,21 +139,23 @@ export async function GET(req: Request) {
           }
         }
       }),
-      Enquiry.countDocuments({ ...globalFilter, status: "Negotiation" }),
+      Enquiry.countDocuments({ ...enquiryGlobalFilter, status: "Negotiation" }),
       
       // Status aggregation for Pipeline
       Enquiry.aggregate([
+        { $match: enquiryGlobalFilter },
         { $group: { _id: "$status", count: { $sum: 1 } } }
       ]),
 
       // Source aggregation for Sources chart
       Enquiry.aggregate([
+        { $match: enquiryGlobalFilter },
         { $group: { _id: "$leadSource", count: { $sum: 1 } } }
       ]),
 
       // Trend Aggregations (using +05:30 local timezone)
       Enquiry.aggregate([
-        { $match: { createdAt: { $gte: trendStart, $lte: trendEnd } } },
+        { $match: { createdAt: { $gte: trendStart, $lte: trendEnd }, ...(isBrandFiltered && brandRegex ? { targetBrand: brandRegex } : {}) } },
         {
           $group: {
             _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: "+05:30" } },
@@ -140,7 +164,7 @@ export async function GET(req: Request) {
         }
       ]),
       Admission.aggregate([
-        { $match: { createdAt: { $gte: trendStart, $lte: trendEnd } } },
+        { $match: { createdAt: { $gte: trendStart, $lte: trendEnd }, ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {}) } },
         {
           $group: {
             _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: "+05:30" } },
@@ -149,6 +173,7 @@ export async function GET(req: Request) {
         }
       ]),
       Enquiry.aggregate([
+        ...(isBrandFiltered && brandRegex ? [{ $match: { targetBrand: brandRegex } }] : []),
         { $unwind: "$followUps" },
         { $match: { "followUps.date": { $gte: trendStartStr, $lte: endStr } } },
         {
@@ -162,8 +187,9 @@ export async function GET(req: Request) {
 
       // Counsellor data
       User.find({ role: "counsellor" }).select("name").lean(),
-      Admission.find(globalFilter).select("counsellor brand finalFee").lean(),
+      Admission.find(admissionGlobalFilter).select("counsellor brand finalFee").lean(),
       Enquiry.aggregate([
+        { $match: enquiryGlobalFilter },
         {
           $group: {
             _id: { $toLower: "$assignedCrmAdvisor" },
@@ -178,6 +204,7 @@ export async function GET(req: Request) {
       // Brand data
       Brand.find().select("name").lean(),
       Enquiry.aggregate([
+        { $match: isFiltered ? { createdAt: dateRangeFilter } : {} },
         {
           $group: {
             _id: { $toLower: "$targetBrand" },
@@ -190,18 +217,40 @@ export async function GET(req: Request) {
       Company.find().select("name annualCapacityCap collectedRevenue").lean(),
 
       // Work Queue counts
-      Enquiry.countDocuments({ "followUps.date": { $lt: todayStr }, status: { $nin: ["Lost", "Admitted"] } }),
-      Enquiry.countDocuments({ status: "Counselling Scheduled" }),
-      Enquiry.countDocuments({ status: "Negotiation" }),
+      Enquiry.countDocuments({ "followUps.date": { $lt: todayStr }, status: { $nin: ["Lost", "Admitted"] }, ...(isBrandFiltered && brandRegex ? { targetBrand: brandRegex } : {}) }),
+      Enquiry.countDocuments({ status: "Counselling Scheduled", ...(isBrandFiltered && brandRegex ? { targetBrand: brandRegex } : {}) }),
+      Enquiry.countDocuments({ status: "Negotiation", ...(isBrandFiltered && brandRegex ? { targetBrand: brandRegex } : {}) }),
 
       // Recent Activity & Table Data
-      Admission.find().select("counsellor fullName course createdAt").sort({ createdAt: -1 }).limit(3).lean(),
-      Enquiry.find().select("leadSource studentFullName createdAt").sort({ createdAt: -1 }).limit(3).lean(),
-      Enquiry.find().select("enquiryId studentFullName targetCourse assignedCrmAdvisor status leadPriority").sort({ createdAt: -1 }).limit(10).lean(),
+      Admission.find(isBrandFiltered && brandRegex ? { brand: brandRegex } : {}).select("counsellor fullName course createdAt").sort({ createdAt: -1 }).limit(3).lean(),
+      Enquiry.find(isBrandFiltered && brandRegex ? { targetBrand: brandRegex } : {}).select("leadSource studentFullName createdAt").sort({ createdAt: -1 }).limit(3).lean(),
+      Enquiry.find(enquiryGlobalFilter).select("enquiryId studentFullName targetCourse assignedCrmAdvisor status leadPriority").sort({ createdAt: -1 }).limit(10).lean(),
 
       // Payroll & Expenses
       Payroll.find(isFiltered ? { paymentDate: dateRangeFilter } : {}).select("netSalary paymentStatus").lean(),
-      Expense.find(isFiltered ? { expenseDate: dateRangeFilter } : {}).select("amount category").lean()
+      Expense.find(isFiltered ? { expenseDate: dateRangeFilter } : {}).select("amount category").lean(),
+
+      // Course-wise aggregations
+      Enquiry.aggregate([
+        { $match: enquiryGlobalFilter },
+        {
+          $group: {
+            _id: { $toLower: { $trim: { input: { $ifNull: ["$targetCourse", "Unspecified"] } } } },
+            originalName: { $first: { $trim: { input: { $ifNull: ["$targetCourse", "Unspecified"] } } } },
+            count: { $sum: 1 }
+          }
+        }
+      ]),
+      Admission.aggregate([
+        { $match: admissionGlobalFilter },
+        {
+          $group: {
+            _id: { $toLower: { $trim: { input: { $ifNull: ["$course", "Unspecified"] } } } },
+            originalName: { $first: { $trim: { input: { $ifNull: ["$course", "Unspecified"] } } } },
+            count: { $sum: 1 }
+          }
+        }
+      ])
     ]);
 
     // 1. Process KPIs
@@ -578,6 +627,44 @@ export async function GET(req: Request) {
       priority: e.leadPriority || "Medium"
     }));
 
+    // 11. Process Course Wise Performance (Leads vs Admissions)
+    const courseStatsMap = new Map<string, { course: string; leads: number; admissions: number }>();
+
+    (enquiryCourseGroup || []).forEach((g: any) => {
+      const key = (g._id || "unspecified").toLowerCase();
+      const name = g.originalName || "Unspecified";
+      const existing = courseStatsMap.get(key) || { course: name, leads: 0, admissions: 0 };
+      existing.leads += g.count || 0;
+      if (!existing.course || existing.course === "Unspecified") existing.course = name;
+      courseStatsMap.set(key, existing);
+    });
+
+    (admissionCourseGroup || []).forEach((g: any) => {
+      const key = (g._id || "unspecified").toLowerCase();
+      const name = g.originalName || "Unspecified";
+      const existing = courseStatsMap.get(key) || { course: name, leads: 0, admissions: 0 };
+      existing.admissions += g.count || 0;
+      if (!existing.course || existing.course === "Unspecified") existing.course = name;
+      courseStatsMap.set(key, existing);
+    });
+
+    const courseWiseStats = Array.from(courseStatsMap.values()).map((item) => {
+      const rawConv = item.leads > 0 ? (item.admissions / item.leads) * 100 : 0;
+      const conversion = item.leads > 0 ? Math.min(100, Math.max(0, Number(rawConv.toFixed(1)))).toFixed(1) + "%" : "0%";
+      const convPct = item.leads > 0 ? Math.min(100, Math.max(0, Number(rawConv.toFixed(1)))) : 0;
+      return {
+        course: item.course || "Unspecified",
+        leads: item.leads,
+        admissions: item.admissions,
+        conversion,
+        convPct
+      };
+    });
+
+    courseWiseStats.sort((a, b) => b.leads - a.leads || b.admissions - a.admissions);
+
+    const availableBrands = Array.from(allBrandNamesSet);
+
     return NextResponse.json({
       success: true,
       data: {
@@ -591,7 +678,9 @@ export async function GET(req: Request) {
         companyUtilization,
         workQueue,
         recentActivity: recentActivity.slice(0, 5),
-        enquiriesList
+        enquiriesList,
+        courseWiseStats,
+        availableBrands
       }
     });
 

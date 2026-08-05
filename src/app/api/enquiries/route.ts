@@ -4,6 +4,7 @@ import Enquiry from "@/models/Enquiry";
 import Task from "@/models/Task";
 import { getUserFromCookies } from "@/lib/helper";
 import { sendWhatsAppDemoReminder } from "@/lib/msg91";
+import { verifyRecaptchaToken } from "@/lib/recaptcha";
 
 export async function POST(req: Request) {
   try {
@@ -11,6 +12,19 @@ export async function POST(req: Request) {
     const user = await getUserFromCookies();
 
     const body = await req.json();
+
+    // Verify reCAPTCHA v3 if token is present (e.g. public API calls)
+    const recaptchaToken = body.recaptchaToken || body["g-recaptcha-response"];
+    if (recaptchaToken) {
+      const recaptchaCheck = await verifyRecaptchaToken(recaptchaToken, "public_enquiry_submit", 0.5);
+      if (!recaptchaCheck.success) {
+        console.warn(`[reCAPTCHA Blocked] Enquiry API blocked: ${recaptchaCheck.error}`);
+        return NextResponse.json(
+          { success: false, message: recaptchaCheck.error || "reCAPTCHA verification failed." },
+          { status: 400 }
+        );
+      }
+    }
 
     if (user && user.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All") {
       body.targetBrand = body.targetBrand || user.brandScope;

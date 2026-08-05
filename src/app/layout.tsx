@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "../globals.css";
 import UserProvider from "./component/context/user-context";
 import ThemeInitializer from "@/components/ThemeInitializer";
+import RecaptchaProvider from "@/components/RecaptchaProvider";
 
 export const metadata: Metadata = {
   title: "Lead2Ledger Management | Modern CRM & Financial Intelligence",
@@ -32,8 +33,10 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col font-sans bg-slate-50 text-slate-900 selection:bg-indigo-500 selection:text-white">
         <UserProvider>
-          <ThemeInitializer />
-          {children}
+          <RecaptchaProvider>
+            <ThemeInitializer />
+            {children}
+          </RecaptchaProvider>
         </UserProvider>
       </body>
     </html>

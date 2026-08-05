@@ -3,9 +3,22 @@ import bcrypt from "bcryptjs";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
 import { signJWT } from "@/lib/jwt";
+import { verifyRecaptchaToken } from "@/lib/recaptcha";
+import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 
 export async function POST(request: Request) {
   try {
+    // 1. Rate Limiting Protection (Max 5 login attempts per IP per minute)
+    const clientIp = getClientIp(request);
+    const rateCheck = checkRateLimit(`login_${clientIp}`, { limit: 5, windowMs: 60 * 1000 });
+    if (rateCheck.isLimited) {
+      console.warn(`[Rate Limited] Too many login attempts from IP ${clientIp}`);
+      return NextResponse.json(
+        { error: "Too many login attempts. Please wait 1 minute before trying again." },
+        { status: 429, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
     let body: any = {};
     try {
       body = await request.json();
@@ -19,6 +32,19 @@ export async function POST(request: Request) {
     const { email, password } = body;
     const cleanEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
     const cleanPassword = typeof password === "string" ? password : "";
+
+    // Server-side reCAPTCHA v3 verification if token is present
+    const recaptchaToken = body.recaptchaToken || body["g-recaptcha-response"];
+    if (recaptchaToken) {
+      const recaptchaCheck = await verifyRecaptchaToken(recaptchaToken, "user_login", 0.5);
+      if (!recaptchaCheck.success) {
+        console.warn(`[reCAPTCHA Blocked] Login attempt blocked for ${cleanEmail}: ${recaptchaCheck.error}`);
+        return NextResponse.json(
+          { error: recaptchaCheck.error || "reCAPTCHA verification failed." },
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+      }
+    }
 
     if (!cleanEmail || !cleanPassword) {
       return NextResponse.json(

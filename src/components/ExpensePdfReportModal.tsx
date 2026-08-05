@@ -48,51 +48,90 @@ export default function ExpensePdfReportModal({
   const [customEndDate, setCustomEndDate] = useState<string>(filters.endDate || "");
   const [presetRange, setPresetRange] = useState<string>("all");
 
+  const [modalExpenses, setModalExpenses] = useState<ExpenseRecord[]>(expenses);
+  const [isFetchingModalData, setIsFetchingModalData] = useState<boolean>(false);
+
   useEffect(() => {
-    setEndRow(expenses.length || 1);
     setStartRow(1);
     setPresetRange("all");
     setCustomStartDate(filters.startDate || "");
     setCustomEndDate(filters.endDate || "");
-  }, [expenses, filters.startDate, filters.endDate, isOpen]);
+  }, [filters.startDate, filters.endDate, isOpen]);
+
+  // Fetch expense records dynamically from API backend when modal date range or filters change
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let isMounted = true;
+    const fetchModalData = async () => {
+      setIsFetchingModalData(true);
+      try {
+        const params = new URLSearchParams();
+        if (filters.category && filters.category !== "All") params.append("category", filters.category);
+        if (filters.brand && filters.brand !== "All Brands" && filters.brand !== "All") params.append("brand", filters.brand);
+        if (filters.company && filters.company !== "All Companies" && filters.company !== "All") params.append("company", filters.company);
+        if (customStartDate) params.append("startDate", customStartDate);
+        else if (filters.startDate) params.append("startDate", filters.startDate);
+
+        if (customEndDate) params.append("endDate", customEndDate);
+        else if (filters.endDate) params.append("endDate", filters.endDate);
+
+        if (filters.searchQuery) params.append("search", filters.searchQuery);
+
+        const res = await fetch(`/api/expenses?${params.toString()}`);
+        const data = await res.json();
+        if (isMounted && data.success && Array.isArray(data.data)) {
+          setModalExpenses(data.data);
+          setEndRow(data.data.length || 1);
+        }
+      } catch (err) {
+        console.error("Error fetching PDF modal expense records:", err);
+      } finally {
+        if (isMounted) setIsFetchingModalData(false);
+      }
+    };
+
+    fetchModalData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    isOpen,
+    filters.category,
+    filters.brand,
+    filters.company,
+    filters.startDate,
+    filters.endDate,
+    filters.searchQuery,
+    customStartDate,
+    customEndDate,
+  ]);
 
   const handleApplyPreset = (preset: string) => {
     setPresetRange(preset);
     if (preset === "all") {
       setStartRow(1);
-      setEndRow(expenses.length || 1);
+      setEndRow(modalExpenses.length || 1);
     } else if (preset === "1_50") {
       setStartRow(1);
-      setEndRow(Math.min(50, expenses.length || 1));
+      setEndRow(Math.min(50, modalExpenses.length || 1));
     } else if (preset === "51_100") {
       setStartRow(51);
-      setEndRow(Math.min(100, expenses.length || 1));
+      setEndRow(Math.min(100, modalExpenses.length || 1));
     } else if (preset === "101_200") {
       setStartRow(101);
-      setEndRow(Math.min(200, expenses.length || 1));
+      setEndRow(Math.min(200, modalExpenses.length || 1));
     }
   };
 
   // ── 1. Calculate Scoped Expenses based on Active Range Filters ──
   const scopedExpenses = useMemo(() => {
-    let list = expenses;
-
-    // Filter by Custom Date Range if specified
-    if (customStartDate || customEndDate) {
-      list = list.filter((exp) => {
-        if (!exp.expenseDate) return true;
-        const d = new Date(exp.expenseDate);
-        if (customStartDate && d < new Date(customStartDate + "T00:00:00")) return false;
-        if (customEndDate && d > new Date(customEndDate + "T23:59:59")) return false;
-        return true;
-      });
-    }
-
-    // Filter by Voucher Row Index Range
+    let list = modalExpenses;
     const sIdx = Math.max(1, startRow) - 1;
     const eIdx = Math.min(list.length, endRow || list.length);
     return list.slice(sIdx, eIdx);
-  }, [expenses, customStartDate, customEndDate, startRow, endRow]);
+  }, [modalExpenses, startRow, endRow]);
 
   if (!isOpen) return null;
 
