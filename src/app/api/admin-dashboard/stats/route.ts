@@ -263,8 +263,19 @@ export async function GET(req: Request) {
       Enquiry.find(enquiryGlobalFilter).select("enquiryId studentFullName targetCourse assignedCrmAdvisor status leadPriority").sort({ createdAt: -1 }).limit(10).lean(),
 
       // Payroll & Expenses
-      Payroll.find(isFiltered ? { paymentDate: dateRangeFilter } : {}).select("netSalary paymentStatus").lean(),
-      Expense.find(isFiltered ? { expenseDate: dateRangeFilter } : {}).select("amount category").lean(),
+      Payroll.find(isFiltered ? {
+        $or: [
+          { paymentDate: dateRangeFilter },
+          { month: { $gte: startStr.slice(0, 7), $lte: endStr.slice(0, 7) } },
+          { $and: [{ paymentDate: { $exists: false } }, { createdAt: dateRangeFilter }] }
+        ]
+      } : {}).select("netSalary paymentStatus").lean(),
+      Expense.find(isFiltered ? {
+        $or: [
+          { expenseDate: dateRangeFilter },
+          { $and: [{ expenseDate: { $exists: false } }, { createdAt: dateRangeFilter }] }
+        ]
+      } : {}).select("amount category").lean(),
 
       // Course-wise aggregations
       Enquiry.aggregate([
@@ -317,6 +328,8 @@ export async function GET(req: Request) {
     });
     if (totalBilledRevenue === 0) totalBilledRevenue = totalCollection;
 
+    const displayRevenue = isFiltered ? totalCollection : totalBilledRevenue;
+
     // Compute Payroll & Expenses Totals
     let totalPayrollSum = 0;
     allPayrolls.forEach((pr: any) => {
@@ -355,8 +368,8 @@ export async function GET(req: Request) {
     }
 
     const totalOutflow = totalPayrollSum + totalExpensesSum;
-    const netProfitNum = totalCollection - totalOutflow;
-    const profitMarginPct = totalCollection > 0 ? ((netProfitNum / totalCollection) * 100).toFixed(1) + "%" : "0%";
+    const netProfitNum = displayRevenue - totalOutflow;
+    const profitMarginPct = displayRevenue > 0 ? ((netProfitNum / displayRevenue) * 100).toFixed(1) + "%" : "0%";
 
     const totalLeadsCalculated = Math.max(totalLeads, admissionsTotal);
     const totalConvertedCalculated = Math.max(convertedLeadsCount, admissionsTotal);
@@ -377,8 +390,8 @@ export async function GET(req: Request) {
       admissionsToday: isFiltered ? admissionsToday : admissionsTotal,
       lostLeadsToday: (Array.isArray(lostLeadsToday) ? lostLeadsToday : []).reduce((sum, item) => sum + (item.count || 0), 0),
       conversionRate,
-      revenue: formatLakhsOrRupees(totalBilledRevenue),
-      rawRevenue: totalBilledRevenue,
+      revenue: formatLakhsOrRupees(displayRevenue),
+      rawRevenue: displayRevenue,
       todayCollection: `₹${todayCollectionSum.toLocaleString("en-IN")}`,
       monthlyCollection: formatLakhsOrRupees(monthlyCollectionSum),
       emiOverdueCount: overdueAdmissions.length,

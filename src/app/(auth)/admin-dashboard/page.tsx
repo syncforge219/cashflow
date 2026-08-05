@@ -264,27 +264,27 @@ export default function AdminDashboard() {
       pillClass: "text-purple-700 bg-purple-50 border-purple-200/60"
     },
     {
-      name: "Total Revenue",
+      name: filterLabel === "Overall" || filterLabel === "Today" ? "Total Revenue" : "Period Revenue",
       value: data?.kpis?.revenue || "₹0 L",
-      trend: "Total Collections",
+      trend: filterLabel === "Overall" || filterLabel === "Today" ? "Total Collections" : filterLabel,
       isGreen: true,
       borderAccent: "border-l-4 border-indigo-500",
       hoverGradient: "hover:bg-gradient-to-br hover:from-indigo-50/90 hover:via-blue-50/50 hover:to-white hover:border-indigo-300",
       pillClass: "text-indigo-700 bg-indigo-50 border-indigo-200/60"
     },
     {
-      name: "Total Payroll",
+      name: filterLabel === "Overall" || filterLabel === "Today" ? "Total Payroll" : "Period Payroll",
       value: data?.kpis?.totalPayroll || "₹0 L",
-      trend: "Paid Staff Salaries",
+      trend: filterLabel === "Overall" || filterLabel === "Today" ? "Paid Staff Salaries" : filterLabel,
       isGreen: false,
       borderAccent: "border-l-4 border-rose-500",
       hoverGradient: "hover:bg-gradient-to-br hover:from-rose-50/90 hover:via-pink-50/50 hover:to-white hover:border-rose-300",
       pillClass: "text-rose-700 bg-rose-50 border-rose-200/60"
     },
     {
-      name: "Total Expenses",
+      name: filterLabel === "Overall" || filterLabel === "Today" ? "Total Expenses" : "Period Expenses",
       value: data?.kpis?.totalExpenses || "₹0 L",
-      trend: "Operational Overhead",
+      trend: filterLabel === "Overall" || filterLabel === "Today" ? "Operational Overhead" : filterLabel,
       isGreen: false,
       borderAccent: "border-l-4 border-amber-500",
       hoverGradient: "hover:bg-gradient-to-br hover:from-amber-50/90 hover:via-orange-50/50 hover:to-white hover:border-amber-300",
