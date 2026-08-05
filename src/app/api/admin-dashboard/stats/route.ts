@@ -61,12 +61,22 @@ export async function GET(req: Request) {
     };
 
     const admissionGlobalFilter: any = {
-      ...globalFilter,
+      ...(isFiltered ? {
+        $or: [
+          { admissionDate: dateRangeFilter },
+          { $and: [{ admissionDate: { $exists: false } }, { createdAt: dateRangeFilter }] }
+        ]
+      } : {}),
       ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {})
     };
 
     const paymentGlobalFilter: any = {
-      ...(isFiltered ? { createdAt: dateRangeFilter } : {}),
+      ...(isFiltered ? {
+        $or: [
+          { paymentDate: dateRangeFilter },
+          { $and: [{ paymentDate: { $exists: false } }, { createdAt: dateRangeFilter }] }
+        ]
+      } : {}),
       ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {})
     };
 
@@ -123,12 +133,30 @@ export async function GET(req: Request) {
       Enquiry.countDocuments({ "followUps.date": stringDateFilter, ...(isBrandFiltered && brandRegex ? { targetBrand: brandRegex } : {}) }),
       Enquiry.countDocuments({ createdAt: dateRangeFilter, leadSource: "Direct Walkin", ...(isBrandFiltered && brandRegex ? { targetBrand: brandRegex } : {}) }),
       Admission.countDocuments(admissionGlobalFilter),
-      Admission.countDocuments({ createdAt: dateRangeFilter, ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {}) }),
+      Admission.countDocuments({
+        $or: [
+          { admissionDate: { $gte: startOfDay, $lte: endOfDay } },
+          { $and: [{ admissionDate: { $exists: false } }, { createdAt: { $gte: startOfDay, $lte: endOfDay } }] }
+        ],
+        ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {})
+      }),
       LostLeadCounter.find({ date: { $gte: startStr, $lte: endStr } }).lean(),
       Admission.countDocuments({ ...admissionGlobalFilter, remainingBalance: { $gt: 0 } }),
-      Payment.find(paymentGlobalFilter).select("amountReceived createdAt").lean(),
-      Payment.find({ createdAt: { $gte: startOfDay, $lte: endOfDay }, ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {}) }).select("amountReceived").lean(),
-      Payment.find(isFiltered ? { createdAt: dateRangeFilter, ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {}) } : { createdAt: { $gte: firstDayOfMonth, $lte: endOfDay }, ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {}) }).select("amountReceived").lean(),
+      Payment.find(paymentGlobalFilter).select("amountReceived createdAt paymentDate").lean(),
+      Payment.find({
+        $or: [
+          { paymentDate: { $gte: startOfDay, $lte: endOfDay } },
+          { $and: [{ paymentDate: { $exists: false } }, { createdAt: { $gte: startOfDay, $lte: endOfDay } }] }
+        ],
+        ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {})
+      }).select("amountReceived").lean(),
+      Payment.find(isFiltered ? paymentGlobalFilter : {
+        $or: [
+          { paymentDate: { $gte: firstDayOfMonth, $lte: endOfDay } },
+          { $and: [{ paymentDate: { $exists: false } }, { createdAt: { $gte: firstDayOfMonth, $lte: endOfDay } }] }
+        ],
+        ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {})
+      }).select("amountReceived").lean(),
       Admission.find({ remainingBalance: { $gt: 0 }, ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {}) }).select("fullName remainingBalance").lean(),
       Enquiry.countDocuments({
         ...(isBrandFiltered && brandRegex ? { targetBrand: brandRegex } : {}),
@@ -164,10 +192,18 @@ export async function GET(req: Request) {
         }
       ]),
       Admission.aggregate([
-        { $match: { createdAt: { $gte: trendStart, $lte: trendEnd }, ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {}) } },
+        {
+          $match: {
+            $or: [
+              { admissionDate: { $gte: trendStart, $lte: trendEnd } },
+              { $and: [{ admissionDate: { $exists: false } }, { createdAt: { $gte: trendStart, $lte: trendEnd } }] }
+            ],
+            ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {})
+          }
+        },
         {
           $group: {
-            _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: "+05:30" } },
+            _id: { $dateToString: { format: "%Y-%m-%d", date: { $ifNull: ["$admissionDate", "$createdAt"] }, timezone: "+05:30" } },
             count: { $sum: 1 }
           }
         }

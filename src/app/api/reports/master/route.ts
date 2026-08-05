@@ -31,23 +31,36 @@ export async function GET(req: Request) {
       }
 
       if (gteDate || lteDate) {
-        enquiryQuery.createdAt = {};
-        admissionQuery.createdAt = {};
-        paymentQuery.paymentDate = {};
-        expenseQuery.expenseDate = {};
+        const admDateFilter: any = {};
+        const payDateFilter: any = {};
+        const expDateFilter: any = {};
+        const enqDateFilter: any = {};
 
         if (gteDate) {
-          enquiryQuery.createdAt.$gte = gteDate;
-          admissionQuery.createdAt.$gte = gteDate;
-          paymentQuery.paymentDate.$gte = gteDate;
-          expenseQuery.expenseDate.$gte = gteDate;
+          enqDateFilter.$gte = gteDate;
+          admDateFilter.$gte = gteDate;
+          payDateFilter.$gte = gteDate;
+          expDateFilter.$gte = gteDate;
         }
         if (lteDate) {
-          enquiryQuery.createdAt.$lte = lteDate;
-          admissionQuery.createdAt.$lte = lteDate;
-          paymentQuery.paymentDate.$lte = lteDate;
-          expenseQuery.expenseDate.$lte = lteDate;
+          enqDateFilter.$lte = lteDate;
+          admDateFilter.$lte = lteDate;
+          payDateFilter.$lte = lteDate;
+          expDateFilter.$lte = lteDate;
         }
+
+        enquiryQuery.createdAt = enqDateFilter;
+        expenseQuery.expenseDate = expDateFilter;
+
+        admissionQuery.$or = [
+          { admissionDate: admDateFilter },
+          { $and: [{ admissionDate: { $exists: false } }, { createdAt: admDateFilter }] }
+        ];
+
+        paymentQuery.$or = [
+          { paymentDate: payDateFilter },
+          { $and: [{ paymentDate: { $exists: false } }, { createdAt: payDateFilter }] }
+        ];
       }
     }
 

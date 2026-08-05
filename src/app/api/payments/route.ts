@@ -50,20 +50,29 @@ export async function GET(req: Request) {
       s.setHours(0, 0, 0, 0);
       const e = new Date(endDateParam);
       e.setHours(23, 59, 59, 999);
-      query.createdAt = { $gte: s, $lte: e };
+      query.$or = [
+        { paymentDate: { $gte: s, $lte: e } },
+        { $and: [{ paymentDate: { $exists: false } }, { createdAt: { $gte: s, $lte: e } }] }
+      ];
     } else if (filterParam === "today") {
       const s = new Date();
       s.setHours(0, 0, 0, 0);
       const e = new Date();
       e.setHours(23, 59, 59, 999);
-      query.createdAt = { $gte: s, $lte: e };
+      query.$or = [
+        { paymentDate: { $gte: s, $lte: e } },
+        { $and: [{ paymentDate: { $exists: false } }, { createdAt: { $gte: s, $lte: e } }] }
+      ];
     } else if (filterParam === "thisMonth") {
       const now = new Date();
       const s = new Date(now.getFullYear(), now.getMonth(), 1);
       s.setHours(0, 0, 0, 0);
       const e = new Date(now.getFullYear(), now.getMonth() + 1, 0);
       e.setHours(23, 59, 59, 999);
-      query.createdAt = { $gte: s, $lte: e };
+      query.$or = [
+        { paymentDate: { $gte: s, $lte: e } },
+        { $and: [{ paymentDate: { $exists: false } }, { createdAt: { $gte: s, $lte: e } }] }
+      ];
     }
 
     const payments = await Payment.find(query)
