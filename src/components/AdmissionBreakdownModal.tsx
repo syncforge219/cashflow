@@ -355,7 +355,7 @@ export default function AdmissionBreakdownModal({
                           </td>
 
                           <td className="p-3.5 text-slate-600 font-semibold">
-                            {new Date(adm.createdAt).toLocaleDateString(
+                            {new Date(adm.admissionDate || adm.createdAt).toLocaleDateString(
                               "en-IN",
                               {
                                 day: "2-digit",

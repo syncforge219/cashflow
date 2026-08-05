@@ -385,8 +385,7 @@ export default function BrandManagerAdmissionHub() {
                                                     <div>
                                                         <p className="text-[10px] font-bold text-emerald-600/70 uppercase">Admission Date</p>
                                                         <p className="text-xs font-bold text-emerald-950">
-                                                            {admItem.admissionDate ||
-                                                                new Date(admItem.createdAt || Date.now()).toLocaleDateString("en-IN")}
+                                                            {new Date(admItem.admissionDate || admItem.createdAt || Date.now()).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
                                                         </p>
                                                     </div>
                                                     <div>
@@ -920,7 +919,7 @@ export default function BrandManagerAdmissionHub() {
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <p className="text-sm font-bold text-slate-800">
-                                                        {new Date(adm.createdAt).toLocaleDateString("en-IN", {
+                                                        {new Date(adm.admissionDate || adm.createdAt).toLocaleDateString("en-IN", {
                                                             day: "2-digit",
                                                             month: "short",
                                                             year: "numeric",

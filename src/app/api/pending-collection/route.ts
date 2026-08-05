@@ -134,6 +134,8 @@ export async function GET(req: Request) {
       if (!dueDate) {
         dueDate = adm.downpaymentDueDate
           ? new Date(adm.downpaymentDueDate)
+          : adm.admissionDate
+          ? new Date(adm.admissionDate)
           : adm.createdAt
           ? new Date(adm.createdAt)
           : now;
