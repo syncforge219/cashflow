@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Admission from "@/models/Admission";
+import Task from "@/models/Task";
 
 export async function POST(req: Request) {
   try {
@@ -41,6 +42,29 @@ export async function POST(req: Request) {
         { success: false, message: "Student not found" },
         { status: 404 }
       );
+    }
+
+    if (unpaidSum === 0) {
+      try {
+        await Task.updateMany(
+          {
+            $or: [
+              { linkedStudentId: studentId },
+              { linkedStudentName: admission.fullName }
+            ],
+            taskType: { $in: ["Fee Follow-up", "Fee Collection", "EMI Recovery", "Follow-up"] },
+            status: { $in: ["Pending", "In Progress"] }
+          },
+          {
+            $set: {
+              status: "Completed",
+              completedAt: new Date()
+            }
+          }
+        );
+      } catch (taskErr) {
+        console.error("Failed to complete fee tasks on custom-emi update:", taskErr);
+      }
     }
 
     return NextResponse.json({ success: true, data: admission });
