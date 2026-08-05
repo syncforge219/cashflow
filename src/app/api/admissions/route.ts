@@ -145,14 +145,18 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Update Ledger (increment collectedRevenue)
+    // Update Ledger (block entire student fee in company collectedRevenue)
     if (finalCompany && finalCompany !== "Cash" && finalCompany !== "Unallocated" && finalCompany !== "Cash (Unallocated)") {
-      if (Number(data.amountReceivedToday) > 0) {
+      const amountToBlock = Number(data.finalFee) > 0
+        ? Number(data.finalFee)
+        : (Number(data.courseFee) > 0 ? Number(data.courseFee) : Number(data.amountReceivedToday));
+
+      if (amountToBlock > 0) {
         const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const compRegex = new RegExp(`^${escapeRegExp(finalCompany.trim())}$`, "i");
         await Company.updateOne(
           { $or: [{ name: { $regex: compRegex } }, { legalName: { $regex: compRegex } }] },
-          { $inc: { collectedRevenue: Number(data.amountReceivedToday) } }
+          { $inc: { collectedRevenue: amountToBlock } }
         );
       }
     }

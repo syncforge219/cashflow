@@ -153,14 +153,33 @@ export async function POST(req: Request) {
       }
     }
 
-    // Update Ledger (increment collectedRevenue) for the assigned company
+    // Update Ledger: Block entire student fee if company is newly assigned or changed; avoid double-counting on EMI payments for already-blocked students
+    const studentFullFee = Number(admission.finalFee) > 0 
+      ? Number(admission.finalFee) 
+      : (Number(admission.courseFee) > 0 ? Number(admission.courseFee) : Number(amountReceived));
+
+    const oldCompany = (admission.companyAssigned || "").trim();
+
     if (finalCompany && finalCompany !== "Cash" && finalCompany !== "Unallocated" && finalCompany !== "Cash (Unallocated)") {
-      if (Number(amountReceived) > 0) {
-        const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const isSameCompany = oldCompany && oldCompany.toLowerCase() === finalCompany.toLowerCase();
+
+      if (!isSameCompany) {
+        // If changing company or allocating company for the first time
+        if (oldCompany && oldCompany !== "Cash" && oldCompany !== "Unallocated" && oldCompany !== "Cash (Unallocated)") {
+          // Unblock full fee from old company
+          const oldCompRegex = new RegExp(`^${escapeRegExp(oldCompany)}$`, "i");
+          await Company.updateOne(
+            { $or: [{ name: { $regex: oldCompRegex } }, { legalName: { $regex: oldCompRegex } }] },
+            { $inc: { collectedRevenue: -studentFullFee } }
+          );
+        }
+
+        // Block full fee in new company
         const compRegex = new RegExp(`^${escapeRegExp(finalCompany.trim())}$`, "i");
         const updatedComp = await Company.findOneAndUpdate(
           { $or: [{ name: { $regex: compRegex } }, { legalName: { $regex: compRegex } }] },
-          { $inc: { collectedRevenue: Number(amountReceived) } },
+          { $inc: { collectedRevenue: studentFullFee } },
           { new: true }
         );
 
@@ -192,7 +211,7 @@ export async function POST(req: Request) {
         }
       }
 
-      // Lock future payments
+      // Lock future payments to this company
       admission.companyAssigned = finalCompany;
     }
 
