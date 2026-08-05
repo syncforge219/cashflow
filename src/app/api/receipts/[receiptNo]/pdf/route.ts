@@ -15,6 +15,9 @@ export async function GET(
   try {
     await dbConnect();
     const { receiptNo } = await params;
+    const { searchParams } = new URL(req.url);
+    const isDownload = searchParams.get("download") === "true";
+    const dispositionType = isDownload ? "attachment" : "inline";
 
     if (!receiptNo) {
       return new NextResponse("Receipt number required", { status: 400 });
@@ -111,7 +114,7 @@ export async function GET(
           status: 200,
           headers: {
             "Content-Type": "application/pdf",
-            "Content-Disposition": `inline; filename="Fee_Receipt_${receiptNo}.pdf"`,
+            "Content-Disposition": `${dispositionType}; filename="Fee_Receipt_${receiptNo}.pdf"`,
             "Cache-Control": "public, max-age=3600",
           },
         });
@@ -160,7 +163,7 @@ export async function GET(
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="Fee_Receipt_${receiptNo}.pdf"`,
+        "Content-Disposition": `${dispositionType}; filename="Fee_Receipt_${receiptNo}.pdf"`,
         "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
       },
     });

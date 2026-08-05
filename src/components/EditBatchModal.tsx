@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useUser } from "@/app/component/context/user-context";
+import CourseSearchSelect from "./CourseSearchSelect";
 
 interface EditBatchModalProps {
   isOpen: boolean;
@@ -15,8 +17,11 @@ export default function EditBatchModal({
   batch,
   onSuccess,
 }: EditBatchModalProps) {
+  const { user } = useUser();
   const [batchName, setBatchName] = useState("");
   const [course, setCourse] = useState("");
+  const [selectedCourses, setSelectedCourses] = useState<string[]>([]);
+  const [courseCode, setCourseCode] = useState("");
   const [teacherId, setTeacherId] = useState("");
   const [brand, setBrand] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -49,7 +54,16 @@ export default function EditBatchModal({
     if (!isOpen || !batch) return;
 
     setBatchName(batch.batchName || "");
+
+    let initialCourses: string[] = [];
+    if (Array.isArray(batch.courses) && batch.courses.length > 0) {
+      initialCourses = batch.courses.filter(Boolean);
+    } else if (batch.course) {
+      initialCourses = batch.course.split(",").map((s: string) => s.trim()).filter(Boolean);
+    }
+    setSelectedCourses(initialCourses);
     setCourse(batch.course || "");
+    setCourseCode(batch.courseCode || "");
     setTeacherId(batch.teacherId || "");
     setBrand(batch.brand || "");
     setStartDate(formatDateForInput(batch.startDate));
@@ -60,21 +74,31 @@ export default function EditBatchModal({
     setMaxCapacity(batch.maxCapacity || 30);
     setNotes(batch.notes || "");
 
+    // Determine brand scope for fetching courses based on logged-in user and batch brand
+    const userBrand = (user?.brandScope || (user as any)?.brand || "").trim();
+    const isBrandRestricted = userBrand && userBrand !== "All Brands" && userBrand !== "ALL BRANDS" && userBrand !== "All" && userBrand !== "*" && userBrand !== "global";
+    const targetBrand = isBrandRestricted ? userBrand : (batch.brand || userBrand);
+
+    let coursesUrl = "/api/courses";
+    if (targetBrand && targetBrand !== "All Brands" && targetBrand !== "ALL BRANDS" && targetBrand !== "All") {
+      coursesUrl += `?brand=${encodeURIComponent(targetBrand)}`;
+    }
+
     // Fetch options
     Promise.all([
       fetch("/api/teachers").then((r) => r.json().catch(() => ({}))),
-      fetch("/api/courses").then((r) => r.json().catch(() => ({}))),
+      fetch(coursesUrl).then((r) => r.json().catch(() => ({}))),
     ])
       .then(([tRes, cRes]) => {
         if (tRes.success || tRes.teachers) {
           setTeachersList(tRes.data || tRes.teachers || []);
         }
-        if (cRes.success || cRes.courses) {
+        if (cRes.success || cRes.courses || Array.isArray(cRes.data)) {
           setCoursesList(cRes.data || cRes.courses || []);
         }
       })
       .catch((err) => console.error("Failed to load options for edit modal:", err));
-  }, [isOpen, batch]);
+  }, [isOpen, batch, user]);
 
   const handleDayToggle = (day: string) => {
     setSelectedDays((prev) =>
@@ -85,6 +109,11 @@ export default function EditBatchModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!batch?._id) return;
+
+    if (selectedCourses.length === 0) {
+      setErrorMsg("Please select at least one course.");
+      return;
+    }
 
     setIsSubmitting(true);
     setErrorMsg("");
@@ -97,7 +126,9 @@ export default function EditBatchModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           batchName: batchName.trim(),
-          course,
+          course: selectedCourses.join(", "),
+          courses: selectedCourses,
+          courseCode: courseCode.trim() || undefined,
           teacherId,
           teacherName: selectedTeacher ? selectedTeacher.name : batch.teacherName,
           brand,
@@ -168,6 +199,20 @@ export default function EditBatchModal({
               value={batchName}
               onChange={(e) => setBatchName(e.target.value)}
               className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-semibold"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+              Courses
+            </label>
+            <CourseSearchSelect
+              courses={coursesList}
+              selectedCourses={selectedCourses}
+              onSelectCourses={(names, codes) => {
+                setSelectedCourses(names);
+                setCourseCode(codes);
+              }}
             />
           </div>
 
