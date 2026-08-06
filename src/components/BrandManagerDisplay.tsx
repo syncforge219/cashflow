@@ -469,6 +469,7 @@ export default function BrandManagerDisplay() {
         onConfirm={confirmDelete}
         title="Delete Brand"
         itemName={brandToDelete?.name || "this brand"}
+        requireConfirmName={true}
       />
     </div>
   );
