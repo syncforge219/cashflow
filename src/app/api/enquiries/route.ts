@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Enquiry from "@/models/Enquiry";
 import Task from "@/models/Task";
+import User from "@/models/User";
 import { getUserFromCookies } from "@/lib/helper";
-import { sendWhatsAppDemoReminder, sendWhatsAppWelcomeEnquiry } from "@/lib/msg91";
+import { sendWhatsAppDemoReminder, sendWhatsAppTeacherDemoAlert, sendWhatsAppWelcomeEnquiry, sendWhatsAppSuperAdminEnquiryAlert } from "@/lib/msg91";
 import { verifyRecaptchaToken } from "@/lib/recaptcha";
 
 export async function POST(req: Request) {
@@ -156,6 +157,22 @@ export async function POST(req: Request) {
       console.error("[Enquiry API] Error triggering welcome enquiry WhatsApp:", waErr);
     }
 
+    // AUTO WHATSAPP SUPER ADMIN ENQUIRY ALERT: Send enquiry_msg template to Super Admin
+    try {
+      sendWhatsAppSuperAdminEnquiryAlert({
+        studentName: newEnquiry.studentFullName || body.studentFullName || "Student",
+        studentMobile: newEnquiry.primaryPhoneMobile || body.primaryPhoneMobile || "N/A",
+        courseName: newEnquiry.targetCourse || body.targetCourse || "General Course",
+        brandName: newEnquiry.targetBrand || body.targetBrand || "CADD Mantra",
+        counsellorName: newEnquiry.assignedCrmAdvisor || body.assignedCrmAdvisor || "Unassigned",
+        leadSource: newEnquiry.leadSource || body.leadSource || "Website",
+        date: newEnquiry.date || body.date,
+      }).then((res) => console.log(`[Enquiry API] Super Admin Enquiry Alert WhatsApp sent:`, res))
+        .catch((err) => console.error("[Enquiry API] Super Admin Enquiry Alert WhatsApp error:", err));
+    } catch (superAdminErr) {
+      console.error("[Enquiry API] Error triggering super admin enquiry alert WhatsApp:", superAdminErr);
+    }
+
     // AUTO TASK ENGINE: Generate Call Lead task
     try {
       let dueDate = new Date();
@@ -202,6 +219,38 @@ export async function POST(req: Request) {
             demoTime: body.demoTime || "11:00 AM",
             demoMode: body.demoMode || "Online",
           }).catch((waErr) => console.error("Auto WhatsApp demo reminder error on create:", waErr));
+        }
+
+        // AUTO WHATSAPP TEACHER DEMO ALERT (Design Gateway): Notify assigned teacher
+        const brandName = (newEnquiry.targetBrand || body.targetBrand || "").trim();
+        const upperBrand = brandName.toUpperCase();
+        const isDesignGateway = upperBrand.includes("DESIGN") || upperBrand.includes("GATEWAY");
+        if (isDesignGateway) {
+          const teacherName = (newEnquiry.demoTeacher || body.demoTeacher || "").trim();
+          if (teacherName) {
+            // Look up teacher's phone number from User model by name
+            User.findOne({ name: { $regex: new RegExp(`^${teacherName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") } })
+              .select("phone name")
+              .lean()
+              .then((teacher: any) => {
+                const teacherPhone = teacher?.phone || "";
+                if (teacherPhone) {
+                  return sendWhatsAppTeacherDemoAlert({
+                    teacherName,
+                    teacherMobile: teacherPhone,
+                    demoDate: body.demoDate,
+                    courseName: newEnquiry.targetCourse || body.targetCourse || "Course",
+                    brandName,
+                  });
+                } else {
+                  console.warn(`[Enquiry API] Teacher "${teacherName}" found but has no phone number — skipping teacher_demo WhatsApp.`);
+                }
+              })
+              .then((res: any) => { if (res) console.log(`[Enquiry API] Teacher demo alert sent to ${teacherName}:`, res); })
+              .catch((err: any) => console.error("[Enquiry API] Teacher demo WhatsApp error on create:", err));
+          } else {
+            console.log("[Enquiry API] Design Gateway demo scheduled but no demoTeacher assigned — skipping teacher_demo alert.");
+          }
         }
       }
     } catch (taskErr) {

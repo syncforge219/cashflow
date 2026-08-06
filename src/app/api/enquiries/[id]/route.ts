@@ -3,6 +3,8 @@ import dbConnect from "@/lib/db";
 import Enquiry from "@/models/Enquiry";
 import Admission from "@/models/Admission";
 import LostLeadCounter from "@/models/LostLeadCounter";
+import User from "@/models/User";
+import { sendWhatsAppTeacherDemoAlert, formatDDMMYYYY } from "@/lib/msg91";
 
 export async function PATCH(
   req: Request,
@@ -89,6 +91,41 @@ export async function PATCH(
         { error: "Enquiry not found" },
         { status: 404 }
       );
+    }
+
+    // AUTO WHATSAPP TEACHER DEMO ALERT (Design Gateway): Notify teacher when demo is being scheduled via PATCH
+    const setData = body.$set || body;
+    const isDemoBeingScheduled = setData.isDemoScheduled === true || setData.demoDate;
+    if (isDemoBeingScheduled) {
+      const brandName = ((updatedEnquiry as any).targetBrand || "").trim();
+      const upperBrand = brandName.toUpperCase();
+      const isDesignGateway = upperBrand.includes("DESIGN") || upperBrand.includes("GATEWAY");
+      if (isDesignGateway) {
+        const teacherName = ((updatedEnquiry as any).demoTeacher || setData.demoTeacher || "").trim();
+        const demoDate = (updatedEnquiry as any).demoDate || setData.demoDate || "";
+        const courseName = (updatedEnquiry as any).targetCourse || "Course";
+        if (teacherName && demoDate) {
+          User.findOne({ name: { $regex: new RegExp(`^${teacherName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") } })
+            .select("phone name")
+            .lean()
+            .then((teacher: any) => {
+              const teacherPhone = teacher?.phone || "";
+              if (teacherPhone) {
+                return sendWhatsAppTeacherDemoAlert({
+                  teacherName,
+                  teacherMobile: teacherPhone,
+                  demoDate,
+                  courseName,
+                  brandName,
+                });
+              } else {
+                console.warn(`[Enquiry PATCH] Teacher "${teacherName}" has no phone — skipping teacher_demo WhatsApp.`);
+              }
+            })
+            .then((res: any) => { if (res) console.log(`[Enquiry PATCH] Teacher demo alert sent to ${teacherName}:`, res); })
+            .catch((err: any) => console.error("[Enquiry PATCH] Teacher demo WhatsApp error:", err));
+        }
+      }
     }
 
     return NextResponse.json({

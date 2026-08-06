@@ -3,7 +3,7 @@ import dbConnect from "@/lib/db";
 import Enquiry from "@/models/Enquiry";
 import User from "@/models/User";
 import Task from "@/models/Task";
-import { sendWhatsAppWelcomeEnquiry } from "@/lib/msg91";
+import { sendWhatsAppWelcomeEnquiry, sendWhatsAppSuperAdminEnquiryAlert } from "@/lib/msg91";
 
 
 import { verifyRecaptchaToken } from "@/lib/recaptcha";
@@ -205,6 +205,18 @@ export async function POST(req: Request) {
         }).then((res) => console.log(`[Public Form API] Welcome enquiry WhatsApp sent to ${primaryPhoneMobile}:`, res))
           .catch((err) => console.error("[Public Form API] Welcome enquiry WhatsApp error:", err));
       }
+
+      // Dispatch Super Admin Enquiry Alert WhatsApp (enquiry_msg template)
+      sendWhatsAppSuperAdminEnquiryAlert({
+        studentName: studentFullName || "Student",
+        studentMobile: primaryPhoneMobile || "N/A",
+        courseName: targetCourse || "General Course",
+        brandName: targetBrand || "CADD Mantra",
+        counsellorName: assignedAdvisor || "Unassigned",
+        leadSource: leadSource || "Google Form",
+        date: newEnquiry.date,
+      }).then((res) => console.log(`[Public Form API] Super Admin Enquiry Alert WhatsApp sent:`, res))
+        .catch((err) => console.error("[Public Form API] Super Admin Enquiry Alert WhatsApp error:", err));
     } catch (taskErr) {
       console.error("Failed creating Google Form lead task/WhatsApp:", taskErr);
     }

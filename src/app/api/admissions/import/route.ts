@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Admission from "@/models/Admission";
 import { getUserFromCookies } from "@/lib/helper";
+import { sendWhatsAppSuperAdminAdmissionAlert } from "@/lib/msg91";
 
 export async function POST(req: NextRequest) {
   try {
@@ -69,6 +70,19 @@ export async function POST(req: NextRequest) {
 
         const admission = new Admission(record);
         await admission.save();
+
+        sendWhatsAppSuperAdminAdmissionAlert({
+          studentName: admission.fullName,
+          admissionNumber: admission.admissionId || admission._id?.toString(),
+          courseName: admission.course,
+          brandName: admission.brand,
+          counsellorName: admission.counsellor,
+          amountPaid: admission.amountReceivedToday,
+          registrationAmount: admission.registrationAmount,
+          downpaymentAmount: admission.downpaymentAmount,
+          paymentMode: admission.paymentMode,
+        }).catch((err) => console.error("Async Bulk Admission Super Admin WhatsApp Error:", err));
+
         results.push({ index: i, status: "ok", admissionId: admission.admissionId ?? undefined });
       } catch (err: any) {
         results.push({ index: i, status: "error", error: err?.message || "Unknown error" });

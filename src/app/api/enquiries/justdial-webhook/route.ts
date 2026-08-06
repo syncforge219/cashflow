@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Enquiry from "@/models/Enquiry";
 import JustdialConfig from "@/models/JustdialConfig";
+import { sendWhatsAppSuperAdminEnquiryAlert } from "@/lib/msg91";
 
 export async function POST(req: NextRequest) {
   try {
@@ -50,6 +51,22 @@ export async function POST(req: NextRequest) {
       remarks,
       date: new Date().toISOString(),
     });
+
+    // AUTO WHATSAPP SUPER ADMIN ENQUIRY ALERT
+    try {
+      sendWhatsAppSuperAdminEnquiryAlert({
+        studentName: studentFullName,
+        studentMobile: primaryPhoneMobile || "N/A",
+        courseName: matchedCourse || "General Course",
+        brandName: newEnquiry.targetBrand || "CADD Mantra",
+        counsellorName: matchedCounselor,
+        leadSource: config?.leadSource || "JustDial",
+        date: newEnquiry.date,
+      }).then((res) => console.log(`[Justdial Webhook] Super Admin Enquiry Alert WhatsApp sent:`, res))
+        .catch((err) => console.error("[Justdial Webhook] Super Admin Enquiry Alert WhatsApp error:", err));
+    } catch (alertErr) {
+      console.error("[Justdial Webhook] Error triggering super admin enquiry alert WhatsApp:", alertErr);
+    }
 
     return NextResponse.json({
       success: true,

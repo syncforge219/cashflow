@@ -920,6 +920,7 @@ export async function sendWhatsAppBirthdayReminder(params: BirthdayReminderWhats
     if (response.ok) {
       return {
         success: true,
+
         data: resJson || resText,
       };
     } else {
@@ -937,41 +938,91 @@ export async function sendWhatsAppBirthdayReminder(params: BirthdayReminderWhats
   }
 }
 
+
+
+
+
+
+
+
+
+
 export interface WelcomeEnquiryWhatsAppParams {
   studentName: string;
   mobileNumber: string;
+
+
+  courseName: string;
+
+
+
+
   brandName?: string | null;
-  courseName?: string | null;
   integratedNumber?: string | null;
 }
 
+
+
+
+
+
+
 /**
  * Dispatch MSG91 WhatsApp Outbound Welcome Message upon New Enquiry Creation
- * Template: "welcome_enquiry"
- * Namespace: "610ca09d_29b3_4193_8bab_18e0fab26f84"
- * Variables:
- *   body_1: studentName
- *   body_2: brandName
- *   body_3: courseName
- *   body_4: brandName
- *   body_5: brandName
+ * For Design Gateway:
+ *   Template: "welcome_enquery"
+ *   Namespace: "d637ec85_020e_4aa6_8042_f5db99837ab0"
+ *   Sender: 916307244317 (2nd number in .env)
+ *   Variables: body_1 (studentName), body_2 (brandName), body_3 (courseName), body_4 (brandName)
+ *
+ * For CADD Mantra / Default:
+ *   Template: "welcome_enquiry"
+ *   Namespace: "610ca09d_29b3_4193_8bab_18e0fab26f84"
+ *   Sender: 1st number in .env
  */
 export async function sendWhatsAppWelcomeEnquiry(params: WelcomeEnquiryWhatsAppParams) {
   try {
     const authKey =
-      process.env.MSG91_AUTHKEY || "478610A465a065I869fed7fdP1";
+      process.env.MSG91_AUTHKEY ? process.env.MSG91_AUTHKEY.split(",")[0].trim() : "478610A465a065I869fed7fdP1";
 
     const brandName = (params.brandName || "CADD MANTRA").trim();
-    const integratedNumber = await getIntegratedNumberForBrand(brandName, params.integratedNumber);
+    const upperBrand = brandName.toUpperCase();
+    const isDesignGateway = upperBrand.includes("DESIGN") || upperBrand.includes("GATEWAY");
 
+    const envNumbers = (process.env.MSG91_INTEGRATED_NUMBER || "919335913286").split(",");
     const formattedPhone = formatPhoneNumber(params.mobileNumber);
     if (!formattedPhone) {
-      console.warn("MSG91 WhatsApp Warning: Missing or invalid phone number for welcome_enquiry.");
+      console.warn("MSG91 WhatsApp Warning: Missing or invalid phone number for welcome enquiry.");
       return { success: false, error: "Invalid recipient phone number." };
     }
 
+    const defaultNumber = isDesignGateway ? (envNumbers[1] || "916307244317") : envNumbers[0];
+    const integratedNumber = await getIntegratedNumberForBrand(brandName, params.integratedNumber || defaultNumber);
+
+
     const studentName = (params.studentName || "Student").trim();
     const courseName = (params.courseName || "Course").trim();
+
+    let templateName = "welcome_enquiry";
+    let namespace = "610ca09d_29b3_4193_8bab_18e0fab26f84";
+    let components: Record<string, { type: string; value: string }> = {
+      body_1: { type: "text", value: studentName },
+      body_2: { type: "text", value: brandName },
+      body_3: { type: "text", value: courseName },
+      body_4: { type: "text", value: brandName },
+      body_5: { type: "text", value: brandName },
+    };
+
+    if (isDesignGateway) {
+      templateName = "welcome_enquery";
+      namespace = "d637ec85_020e_4aa6_8042_f5db99837ab0";
+      components = {
+        body_1: { type: "text", value: studentName },
+        body_2: { type: "text", value: brandName },
+        body_3: { type: "text", value: courseName },
+        body_4: { type: "text", value: brandName },
+      };
+    }
 
     const payload = {
       integrated_number: integratedNumber,
@@ -980,37 +1031,16 @@ export async function sendWhatsAppWelcomeEnquiry(params: WelcomeEnquiryWhatsAppP
         messaging_product: "whatsapp",
         type: "template",
         template: {
-          name: "welcome_enquiry",
+          name: templateName,
           language: {
             code: "en",
             policy: "deterministic",
           },
-          namespace: "610ca09d_29b3_4193_8bab_18e0fab26f84",
+          namespace: namespace,
           to_and_components: [
             {
               to: [formattedPhone],
-              components: {
-                body_1: {
-                  type: "text",
-                  value: studentName,
-                },
-                body_2: {
-                  type: "text",
-                  value: brandName,
-                },
-                body_3: {
-                  type: "text",
-                  value: courseName,
-                },
-                body_4: {
-                  type: "text",
-                  value: brandName,
-                },
-                body_5: {
-                  type: "text",
-                  value: brandName,
-                },
-              },
+              components: components,
             },
           ],
         },
@@ -1026,7 +1056,7 @@ export async function sendWhatsAppWelcomeEnquiry(params: WelcomeEnquiryWhatsAppP
     }
 
     console.log(
-      `MSG91 WhatsApp Sending Welcome Enquiry (welcome_enquiry) from ${integratedNumber} to ${formattedPhone} for ${studentName} (Brand: ${brandName}, Course: ${courseName})...`
+      `MSG91 WhatsApp Sending Welcome Enquiry (template: ${templateName}, namespace: ${namespace}) from ${integratedNumber} to ${formattedPhone} for ${studentName} (Brand: ${brandName}, Course: ${courseName})...`
     );
 
     const response = await fetch(
@@ -1092,17 +1122,33 @@ export function formatDDMMYYYY(dateStr?: string | null): string {
 /**
  * Dispatch MSG91 WhatsApp Outbound Template Message for Demo Class Reminder
  * Template: "demoreminderforstudent"
+ * Namespace: null
+ *
+ * For Design Gateway → sender: 916307244317 (2nd slot in MSG91_INTEGRATED_NUMBER)
+ * For CADD Mantra / Default → sender: 919335913286 (1st slot)
+ *
  * Components:
  *   body_1: Student Name
  *   body_2: Course Name
- *   body_3: Demo Date
+ *   body_3: Demo Date  (DD-MM-YYYY)
  *   body_4: Demo Time
  *   body_5: Demo Mode
  */
 export async function sendWhatsAppDemoReminder(params: DemoReminderWhatsAppParams) {
   try {
-    const authKey = process.env.MSG91_AUTHKEY || "478610A465a065I869fed7fdP1";
-    const integratedNumber = await getIntegratedNumberForBrand(params.brandName, params.integratedNumber);
+    const authKey =
+      process.env.MSG91_AUTHKEY ? process.env.MSG91_AUTHKEY.split(",")[0].trim() : "478610A465a065I869fed7fdP1";
+
+    const brandName = (params.brandName || "").trim();
+    const upperBrand = brandName.toUpperCase();
+    const isDesignGateway = upperBrand.includes("DESIGN") || upperBrand.includes("GATEWAY");
+
+    // Pick sender number: DG uses 2nd slot (916307244317), others use 1st slot
+    const envNumbers = (process.env.MSG91_INTEGRATED_NUMBER || "919335913286").split(",");
+    const defaultIntegratedNumber = isDesignGateway
+      ? (envNumbers[1]?.trim() || "916307244317")
+      : (envNumbers[0]?.trim() || "919335913286");
+    const integratedNumber = params.integratedNumber || defaultIntegratedNumber;
 
     const formattedPhone = formatPhoneNumber(params.mobileNumber);
     if (!formattedPhone) {
@@ -1201,6 +1247,130 @@ export async function sendWhatsAppDemoReminder(params: DemoReminderWhatsAppParam
     return {
       success: false,
       error: error.message || "Network error during MSG91 demo reminder dispatch.",
+    };
+  }
+}
+
+export interface TeacherDemoAlertParams {
+  teacherName: string;
+  teacherMobile: string;
+  demoDate: string;
+  courseName: string;
+  brandName?: string | null;
+  integratedNumber?: string | null;
+}
+
+/**
+ * Dispatch MSG91 WhatsApp Demo Alert to Teacher (Design Gateway)
+ * Template: "teacher_demo"
+ * Sender: 916307244317
+ * Namespace: null
+ * Variables:
+ *   body_1: teacherName
+ *   body_2: demoDate
+ *   body_3: courseName
+ */
+export async function sendWhatsAppTeacherDemoAlert(params: TeacherDemoAlertParams) {
+  try {
+    const authKey =
+      process.env.MSG91_AUTHKEY ? process.env.MSG91_AUTHKEY.split(",")[0].trim() : "478610A465a065I869fed7fdP1";
+
+    const formattedPhone = formatPhoneNumber(params.teacherMobile);
+    if (!formattedPhone) {
+      console.warn("MSG91 Teacher Demo Alert Warning: Missing or invalid teacher phone number.");
+      return { success: false, error: "Invalid teacher phone number." };
+    }
+
+    // Resolve integrated_number — prefer 2nd env slot (Design Gateway sender: 916307244317)
+    const envNumbers = (process.env.MSG91_INTEGRATED_NUMBER || "919335913286").split(",");
+    const defaultIntegratedNumber = envNumbers[1]?.trim() || "916307244317";
+    const integratedNumber = params.integratedNumber || defaultIntegratedNumber;
+
+    const teacherName = (params.teacherName || "Teacher").trim();
+    const courseName = (params.courseName || "Course").trim();
+    const formattedDate = formatDDMMYYYY(params.demoDate);
+
+    const payload = {
+      integrated_number: integratedNumber,
+      content_type: "template",
+      payload: {
+        messaging_product: "whatsapp",
+        type: "template",
+        template: {
+          name: "teacher_demo",
+          language: {
+            code: "en",
+            policy: "deterministic",
+          },
+          namespace: null,
+          to_and_components: [
+            {
+              to: [formattedPhone],
+              components: {
+                body_1: {
+                  type: "text",
+                  value: teacherName,
+                },
+                body_2: {
+                  type: "text",
+                  value: formattedDate || params.demoDate,
+                },
+                body_3: {
+                  type: "text",
+                  value: courseName,
+                },
+              },
+            },
+          ],
+        },
+      },
+    };
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+
+    if (authKey) {
+      headers["authkey"] = authKey;
+    }
+
+    console.log(
+      `MSG91 WhatsApp Sending Teacher Demo Alert (teacher_demo) from ${integratedNumber} to ${formattedPhone} for teacher ${teacherName}, date ${formattedDate}, course ${courseName}...`
+    );
+
+    const response = await fetch(
+      "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/",
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload),
+      }
+    );
+
+    const resText = await response.text();
+    let resJson: any = null;
+    try {
+      resJson = JSON.parse(resText);
+    } catch (_) {}
+
+    console.log("MSG91 Teacher Demo Alert Response:", resText);
+
+    if (response.ok) {
+      return {
+        success: true,
+        data: resJson || resText,
+      };
+    } else {
+      return {
+        success: false,
+        error: resJson?.message || resText || "Failed to send MSG91 WhatsApp teacher demo alert.",
+      };
+    }
+  } catch (error: any) {
+    console.error("MSG91 Teacher Demo Alert Error:", error);
+    return {
+      success: false,
+      error: error.message || "Network error during MSG91 teacher demo alert dispatch.",
     };
   }
 }
@@ -1317,7 +1487,7 @@ export async function sendWhatsAppCompanyCapacityAlert(params: CompanyCapacityAl
     console.error("MSG91 Company Capacity Alert Error:", error);
     return {
       success: false,
-      error: error.message || "Network error during MSG91 capacity alert dispatch.",
+      error: error.message || "Network error during MSG91 capacity alert dispatch.t dispatch.",
     };
   }
 }
@@ -1333,12 +1503,22 @@ export interface BrandWelcomeWhatsAppParams {
 }
 
 /**
- * Dispatch MSG91 WhatsApp Welcome Message to Student upon Admission Creation
- * Sends a warm, official welcome message from the brand celebrating their enrollment.
+ * Dispatch MSG91 WhatsApp Student Admission Message upon Admission Creation
+ * Template: "admission"
+ * Namespace: "610ca09d_29b3_4193_8bab_18e0fab26f84"
+ * Recipient: Admitted Student
+ * Variables:
+ *   body_1: studentname
+ *   body_2: brand name
+ *   body_3: coursename
+ *   body_4: brandname
+ *   body_5: brandnumber (1st env number for CADD Mantra, 2nd env number for Design Gateway)
  */
 export async function sendWhatsAppBrandWelcome(params: BrandWelcomeWhatsAppParams) {
   try {
-    const authKey = process.env.MSG91_AUTHKEY || "478610A465a065I869fed7fdP1";
+    const authKey =
+      process.env.MSG91_AUTHKEY ? process.env.MSG91_AUTHKEY.split(",")[0].trim() : "478610A465a065I869fed7fdP1";
+
     const integratedNumber = await getIntegratedNumberForBrand(params.brandName, params.integratedNumber);
 
     const formattedPhone = formatPhoneNumber(params.mobileNumber);
@@ -1347,12 +1527,12 @@ export async function sendWhatsAppBrandWelcome(params: BrandWelcomeWhatsAppParam
       return { success: false, error: "Invalid mobile number." };
     }
 
-    const brand = params.brandName || "Cadd Mantra";
-    const student = params.studentName || "Student";
-    const course = params.courseName || "Course";
-    const counsellor = params.counsellorName || "Advisor";
+    const brand = (params.brandName || "CADD Mantra").trim();
+    const student = (params.studentName || "Student").trim();
+    const course = (params.courseName || "Course").trim();
+    const brandNumber = integratedNumber || "919335913286";
 
-    // Primary Template Payload
+    // Primary Template Payload using template "admission"
     const payload = {
       integrated_number: integratedNumber,
       content_type: "template",
@@ -1360,16 +1540,18 @@ export async function sendWhatsAppBrandWelcome(params: BrandWelcomeWhatsAppParam
         messaging_product: "whatsapp",
         type: "template",
         template: {
-          name: "welcome_onboarding",
+          name: "admission",
           language: { code: "en", policy: "deterministic" },
+          namespace: "610ca09d_29b3_4193_8bab_18e0fab26f84",
           to_and_components: [
             {
               to: [formattedPhone],
               components: {
                 body_1: { type: "text", value: student },
-                body_2: { type: "text", value: course },
-                body_3: { type: "text", value: brand },
-                body_4: { type: "text", value: counsellor },
+                body_2: { type: "text", value: brand },
+                body_3: { type: "text", value: course },
+                body_4: { type: "text", value: brand },
+                body_5: { type: "text", value: brandNumber },
               },
             },
           ],
@@ -1380,7 +1562,7 @@ export async function sendWhatsAppBrandWelcome(params: BrandWelcomeWhatsAppParam
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (authKey) headers["authkey"] = authKey;
 
-    console.log(`MSG91 WhatsApp Sending Brand Welcome Message to ${formattedPhone} from ${brand}...`);
+    console.log(`MSG91 WhatsApp Sending Student Admission Message (template: admission) to ${formattedPhone} from ${brand} (${integratedNumber})...`);
 
     const response = await fetch(
       "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/",
@@ -1398,8 +1580,8 @@ export async function sendWhatsAppBrandWelcome(params: BrandWelcomeWhatsAppParam
     if (response.ok) {
       return { success: true, data: resJson || resText };
     } else {
-      console.warn("Primary 'welcome_onboarding' template notice, attempting approved template fallback...");
-      // Fallback with approved template "feeremainderstudent" / "fee"
+      console.warn("Primary 'admission' template notice, attempting approved template fallback...");
+      // Fallback with approved template "welcome_onboarding" / "feeremainderstudent"
       const fallbackPayload = {
         integrated_number: integratedNumber,
         content_type: "template",
@@ -1407,17 +1589,16 @@ export async function sendWhatsAppBrandWelcome(params: BrandWelcomeWhatsAppParam
           messaging_product: "whatsapp",
           type: "template",
           template: {
-            name: "feeremainderstudent",
+            name: "welcome_onboarding",
             language: { code: "en", policy: "deterministic" },
-            namespace: "610ca09d_29b3_4193_8bab_18e0fab26f84",
             to_and_components: [
               {
                 to: [formattedPhone],
                 components: {
                   body_1: { type: "text", value: student },
-                  body_2: { type: "text", value: `${course} (${brand})` },
-                  body_3: { type: "text", value: "Welcome Enrolled" },
-                  body_4: { type: "text", value: new Date().toLocaleDateString("en-IN") },
+                  body_2: { type: "text", value: course },
+                  body_3: { type: "text", value: brand },
+                  body_4: { type: "text", value: params.counsellorName || "Advisor" },
                 },
               },
             ],
@@ -1440,7 +1621,7 @@ export async function sendWhatsAppBrandWelcome(params: BrandWelcomeWhatsAppParam
 
       return {
         success: false,
-        error: resJson?.message || fallbackJson?.message || resText || "Failed to send welcome WhatsApp message.",
+        error: resJson?.message || fallbackJson?.message || resText || "Failed to send student admission WhatsApp message.",
       };
     }
   } catch (error: any) {
@@ -1448,6 +1629,8 @@ export async function sendWhatsAppBrandWelcome(params: BrandWelcomeWhatsAppParam
     return { success: false, error: error.message || "Network error during welcome WhatsApp dispatch." };
   }
 }
+
+export const sendWhatsAppStudentAdmissionNotice = sendWhatsAppBrandWelcome;
 
 export interface CompanyLimit80AlertParams {
   superAdminName?: string;
@@ -1587,5 +1770,397 @@ export async function sendWhatsAppCompanyLimit80Alert(params: CompanyLimit80Aler
   }
 }
 
+export interface SuperAdminEnquiryAlertParams {
+  studentName?: string | null;
+  studentMobile: string;
+  courseName?: string | null;
+  brandName?: string | null;
+  counsellorName?: string | null;
+  leadSource?: string | null;
+  date?: string | null;
+  time?: string | null;
+  superAdminMobile?: string | null;
+}
 
+/**
+ * Dispatch MSG91 WhatsApp Outbound Alert ONLY to Super Admin when a New Enquiry is Registered
+ * Template: "enquiry_msg"
+ * Namespace: "610ca09d_29b3_4193_8bab_18e0fab26f84"
+ * Variables:
+ *   body_1: studentname
+ *   body_2: studentmobile
+ *   body_3: cousename (course name)
+ *   body_4: brandname
+ *   body_5: counsellorname
+ *   body_6: leadsource
+ *   body_7: date
+ *   body_8: time
+ * Sender integrated_number: ALWAYS 1st number in process.env.MSG91_INTEGRATED_NUMBER
+ */
+export async function sendWhatsAppSuperAdminEnquiryAlert(params: SuperAdminEnquiryAlertParams) {
+  try {
+    const authKey =
+      process.env.MSG91_AUTHKEY ? process.env.MSG91_AUTHKEY.split(",")[0].trim() : "478610A465a065I869fed7fdP1";
 
+    // 1st number in .env for sender integrated_number
+    const envNumRaw = process.env.MSG91_INTEGRATED_NUMBER || "919335913286";
+    const envNumbers = envNumRaw.split(",").map((n) => n.trim()).filter(Boolean);
+    const integratedNumber = envNumbers.length > 0 ? formatPhoneNumber(envNumbers[0]) : "919335913286";
+
+    // Resolve Super Admin Phone number
+    let superAdminPhone = formatPhoneNumber(
+      params.superAdminMobile || process.env.SUPER_ADMIN_PHONE || process.env.ADMIN_WHATSAPP_NUMBER || process.env.ADMIN_PHONE || ""
+    );
+
+    if (!superAdminPhone) {
+      try {
+        await dbConnect();
+        const superAdminUser = await User.findOne({
+          role: { $regex: /^super[\s_]?admin$/i },
+          phone: { $exists: true, $ne: "" },
+        }).lean();
+
+        if (superAdminUser && (superAdminUser as any).phone) {
+          superAdminPhone = formatPhoneNumber((superAdminUser as any).phone);
+        }
+      } catch (dbErr) {
+        console.error("[MSG91 Super Admin Enquiry Alert] Error fetching super admin user:", dbErr);
+      }
+    }
+
+    if (!superAdminPhone) {
+      // Fallback to integrated number if no super admin phone found
+      superAdminPhone = integratedNumber;
+    }
+
+    if (!superAdminPhone) {
+      console.warn("MSG91 Super Admin Enquiry Alert Warning: Missing super admin phone number.");
+      return { success: false, error: "Invalid super admin phone number." };
+    }
+
+    const now = new Date();
+    const currentDateStr = params.date
+      ? formatDateOnly(params.date)
+      : now.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    const currentTimeStr = params.time
+      ? params.time.trim()
+      : now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+
+    const studentName = (params.studentName || "Student").trim();
+    const studentMobile = (params.studentMobile || "N/A").trim();
+    const courseName = (params.courseName || "General Course").trim();
+    const brandName = (params.brandName || "CADD Mantra").trim();
+    const counsellorName = (params.counsellorName || "Unassigned").trim();
+    const leadSource = (params.leadSource || "Website").trim();
+
+    const payload = {
+      integrated_number: integratedNumber,
+      content_type: "template",
+      payload: {
+        messaging_product: "whatsapp",
+        type: "template",
+        template: {
+          name: "enquiry_msg",
+          language: {
+            code: "en",
+            policy: "deterministic",
+          },
+          namespace: "610ca09d_29b3_4193_8bab_18e0fab26f84",
+          to_and_components: [
+            {
+              to: [superAdminPhone],
+              components: {
+                body_1: {
+                  type: "text",
+                  value: studentName,
+                },
+                body_2: {
+                  type: "text",
+                  value: studentMobile,
+                },
+                body_3: {
+                  type: "text",
+                  value: courseName,
+                },
+                body_4: {
+                  type: "text",
+                  value: brandName,
+                },
+                body_5: {
+                  type: "text",
+                  value: counsellorName,
+                },
+                body_6: {
+                  type: "text",
+                  value: leadSource,
+                },
+                body_7: {
+                  type: "text",
+                  value: currentDateStr,
+                },
+                body_8: {
+                  type: "text",
+                  value: currentTimeStr,
+                },
+              },
+            },
+          ],
+        },
+      },
+    };
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+
+    if (authKey) {
+      headers["authkey"] = authKey;
+    }
+
+    console.log(
+      `MSG91 WhatsApp Sending Super Admin New Enquiry Alert (template: enquiry_msg) from 1st env number (${integratedNumber}) to Super Admin (${superAdminPhone}) for Student: ${studentName}...`
+    );
+
+    const response = await fetch(
+      "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/",
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload),
+      }
+    );
+
+    const resText = await response.text();
+    let resJson: any = null;
+    try {
+      resJson = JSON.parse(resText);
+    } catch (_) {}
+
+    console.log("MSG91 Super Admin Enquiry Alert Response:", resText);
+
+    if (response.ok) {
+      return {
+        success: true,
+        data: resJson || resText,
+      };
+    } else {
+      return {
+        success: false,
+        error: resJson?.message || resText || "Failed to send MSG91 WhatsApp super admin enquiry alert.",
+      };
+    }
+  } catch (error: any) {
+    console.error("MSG91 Super Admin Enquiry Alert Error:", error);
+    return {
+      success: false,
+      error: error.message || "Network error during MSG91 super admin enquiry alert dispatch.",
+    };
+  }
+}
+
+export interface SuperAdminAdmissionAlertParams {
+  studentName?: string | null;
+  admissionNumber?: string | null;
+  courseName?: string | null;
+  brandName?: string | null;
+  counsellorName?: string | null;
+  amountPaid?: number | string | null;
+  registrationAmount?: number | string | null;
+  downpaymentAmount?: number | string | null;
+  paymentMode?: string | null;
+  date?: string | null;
+  time?: string | null;
+  superAdminMobile?: string | null;
+}
+
+/**
+ * Dispatch MSG91 WhatsApp Outbound Alert ONLY to Super Admin when a New Admission is Registered
+ * Template: "admission_msg"
+ * Namespace: "610ca09d_29b3_4193_8bab_18e0fab26f84"
+ * Variables:
+ *   body_1: studentname
+ *   body_2: admissionnumber
+ *   body_3: cousername
+ *   body_4: brandname
+ *   body_5: counsellorname
+ *   body_6: amonutpaid (total amount paid at admission)
+ *   body_7: registration & downpayment breakdown / details
+ *   body_8: date
+ *   body_9: time
+ * Sender integrated_number: ALWAYS 1st number in process.env.MSG91_INTEGRATED_NUMBER
+ */
+export async function sendWhatsAppSuperAdminAdmissionAlert(params: SuperAdminAdmissionAlertParams) {
+  try {
+    const authKey =
+      process.env.MSG91_AUTHKEY ? process.env.MSG91_AUTHKEY.split(",")[0].trim() : "478610A465a065I869fed7fdP1";
+
+    // 1st number in .env for sender integrated_number
+    const envNumRaw = process.env.MSG91_INTEGRATED_NUMBER || "919335913286";
+    const envNumbers = envNumRaw.split(",").map((n) => n.trim()).filter(Boolean);
+    const integratedNumber = envNumbers.length > 0 ? formatPhoneNumber(envNumbers[0]) : "919335913286";
+
+    // Resolve Super Admin Phone number
+    let superAdminPhone = formatPhoneNumber(
+      params.superAdminMobile || process.env.SUPER_ADMIN_PHONE || process.env.ADMIN_WHATSAPP_NUMBER || process.env.ADMIN_PHONE || ""
+    );
+
+    if (!superAdminPhone) {
+      try {
+        await dbConnect();
+        const superAdminUser = await User.findOne({
+          role: { $regex: /^super[\s_]?admin$/i },
+          phone: { $exists: true, $ne: "" },
+        }).lean();
+
+        if (superAdminUser && (superAdminUser as any).phone) {
+          superAdminPhone = formatPhoneNumber((superAdminUser as any).phone);
+        }
+      } catch (dbErr) {
+        console.error("[MSG91 Super Admin Admission Alert] Error fetching super admin user:", dbErr);
+      }
+    }
+
+    if (!superAdminPhone) {
+      superAdminPhone = integratedNumber;
+    }
+
+    if (!superAdminPhone) {
+      console.warn("MSG91 Super Admin Admission Alert Warning: Missing super admin phone number.");
+      return { success: false, error: "Invalid super admin phone number." };
+    }
+
+    const now = new Date();
+    const currentDateStr = params.date
+      ? formatDateOnly(params.date)
+      : now.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    const currentTimeStr = params.time
+      ? params.time.trim()
+      : now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+
+    const studentName = (params.studentName || "Student").trim();
+    const admissionNumber = (params.admissionNumber || "N/A").trim();
+    const courseName = (params.courseName || "General Course").trim();
+    const brandName = (params.brandName || "CADD Mantra").trim();
+    const counsellorName = (params.counsellorName || "Advisor").trim();
+
+    const regAmt = Number(params.registrationAmount) || 0;
+    const dpAmt = Number(params.downpaymentAmount) || 0;
+    const rawAmtPaid = params.amountPaid !== undefined && params.amountPaid !== null
+      ? Number(params.amountPaid)
+      : (regAmt + dpAmt);
+
+    const formattedAmountPaid = `₹${rawAmtPaid.toLocaleString("en-IN")}`;
+
+    let breakdownStr = `Reg: ₹${regAmt.toLocaleString("en-IN")} | DP: ₹${dpAmt.toLocaleString("en-IN")}`;
+    if (regAmt === 0 && dpAmt === 0) {
+      breakdownStr = params.paymentMode ? `Mode: ${params.paymentMode}` : formattedAmountPaid;
+    }
+
+    const payload = {
+      integrated_number: integratedNumber,
+      content_type: "template",
+      payload: {
+        messaging_product: "whatsapp",
+        type: "template",
+        template: {
+          name: "admission_msg",
+          language: {
+            code: "en",
+            policy: "deterministic",
+          },
+          namespace: "610ca09d_29b3_4193_8bab_18e0fab26f84",
+          to_and_components: [
+            {
+              to: [superAdminPhone],
+              components: {
+                body_1: {
+                  type: "text",
+                  value: studentName,
+                },
+                body_2: {
+                  type: "text",
+                  value: admissionNumber,
+                },
+                body_3: {
+                  type: "text",
+                  value: courseName,
+                },
+                body_4: {
+                  type: "text",
+                  value: brandName,
+                },
+                body_5: {
+                  type: "text",
+                  value: counsellorName,
+                },
+                body_6: {
+                  type: "text",
+                  value: formattedAmountPaid,
+                },
+                body_7: {
+                  type: "text",
+                  value: breakdownStr,
+                },
+                body_8: {
+                  type: "text",
+                  value: currentDateStr,
+                },
+                body_9: {
+                  type: "text",
+                  value: currentTimeStr,
+                },
+              },
+            },
+          ],
+        },
+      },
+    };
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+
+    if (authKey) {
+      headers["authkey"] = authKey;
+    }
+
+    console.log(
+      `MSG91 WhatsApp Sending Super Admin New Admission Alert (template: admission_msg) from 1st env number (${integratedNumber}) to Super Admin (${superAdminPhone}) for Student: ${studentName}...`
+    );
+
+    const response = await fetch(
+      "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/",
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload),
+      }
+    );
+
+    const resText = await response.text();
+    let resJson: any = null;
+    try {
+      resJson = JSON.parse(resText);
+    } catch (_) {}
+
+    console.log("MSG91 Super Admin Admission Alert Response:", resText);
+
+    if (response.ok) {
+      return {
+        success: true,
+        data: resJson || resText,
+      };
+    } else {
+      return {
+        success: false,
+        error: resJson?.message || resText || "Failed to send MSG91 WhatsApp super admin admission alert.",
+      };
+    }
+  } catch (error: any) {
+    console.error("MSG91 Super Admin Admission Alert Error:", error);
+    return {
+      success: false,
+      error: error.message || "Network error during MSG91 super admin admission alert dispatch.",
+    };
+  }
+}

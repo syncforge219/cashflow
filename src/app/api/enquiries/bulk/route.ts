@@ -3,6 +3,7 @@ import dbConnect from "@/lib/db";
 import Enquiry from "@/models/Enquiry";
 import User from "@/models/User";
 import { getUserFromCookies } from "@/lib/helper";
+import { sendWhatsAppSuperAdminEnquiryAlert } from "@/lib/msg91";
 
 export async function POST(req: Request) {
   try {
@@ -168,9 +169,24 @@ export async function POST(req: Request) {
     // 3. Save sequentially to avoid race condition with ENQ ID generation
     const insertedLeads = [];
     for (const leadData of leadsToInsert) {
-      const newLead = new Enquiry(leadData);
+      const newLead: any = new Enquiry(leadData);
       await newLead.save();
       insertedLeads.push(newLead);
+
+      // AUTO WHATSAPP SUPER ADMIN ENQUIRY ALERT
+      try {
+        sendWhatsAppSuperAdminEnquiryAlert({
+          studentName: newLead.studentFullName || "Student",
+          studentMobile: newLead.primaryPhoneMobile || "N/A",
+          courseName: newLead.targetCourse || "General Course",
+          brandName: newLead.targetBrand || "CADD Mantra",
+          counsellorName: newLead.assignedCrmAdvisor || "Unassigned",
+          leadSource: newLead.leadSource || "Bulk Import",
+          date: newLead.date,
+        }).catch((err) => console.error("[Bulk Import API] Super Admin Enquiry Alert error:", err));
+      } catch (alertErr) {
+        console.error("[Bulk Import API] Error triggering super admin enquiry alert WhatsApp:", alertErr);
+      }
     }
 
     return NextResponse.json(

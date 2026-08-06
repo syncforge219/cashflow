@@ -10,7 +10,7 @@ import Task from "@/models/Task";
 import Course from "@/models/Course";
 import Notification from "@/models/Notification";
 import { getUserFromCookies } from "@/lib/helper";
-import { sendWhatsAppFeeReceipt, sendWhatsAppBrandWelcome } from "@/lib/msg91";
+import { sendWhatsAppFeeReceipt, sendWhatsAppBrandWelcome, sendWhatsAppSuperAdminAdmissionAlert } from "@/lib/msg91";
 import { sendAdmissionConfirmationEmail } from "@/lib/emailService";
 
 export async function POST(req: NextRequest) {
@@ -366,6 +366,23 @@ export async function POST(req: NextRequest) {
       } catch (waErr) {
         console.error("Failed to trigger WhatsApp receipt:", waErr);
       }
+    }
+
+    // Trigger MSG91 WhatsApp Outbound Alert ONLY to Super Admin for New Admission (template: admission_msg)
+    try {
+      sendWhatsAppSuperAdminAdmissionAlert({
+        studentName: admission.fullName,
+        admissionNumber: admission.admissionId || admission._id?.toString(),
+        courseName: admission.course,
+        brandName: admission.brand,
+        counsellorName: admission.counsellor || data.counsellor || "Advisor",
+        amountPaid: initialCollectedAmount,
+        registrationAmount: Number(data.registrationAmount || 0),
+        downpaymentAmount: Number(data.downpaymentAmount || 0),
+        paymentMode: data.paymentMode || "Cash",
+      }).catch((err) => console.error("Async Super Admin Admission Alert WhatsApp Error:", err));
+    } catch (waErr) {
+      console.error("Failed to trigger Super Admin WhatsApp admission alert:", waErr);
     }
 
     // AUTO TASK ENGINE: Generate 4 SOP Tasks for Admission Onboarding
