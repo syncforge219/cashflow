@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 
 interface DeleteConfirmModalProps {
   isOpen: boolean;
@@ -10,6 +10,8 @@ interface DeleteConfirmModalProps {
   itemName?: string;
   description?: string;
   isLoading?: boolean;
+  requireConfirmName?: boolean;
+  confirmText?: string;
 }
 
 export default function DeleteConfirmModal({
@@ -20,8 +22,23 @@ export default function DeleteConfirmModal({
   itemName = "item",
   description,
   isLoading = false,
+  requireConfirmName = false,
+  confirmText,
 }: DeleteConfirmModalProps) {
+  const [typedText, setTypedText] = useState("");
+
+  useEffect(() => {
+    if (isOpen) {
+      setTypedText("");
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
+
+  const targetMatchText = (confirmText || itemName || "").trim();
+  const isMatched =
+    !requireConfirmName ||
+    typedText.trim().toLowerCase() === targetMatchText.toLowerCase();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-fade-in font-sans">
@@ -56,6 +73,22 @@ export default function DeleteConfirmModal({
               </>
             )}
           </p>
+
+          {requireConfirmName && (
+            <div className="mt-4 text-left bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 space-y-2">
+              <label className="block text-[11px] font-bold text-slate-600">
+                To confirm, type <span className="font-black text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100 select-all">"{targetMatchText}"</span> below:
+              </label>
+              <input
+                type="text"
+                value={typedText}
+                onChange={(e) => setTypedText(e.target.value)}
+                placeholder={`Type "${targetMatchText}"`}
+                className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all placeholder:text-slate-400"
+                autoFocus
+              />
+            </div>
+          )}
         </div>
 
         {/* Actions */}
@@ -64,15 +97,15 @@ export default function DeleteConfirmModal({
             type="button"
             onClick={onClose}
             disabled={isLoading}
-            className="flex-1 text-xs font-bold text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 py-3 rounded-xl transition-colors disabled:opacity-50"
+            className="flex-1 text-xs font-bold text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 py-3 rounded-xl transition-colors disabled:opacity-50 cursor-pointer"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            disabled={isLoading}
-            className="flex-1 flex items-center justify-center gap-2 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white py-3 rounded-xl transition-colors shadow-sm shadow-rose-600/20 disabled:opacity-50"
+            disabled={isLoading || !isMatched}
+            className="flex-1 flex items-center justify-center gap-2 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white py-3 rounded-xl transition-colors shadow-sm shadow-rose-600/20 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
           >
             {isLoading ? (
               <>

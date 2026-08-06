@@ -642,6 +642,7 @@ export default function CompaniesDisplay() {
         isOpen={Boolean(companyToDelete)}
         title="Delete Legal Entity"
         itemName={companyToDelete?.name || "this company"}
+        requireConfirmName={true}
         isLoading={isDeleting}
         onClose={() => setCompanyToDelete(null)}
         onConfirm={handleConfirmDeleteCompany}
