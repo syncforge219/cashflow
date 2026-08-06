@@ -61,12 +61,22 @@ export async function GET(req: Request) {
     };
 
     const admissionGlobalFilter: any = {
-      ...globalFilter,
+      ...(isFiltered ? {
+        $or: [
+          { admissionDate: dateRangeFilter },
+          { $and: [{ admissionDate: { $exists: false } }, { createdAt: dateRangeFilter }] }
+        ]
+      } : {}),
       ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {})
     };
 
     const paymentGlobalFilter: any = {
-      ...(isFiltered ? { createdAt: dateRangeFilter } : {}),
+      ...(isFiltered ? {
+        $or: [
+          { paymentDate: dateRangeFilter },
+          { $and: [{ paymentDate: { $exists: false } }, { createdAt: dateRangeFilter }] }
+        ]
+      } : {}),
       ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {})
     };
 
@@ -123,12 +133,30 @@ export async function GET(req: Request) {
       Enquiry.countDocuments({ "followUps.date": stringDateFilter, ...(isBrandFiltered && brandRegex ? { targetBrand: brandRegex } : {}) }),
       Enquiry.countDocuments({ createdAt: dateRangeFilter, leadSource: "Direct Walkin", ...(isBrandFiltered && brandRegex ? { targetBrand: brandRegex } : {}) }),
       Admission.countDocuments(admissionGlobalFilter),
-      Admission.countDocuments({ createdAt: dateRangeFilter, ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {}) }),
+      Admission.countDocuments({
+        $or: [
+          { admissionDate: { $gte: startOfDay, $lte: endOfDay } },
+          { $and: [{ admissionDate: { $exists: false } }, { createdAt: { $gte: startOfDay, $lte: endOfDay } }] }
+        ],
+        ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {})
+      }),
       LostLeadCounter.find({ date: { $gte: startStr, $lte: endStr } }).lean(),
       Admission.countDocuments({ ...admissionGlobalFilter, remainingBalance: { $gt: 0 } }),
-      Payment.find(paymentGlobalFilter).select("amountReceived createdAt").lean(),
-      Payment.find({ createdAt: { $gte: startOfDay, $lte: endOfDay }, ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {}) }).select("amountReceived").lean(),
-      Payment.find(isFiltered ? { createdAt: dateRangeFilter, ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {}) } : { createdAt: { $gte: firstDayOfMonth, $lte: endOfDay }, ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {}) }).select("amountReceived").lean(),
+      Payment.find(paymentGlobalFilter).select("amountReceived createdAt paymentDate").lean(),
+      Payment.find({
+        $or: [
+          { paymentDate: { $gte: startOfDay, $lte: endOfDay } },
+          { $and: [{ paymentDate: { $exists: false } }, { createdAt: { $gte: startOfDay, $lte: endOfDay } }] }
+        ],
+        ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {})
+      }).select("amountReceived").lean(),
+      Payment.find(isFiltered ? paymentGlobalFilter : {
+        $or: [
+          { paymentDate: { $gte: firstDayOfMonth, $lte: endOfDay } },
+          { $and: [{ paymentDate: { $exists: false } }, { createdAt: { $gte: firstDayOfMonth, $lte: endOfDay } }] }
+        ],
+        ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {})
+      }).select("amountReceived").lean(),
       Admission.find({ remainingBalance: { $gt: 0 }, ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {}) }).select("fullName remainingBalance").lean(),
       Enquiry.countDocuments({
         ...(isBrandFiltered && brandRegex ? { targetBrand: brandRegex } : {}),
@@ -164,10 +192,18 @@ export async function GET(req: Request) {
         }
       ]),
       Admission.aggregate([
-        { $match: { createdAt: { $gte: trendStart, $lte: trendEnd }, ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {}) } },
+        {
+          $match: {
+            $or: [
+              { admissionDate: { $gte: trendStart, $lte: trendEnd } },
+              { $and: [{ admissionDate: { $exists: false } }, { createdAt: { $gte: trendStart, $lte: trendEnd } }] }
+            ],
+            ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {})
+          }
+        },
         {
           $group: {
-            _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: "+05:30" } },
+            _id: { $dateToString: { format: "%Y-%m-%d", date: { $ifNull: ["$admissionDate", "$createdAt"] }, timezone: "+05:30" } },
             count: { $sum: 1 }
           }
         }
@@ -227,8 +263,19 @@ export async function GET(req: Request) {
       Enquiry.find(enquiryGlobalFilter).select("enquiryId studentFullName targetCourse assignedCrmAdvisor status leadPriority").sort({ createdAt: -1 }).limit(10).lean(),
 
       // Payroll & Expenses
-      Payroll.find(isFiltered ? { paymentDate: dateRangeFilter } : {}).select("netSalary paymentStatus").lean(),
-      Expense.find(isFiltered ? { expenseDate: dateRangeFilter } : {}).select("amount category").lean(),
+      Payroll.find(isFiltered ? {
+        $or: [
+          { paymentDate: dateRangeFilter },
+          { month: { $gte: startStr.slice(0, 7), $lte: endStr.slice(0, 7) } },
+          { $and: [{ paymentDate: { $exists: false } }, { createdAt: dateRangeFilter }] }
+        ]
+      } : {}).select("netSalary paymentStatus").lean(),
+      Expense.find(isFiltered ? {
+        $or: [
+          { expenseDate: dateRangeFilter },
+          { $and: [{ expenseDate: { $exists: false } }, { createdAt: dateRangeFilter }] }
+        ]
+      } : {}).select("amount category").lean(),
 
       // Course-wise aggregations
       Enquiry.aggregate([
@@ -256,8 +303,22 @@ export async function GET(req: Request) {
     // 1. Process KPIs
     // 1. Process KPIs & Financial Summary
     let totalCollection = 0;
+    const paymentAdmissionIds = new Set<string>();
+
     totalPayments.forEach((p: any) => {
       totalCollection += Number(p.amountReceived || 0);
+      if (p.admissionId) paymentAdmissionIds.add(p.admissionId.toString());
+    });
+
+    const periodAdmissionsList = await Admission.find(admissionGlobalFilter).select("finalFee amountReceivedToday paidAmount remainingBalance _id").lean();
+
+    periodAdmissionsList.forEach((a: any) => {
+      if (!paymentAdmissionIds.has(a._id.toString())) {
+        const initPaid = Number(a.amountReceivedToday) || Math.max(0, Number(a.finalFee || 0) - Number(a.remainingBalance || 0));
+        if (initPaid > 0) {
+          totalCollection += initPaid;
+        }
+      }
     });
 
     let todayCollectionSum = 0;
@@ -276,10 +337,13 @@ export async function GET(req: Request) {
     });
 
     let totalBilledRevenue = 0;
-    admissionsList.forEach((a: any) => {
+    periodAdmissionsList.forEach((a: any) => {
       totalBilledRevenue += Number(a.finalFee || 0);
     });
     if (totalBilledRevenue === 0) totalBilledRevenue = totalCollection;
+
+    const displayRevenue = totalBilledRevenue;
+    const displayCollection = isFiltered ? totalCollection : monthlyCollectionSum;
 
     // Compute Payroll & Expenses Totals
     let totalPayrollSum = 0;
@@ -319,8 +383,8 @@ export async function GET(req: Request) {
     }
 
     const totalOutflow = totalPayrollSum + totalExpensesSum;
-    const netProfitNum = totalCollection - totalOutflow;
-    const profitMarginPct = totalCollection > 0 ? ((netProfitNum / totalCollection) * 100).toFixed(1) + "%" : "0%";
+    const netProfitNum = displayRevenue - totalOutflow;
+    const profitMarginPct = displayRevenue > 0 ? ((netProfitNum / displayRevenue) * 100).toFixed(1) + "%" : "0%";
 
     const totalLeadsCalculated = Math.max(totalLeads, admissionsTotal);
     const totalConvertedCalculated = Math.max(convertedLeadsCount, admissionsTotal);
@@ -338,13 +402,13 @@ export async function GET(req: Request) {
       newLeadsToday,
       followUpsToday,
       walkinsToday,
-      admissionsToday: isFiltered ? admissionsToday : admissionsTotal,
+      admissionsToday: isFiltered ? admissionsTotal : admissionsToday,
       lostLeadsToday: (Array.isArray(lostLeadsToday) ? lostLeadsToday : []).reduce((sum, item) => sum + (item.count || 0), 0),
       conversionRate,
-      revenue: formatLakhsOrRupees(totalBilledRevenue),
-      rawRevenue: totalBilledRevenue,
+      revenue: formatLakhsOrRupees(displayRevenue),
+      rawRevenue: displayRevenue,
       todayCollection: `₹${todayCollectionSum.toLocaleString("en-IN")}`,
-      monthlyCollection: formatLakhsOrRupees(monthlyCollectionSum),
+      monthlyCollection: formatLakhsOrRupees(displayCollection),
       emiOverdueCount: overdueAdmissions.length,
       emiOverdueAmount: formatLakhsOrRupees(totalOverdueAmount),
       pendingApprovals: hotLeads,

@@ -117,23 +117,45 @@ export async function GET(req: Request) {
       const lastPayment = paymentMap.get(admIdStr);
       const lastTask = taskMap.get(admIdStr);
 
-      // Determine next due date and pending amount
+      // Determine next due date and pending amount by reconciling customEmiPlan with total paid amount
       let dueDate: Date | null = null;
       let pendingAmount = Number(adm.remainingBalance) || 0;
+      const totalFee = Number(adm.finalFee || adm.totalFee || 0);
+      const paidAmount = Math.max(0, totalFee - pendingAmount);
 
       if (adm.customEmiPlan && Array.isArray(adm.customEmiPlan) && adm.customEmiPlan.length > 0) {
-        const unpaidInstallments = adm.customEmiPlan.filter((item: any) => !item.isPaid);
+        // Sort installments by due date ascending
+        const sortedPlan = [...adm.customEmiPlan].sort(
+          (a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+        );
+
+        let creditRemaining = paidAmount;
+        const unpaidInstallments: any[] = [];
+
+        for (const item of sortedPlan) {
+          const itemAmt = Number(item.amount) || 0;
+          if (item.isPaid || creditRemaining >= itemAmt) {
+            creditRemaining = Math.max(0, creditRemaining - itemAmt);
+          } else {
+            unpaidInstallments.push({
+              ...item,
+              effectiveDueAmount: Math.max(0, itemAmt - creditRemaining)
+            });
+            creditRemaining = 0;
+          }
+        }
+
         if (unpaidInstallments.length > 0) {
-          // Sort by due date ascending
-          unpaidInstallments.sort((a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
           dueDate = new Date(unpaidInstallments[0].dueDate);
-          pendingAmount = Number(unpaidInstallments[0].amount) || pendingAmount;
+          pendingAmount = unpaidInstallments[0].effectiveDueAmount || unpaidInstallments[0].amount || pendingAmount;
         }
       }
 
       if (!dueDate) {
         dueDate = adm.downpaymentDueDate
           ? new Date(adm.downpaymentDueDate)
+          : adm.admissionDate
+          ? new Date(adm.admissionDate)
           : adm.createdAt
           ? new Date(adm.createdAt)
           : now;

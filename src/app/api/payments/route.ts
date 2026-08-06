@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Payment from "@/models/Payment";
 import Admission from "@/models/Admission";
+import Task from "@/models/Task";
 import Company from "@/models/Company";
 import Brand from "@/models/Brand";
 import { getUserFromCookies } from "@/lib/helper";
@@ -50,20 +51,29 @@ export async function GET(req: Request) {
       s.setHours(0, 0, 0, 0);
       const e = new Date(endDateParam);
       e.setHours(23, 59, 59, 999);
-      query.createdAt = { $gte: s, $lte: e };
+      query.$or = [
+        { paymentDate: { $gte: s, $lte: e } },
+        { $and: [{ paymentDate: { $exists: false } }, { createdAt: { $gte: s, $lte: e } }] }
+      ];
     } else if (filterParam === "today") {
       const s = new Date();
       s.setHours(0, 0, 0, 0);
       const e = new Date();
       e.setHours(23, 59, 59, 999);
-      query.createdAt = { $gte: s, $lte: e };
+      query.$or = [
+        { paymentDate: { $gte: s, $lte: e } },
+        { $and: [{ paymentDate: { $exists: false } }, { createdAt: { $gte: s, $lte: e } }] }
+      ];
     } else if (filterParam === "thisMonth") {
       const now = new Date();
       const s = new Date(now.getFullYear(), now.getMonth(), 1);
       s.setHours(0, 0, 0, 0);
       const e = new Date(now.getFullYear(), now.getMonth() + 1, 0);
       e.setHours(23, 59, 59, 999);
-      query.createdAt = { $gte: s, $lte: e };
+      query.$or = [
+        { paymentDate: { $gte: s, $lte: e } },
+        { $and: [{ paymentDate: { $exists: false } }, { createdAt: { $gte: s, $lte: e } }] }
+      ];
     }
 
     const payments = await Payment.find(query)
@@ -229,12 +239,69 @@ export async function POST(req: Request) {
     });
     await payment.save();
 
-    // 3. Update the admission balance and last transaction details
-    admission.remainingBalance = Math.max(0, admission.remainingBalance - Number(amountReceived));
+    // 3. Update the admission balance, settle custom EMI plan installments, and update pending collection tasks
+    const receivedAmt = Number(amountReceived);
+    const newBalance = Math.max(0, admission.remainingBalance - receivedAmt);
+    admission.remainingBalance = newBalance;
+
     if (body.isDownpayment || particulars?.isDownpayment || particulars?.paymentCategory === "Down Payment" || (remarks && remarks.toLowerCase().includes("down payment"))) {
-      admission.downpaymentAmount = (Number(admission.downpaymentAmount) || 0) + Number(amountReceived);
+      admission.downpaymentAmount = (Number(admission.downpaymentAmount) || 0) + receivedAmt;
     }
+
+    // Synchronize custom EMI plan installments
+    if (Array.isArray(admission.customEmiPlan) && admission.customEmiPlan.length > 0) {
+      if (newBalance === 0) {
+        // Full fee paid off - mark all installments as paid
+        admission.customEmiPlan.forEach((item: any) => {
+          item.isPaid = true;
+          if (!item.paidDate) item.paidDate = new Date();
+        });
+      } else if (receivedAmt > 0) {
+        // Apply received payment chronologically against unpaid installments
+        let creditRemaining = receivedAmt;
+        for (const item of admission.customEmiPlan) {
+          if (creditRemaining <= 0) break;
+          if (!item.isPaid) {
+            const itemAmt = Number(item.amount) || 0;
+            if (creditRemaining >= itemAmt) {
+              item.isPaid = true;
+              item.paidDate = new Date();
+              creditRemaining -= itemAmt;
+            } else {
+              // Partial payment on this installment: reduce remaining amount due for this installment
+              item.amount = Math.max(0, itemAmt - creditRemaining);
+              creditRemaining = 0;
+            }
+          }
+        }
+      }
+    }
+
     await admission.save();
+
+    // Auto-complete open fee follow-up tasks if remaining balance is fully cleared
+    if (newBalance === 0) {
+      try {
+        await Task.updateMany(
+          {
+            $or: [
+              { linkedStudentId: admission._id.toString() },
+              { linkedStudentName: admission.fullName }
+            ],
+            taskType: { $in: ["Fee Follow-up", "Fee Collection", "EMI Recovery", "Follow-up"] },
+            status: { $in: ["Pending", "In Progress"] }
+          },
+          {
+            $set: {
+              status: "Completed",
+              completedAt: new Date()
+            }
+          }
+        );
+      } catch (taskErr) {
+        console.error("[Payment API] Error completing fee tasks:", taskErr);
+      }
+    }
 
     // 4. Dispatch Email Fee Receipt Notification (with official PDF attachment)
     try {

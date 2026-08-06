@@ -83,6 +83,14 @@ const UserSchema = new Schema(
     faceRegisteredAt: {
       type: Date,
     },
+    // Email OTP Authentication fields
+    otp: {
+      type: String,
+      trim: true,
+    },
+    otpExpiresAt: {
+      type: Date,
+    },
   },
   {
     timestamps: true,

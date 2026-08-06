@@ -550,18 +550,27 @@ export async function GET(req: Request) {
       sDate.setHours(0, 0, 0, 0);
       const eDate = new Date(endDateParam);
       eDate.setHours(23, 59, 59, 999);
-      query.createdAt = { $gte: sDate, $lte: eDate };
+      query.$or = [
+        { admissionDate: { $gte: sDate, $lte: eDate } },
+        { $and: [{ admissionDate: { $exists: false } }, { createdAt: { $gte: sDate, $lte: eDate } }] }
+      ];
     } else if (filterParam === "today") {
       const sDate = new Date();
       sDate.setHours(0, 0, 0, 0);
       const eDate = new Date();
       eDate.setHours(23, 59, 59, 999);
-      query.createdAt = { $gte: sDate, $lte: eDate };
+      query.$or = [
+        { admissionDate: { $gte: sDate, $lte: eDate } },
+        { $and: [{ admissionDate: { $exists: false } }, { createdAt: { $gte: sDate, $lte: eDate } }] }
+      ];
     } else if (filterParam === "thisMonth") {
       const now = new Date();
       const sDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
       const eDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-      query.createdAt = { $gte: sDate, $lte: eDate };
+      query.$or = [
+        { admissionDate: { $gte: sDate, $lte: eDate } },
+        { $and: [{ admissionDate: { $exists: false } }, { createdAt: { $gte: sDate, $lte: eDate } }] }
+      ];
     }
 
     const enquiryQuery: any = {};

@@ -207,6 +207,28 @@ export default function AdminAdmissionHub() {
               </svg>
               Import Historical Data (Excel)
             </button>
+            <button
+              onClick={async () => {
+                if (confirm("Do you want to run automatic repair on past admission dates for existing records in database?")) {
+                  try {
+                    const res = await fetch("/api/admin/fix-admission-dates");
+                    const data = await res.json();
+                    if (data.success) {
+                      alert(`Repair Completed! Updated ${data.updatedCount || 0} records with true historical admission dates.`);
+                      fetchAdmissions();
+                    } else {
+                      alert("Repair failed: " + data.message);
+                    }
+                  } catch (err) {
+                    alert("Failed to connect to repair API");
+                  }
+                }
+              }}
+              className="flex items-center gap-2 bg-white border border-amber-300 hover:border-amber-500 hover:bg-amber-50 text-amber-800 text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm whitespace-nowrap mt-1 cursor-pointer"
+              title="Automatically inspect payment dates, enquiry dates, and EMI plans to fix any past admission dates set to present system timestamp"
+            >
+              📅 Repair Past Admission Dates
+            </button>
           </header>
 
           {/* Student Search & Action Center */}
@@ -392,8 +414,7 @@ export default function AdminAdmissionHub() {
                           <div>
                             <p className="text-[10px] font-bold text-emerald-600/70 uppercase">Admission Date</p>
                             <p className="text-xs font-bold text-emerald-950">
-                              {admItem.admissionDate ||
-                                new Date(admItem.createdAt || Date.now()).toLocaleDateString("en-IN")}
+                              {new Date(admItem.admissionDate || admItem.createdAt || Date.now()).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
                             </p>
                           </div>
                           <div>
@@ -927,7 +948,7 @@ export default function AdminAdmissionHub() {
                         </td>
                         <td className="px-6 py-4">
                           <p className="text-sm font-bold text-slate-800">
-                            {new Date(adm.createdAt).toLocaleDateString("en-IN", {
+                            {new Date(adm.admissionDate || adm.createdAt).toLocaleDateString("en-IN", {
                               day: "2-digit",
                               month: "short",
                               year: "numeric",
