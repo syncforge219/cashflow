@@ -1441,6 +1441,7 @@ export default function AdminDashboard() {
         filterLabel={filterLabel}
         startDate={startDate}
         endDate={endDate}
+        brandScope={user?.brandScope}
       />
     </div>
   );

@@ -19,6 +19,28 @@ export default function PaymentBreakdownModal({
   endDate,
   brandScope,
 }: PaymentBreakdownModalProps) {
+  // Effective Brand Scope from prop OR localStorage
+  const userBrandScope = useMemo(() => {
+    if (brandScope && brandScope !== "all" && brandScope !== "All" && brandScope !== "All Brands") {
+      return brandScope;
+    }
+    if (typeof window !== "undefined") {
+      try {
+        const storedUser = localStorage.getItem("user");
+        const storedScope = localStorage.getItem("brandScope") || localStorage.getItem("userBrand");
+        if (storedUser) {
+          const u = JSON.parse(storedUser);
+          const b = u.brandScope || u.brand || u.assignedBrand;
+          if (b && b !== "All Brands" && b !== "All" && b !== "*" && b !== "global") return b;
+        }
+        if (storedScope && storedScope !== "All Brands" && storedScope !== "All" && storedScope !== "*") return storedScope;
+      } catch (e) {
+        console.error("Error reading user brand scope:", e);
+      }
+    }
+    return null;
+  }, [brandScope]);
+
   const [payments, setPayments] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -26,17 +48,26 @@ export default function PaymentBreakdownModal({
   const [selectedBrandFilter, setSelectedBrandFilter] = useState("All Brands");
 
   useEffect(() => {
+    if (userBrandScope) {
+      setSelectedBrandFilter(userBrandScope);
+    } else {
+      setSelectedBrandFilter("All Brands");
+    }
+  }, [userBrandScope, isOpen]);
+
+  useEffect(() => {
     if (isOpen) {
       fetchPaymentsData();
     }
-  }, [isOpen, startDate, endDate, filterLabel, brandScope]);
+  }, [isOpen, startDate, endDate, filterLabel, userBrandScope]);
 
   const fetchPaymentsData = async () => {
     setIsLoading(true);
     try {
       let queryParams = new URLSearchParams();
-      if (brandScope && brandScope !== "all" && brandScope !== "All Brands") {
-        queryParams.append("brand", brandScope);
+      const activeBrand = userBrandScope || (selectedBrandFilter !== "All Brands" ? selectedBrandFilter : null);
+      if (activeBrand) {
+        queryParams.append("brand", activeBrand);
       }
       if (startDate && endDate) {
         queryParams.append("startDate", startDate);

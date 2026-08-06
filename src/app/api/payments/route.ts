@@ -25,9 +25,10 @@ export async function GET(req: Request) {
     const userBrand = (user?.brandScope || (user as any)?.brand || "").trim();
     const isBrandRestricted = userBrand && userBrand !== "All Brands" && userBrand !== "All" && userBrand !== "*" && userBrand !== "global";
 
-    let query: any = {};
+    const andConditions: any[] = [];
+
     if (admissionId) {
-      query.admissionId = admissionId;
+      andConditions.push({ admissionId });
     }
 
     const targetBrand = brandParam && brandParam !== "All Brands" && brandParam !== "all" ? brandParam : isBrandRestricted ? userBrand : null;
@@ -40,10 +41,12 @@ export async function GET(req: Request) {
       const brandAdmissions = await Admission.find({ brand: { $in: regexArray } }).select("_id").lean();
       const brandAdmissionIds = brandAdmissions.map((a: any) => a._id);
 
-      query.$or = [
-        { brand: { $in: regexArray } },
-        { admissionId: { $in: brandAdmissionIds } }
-      ];
+      andConditions.push({
+        $or: [
+          { brand: { $in: regexArray } },
+          { admissionId: { $in: brandAdmissionIds } }
+        ]
+      });
     }
 
     if (startDateParam && endDateParam) {
@@ -51,35 +54,50 @@ export async function GET(req: Request) {
       s.setHours(0, 0, 0, 0);
       const e = new Date(endDateParam);
       e.setHours(23, 59, 59, 999);
-      query.$or = [
-        { paymentDate: { $gte: s, $lte: e } },
-        { $and: [{ paymentDate: { $exists: false } }, { createdAt: { $gte: s, $lte: e } }] }
-      ];
+      andConditions.push({
+        $or: [
+          { paymentDate: { $gte: s, $lte: e } },
+          { $and: [{ paymentDate: { $exists: false } }, { createdAt: { $gte: s, $lte: e } }] }
+        ]
+      });
     } else if (filterParam === "today") {
       const s = new Date();
       s.setHours(0, 0, 0, 0);
       const e = new Date();
       e.setHours(23, 59, 59, 999);
-      query.$or = [
-        { paymentDate: { $gte: s, $lte: e } },
-        { $and: [{ paymentDate: { $exists: false } }, { createdAt: { $gte: s, $lte: e } }] }
-      ];
+      andConditions.push({
+        $or: [
+          { paymentDate: { $gte: s, $lte: e } },
+          { $and: [{ paymentDate: { $exists: false } }, { createdAt: { $gte: s, $lte: e } }] }
+        ]
+      });
     } else if (filterParam === "thisMonth") {
       const now = new Date();
-      const s = new Date(now.getFullYear(), now.getMonth(), 1);
-      s.setHours(0, 0, 0, 0);
-      const e = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      e.setHours(23, 59, 59, 999);
-      query.$or = [
-        { paymentDate: { $gte: s, $lte: e } },
-        { $and: [{ paymentDate: { $exists: false } }, { createdAt: { $gte: s, $lte: e } }] }
-      ];
+      const s = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      const e = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      andConditions.push({
+        $or: [
+          { paymentDate: { $gte: s, $lte: e } },
+          { $and: [{ paymentDate: { $exists: false } }, { createdAt: { $gte: s, $lte: e } }] }
+        ]
+      });
     }
 
-    const payments = await Payment.find(query)
+    const query = andConditions.length > 0 ? { $and: andConditions } : {};
+
+    let payments = await Payment.find(query)
       .populate("admissionId", "fullName admissionId brand course batch counsellor mobileNumber remainingBalance finalFee admissionDate")
       .sort({ createdAt: -1 })
       .lean();
+
+    // Strict post-filtering to guarantee no cross-brand data leaks
+    if (targetBrand) {
+      const targetBrandsLower = targetBrand.split(",").map((b: string) => b.trim().toLowerCase()).filter(Boolean);
+      payments = payments.filter((p: any) => {
+        const pb = (p.brand || p.admissionId?.brand || "").trim().toLowerCase();
+        return targetBrandsLower.some((tb: string) => pb === tb || pb.includes(tb) || tb.includes(pb));
+      });
+    }
 
     return NextResponse.json({ success: true, data: payments });
   } catch (error: any) {
