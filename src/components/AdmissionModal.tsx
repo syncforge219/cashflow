@@ -406,6 +406,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
         setRegistrationAmount(0);
         setDownpaymentAmount(0);
         setDownpaymentDueDate("");
+        setPaymentDate(new Date().toISOString().split("T")[0]);
         setHasEmi(false);
         setNumInstallments(1);
         setInstallmentAmount(0);
@@ -914,7 +915,20 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
                 </h2>
               </div>
               <div className="p-6 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-slate-500 h-5 flex items-center">
+                      Payment Date <span className="text-rose-500 ml-1">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={paymentDate}
+                      onChange={(e) => setPaymentDate(e.target.value)}
+                      className="w-full h-11 px-4 rounded-xl border border-slate-200 text-sm font-semibold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white"
+                    />
+                  </div>
+
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-bold text-slate-500 h-5 flex items-center">
                       Payment Mode <span className="text-rose-500 ml-1">*</span>

@@ -64,6 +64,10 @@ const EnquirySchema = new Schema(
       type: String,
       default: "₹0",
     },
+    actualAdmissionFee: {
+      type: Number,
+      default: 0,
+    },
     priorityLevel: {
       type: String,
       default: "Medium",

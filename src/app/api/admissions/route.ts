@@ -251,6 +251,9 @@ export async function POST(req: NextRequest) {
       const enqs = await Enquiry.find(enqFilter);
       for (const enq of enqs) {
         cancelUncompletedFollowUps(enq);
+        (enq as any).actualAdmissionFee = Number(admission.finalFee || admission.courseFee || 0);
+        (enq as any).status = "Admitted";
+        (enq as any).isAdmitted = true;
         await enq.save();
         matchedEnquiryIds.push(enq._id.toString());
       }
@@ -270,6 +273,9 @@ export async function POST(req: NextRequest) {
         const matchingEnquiries = await Enquiry.find(queryFilter);
         for (const enq of matchingEnquiries) {
           cancelUncompletedFollowUps(enq);
+          (enq as any).actualAdmissionFee = Number(admission.finalFee || admission.courseFee || 0);
+          (enq as any).status = "Admitted";
+          (enq as any).isAdmitted = true;
           await enq.save();
           if (!matchedEnquiryIds.includes(enq._id.toString())) {
             matchedEnquiryIds.push(enq._id.toString());
@@ -340,8 +346,8 @@ export async function POST(req: NextRequest) {
         referenceNo: data.transactionNo || "N/A",
         company: finalCompany,
         brand: data.brand,
-        // Use the actual admissionDate as the paymentDate so back-dated admissions are counted in the correct month
-        paymentDate: admission.admissionDate || data.admissionDate ? new Date(admission.admissionDate || data.admissionDate) : (data.paymentDate ? new Date(data.paymentDate) : new Date()),
+        // Use explicitly entered paymentDate if provided, otherwise fallback to admissionDate
+        paymentDate: data.paymentDate ? new Date(data.paymentDate) : (admission.admissionDate || data.admissionDate ? new Date(admission.admissionDate || data.admissionDate) : new Date()),
         particulars: {
           courseFeeDue: 0,
           registrationFeeDue: Number(data.registrationAmount || 0),

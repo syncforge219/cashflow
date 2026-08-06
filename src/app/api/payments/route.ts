@@ -343,3 +343,74 @@ export async function POST(req: Request) {
     );
   }
 }
+
+export async function PATCH(req: Request) {
+  try {
+    await dbConnect();
+    const { searchParams } = new URL(req.url);
+    const body = await req.json();
+    const id = body.id || body._id || searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, message: "Payment ID is required." },
+        { status: 400 }
+      );
+    }
+
+    const existingPayment = await Payment.findById(id);
+    if (!existingPayment) {
+      return NextResponse.json(
+        { success: false, message: "Payment record not found." },
+        { status: 404 }
+      );
+    }
+
+    const oldAmount = Number(existingPayment.amountReceived) || 0;
+
+    if (body.paymentDate) {
+      existingPayment.paymentDate = new Date(body.paymentDate);
+    }
+    if (body.paymentMode) {
+      existingPayment.paymentMode = body.paymentMode;
+    }
+    if (body.referenceNo !== undefined) {
+      existingPayment.referenceNo = body.referenceNo;
+    }
+    if (body.remarks !== undefined) {
+      existingPayment.remarks = body.remarks;
+    }
+    if (body.company !== undefined) {
+      existingPayment.company = body.company;
+    }
+
+    if (body.amountReceived !== undefined && !isNaN(Number(body.amountReceived))) {
+      existingPayment.amountReceived = Number(body.amountReceived);
+    }
+
+    await existingPayment.save();
+
+    // Sync admission remaining balance if amount changed
+    const newAmount = Number(existingPayment.amountReceived) || 0;
+    const diff = newAmount - oldAmount;
+    if (diff !== 0 && existingPayment.admissionId) {
+      const admission = await Admission.findById(existingPayment.admissionId);
+      if (admission) {
+        admission.remainingBalance = Math.max(0, (Number(admission.remainingBalance) || 0) - diff);
+        await admission.save();
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Payment updated successfully",
+      data: existingPayment,
+    });
+  } catch (error: any) {
+    console.error("Error updating payment:", error);
+    return NextResponse.json(
+      { success: false, message: error.message || "Failed to update payment" },
+      { status: 500 }
+    );
+  }
+}

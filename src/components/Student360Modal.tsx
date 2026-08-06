@@ -66,6 +66,78 @@ export default function Student360Modal({
   const [upgradeDiscount, setUpgradeDiscount] = useState<number | string>(0);
   const [isSubmittingUpgrade, setIsSubmittingUpgrade] = useState(false);
 
+  // Edit Payment State & Handlers
+  const [editingPayment, setEditingPayment] = useState<any>(null);
+  const [editPaymentForm, setEditPaymentForm] = useState<{
+    paymentDate: string;
+    paymentMode: string;
+    amountReceived: string | number;
+    referenceNo: string;
+    remarks: string;
+  }>({
+    paymentDate: "",
+    paymentMode: "Cash",
+    amountReceived: "",
+    referenceNo: "",
+    remarks: "",
+  });
+  const [isSavingPaymentEdit, setIsSavingPaymentEdit] = useState(false);
+
+  const handleOpenEditPayment = (payment: any) => {
+    setEditingPayment(payment);
+    const dateVal = payment.paymentDate
+      ? new Date(payment.paymentDate).toISOString().slice(0, 10)
+      : payment.createdAt
+      ? new Date(payment.createdAt).toISOString().slice(0, 10)
+      : "";
+    setEditPaymentForm({
+      paymentDate: dateVal,
+      paymentMode: payment.paymentMode || "Cash",
+      amountReceived: payment.amountReceived || 0,
+      referenceNo: payment.referenceNo || "",
+      remarks: payment.remarks || "",
+    });
+  };
+
+  const handleSaveEditPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPayment) return;
+    setIsSavingPaymentEdit(true);
+
+    try {
+      const res = await fetch("/api/payments", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingPayment._id,
+          ...editPaymentForm,
+        }),
+      });
+
+      const resText = await res.text();
+      let json: any = null;
+      try {
+        json = JSON.parse(resText);
+      } catch (_) {
+        console.error("Non-JSON API response from /api/payments:", resText);
+      }
+
+      if (json && json.success) {
+        setEditingPayment(null);
+        if (admissionId) fetchStudentDetails(admissionId);
+        if (onRefresh) onRefresh();
+      } else {
+        alert(json?.message || "Failed to update payment record.");
+      }
+    } catch (err: any) {
+      console.error("Error updating payment:", err);
+      alert("Error updating payment record: " + (err.message || err));
+    } finally {
+      setIsSavingPaymentEdit(false);
+    }
+  };
+
+
   const parseFeeNumber = (val: any): number => {
     if (val === undefined || val === null) return 0;
     if (typeof val === "number") return isNaN(val) ? 0 : val;
@@ -1397,13 +1469,23 @@ export default function Student360Modal({
                                   ₹{(p.amountReceived || 0).toLocaleString("en-IN")}
                                 </td>
                                 <td className="text-right">
-                                  <button
-                                    type="button"
-                                    onClick={() => openReceiptModal(p)}
-                                    className="px-3 py-1 bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white font-extrabold text-[11px] rounded-lg border border-indigo-200/80 transition-all cursor-pointer shadow-xs"
-                                  >
-                                    View / Print Slip
-                                  </button>
+                                  <div className="flex items-center justify-end gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenEditPayment(p)}
+                                      className="px-2.5 py-1 bg-amber-50 hover:bg-amber-600 text-amber-700 hover:text-white font-extrabold text-[11px] rounded-lg border border-amber-200/80 transition-all cursor-pointer shadow-xs flex items-center gap-1"
+                                      title="Edit Payment Record"
+                                    >
+                                      ✏️ Edit
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => openReceiptModal(p)}
+                                      className="px-3 py-1 bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white font-extrabold text-[11px] rounded-lg border border-indigo-200/80 transition-all cursor-pointer shadow-xs"
+                                    >
+                                      View / Print Slip
+                                    </button>
+                                  </div>
                                 </td>
                               </tr>
                             ))}
@@ -1713,6 +1795,123 @@ export default function Student360Modal({
                   className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-orange-500/20 transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                 >
                   <span>{isSubmittingUpgrade ? "Enrolling Upgrade..." : "⚡ Upgrade & Register Course"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT PAYMENT MODAL */}
+      {editingPayment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden font-sans">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-amber-600 to-orange-600 px-6 py-4 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <span className="text-xl">✏️</span>
+                <div>
+                  <h3 className="font-extrabold text-sm tracking-tight">Edit Payment Record</h3>
+                  <p className="text-[11px] text-amber-100 font-mono">Receipt: {editingPayment.receiptNo || "N/A"}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingPayment(null)}
+                className="text-amber-100 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors text-lg cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSaveEditPayment} className="p-6 space-y-4 text-xs font-semibold text-slate-700">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Payment Date
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={editPaymentForm.paymentDate}
+                  onChange={(e) => setEditPaymentForm({ ...editPaymentForm, paymentDate: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Payment Mode
+                </label>
+                <select
+                  value={editPaymentForm.paymentMode}
+                  onChange={(e) => setEditPaymentForm({ ...editPaymentForm, paymentMode: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white cursor-pointer"
+                >
+                  <option value="Cash">Cash</option>
+                  <option value="UPI">UPI</option>
+                  <option value="Bank Transfer">Bank Transfer</option>
+                  <option value="Cheque">Cheque</option>
+                  <option value="Card">Credit/Debit Card</option>
+                  <option value="Online">Online Payment</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Amount Received (₹)
+                </label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  value={editPaymentForm.amountReceived}
+                  onChange={(e) => setEditPaymentForm({ ...editPaymentForm, amountReceived: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl font-black text-emerald-600 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Transaction / Reference No
+                </label>
+                <input
+                  type="text"
+                  value={editPaymentForm.referenceNo}
+                  onChange={(e) => setEditPaymentForm({ ...editPaymentForm, referenceNo: e.target.value })}
+                  placeholder="e.g. UTR / Txn ID / Cheque No"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Remarks / Notes
+                </label>
+                <input
+                  type="text"
+                  value={editPaymentForm.remarks}
+                  onChange={(e) => setEditPaymentForm({ ...editPaymentForm, remarks: e.target.value })}
+                  placeholder="Optional payment notes"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingPayment(null)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingPaymentEdit}
+                  className="px-5 py-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {isSavingPaymentEdit ? "Saving..." : "Save Changes"}
                 </button>
               </div>
             </form>

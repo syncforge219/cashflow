@@ -69,12 +69,42 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
   const [demoConversionChance, setDemoConversionChance] = useState("High");
   const [demoLeadStatus, setDemoLeadStatus] = useState("Demo Attended");
   const [isSubmittingDemoAttendance, setIsSubmittingDemoAttendance] = useState(false);
+  const [actualAdmissionFee, setActualAdmissionFee] = useState<number | string | null>(null);
 
   useEffect(() => {
     setLocalLead(lead);
     if (defaultOpenTaskModal) {
       setIsAddTaskModalOpen(true);
       setActiveTab("Follow-ups Tasker");
+    }
+
+    if (lead) {
+      if (lead.actualAdmissionFee !== undefined && lead.actualAdmissionFee !== null && lead.actualAdmissionFee > 0) {
+        setActualAdmissionFee(lead.actualAdmissionFee);
+      } else {
+        const phone = lead.primaryPhoneMobile || lead.mobileNumber;
+        const enqId = lead._id || lead.enquiryId;
+        if (phone || enqId) {
+          const searchQ = phone ? phone.replace(/\D/g, "").slice(-10) : String(enqId);
+          if (searchQ && searchQ.length > 2) {
+            fetch(`/api/admissions/search?q=${encodeURIComponent(searchQ)}`)
+              .then((res) => res.json())
+              .then((data) => {
+                if (data.data && Array.isArray(data.data) && data.data.length > 0) {
+                  const match = data.data.find(
+                    (adm: any) =>
+                      (adm.enquiryId && String(adm.enquiryId) === String(enqId)) ||
+                      (adm.mobileNumber && phone && adm.mobileNumber.replace(/\D/g, "").slice(-10) === phone.replace(/\D/g, "").slice(-10))
+                  ) || data.data[0];
+                  if (match && (match.finalFee !== undefined || match.courseFee !== undefined)) {
+                    setActualAdmissionFee(match.finalFee !== undefined ? match.finalFee : match.courseFee);
+                  }
+                }
+              })
+              .catch((err) => console.error("Error fetching actual admission fee:", err));
+          }
+        }
+      }
     }
   }, [lead, defaultOpenTaskModal]);
 
@@ -843,15 +873,37 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
                         </div>
                       </div>
 
-                      <div className="flex items-start gap-3">
-                        <div className="mt-0.5 text-emerald-500">
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4.5 h-4.5">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.306a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" />
-                          </svg>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5 text-emerald-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4.5 h-4.5">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.306a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" />
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-semibold text-slate-400">Expected Conversion Fee</p>
+                            <p className="text-sm font-extrabold text-emerald-600">{fee}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-[10px] font-semibold text-slate-400">Expected Conversion Fee</p>
-                          <p className="text-sm font-extrabold text-emerald-600">{fee}</p>
+
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5 text-indigo-600">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4.5 h-4.5">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-semibold text-slate-400">Actual Admission Fee</p>
+                            {actualAdmissionFee !== null ? (
+                              <p className="text-sm font-extrabold text-indigo-600">
+                                ₹{Number(actualAdmissionFee).toLocaleString("en-IN")}
+                              </p>
+                            ) : (
+                              <p className="text-xs font-bold text-slate-400">
+                                {localLead?.status === "Admitted" || localLead?.isAdmitted ? "Loading..." : "N/A (Not Admitted)"}
+                              </p>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>

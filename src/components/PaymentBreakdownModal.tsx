@@ -293,8 +293,9 @@ export default function PaymentBreakdownModal({
                     const brandName = p.brand || p.admissionId?.brand || "CADD Mantra";
                     const courseName = p.admissionId?.course || "N/A";
                     const amount = Number(p.amountReceived) || 0;
-                    const dateStr = p.createdAt || p.paymentDate
-                      ? new Date(p.createdAt || p.paymentDate).toLocaleDateString("en-IN", {
+                    const payDateVal = p.paymentDate || p.createdAt;
+                    const dateStr = payDateVal
+                      ? new Date(payDateVal).toLocaleDateString("en-IN", {
                           day: "numeric",
                           month: "short",
                           year: "numeric",
