@@ -303,23 +303,13 @@ export async function GET(req: Request) {
     // 1. Process KPIs
     // 1. Process KPIs & Financial Summary
     let totalCollection = 0;
-    const paymentAdmissionIds = new Set<string>();
 
     totalPayments.forEach((p: any) => {
       totalCollection += Number(p.amountReceived || 0);
-      if (p.admissionId) paymentAdmissionIds.add(p.admissionId.toString());
     });
 
+    // Fetch admissions for billed revenue calculation only (NOT for collection — Payment records are the authoritative source)
     const periodAdmissionsList = await Admission.find(admissionGlobalFilter).select("finalFee amountReceivedToday paidAmount remainingBalance _id").lean();
-
-    periodAdmissionsList.forEach((a: any) => {
-      if (!paymentAdmissionIds.has(a._id.toString())) {
-        const initPaid = Number(a.amountReceivedToday) || Math.max(0, Number(a.finalFee || 0) - Number(a.remainingBalance || 0));
-        if (initPaid > 0) {
-          totalCollection += initPaid;
-        }
-      }
-    });
 
     let todayCollectionSum = 0;
     todayPayments.forEach((p: any) => {
