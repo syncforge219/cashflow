@@ -119,16 +119,17 @@ export default function PaymentBreakdownModal({
 
   const exportToCSV = () => {
     if (filteredPayments.length === 0) return;
-    const headers = ["Receipt #", "Student Name", "Admission ID", "Brand", "Course", "Amount Paid (₹)", "Payment Mode", "Payment Date", "Company"];
+    const headers = ["Receipt #", "Student Name", "Admission ID", "Admission Date", "Brand", "Course", "Amount Paid (₹)", "Payment Mode", "Payment Date", "Company"];
     const rows = filteredPayments.map((p) => [
       p.receiptNo || "N/A",
       p.studentName || p.admissionId?.fullName || "N/A",
       p.admissionId?.admissionId || "N/A",
+      p.admissionId?.admissionDate ? new Date(p.admissionId.admissionDate).toLocaleDateString("en-IN") : "N/A",
       p.brand || p.admissionId?.brand || "N/A",
       p.admissionId?.course || "N/A",
       p.amountReceived || 0,
       p.paymentMode || "N/A",
-      p.createdAt ? new Date(p.createdAt).toLocaleDateString("en-IN") : "N/A",
+      p.paymentDate ? new Date(p.paymentDate).toLocaleDateString("en-IN") : (p.createdAt ? new Date(p.createdAt).toLocaleDateString("en-IN") : "N/A"),
       p.company || "N/A"
     ]);
 
@@ -277,6 +278,7 @@ export default function PaymentBreakdownModal({
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold uppercase tracking-wider text-slate-500">
                     <th className="py-3 px-4">Student & Admission</th>
+                    <th className="py-3 px-4">Admission Date</th>
                     <th className="py-3 px-4">Brand & Course</th>
                     <th className="py-3 px-4">Amount Paid</th>
                     <th className="py-3 px-4">Payment Mode & Receipt</th>
@@ -317,6 +319,21 @@ export default function PaymentBreakdownModal({
                               </span>
                             </div>
                           </div>
+                        </td>
+
+                        {/* Admission Date */}
+                        <td className="py-3.5 px-4">
+                          {p.admissionId?.admissionDate ? (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-violet-700 bg-violet-50 px-2 py-0.5 rounded-lg border border-violet-100">
+                              🎓 {new Date(p.admissionId.admissionDate).toLocaleDateString("en-IN", {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              })}
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-slate-400">—</span>
+                          )}
                         </td>
 
                         {/* Brand & Course */}
