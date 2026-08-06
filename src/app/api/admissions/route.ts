@@ -340,7 +340,8 @@ export async function POST(req: NextRequest) {
         referenceNo: data.transactionNo || "N/A",
         company: finalCompany,
         brand: data.brand,
-        paymentDate: admission.paymentDate || new Date(),
+        // Use the actual admissionDate as the paymentDate so back-dated admissions are counted in the correct month
+        paymentDate: admission.admissionDate || data.admissionDate ? new Date(admission.admissionDate || data.admissionDate) : (data.paymentDate ? new Date(data.paymentDate) : new Date()),
         particulars: {
           courseFeeDue: 0,
           registrationFeeDue: Number(data.registrationAmount || 0),
