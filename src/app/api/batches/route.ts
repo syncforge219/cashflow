@@ -10,9 +10,10 @@ export async function GET(request: Request) {
     const user = await getUserFromCookies();
     const { searchParams } = new URL(request.url);
     let brand = searchParams.get("brand");
-    const teacherId = searchParams.get("teacherId");
+    let teacherId = searchParams.get("teacherId");
     const status = searchParams.get("status");
     const course = searchParams.get("course");
+    const all = searchParams.get("all");
 
     const userBrand = (user?.brandScope || (user as any)?.brand || "").trim();
     const isBrandRestricted = userBrand && userBrand !== "All Brands" && userBrand !== "All" && userBrand !== "*" && userBrand !== "global";
@@ -21,19 +22,47 @@ export async function GET(request: Request) {
       brand = userBrand;
     }
 
+    // Automatically restrict to logged-in teacher's batches if role is teacher/faculty and all!=true
+    if (!teacherId && user && (user.role === "teacher" || user.role === "faculty") && all !== "true") {
+      teacherId = user._id ? user._id.toString() : ((user as any)?.id || "");
+    }
+
     const query: any = {};
     if (brand && brand !== "All Brands" && brand !== "All") {
       query.brand = { $regex: new RegExp(`^${brand.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") };
     }
+
     if (teacherId) {
-      query.teacherId = teacherId;
+      let teacherName = user?.name;
+      if (user?._id?.toString() !== teacherId && (user as any)?.id !== teacherId) {
+        try {
+          const teacherUser = await User.findById(teacherId).lean();
+          if (teacherUser) teacherName = teacherUser.name;
+        } catch (_) {}
+      }
+
+      const teacherOrConditions: any[] = [{ teacherId: teacherId }];
+      if (teacherName) {
+        teacherOrConditions.push({
+          teacherName: { $regex: new RegExp(`^${teacherName.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") }
+        });
+      }
+      query.$or = teacherOrConditions;
     }
+
     if (status && status !== "All Status") {
       query.status = status;
     }
+
     if (course) {
       const cRegex = new RegExp(course.trim(), "i");
-      query.$or = [{ course: { $regex: cRegex } }, { courses: { $regex: cRegex } }];
+      const courseQuery = [{ course: { $regex: cRegex } }, { courses: { $regex: cRegex } }];
+      if (query.$or) {
+        query.$and = [{ $or: query.$or }, { $or: courseQuery }];
+        delete query.$or;
+      } else {
+        query.$or = courseQuery;
+      }
     }
 
     const batches = await Batch.find(query).sort({ createdAt: -1 }).lean();

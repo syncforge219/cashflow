@@ -24,13 +24,27 @@ export default function TeacherBatchesPage() {
   const fetchData = async () => {
     try {
       setIsLoadingStudents(true);
+      const userId = user?._id || user?.id;
+      const userName = (user?.name || "").trim().toLowerCase();
+      const batchesUrl = userId ? `/api/batches?teacherId=${userId}` : "/api/batches";
+
       const [batchesRes, admissionsRes] = await Promise.all([
-        fetch("/api/batches").then((r) => r.json().catch(() => ({}))),
+        fetch(batchesUrl).then((r) => r.json().catch(() => ({}))),
         fetch("/api/admissions").then((r) => r.json().catch(() => ({}))),
       ]);
 
       const fetchedBatches = batchesRes.success ? (batchesRes.data || batchesRes.batches || []) : [];
-      setBatches(fetchedBatches);
+
+      // Filter batches to only show those assigned to the current logged-in teacher
+      const teacherBatches = fetchedBatches.filter((b: any) => {
+        if (!userId && !userName) return true;
+        const bTeacherId = b.teacherId ? String(b.teacherId._id || b.teacherId.id || b.teacherId) : "";
+        const idMatch = Boolean(userId && bTeacherId && bTeacherId === String(userId));
+        const nameMatch = Boolean(userName && b.teacherName && b.teacherName.trim().toLowerCase().includes(userName));
+        return idMatch || nameMatch;
+      });
+
+      setBatches(teacherBatches);
 
       const fetchedAdmissions = admissionsRes.success ? (admissionsRes.data || admissionsRes.admissions || []) : [];
       

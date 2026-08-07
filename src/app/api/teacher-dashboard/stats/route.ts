@@ -56,13 +56,18 @@ export async function GET(req: Request) {
     const teacherBatches = allBatches.filter((b: any) => {
       const idMatch = teacherIdStr && b.teacherId && b.teacherId.toString() === teacherIdStr;
       const nameMatch = teacherNameLower && (b.teacherName || "").toLowerCase().includes(teacherNameLower);
+      const isAssigned = Boolean(idMatch || nameMatch);
+
       const brandMatch =
         !userBrandScope ||
         userBrandScope === "all" ||
         userBrandScope === "all brands" ||
         (b.brand || "").toLowerCase().trim() === userBrandScope;
 
-      return idMatch || nameMatch || brandMatch;
+      if (teacherIdStr || teacherNameLower) {
+        return isAssigned && brandMatch;
+      }
+      return brandMatch;
     });
 
     const teacherBatchNames = teacherBatches.map((b: any) => b.batchName);
