@@ -66,6 +66,24 @@ export default function Student360Modal({
   const [upgradeDiscount, setUpgradeDiscount] = useState<number | string>(0);
   const [isSubmittingUpgrade, setIsSubmittingUpgrade] = useState(false);
 
+  // Dynamic Batches State for Searchable Batch Dropdown
+  const [availableBatches, setAvailableBatches] = useState<any[]>([]);
+  const [isBatchDropdownOpen, setIsBatchDropdownOpen] = useState(false);
+  const [batchSearchQuery, setBatchSearchQuery] = useState("");
+
+  useEffect(() => {
+    if (isOpen) {
+      fetch("/api/batches?all=true")
+        .then((r) => r.json())
+        .then((json) => {
+          if (json.success && (json.data || json.batches)) {
+            setAvailableBatches(json.data || json.batches || []);
+          }
+        })
+        .catch((err) => console.error("Failed to load batches for 360 modal:", err));
+    }
+  }, [isOpen]);
+
   // Edit Payment State & Handlers
   const [editingPayment, setEditingPayment] = useState<any>(null);
   const [editPaymentForm, setEditPaymentForm] = useState<{
@@ -1076,12 +1094,121 @@ export default function Student360Modal({
                     <div>
                       <label className="block text-slate-500 font-bold mb-1">Assigned Batch</label>
                       {isEditMode ? (
-                        <input
-                          type="text"
-                          value={formData.batch}
-                          onChange={(e) => setFormData({ ...formData, batch: e.target.value })}
-                          className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-slate-900 font-bold shadow-xs"
-                        />
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={() => setIsBatchDropdownOpen(!isBatchDropdownOpen)}
+                            className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-slate-900 font-bold shadow-xs text-left flex items-center justify-between cursor-pointer"
+                          >
+                            <span className="truncate">
+                              {formData.batch ? formData.batch : "Select or Search Batch..."}
+                            </span>
+                            <span className="text-slate-400 text-xs ml-2">▼</span>
+                          </button>
+
+                          {isBatchDropdownOpen && (
+                            <div className="absolute z-50 left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-xl p-2.5 space-y-2 animate-in fade-in zoom-in-95 duration-150 max-h-72 flex flex-col">
+                              {/* Search Input Bar inside Dropdown */}
+                              <div className="relative shrink-0">
+                                <span className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400 text-xs">
+                                  🔍
+                                </span>
+                                <input
+                                  type="text"
+                                  value={batchSearchQuery}
+                                  onChange={(e) => setBatchSearchQuery(e.target.value)}
+                                  placeholder="Type to search batch name..."
+                                  className="w-full pl-8 pr-3 py-1.5 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                                  autoFocus
+                                />
+                              </div>
+
+                              {/* Options List */}
+                              <div className="overflow-y-auto max-h-48 space-y-1 custom-scrollbar">
+                                <div
+                                  onClick={() => {
+                                    setFormData({ ...formData, batch: "Unassigned" });
+                                    setIsBatchDropdownOpen(false);
+                                    setBatchSearchQuery("");
+                                  }}
+                                  className={`p-2 rounded-xl text-xs font-extrabold cursor-pointer transition-colors flex items-center justify-between ${
+                                    formData.batch === "Unassigned" ? "bg-amber-50 text-amber-800" : "hover:bg-slate-50 text-slate-700"
+                                  }`}
+                                >
+                                  <span>⚠️ Unassigned (No Batch)</span>
+                                  {formData.batch === "Unassigned" && <span>✓</span>}
+                                </div>
+
+                                <div
+                                  onClick={() => {
+                                    setFormData({ ...formData, batch: "General Batch" });
+                                    setIsBatchDropdownOpen(false);
+                                    setBatchSearchQuery("");
+                                  }}
+                                  className={`p-2 rounded-xl text-xs font-extrabold cursor-pointer transition-colors flex items-center justify-between ${
+                                    formData.batch === "General Batch" ? "bg-indigo-50 text-indigo-800" : "hover:bg-slate-50 text-slate-700"
+                                  }`}
+                                >
+                                  <span>⚡ General Batch</span>
+                                  {formData.batch === "General Batch" && <span>✓</span>}
+                                </div>
+
+                                {/* Dynamic Batches from Database */}
+                                {availableBatches
+                                  .filter((b: any) => {
+                                    if (!batchSearchQuery.trim()) return true;
+                                    const q = batchSearchQuery.toLowerCase().trim();
+                                    return (
+                                      (b.batchName || "").toLowerCase().includes(q) ||
+                                      (b.course || "").toLowerCase().includes(q) ||
+                                      (b.teacherName || "").toLowerCase().includes(q)
+                                    );
+                                  })
+                                  .map((b: any) => {
+                                    const bName = b.batchName;
+                                    const isSelected = formData.batch === bName;
+
+                                    return (
+                                      <div
+                                        key={b._id || bName}
+                                        onClick={() => {
+                                          setFormData({ ...formData, batch: bName });
+                                          setIsBatchDropdownOpen(false);
+                                          setBatchSearchQuery("");
+                                        }}
+                                        className={`p-2 rounded-xl text-xs font-bold cursor-pointer transition-colors flex items-center justify-between ${
+                                          isSelected ? "bg-indigo-600 text-white" : "hover:bg-indigo-50 text-slate-800"
+                                        }`}
+                                      >
+                                        <div>
+                                          <span className="block font-extrabold">{bName}</span>
+                                          <span className={`text-[10px] ${isSelected ? "text-indigo-100" : "text-slate-400"}`}>
+                                            {b.course ? `Course: ${b.course}` : ""} {b.timing ? `| ${b.timing}` : ""} {b.teacherName ? `| ${b.teacherName}` : ""}
+                                          </span>
+                                        </div>
+                                        {isSelected && <span className="font-black">✓</span>}
+                                      </div>
+                                    );
+                                  })}
+
+                                {/* Custom Input Option */}
+                                {batchSearchQuery.trim() &&
+                                  !availableBatches.some((b: any) => (b.batchName || "").toLowerCase() === batchSearchQuery.toLowerCase().trim()) && (
+                                    <div
+                                      onClick={() => {
+                                        setFormData({ ...formData, batch: batchSearchQuery.trim() });
+                                        setIsBatchDropdownOpen(false);
+                                        setBatchSearchQuery("");
+                                      }}
+                                      className="p-2 rounded-xl text-xs font-extrabold text-indigo-600 hover:bg-indigo-50 cursor-pointer border border-dashed border-indigo-200"
+                                    >
+                                      ➕ Use custom batch: "{batchSearchQuery.trim()}"
+                                    </div>
+                                  )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       ) : (
                         <div className="p-3 bg-slate-50 rounded-xl font-bold text-slate-800 border border-slate-200/70">{studentData?.batch || "-"}</div>
                       )}
