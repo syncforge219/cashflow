@@ -526,6 +526,7 @@ export async function GET(req: Request) {
     const startDateParam = searchParams.get("startDate");
     const endDateParam = searchParams.get("endDate");
     const filterParam = searchParams.get("filter");
+    const batchParam = searchParams.get("batch");
 
     const userBrand = (user?.brandScope || (user as any)?.brand || "").trim();
     const isBrandRestricted = userBrand && userBrand !== "All Brands" && userBrand !== "All" && userBrand !== "*" && userBrand !== "global";
@@ -550,6 +551,10 @@ export async function GET(req: Request) {
 
     if (brand && brand !== "all" && brand !== "All" && brand !== "All Brands") {
       query.brand = { $regex: new RegExp(`^${brand.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") };
+    }
+
+    if (batchParam) {
+      query.batch = { $regex: new RegExp(`^${batchParam.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") };
     }
 
     if (startDateParam && endDateParam) {

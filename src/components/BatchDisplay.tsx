@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import AddBatchModal from "./AddBatchModal";
 import EditBatchModal from "./EditBatchModal";
 import DeleteConfirmModal from "./DeleteConfirmModal";
+import BatchStudentsModal from "./BatchStudentsModal";
 import { useUser } from "@/app/component/context/user-context";
 
 export default function BatchDisplay() {
@@ -13,6 +14,7 @@ export default function BatchDisplay() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingBatch, setEditingBatch] = useState<any | null>(null);
   const [batchToDelete, setBatchToDelete] = useState<any | null>(null);
+  const [viewRosterBatch, setViewRosterBatch] = useState<any | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -231,9 +233,18 @@ export default function BatchDisplay() {
                 filteredBatches.map((batch, idx) => (
                   <tr key={batch._id || idx} className="hover:bg-slate-50/60 transition-colors">
                     <td className="py-4 px-6 font-bold text-slate-800">
-                      <div className="flex items-center gap-2">
-                        <span className="h-2 w-2 rounded-full bg-indigo-600"></span>
-                        <span>{batch.batchName}</span>
+                      <div
+                        onClick={() => setViewRosterBatch(batch)}
+                        className="flex items-center gap-2 cursor-pointer group"
+                        title="Click to view admitted students in this batch"
+                      >
+                        <span className="h-2.5 w-2.5 rounded-full bg-indigo-600 group-hover:scale-125 transition-transform"></span>
+                        <span className="group-hover:text-indigo-600 group-hover:underline transition-colors">
+                          {batch.batchName}
+                        </span>
+                        <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-md px-1.5 py-0.5 opacity-90 group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                          👥 View Students
+                        </span>
                       </div>
                       {batch.days && batch.days.length > 0 && (
                         <div className="text-[10px] text-slate-400 font-medium mt-0.5">
@@ -336,6 +347,14 @@ export default function BatchDisplay() {
         description={`Are you sure you want to delete ${batchToDelete?.batchName}? This action cannot be undone.`}
         isLoading={isDeleting}
       />
+
+      {/* Batch Students Roster Modal */}
+      <BatchStudentsModal
+        isOpen={!!viewRosterBatch}
+        onClose={() => setViewRosterBatch(null)}
+        batch={viewRosterBatch}
+      />
     </div>
   );
 }
+
