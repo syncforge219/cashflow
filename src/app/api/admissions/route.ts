@@ -382,6 +382,7 @@ export async function POST(req: NextRequest) {
         admissionNumber: admission.admissionId || admission._id?.toString(),
         courseName: admission.course,
         brandName: admission.brand,
+        batchName: admission.batch || data.batch || "Regular Batch",
         counsellorName: admission.counsellor || data.counsellor || "Advisor",
         amountPaid: initialCollectedAmount,
         registrationAmount: Number(data.registrationAmount || 0),

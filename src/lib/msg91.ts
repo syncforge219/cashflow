@@ -1963,6 +1963,7 @@ export interface SuperAdminAdmissionAlertParams {
   admissionNumber?: string | null;
   courseName?: string | null;
   brandName?: string | null;
+  batchName?: string | null;
   counsellorName?: string | null;
   amountPaid?: number | string | null;
   registrationAmount?: number | string | null;
@@ -1982,9 +1983,9 @@ export interface SuperAdminAdmissionAlertParams {
  *   body_2: admissionnumber
  *   body_3: cousername
  *   body_4: brandname
- *   body_5: counsellorname
- *   body_6: amonutpaid (total amount paid at admission)
- *   body_7: registration & downpayment breakdown / details
+ *   body_5: batchname
+ *   body_6: counsellorname
+ *   body_7: amonutpaid (total amount paid at admission)
  *   body_8: date
  *   body_9: time
  * Sender integrated_number: ALWAYS 1st number in process.env.MSG91_INTEGRATED_NUMBER
@@ -2041,6 +2042,7 @@ export async function sendWhatsAppSuperAdminAdmissionAlert(params: SuperAdminAdm
     const admissionNumber = (params.admissionNumber || "N/A").trim();
     const courseName = (params.courseName || "General Course").trim();
     const brandName = (params.brandName || "CADD Mantra").trim();
+    const batchName = (params.batchName || "Regular Batch").trim();
     const counsellorName = (params.counsellorName || "Advisor").trim();
 
     const regAmt = Number(params.registrationAmount) || 0;
@@ -2050,11 +2052,6 @@ export async function sendWhatsAppSuperAdminAdmissionAlert(params: SuperAdminAdm
       : (regAmt + dpAmt);
 
     const formattedAmountPaid = `₹${rawAmtPaid.toLocaleString("en-IN")}`;
-
-    let breakdownStr = `Reg: ₹${regAmt.toLocaleString("en-IN")} | DP: ₹${dpAmt.toLocaleString("en-IN")}`;
-    if (regAmt === 0 && dpAmt === 0) {
-      breakdownStr = params.paymentMode ? `Mode: ${params.paymentMode}` : formattedAmountPaid;
-    }
 
     const payload = {
       integrated_number: integratedNumber,
@@ -2091,15 +2088,15 @@ export async function sendWhatsAppSuperAdminAdmissionAlert(params: SuperAdminAdm
                 },
                 body_5: {
                   type: "text",
-                  value: counsellorName,
+                  value: batchName,
                 },
                 body_6: {
                   type: "text",
-                  value: formattedAmountPaid,
+                  value: counsellorName,
                 },
                 body_7: {
                   type: "text",
-                  value: breakdownStr,
+                  value: formattedAmountPaid,
                 },
                 body_8: {
                   type: "text",

@@ -136,9 +136,32 @@ export async function POST(req: Request) {
       body["Comments"] ||
       "Submitted via Google Form";
 
-    // 2. Round-Robin Auto-Assignment to Brand Counsellor
+    // 2. Auto-Assignment to Brand Centre Head (or Round-Robin Centre Head)
     const escapeRegExp = (str: string) => str.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
     const brandRegex = new RegExp(`(^|[,\\/|\\s])${escapeRegExp(targetBrand)}($|[,\\/|\\s])`, 'i');
+
+    const centreHeadRoles = [
+      "centre head",
+      "centre_head",
+      "center head",
+      "center_head",
+      "centre-head",
+      "center-head",
+      "branch head",
+      "branch_head",
+      "brand manager",
+      "brand_manager",
+      "brand-manager"
+    ];
+
+    // Find Centre Head matching the target brand
+    const brandCentreHeads = await User.find({
+      role: { $in: centreHeadRoles },
+      $or: [
+        { brandScope: { $regex: brandRegex } },
+        { brandScope: { $in: ["All", "All Brands", "global", "*"] } }
+      ]
+    }).lean();
 
     const brandCounsellors = await User.find({
       role: { $in: ["counsellor", "counselor", "sales executive", "sales-executive"] },
@@ -149,16 +172,36 @@ export async function POST(req: Request) {
     }).lean();
 
     let assignedAdvisor = "Unassigned";
-    if (brandCounsellors.length > 0) {
-      // Pick next advisor round-robin based on existing enquiry count
-      const advisorLeadCounts = await Promise.all(
-        brandCounsellors.map(async (c: any) => {
-          const count = await Enquiry.countDocuments({ assignedCrmAdvisor: c.name });
-          return { name: c.name, count };
+
+    if (brandCentreHeads.length > 0) {
+      // Pick Centre Head for the brand (round-robin if multiple Centre Heads exist)
+      const headLeadCounts = await Promise.all(
+        brandCentreHeads.map(async (h: any) => {
+          const count = await Enquiry.countDocuments({ assignedCrmAdvisor: h.name });
+          return { name: h.name, count };
         })
       );
-      advisorLeadCounts.sort((a, b) => a.count - b.count);
-      assignedAdvisor = advisorLeadCounts[0].name;
+      headLeadCounts.sort((a, b) => a.count - b.count);
+      assignedAdvisor = headLeadCounts[0].name;
+    } else {
+      // Fallback 1: Any Centre Head in database
+      const globalCentreHead = await User.findOne({
+        role: { $in: centreHeadRoles }
+      }).lean();
+
+      if (globalCentreHead && globalCentreHead.name) {
+        assignedAdvisor = globalCentreHead.name;
+      } else if (brandCounsellors.length > 0) {
+        // Fallback 2: Round-Robin among brand counsellors if no Centre Head user exists
+        const advisorLeadCounts = await Promise.all(
+          brandCounsellors.map(async (c: any) => {
+            const count = await Enquiry.countDocuments({ assignedCrmAdvisor: c.name });
+            return { name: c.name, count };
+          })
+        );
+        advisorLeadCounts.sort((a, b) => a.count - b.count);
+        assignedAdvisor = advisorLeadCounts[0].name;
+      }
     }
 
     // 3. Create Enquiry Document
