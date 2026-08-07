@@ -4,6 +4,13 @@ import React, { useState, useEffect } from "react";
 import TeacherSidebar from "@/components/TeacherSidebar";
 import { useUser } from "@/app/component/context/user-context";
 
+// Helper to determine if a batch value represents an unassigned state
+const isBatchUnassigned = (batchName?: string) => {
+  if (!batchName) return true;
+  const b = batchName.trim().toLowerCase();
+  return !b || b === "unassigned" || b === "general batch" || b === "regular batch" || b === "n/a" || b === "none";
+};
+
 export default function TeacherBatchesPage() {
   const { user } = useUser();
   const [students, setStudents] = useState<any[]>([]);
@@ -18,7 +25,6 @@ export default function TeacherBatchesPage() {
   const [assignedBatchMap, setAssignedBatchMap] = useState<Record<string, string>>({});
   const [updatingStudentId, setUpdatingStudentId] = useState<string | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"assign" | "directory">("assign");
 
   // Fetch batches & enrolled students
   const fetchData = async () => {
@@ -46,6 +52,7 @@ export default function TeacherBatchesPage() {
 
       setBatches(teacherBatches);
 
+      const teacherBatchNames = new Set(teacherBatches.map((b: any) => (b.batchName || "").trim().toLowerCase()));
       const fetchedAdmissions = admissionsRes.success ? (admissionsRes.data || admissionsRes.admissions || []) : [];
       
       // Filter students by teacher's assigned brand / courses if scope exists
@@ -56,6 +63,14 @@ export default function TeacherBatchesPage() {
         if (isBrandScoped) {
           const admBrand = (adm.brand || "").trim().toLowerCase();
           if (admBrand && admBrand !== userBrand) return false;
+        }
+
+        // If student is assigned to a specific batch, ensure it belongs to this teacher
+        if (!isBatchUnassigned(adm.batch)) {
+          const studentBatch = (adm.batch || "").trim().toLowerCase();
+          if (teacherBatchNames.size > 0 && !teacherBatchNames.has(studentBatch)) {
+            return false;
+          }
         }
         return true;
       });
@@ -69,7 +84,7 @@ export default function TeacherBatchesPage() {
       // Initialize batch selection map for each student
       const initialMap: Record<string, string> = {};
       relevantStudents.forEach((s: any) => {
-        initialMap[s._id || s.id] = s.batch || "";
+        initialMap[s._id || s.id] = isBatchUnassigned(s.batch) ? "" : (s.batch || "");
       });
       setAssignedBatchMap(initialMap);
 
@@ -94,16 +109,17 @@ export default function TeacherBatchesPage() {
       const res = await fetch(`/api/admissions/${studentId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ batch: targetBatch }),
+        body: JSON.stringify({ batch: targetBatch || "Unassigned" }),
       });
 
       const json = await res.json();
       if (res.ok && json.success) {
-        setSuccessToast(`Student batch updated to "${targetBatch || "Unassigned"}" successfully!`);
+        const savedBatch = targetBatch || "Unassigned";
+        setSuccessToast(`Student batch updated to "${savedBatch}" successfully!`);
         setTimeout(() => setSuccessToast(null), 4000);
         // Refresh local student list
         setStudents((prev) =>
-          prev.map((s) => (s._id === studentId || s.id === studentId ? { ...s, batch: targetBatch } : s))
+          prev.map((s) => (s._id === studentId || s.id === studentId ? { ...s, batch: savedBatch } : s))
         );
       } else {
         alert(json.message || "Failed to assign batch.");
@@ -121,7 +137,7 @@ export default function TeacherBatchesPage() {
     if (selectedCourseFilter !== "All Courses" && s.course !== selectedCourseFilter) return false;
     if (selectedBatchFilter !== "All Batches") {
       if (selectedBatchFilter === "Unassigned") {
-        if (s.batch && s.batch.trim() !== "" && s.batch !== "Unassigned" && s.batch !== "Regular Batch") return false;
+        if (!isBatchUnassigned(s.batch)) return false;
       } else if (s.batch !== selectedBatchFilter) {
         return false;
       }
@@ -138,9 +154,7 @@ export default function TeacherBatchesPage() {
     );
   });
 
-  const unassignedCount = students.filter(
-    (s) => !s.batch || s.batch === "Unassigned" || s.batch === "Regular Batch" || s.batch.trim() === ""
-  ).length;
+  const unassignedCount = students.filter((s) => isBatchUnassigned(s.batch)).length;
 
   return (
     <div className="flex h-screen bg-[#f8faff] text-slate-800 overflow-hidden font-sans">
@@ -273,13 +287,16 @@ export default function TeacherBatchesPage() {
                       filteredStudents.map((student) => {
                         const sId = student._id || student.id;
                         const currentBatch = student.batch;
-                        const isUnassigned = !currentBatch || currentBatch === "Unassigned" || currentBatch === "Regular Batch" || currentBatch.trim() === "";
-                        const selectedBatch = assignedBatchMap[sId] ?? (currentBatch || "");
-                        const isChanged = selectedBatch !== (currentBatch || "");
+                        const isUnassigned = isBatchUnassigned(currentBatch);
+                        const selectedBatch = assignedBatchMap[sId] ?? (isUnassigned ? "" : currentBatch);
+                        const isChanged = selectedBatch !== (isUnassigned ? "" : (currentBatch || ""));
 
-                        // Get batches relevant to student's course or all active batches
+                        // Get batches relevant to student's course or all active batches assigned to this teacher
                         const courseBatches = batches.filter(
-                          (b) => !b.course || b.course.toLowerCase().trim() === (student.course || "").toLowerCase().trim()
+                          (b) => !b.course || (student.course && (
+                            b.course.toLowerCase().trim() === student.course.toLowerCase().trim() ||
+                            (Array.isArray(b.courses) && b.courses.some((c: string) => c.toLowerCase().trim() === student.course.toLowerCase().trim()))
+                          ))
                         );
                         const availableOptions = courseBatches.length > 0 ? courseBatches : batches;
 
