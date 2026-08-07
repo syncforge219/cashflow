@@ -31,47 +31,61 @@ export async function GET(request: Request) {
       let targetBatchName = batchName;
       let targetCourse = "";
 
-      if (batchId && !targetBatchName) {
-        const batchObj = await Batch.findById(batchId);
-        if (batchObj) {
-          targetBatchName = batchObj.batchName;
-          targetCourse = batchObj.course || "";
-        }
+      if (batchId) {
+        try {
+          const batchObj = await Batch.findById(batchId).lean();
+          if (batchObj) {
+            targetBatchName = batchObj.batchName;
+            targetCourse = batchObj.course || "";
+          }
+        } catch (_) {}
       }
 
-      // Query admissions for this batch or course
-      const admissions = await Admission.find({
-        $or: [
-          { batch: targetBatchName },
-          { course: targetCourse }
-        ]
-      }).select("fullName mobileNumber email admissionId batch course").lean();
+      // Build strict match queries for batch assignment
+      const batchOrQuery: any[] = [];
+      if (batchId) {
+        batchOrQuery.push({ batchId: batchId });
+      }
+      if (targetBatchName) {
+        batchOrQuery.push({ batch: targetBatchName });
+        batchOrQuery.push({ batch: { $regex: new RegExp(`^${targetBatchName.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") } });
+      }
 
-      // Fallback: If no admissions, query enquiries with status "Admitted"
+      const admissions = await Admission.find({
+        $or: batchOrQuery
+      }).select("fullName studentFullName mobileNumber phone email admissionId batch course").lean();
+
       let studentRoster = admissions.map((a: any) => ({
-        studentName: a.fullName,
+        studentName: a.fullName || a.studentFullName || "Student",
         admissionId: a.admissionId || `ADM-${a._id.toString().slice(-6).toUpperCase()}`,
-        mobileNumber: a.mobileNumber || "",
+        mobileNumber: a.mobileNumber || a.phone || "",
         status: "Present",
         remarks: ""
       }));
 
-      if (studentRoster.length === 0 && targetCourse) {
-        const admittedEnquiries = await Enquiry.find({
-          status: { $in: ["Admitted", "Demo Attended"] },
-          $or: [
-            { targetCourse: targetCourse },
-            { targetBrand: brand }
-          ]
-        }).select("studentFullName primaryPhoneMobile targetCourse enquiryId").lean();
+      // Check Enquiry ONLY if enquiry has this specific batch explicitly assigned
+      if (studentRoster.length === 0 && (batchId || targetBatchName)) {
+        const enquiryBatchQuery: any[] = [];
+        if (batchId) enquiryBatchQuery.push({ batchId: batchId });
+        if (targetBatchName) {
+          enquiryBatchQuery.push({ batch: targetBatchName });
+          enquiryBatchQuery.push({ batch: { $regex: new RegExp(`^${targetBatchName.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") } });
+        }
 
-        studentRoster = admittedEnquiries.map((e: any) => ({
-          studentName: e.studentFullName || "Student",
-          admissionId: e.enquiryId || `ENQ-${e._id.toString().slice(-6).toUpperCase()}`,
-          mobileNumber: e.primaryPhoneMobile || "",
-          status: "Present",
-          remarks: ""
-        }));
+        const batchEnquiries = await Enquiry.find({
+          status: { $in: ["Admitted", "Enrolled", "Demo Attended"] },
+          $or: enquiryBatchQuery
+        }).select("studentFullName primaryPhoneMobile targetCourse enquiryId batch").lean();
+
+        if (batchEnquiries.length > 0) {
+          studentRoster = batchEnquiries.map((e: any) => ({
+            studentName: e.studentFullName || "Student",
+            admissionId: e.enquiryId || `ENQ-${e._id.toString().slice(-6).toUpperCase()}`,
+            mobileNumber: e.primaryPhoneMobile || "",
+            status: "Present",
+            remarks: ""
+          }));
+        }
       }
 
       return NextResponse.json({
