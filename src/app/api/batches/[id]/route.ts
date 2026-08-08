@@ -51,15 +51,28 @@ export async function PATCH(
       body.endDate = new Date(body.endDate);
     }
 
+    const oldBatch = await Batch.findById(id);
+    if (!oldBatch) {
+      return NextResponse.json(
+        { success: false, error: "Batch not found" },
+        { status: 404 }
+      );
+    }
+
     const updatedBatch = await Batch.findByIdAndUpdate(id, body, {
       new: true,
       runValidators: true,
     });
 
-    if (!updatedBatch) {
-      return NextResponse.json(
-        { success: false, error: "Batch not found" },
-        { status: 404 }
+    if (body.batchName && oldBatch.batchName !== body.batchName) {
+      const Admission = (await import("@/models/Admission")).default;
+      const orList: any[] = [{ batch: oldBatch.batchName }];
+      if (oldBatch.batchId) {
+        orList.push({ batchId: oldBatch.batchId });
+      }
+      await Admission.updateMany(
+        { $or: orList },
+        { $set: { batch: body.batchName.trim(), batchId: oldBatch.batchId || updatedBatch?.batchId } }
       );
     }
 

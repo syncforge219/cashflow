@@ -37,6 +37,7 @@ const AdmissionSchema = new Schema(
     courses: [{ type: String, trim: true }],
     targetCourses: [{ type: String, trim: true }],
     batch: { type: String },
+    batchId: { type: String, index: true },
     duration: { type: String },
     startDate: { type: Date },
     academicYear: { type: String },

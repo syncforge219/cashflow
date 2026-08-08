@@ -7,6 +7,7 @@ import Payment from "@/models/Payment";
 import Company from "@/models/Company";
 import Brand from "@/models/Brand";
 import Task from "@/models/Task";
+import Batch from "@/models/Batch";
 import Course from "@/models/Course";
 import Notification from "@/models/Notification";
 import { getUserFromCookies } from "@/lib/helper";
@@ -51,45 +52,29 @@ export async function POST(req: NextRequest) {
       coursesList = ["General Course"];
     }
 
-    // Strict Duplicate Admission Guard: A student with the same Name/Mobile and Course cannot be added multiple times
-    const studentFullName = (data.fullName || "").trim();
-    const cleanMobile = (data.mobileNumber || "").trim();
-    const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const nameRegex = studentFullName ? new RegExp(`^${escapeRegExp(studentFullName)}$`, "i") : null;
-    const courseRegexes = coursesList.map((c) => new RegExp(escapeRegExp(c), "i"));
+    // 1. Resolve Batch & BatchId
+    let finalBatchName = (data.batch || "").trim() || "General Batch";
+    let finalBatchId = (data.batchId || "").trim() || "";
 
-    const duplicateFilter: any = {
-      $or: [
-        ...(cleanMobile ? [{ mobileNumber: cleanMobile }] : []),
-        ...(nameRegex ? [{ fullName: nameRegex }] : [])
-      ],
-      $and: [
-        {
-          $or: [
-            { course: { $in: courseRegexes } },
-            { courses: { $elemMatch: { $in: courseRegexes } } },
-            { targetCourses: { $elemMatch: { $in: courseRegexes } } }
-          ]
-        }
-      ]
-    };
-
-    const existingStudentAdmission = await Admission.findOne(duplicateFilter);
-    if (existingStudentAdmission) {
-      return NextResponse.json({
-        success: false,
-        message: `Duplicate Admission Blocked: Student "${existingStudentAdmission.fullName}" is already enrolled in "${existingStudentAdmission.course}" (Admission ID: ${existingStudentAdmission.admissionId}). A student cannot be admitted to the same course multiple times.`
-      }, { status: 400 });
-    }
-
-    if (coursesList.length === 0) {
-      coursesList = ["General Course"];
+    if (finalBatchId) {
+      const batchDoc = await Batch.findOne({ $or: [{ batchId: finalBatchId }, { _id: finalBatchId }] }).lean();
+      if (batchDoc) {
+        finalBatchName = batchDoc.batchName;
+        finalBatchId = batchDoc.batchId || batchDoc._id.toString();
+      }
+    } else if (finalBatchName && finalBatchName !== "General Batch" && finalBatchName !== "Unassigned") {
+      const batchDoc = await Batch.findOne({ batchName: finalBatchName }).lean();
+      if (batchDoc) {
+        finalBatchId = batchDoc.batchId || batchDoc._id.toString();
+        finalBatchName = batchDoc.batchName;
+      }
     }
 
     data.courses = coursesList;
     data.targetCourses = coursesList;
     data.course = coursesList.join(", ");
-    data.batch = data.batch?.trim() || "General Batch";
+    data.batch = finalBatchName;
+    data.batchId = finalBatchId;
     data.duration = data.duration?.trim() || "6 Months";
     data.startDate = data.startDate ? new Date(data.startDate) : new Date();
     data.academicYear = data.academicYear?.trim() || `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`;
@@ -575,8 +560,23 @@ export async function GET(req: Request) {
       }
     }
 
-    if (batchParam) {
-      query.batch = { $regex: new RegExp(`^${escapeRegExp(batchParam.trim())}$`, "i") };
+    const batchIdParam = searchParams.get("batchId");
+    const exactBatchParam = searchParams.get("exactBatch");
+
+    if (batchIdParam) {
+      andConditions.push({
+        $or: [
+          { batchId: batchIdParam.trim() },
+          { _id: batchIdParam.trim() },
+          ...(batchParam ? [{ batch: batchParam.trim() }] : [])
+        ]
+      });
+    } else if (batchParam) {
+      if (exactBatchParam === "true") {
+        query.batch = batchParam.trim();
+      } else {
+        query.batch = { $regex: new RegExp(`^${escapeRegExp(batchParam.trim())}$`, "i") };
+      }
     }
 
     let targetStart: Date | null = null;

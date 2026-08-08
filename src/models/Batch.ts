@@ -2,6 +2,12 @@ import mongoose, { Schema } from "mongoose";
 
 const BatchSchema = new Schema(
   {
+    batchId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true,
+    },
     batchName: {
       type: String,
       required: [true, "Batch name is required"],
@@ -87,11 +93,31 @@ const BatchSchema = new Schema(
 );
 
 // Performance Indexes
+BatchSchema.index({ batchId: 1 });
 BatchSchema.index({ brand: 1 });
 BatchSchema.index({ teacherId: 1 });
 BatchSchema.index({ status: 1 });
 BatchSchema.index({ course: 1 });
 BatchSchema.index({ courses: 1 });
+
+// Auto-generate batchId
+BatchSchema.pre("save", async function () {
+  if (!this.batchId) {
+    const lastBatch = await mongoose.models.Batch.findOne({
+      batchId: /^BAT\d+$/
+    }).sort({ batchId: -1 });
+
+    let nextNumber = 1;
+    if (lastBatch && lastBatch.batchId) {
+      const match = lastBatch.batchId.match(/^BAT(\d+)$/);
+      if (match) {
+        nextNumber = parseInt(match[1], 10) + 1;
+      }
+    }
+    
+    this.batchId = `BAT${String(nextNumber).padStart(6, "0")}`;
+  }
+});
 
 if (mongoose.models.Batch) {
   delete mongoose.models.Batch;

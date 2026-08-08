@@ -169,6 +169,25 @@ export async function PUT(
       remainingBalance = calculatedBalance;
     }
 
+    let assignedBatchName = body.batch !== undefined ? body.batch.trim() : existingDoc.batch;
+    let assignedBatchId = body.batchId !== undefined ? body.batchId.trim() : existingDoc.batchId;
+
+    if (body.batchId) {
+      const Batch = (await import("@/models/Batch")).default;
+      const batchDoc = await Batch.findOne({ $or: [{ batchId: body.batchId }, { _id: body.batchId }] }).lean();
+      if (batchDoc) {
+        assignedBatchName = batchDoc.batchName;
+        assignedBatchId = batchDoc.batchId || batchDoc._id.toString();
+      }
+    } else if (body.batch && body.batch !== "Unassigned" && body.batch !== "General Batch") {
+      const Batch = (await import("@/models/Batch")).default;
+      const batchDoc = await Batch.findOne({ batchName: body.batch.trim() }).lean();
+      if (batchDoc) {
+        assignedBatchId = batchDoc.batchId || batchDoc._id.toString();
+        assignedBatchName = batchDoc.batchName;
+      }
+    }
+
     const updatePayload = {
       fullName: body.fullName !== undefined ? body.fullName.trim() : existingDoc.fullName,
       mobileNumber: body.mobileNumber !== undefined ? body.mobileNumber.trim() : existingDoc.mobileNumber,
@@ -186,7 +205,8 @@ export async function PUT(
       counsellor: body.counsellor !== undefined ? body.counsellor.trim() : existingDoc.counsellor,
       brand: body.brand !== undefined ? body.brand.trim() : existingDoc.brand,
       course: body.course !== undefined ? body.course.trim() : existingDoc.course,
-      batch: body.batch !== undefined ? body.batch.trim() : existingDoc.batch,
+      batch: assignedBatchName,
+      batchId: assignedBatchId,
       duration: body.duration !== undefined ? body.duration.trim() : existingDoc.duration,
       startDate: body.startDate ? new Date(body.startDate) : existingDoc.startDate,
       academicYear: body.academicYear !== undefined ? body.academicYear.trim() : existingDoc.academicYear,

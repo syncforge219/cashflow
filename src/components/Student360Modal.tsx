@@ -329,6 +329,7 @@ export default function Student360Modal({
           brand: adm.brand || "",
           course: adm.course || "",
           batch: adm.batch || "",
+          batchId: adm.batchId || "",
           duration: adm.duration || "",
           academicYear: adm.academicYear || "",
           startDate: adm.startDate ? new Date(adm.startDate).toISOString().slice(0, 10) : "",
@@ -1170,9 +1171,9 @@ export default function Student360Modal({
 
                                     return (
                                       <div
-                                        key={b._id || bName}
+                                        key={b._id || b.batchId || bName}
                                         onClick={() => {
-                                          setFormData({ ...formData, batch: bName });
+                                          setFormData({ ...formData, batch: bName, batchId: b.batchId || b._id });
                                           setIsBatchDropdownOpen(false);
                                           setBatchSearchQuery("");
                                         }}
@@ -1181,7 +1182,14 @@ export default function Student360Modal({
                                         }`}
                                       >
                                         <div>
-                                          <span className="block font-extrabold">{bName}</span>
+                                          <div className="flex items-center gap-1.5">
+                                            {b.batchId && (
+                                              <span className={`text-[9px] font-mono font-extrabold px-1.5 py-0.5 rounded ${isSelected ? "bg-indigo-700 text-white" : "bg-slate-100 text-slate-700"}`}>
+                                                {b.batchId}
+                                              </span>
+                                            )}
+                                            <span className="font-extrabold">{bName}</span>
+                                          </div>
                                           <span className={`text-[10px] ${isSelected ? "text-indigo-100" : "text-slate-400"}`}>
                                             {b.course ? `Course: ${b.course}` : ""} {b.timing ? `| ${b.timing}` : ""} {b.teacherName ? `| ${b.teacherName}` : ""}
                                           </span>

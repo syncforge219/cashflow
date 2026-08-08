@@ -235,11 +235,16 @@ export default function BatchDisplay() {
                     <td className="py-4 px-6 font-bold text-slate-800">
                       <div
                         onClick={() => setViewRosterBatch(batch)}
-                        className="flex items-center gap-2 cursor-pointer group"
+                        className="flex items-center gap-2 cursor-pointer group flex-wrap"
                         title="Click to view admitted students in this batch"
                       >
                         <span className="h-2.5 w-2.5 rounded-full bg-indigo-600 group-hover:scale-125 transition-transform"></span>
-                        <span className="group-hover:text-indigo-600 group-hover:underline transition-colors">
+                        {batch.batchId && (
+                          <span className="text-[10px] font-mono font-black bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md border border-slate-200 shadow-2xs">
+                            {batch.batchId}
+                          </span>
+                        )}
+                        <span className="group-hover:text-indigo-600 group-hover:underline transition-colors font-extrabold">
                           {batch.batchName}
                         </span>
                         <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-md px-1.5 py-0.5 opacity-90 group-hover:bg-indigo-600 group-hover:text-white transition-all">

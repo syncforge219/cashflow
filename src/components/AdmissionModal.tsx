@@ -47,6 +47,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
   // 2. Course Details
   const [course, setCourse] = useState(lead?.targetCourse || "");
   const [batch, setBatch] = useState("");
+  const [batchId, setBatchId] = useState("");
   const [isCustomBatch, setIsCustomBatch] = useState(false);
   const [duration, setDuration] = useState("");
   const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
@@ -502,7 +503,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
         course: selectedCourses.join(", "),
         courses: selectedCourses,
         targetCourses: selectedCourses,
-        batch, duration, startDate, academicYear, admissionDate, companyAssigned,
+        batch, batchId, duration, startDate, academicYear, admissionDate, companyAssigned,
         courseFee, scholarshipType, scholarshipAmount, discountType, discountAmount, additionalDiscount, totalDiscount, finalFee,
         paymentMode, transactionNo, amountReceivedToday: (Number(registrationAmount) || 0) + (Number(downpaymentAmount) || 0), registrationAmount: Number(registrationAmount), downpaymentAmount: Number(downpaymentAmount), downpaymentDueDate, paymentDate, remainingBalance, hasEmi,
         numInstallments: customEmiItems.length || numInstallments,
@@ -736,15 +737,23 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
                       return (
                         <>
                           <select 
-                            value={isCustomBatch ? "Custom" : batch} 
+                            value={isCustomBatch ? "Custom" : (batchId || batch)} 
                             onChange={(e) => {
                               const val = e.target.value;
                               if (val === "Custom") {
                                 setIsCustomBatch(true);
                                 setBatch("");
+                                setBatchId("");
                               } else {
                                 setIsCustomBatch(false);
-                                setBatch(val);
+                                const selectedB = batchesList.find((b: any) => (b.batchId || b._id) === val || b.batchName === val);
+                                if (selectedB) {
+                                  setBatch(selectedB.batchName);
+                                  setBatchId(selectedB.batchId || selectedB._id);
+                                } else {
+                                  setBatch(val);
+                                  setBatchId("");
+                                }
                               }
                             }} 
                             disabled={!course && batchesList.length === 0}
@@ -754,8 +763,8 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
                             {batchesList.length > 0 && (
                               <optgroup label="Faculty Batches">
                                 {batchesList.map((b) => (
-                                  <option key={b._id} value={b.batchName}>
-                                    {b.batchName} ({b.course} - Faculty: {b.teacherName})
+                                  <option key={b._id} value={b.batchId || b._id}>
+                                    {b.batchId ? `[${b.batchId}] ` : ""}{b.batchName} ({b.course} - Faculty: {b.teacherName} - {b.timing})
                                   </option>
                                 ))}
                               </optgroup>

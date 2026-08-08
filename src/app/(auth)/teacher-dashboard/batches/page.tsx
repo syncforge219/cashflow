@@ -111,25 +111,28 @@ export default function TeacherBatchesPage() {
 
   // Handle assign batch to student
   const handleAssignBatch = async (studentId: string) => {
-    const targetBatch = assignedBatchMap[studentId];
-    if (targetBatch === undefined) return;
+    const targetBatchVal = assignedBatchMap[studentId];
+    if (targetBatchVal === undefined) return;
 
     setUpdatingStudentId(studentId);
     try {
+      const selectedB = batches.find((b: any) => (b.batchId || b._id) === targetBatchVal || b.batchName === targetBatchVal);
+      const targetBatchName = selectedB ? selectedB.batchName : (targetBatchVal || "Unassigned");
+      const targetBatchId = selectedB ? (selectedB.batchId || selectedB._id) : "";
+
       const res = await fetch(`/api/admissions/${studentId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ batch: targetBatch || "Unassigned" }),
+        body: JSON.stringify({ batch: targetBatchName, batchId: targetBatchId }),
       });
 
       const json = await res.json();
       if (res.ok && json.success) {
-        const savedBatch = targetBatch || "Unassigned";
-        setSuccessToast(`Student batch updated to "${savedBatch}" successfully!`);
+        setSuccessToast(`Student batch updated to "${targetBatchName}" successfully!`);
         setTimeout(() => setSuccessToast(null), 4000);
         // Refresh local student list
         setStudents((prev) =>
-          prev.map((s) => (s._id === studentId || s.id === studentId ? { ...s, batch: savedBatch } : s))
+          prev.map((s) => (s._id === studentId || s.id === studentId ? { ...s, batch: targetBatchName, batchId: targetBatchId } : s))
         );
       } else {
         alert(json.message || "Failed to assign batch.");
@@ -142,11 +145,19 @@ export default function TeacherBatchesPage() {
     }
   };
 
-  // Helper to get students enrolled in a specific batch
-  const getStudentsInBatch = (batchName: string) => {
-    return students.filter(
-      (s) => s.batch && s.batch.trim().toLowerCase() === batchName.trim().toLowerCase()
-    );
+  // Helper to get students enrolled in a specific batch using batchId and exact batch match
+  const getStudentsInBatch = (batchObj: any) => {
+    const bId = typeof batchObj === "object" ? (batchObj?.batchId || batchObj?._id) : "";
+    const bName = typeof batchObj === "object" ? batchObj?.batchName : batchObj;
+    return students.filter((s) => {
+      if (bId && (s.batchId === bId || s.batchId === batchObj?._id || s.batchId === batchObj?.batchId)) {
+        return true;
+      }
+      if (bName && s.batch) {
+        return s.batch.trim() === String(bName).trim();
+      }
+      return false;
+    });
   };
 
   // Unassigned students
@@ -294,14 +305,14 @@ export default function TeacherBatchesPage() {
                   .filter((b) => {
                     if (!searchQuery.trim()) return true;
                     const q = searchQuery.toLowerCase();
-                    const matchBatch = (b.batchName || "").toLowerCase().includes(q) || (b.course || "").toLowerCase().includes(q);
-                    const enrolled = getStudentsInBatch(b.batchName);
+                    const matchBatch = (b.batchName || "").toLowerCase().includes(q) || (b.course || "").toLowerCase().includes(q) || (b.batchId || "").toLowerCase().includes(q);
+                    const enrolled = getStudentsInBatch(b);
                     const matchStudent = enrolled.some((s) => (s.fullName || s.studentFullName || "").toLowerCase().includes(q));
                     return matchBatch || matchStudent;
                   })
                   .map((batch) => {
-                    const bId = batch._id || batch.batchName;
-                    const enrolledList = getStudentsInBatch(batch.batchName);
+                    const bId = batch._id || batch.batchId || batch.batchName;
+                    const enrolledList = getStudentsInBatch(batch);
                     const isExpanded = expandedBatchId === bId;
 
                     return (
@@ -319,7 +330,12 @@ export default function TeacherBatchesPage() {
                               ⚡
                             </div>
                             <div>
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {batch.batchId && (
+                                  <span className="px-2 py-0.5 bg-slate-100 text-slate-700 border border-slate-200 rounded-md font-mono text-[10px] font-extrabold">
+                                    {batch.batchId}
+                                  </span>
+                                )}
                                 <h3 className="text-base font-extrabold text-slate-800 hover:text-indigo-600 transition-colors">
                                   {batch.batchName}
                                 </h3>
@@ -352,8 +368,9 @@ export default function TeacherBatchesPage() {
                         {isExpanded && (
                           <div className="border-t border-slate-100 bg-slate-50/50 p-4 sm:p-6 animate-in slide-in-from-top-2 duration-200">
                             <div className="flex items-center justify-between mb-3">
-                              <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider">
+                              <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-2">
                                 Enrolled Students in {batch.batchName} ({enrolledList.length})
+                                {batch.batchId && <span className="font-mono text-slate-400 font-normal text-[10px]">[{batch.batchId}]</span>}
                               </h4>
                             </div>
 
@@ -375,8 +392,8 @@ export default function TeacherBatchesPage() {
                                   <tbody className="divide-y divide-slate-100 text-xs font-semibold">
                                     {enrolledList.map((student) => {
                                       const sId = student._id || student.id;
-                                      const selectedBatch = assignedBatchMap[sId] ?? student.batch;
-                                      const isChanged = selectedBatch !== student.batch;
+                                      const selectedBatch = assignedBatchMap[sId] ?? (student.batchId || student.batch);
+                                      const isChanged = selectedBatch !== (student.batchId || student.batch) && selectedBatch !== student.batch;
 
                                       return (
                                         <tr key={sId} className="hover:bg-slate-50/80 transition-colors">
@@ -410,13 +427,13 @@ export default function TeacherBatchesPage() {
                                                 }
                                                 className="text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg px-2.5 py-1 outline-none cursor-pointer"
                                               >
-                                                <option value={batch.batchName}>{batch.batchName} (Current)</option>
+                                                <option value={batch.batchId || batch._id || batch.batchName}>{batch.batchId ? `[${batch.batchId}] ` : ""}{batch.batchName} (Current)</option>
                                                 <option value="Unassigned">Unassigned (Remove from batch)</option>
                                                 {batches
-                                                  .filter((b) => b.batchName !== batch.batchName)
+                                                  .filter((b) => (b.batchId || b._id) !== (batch.batchId || batch._id))
                                                   .map((b) => (
-                                                    <option key={b._id || b.batchName} value={b.batchName}>
-                                                      Move to: {b.batchName}
+                                                    <option key={b._id || b.batchId} value={b.batchId || b._id}>
+                                                      Move to: {b.batchId ? `[${b.batchId}] ` : ""}{b.batchName} ({b.timing || b.course})
                                                     </option>
                                                   ))}
                                               </select>

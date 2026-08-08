@@ -65,7 +65,31 @@ export async function GET(request: Request) {
       }
     }
 
+    const batchIdParam = searchParams.get("batchId");
+
+    if (batchIdParam) {
+      query.$or = [
+        { batchId: batchIdParam.trim() },
+        { _id: batchIdParam.trim() },
+      ];
+    }
+
     const batches = await Batch.find(query).sort({ createdAt: -1 }).lean();
+
+    // Auto-migrate any batches lacking batchId in the background
+    for (let i = 0; i < batches.length; i++) {
+      if (!batches[i].batchId) {
+        const lastBatchWithId = await Batch.findOne({ batchId: /^BAT\d+$/ }).sort({ batchId: -1 });
+        let nextNum = 1;
+        if (lastBatchWithId && lastBatchWithId.batchId) {
+          const match = lastBatchWithId.batchId.match(/^BAT(\d+)$/);
+          if (match) nextNum = parseInt(match[1], 10) + 1;
+        }
+        const genId = `BAT${String(nextNum).padStart(6, "0")}`;
+        await Batch.findByIdAndUpdate(batches[i]._id, { batchId: genId });
+        batches[i].batchId = genId;
+      }
+    }
 
     return NextResponse.json({
       success: true,
@@ -88,6 +112,7 @@ export async function POST(request: Request) {
     const body = await request.json();
 
     const {
+      batchId,
       batchName,
       course,
       courses,
@@ -130,8 +155,21 @@ export async function POST(request: Request) {
       }
     }
 
+    // Auto-generate unique batchId if not provided
+    let finalBatchId = batchId?.trim();
+    if (!finalBatchId) {
+      const lastBatchWithId = await Batch.findOne({ batchId: /^BAT\d+$/ }).sort({ batchId: -1 });
+      let nextNum = 1;
+      if (lastBatchWithId && lastBatchWithId.batchId) {
+        const match = lastBatchWithId.batchId.match(/^BAT(\d+)$/);
+        if (match) nextNum = parseInt(match[1], 10) + 1;
+      }
+      finalBatchId = `BAT${String(nextNum).padStart(6, "0")}`;
+    }
+
     const newBatch = await Batch.create({
-      batchName,
+      batchId: finalBatchId,
+      batchName: batchName.trim(),
       course: courseStr,
       courses: coursesArr,
       courseCode: courseCode?.trim() || undefined,

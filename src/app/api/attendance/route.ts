@@ -31,12 +31,14 @@ export async function GET(request: Request) {
       let targetBatchName = batchName;
       let targetCourse = "";
 
+      let customBatchId = "";
       if (batchId) {
         try {
-          const batchObj = await Batch.findById(batchId).lean();
+          const batchObj = await Batch.findOne({ $or: [{ _id: batchId }, { batchId: batchId }] }).lean();
           if (batchObj) {
             targetBatchName = batchObj.batchName;
             targetCourse = batchObj.course || "";
+            customBatchId = batchObj.batchId || "";
           }
         } catch (_) {}
       }
@@ -46,14 +48,16 @@ export async function GET(request: Request) {
       if (batchId) {
         batchOrQuery.push({ batchId: batchId });
       }
+      if (customBatchId) {
+        batchOrQuery.push({ batchId: customBatchId });
+      }
       if (targetBatchName) {
-        batchOrQuery.push({ batch: targetBatchName });
-        batchOrQuery.push({ batch: { $regex: new RegExp(`^${targetBatchName.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") } });
+        batchOrQuery.push({ batch: targetBatchName.trim() });
       }
 
       const admissions = await Admission.find({
         $or: batchOrQuery
-      }).select("fullName studentFullName mobileNumber phone email admissionId batch course").lean();
+      }).select("fullName studentFullName mobileNumber phone email admissionId batch batchId course").lean();
 
       let studentRoster = admissions.map((a: any) => ({
         studentName: a.fullName || a.studentFullName || "Student",
@@ -67,15 +71,15 @@ export async function GET(request: Request) {
       if (studentRoster.length === 0 && (batchId || targetBatchName)) {
         const enquiryBatchQuery: any[] = [];
         if (batchId) enquiryBatchQuery.push({ batchId: batchId });
+        if (customBatchId) enquiryBatchQuery.push({ batchId: customBatchId });
         if (targetBatchName) {
-          enquiryBatchQuery.push({ batch: targetBatchName });
-          enquiryBatchQuery.push({ batch: { $regex: new RegExp(`^${targetBatchName.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") } });
+          enquiryBatchQuery.push({ batch: targetBatchName.trim() });
         }
 
         const batchEnquiries = await Enquiry.find({
           status: { $in: ["Admitted", "Enrolled", "Demo Attended"] },
           $or: enquiryBatchQuery
-        }).select("studentFullName primaryPhoneMobile targetCourse enquiryId batch").lean();
+        }).select("studentFullName primaryPhoneMobile targetCourse enquiryId batch batchId").lean();
 
         if (batchEnquiries.length > 0) {
           studentRoster = batchEnquiries.map((e: any) => ({

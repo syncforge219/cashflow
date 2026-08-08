@@ -28,11 +28,11 @@ export default function BatchStudentsModal({
       setIsLoading(true);
       try {
         const batchName = batch.batchName;
-        const batchId = batch._id;
+        const batchId = batch.batchId || batch._id;
 
-        // Fetch students from admissions & roster endpoints
+        // Fetch students from admissions & roster endpoints using unique batchId and exact batch match
         const [admissionsRes, rosterRes] = await Promise.all([
-          fetch(`/api/admissions?batch=${encodeURIComponent(batchName)}`).then((r) => r.json().catch(() => ({}))),
+          fetch(`/api/admissions?batchId=${encodeURIComponent(batchId)}&batch=${encodeURIComponent(batchName)}&exactBatch=true`).then((r) => r.json().catch(() => ({}))),
           fetch(`/api/attendance?batchId=${batchId}&rosterOnly=true`).then((r) => r.json().catch(() => ({}))),
         ]);
 
@@ -107,6 +107,11 @@ export default function BatchStudentsModal({
               <span className="px-2.5 py-0.5 bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 rounded-lg text-[10px] font-extrabold uppercase tracking-wider">
                 Batch Roster
               </span>
+              {batch.batchId && (
+                <span className="px-2.5 py-0.5 bg-white/20 text-white font-mono text-[10px] font-extrabold rounded-lg">
+                  {batch.batchId}
+                </span>
+              )}
               <span className="px-2.5 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-lg text-[10px] font-extrabold">
                 {batch.status || "Active"}
               </span>
