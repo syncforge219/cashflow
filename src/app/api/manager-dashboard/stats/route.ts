@@ -84,7 +84,11 @@ export async function GET(req: Request) {
 
     if (isFiltered) {
       enquiryQuery.createdAt = dateRangeFilter;
-      admissionQuery.createdAt = dateRangeFilter;
+      admissionQuery.$or = [
+        { admissionDate: dateRangeFilter },
+        { $and: [{ admissionDate: { $exists: false } }, { createdAt: dateRangeFilter }] },
+        { $and: [{ admissionDate: null }, { createdAt: dateRangeFilter }] }
+      ];
     }
 
     // 1. KPI Calculations
@@ -137,6 +141,28 @@ export async function GET(req: Request) {
       totalCollection += Number(p.amountReceived || 0);
     });
 
+    // Calculate unlinked course upgrades
+    let unlinkedUpgradesCount = 0;
+    for (const adm of admissionsList) {
+      const isUpg = (adm as any).isUpgrade || (await Admission.exists({
+        mobileNumber: (adm as any).mobileNumber,
+        _id: { $ne: (adm as any)._id },
+        createdAt: { $lt: (adm as any).createdAt }
+      }));
+      if (isUpg) {
+        const hasEnquiry = await Enquiry.exists({
+          primaryPhoneMobile: (adm as any).mobileNumber,
+          targetCourse: (adm as any).course
+        });
+        if (!hasEnquiry) {
+          unlinkedUpgradesCount++;
+        }
+      }
+    }
+
+    const totalLeadsCalculated = Math.max(totalLeads + unlinkedUpgradesCount, admissionsCount);
+    const totalConvertedCalculated = convertedLeads + unlinkedUpgradesCount;
+
     // 2. Lead Pipeline Breakdown
     const pipelineStages = [
       { stage: "New Lead", status: "New", color: "bg-[#2563eb]" },
@@ -146,8 +172,17 @@ export async function GET(req: Request) {
 
     const pipeline = await Promise.all(
       pipelineStages.map(async (item) => {
-        const count = await Enquiry.countDocuments({ ...enquiryQuery, status: item.status });
-        const pct = totalLeads > 0 ? ((count / totalLeads) * 100).toFixed(1) + "%" : "0%";
+        let count = 0;
+        if (item.stage === "Admitted") {
+          const admittedEnquiries = await Enquiry.countDocuments({
+            ...enquiryQuery,
+            $or: [{ status: "Admitted" }, { isAdmitted: true }]
+          });
+          count = Math.max(admittedEnquiries, admissionsCount);
+        } else {
+          count = await Enquiry.countDocuments({ ...enquiryQuery, status: item.status });
+        }
+        const pct = totalLeadsCalculated > 0 ? ((count / totalLeadsCalculated) * 100).toFixed(1) + "%" : "0%";
         return { label: item.stage, count, pct, color: item.color };
       })
     );
@@ -181,10 +216,18 @@ export async function GET(req: Request) {
 
       const dayAdmissionQuery = { ...admissionQuery };
       delete dayAdmissionQuery.createdAt;
+      delete dayAdmissionQuery.$or;
 
       const [dayNewLeads, dayAdmissions, dayLostDoc] = await Promise.all([
         Enquiry.countDocuments({ ...dayEnquiryQuery, createdAt: { $gte: dayStart, $lte: dayEnd } }),
-        Admission.countDocuments({ ...dayAdmissionQuery, createdAt: { $gte: dayStart, $lte: dayEnd } }),
+        Admission.countDocuments({
+          ...dayAdmissionQuery,
+          $or: [
+            { admissionDate: { $gte: dayStart, $lte: dayEnd } },
+            { $and: [{ admissionDate: { $exists: false } }, { createdAt: { $gte: dayStart, $lte: dayEnd } }] },
+            { $and: [{ admissionDate: null }, { createdAt: { $gte: dayStart, $lte: dayEnd } }] }
+          ]
+        }),
         import("@/models/LostLeadCounter").then((m) => m.default.findOne({ date: dayStr }).lean())
       ]);
 
@@ -219,7 +262,9 @@ export async function GET(req: Request) {
     const counsellorStats = await Promise.all(
       counsellors.map(async (c: any, index) => {
         const cName = c.name;
-        const cAdmissions = admissionsList.filter((a: any) => a.counsellor === cName);
+        const cAdmissions = admissionsList.filter((a: any) => 
+          (a.counsellor || "").trim().toLowerCase() === (cName || "").trim().toLowerCase()
+        );
         const admCount = cAdmissions.length;
         const revSum = cAdmissions.reduce((acc: number, cur: any) => acc + Number(cur.finalFee || 0), 0);
         
@@ -361,28 +406,6 @@ export async function GET(req: Request) {
         color: "text-emerald-500 bg-emerald-50"
       });
     });
-
-    // Calculate unlinked course upgrades
-    let unlinkedUpgradesCount = 0;
-    for (const adm of admissionsList) {
-      const isUpg = (adm as any).isUpgrade || (await Admission.exists({
-        mobileNumber: (adm as any).mobileNumber,
-        _id: { $ne: (adm as any)._id },
-        createdAt: { $lt: (adm as any).createdAt }
-      }));
-      if (isUpg) {
-        const hasEnquiry = await Enquiry.exists({
-          primaryPhoneMobile: (adm as any).mobileNumber,
-          targetCourse: (adm as any).course
-        });
-        if (!hasEnquiry) {
-          unlinkedUpgradesCount++;
-        }
-      }
-    }
-
-    const totalLeadsCalculated = Math.max(totalLeads + unlinkedUpgradesCount, admissionsCount);
-    const totalConvertedCalculated = convertedLeads + unlinkedUpgradesCount;
 
     const rawConv = totalLeadsCalculated > 0 ? (totalConvertedCalculated / totalLeadsCalculated) * 100 : 0;
     const conversionRateStr = Math.min(100, Math.max(0, Number(rawConv.toFixed(1)))).toFixed(1) + "%";

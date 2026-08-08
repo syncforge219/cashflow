@@ -532,66 +532,92 @@ export async function GET(req: Request) {
     const userBrand = (user?.brandScope || (user as any)?.brand || "").trim();
     const isBrandRestricted = userBrand && userBrand !== "All Brands" && userBrand !== "All" && userBrand !== "*" && userBrand !== "global";
 
+    let allowedBrands: string[] | null = null;
     if (isBrandRestricted) {
-      brand = userBrand;
+      allowedBrands = userBrand.split(",").map((b: string) => b.trim()).filter(Boolean);
     }
 
-    let query: any = {};
+    const query: any = {};
+    const andConditions: any[] = [];
+
     if (q) {
       const regex = new RegExp(q, "i");
       const cleanQ = q.replace(/[\s-]/g, "");
       const cleanRegex = new RegExp(cleanQ, "i");
 
-      query.$or = [
-        { fullName: regex },
-        { admissionId: regex },
-        { mobileNumber: cleanRegex },
-        { email: regex },
-      ];
+      andConditions.push({
+        $or: [
+          { fullName: regex },
+          { admissionId: regex },
+          { mobileNumber: cleanRegex },
+          { email: regex },
+          { course: regex },
+          { brand: regex },
+        ]
+      });
     }
 
-    if (brand && brand !== "all" && brand !== "All" && brand !== "All Brands") {
-      query.brand = { $regex: new RegExp(`^${brand.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") };
+    const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    if (allowedBrands && allowedBrands.length > 0) {
+      if (brand && brand !== "all" && brand !== "All" && brand !== "All Brands" && allowedBrands.some(b => b.toLowerCase() === brand!.toLowerCase())) {
+        query.brand = { $regex: new RegExp(`^${escapeRegExp(brand.trim())}$`, "i") };
+      } else {
+        const regexArray = allowedBrands.map(b => new RegExp(`^${escapeRegExp(b)}$`, "i"));
+        query.brand = { $in: regexArray };
+      }
+    } else if (brand && brand !== "all" && brand !== "All" && brand !== "All Brands") {
+      const brandList = brand.split(",").map(b => b.trim()).filter(Boolean);
+      if (brandList.length > 1) {
+        query.brand = { $in: brandList.map(b => new RegExp(`^${escapeRegExp(b)}$`, "i")) };
+      } else if (brandList.length === 1) {
+        query.brand = { $regex: new RegExp(`^${escapeRegExp(brandList[0])}$`, "i") };
+      }
     }
 
     if (batchParam) {
-      query.batch = { $regex: new RegExp(`^${batchParam.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") };
+      query.batch = { $regex: new RegExp(`^${escapeRegExp(batchParam.trim())}$`, "i") };
     }
 
+    let targetStart: Date | null = null;
+    let targetEnd: Date | null = null;
+
     if (startDateParam && endDateParam) {
-      const sDate = new Date(startDateParam);
-      sDate.setHours(0, 0, 0, 0);
-      const eDate = new Date(endDateParam);
-      eDate.setHours(23, 59, 59, 999);
-      query.$or = [
-        { admissionDate: { $gte: sDate, $lte: eDate } },
-        { $and: [{ admissionDate: { $exists: false } }, { createdAt: { $gte: sDate, $lte: eDate } }] }
-      ];
+      targetStart = new Date(startDateParam);
+      targetStart.setHours(0, 0, 0, 0);
+      targetEnd = new Date(endDateParam);
+      targetEnd.setHours(23, 59, 59, 999);
     } else if (filterParam === "today") {
-      const sDate = new Date();
-      sDate.setHours(0, 0, 0, 0);
-      const eDate = new Date();
-      eDate.setHours(23, 59, 59, 999);
-      query.$or = [
-        { admissionDate: { $gte: sDate, $lte: eDate } },
-        { $and: [{ admissionDate: { $exists: false } }, { createdAt: { $gte: sDate, $lte: eDate } }] }
-      ];
+      targetStart = new Date();
+      targetStart.setHours(0, 0, 0, 0);
+      targetEnd = new Date();
+      targetEnd.setHours(23, 59, 59, 999);
     } else if (filterParam === "thisMonth") {
       const now = new Date();
-      const sDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-      const eDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-      query.$or = [
-        { admissionDate: { $gte: sDate, $lte: eDate } },
-        { $and: [{ admissionDate: { $exists: false } }, { createdAt: { $gte: sDate, $lte: eDate } }] }
-      ];
+      targetStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      targetEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    }
+
+    if (targetStart && targetEnd) {
+      andConditions.push({
+        $or: [
+          { admissionDate: { $gte: targetStart, $lte: targetEnd } },
+          { $and: [{ admissionDate: { $exists: false } }, { createdAt: { $gte: targetStart, $lte: targetEnd } }] },
+          { $and: [{ admissionDate: null }, { createdAt: { $gte: targetStart, $lte: targetEnd } }] }
+        ]
+      });
+    }
+
+    if (andConditions.length > 0) {
+      query.$and = andConditions;
     }
 
     const enquiryQuery: any = {};
-    if (brand && brand !== "all" && brand !== "All") {
-      enquiryQuery.targetBrand = brand;
+    if (query.brand) {
+      enquiryQuery.targetBrand = query.brand;
     }
-    if (query.createdAt) {
-      enquiryQuery.createdAt = query.createdAt;
+    if (targetStart && targetEnd) {
+      enquiryQuery.createdAt = { $gte: targetStart, $lte: targetEnd };
     }
     const rawEnquiriesCount = await Enquiry.countDocuments(enquiryQuery);
 

@@ -43,13 +43,19 @@ export default function AdmissionBreakdownModal({
         queryParams.append("endDate", endDate);
       } else if (filterLabel?.toLowerCase() === "today") {
         queryParams.append("filter", "today");
-      } else if (filterLabel?.toLowerCase().includes("month")) {
+      } else if (filterLabel && filterLabel !== "Overall" && filterLabel !== "Overall Scope" && filterLabel !== "All Time") {
+        // If filter is a month name or contains month
         queryParams.append("filter", "thisMonth");
+      }
+
+      let allUrl = "/api/admissions";
+      if (brandScope && brandScope !== "all" && brandScope !== "All Brands") {
+        allUrl += `?brand=${encodeURIComponent(brandScope)}`;
       }
 
       const [filteredRes, allRes] = await Promise.all([
         fetch(`/api/admissions?${queryParams.toString()}`),
-        fetch("/api/admissions"),
+        fetch(allUrl),
       ]);
 
       const filteredJson = await filteredRes.json();

@@ -692,8 +692,10 @@ export default function ManagerDashboard() {
       <AdmissionBreakdownModal
         isOpen={isAdmissionBreakdownOpen}
         onClose={() => setIsAdmissionBreakdownOpen(false)}
-        brandScope={selectedBrand}
-        filterLabel={selectedBrand !== "all" ? selectedBrand : "Overall Scope"}
+        brandScope={selectedBrand !== "all" ? selectedBrand : user?.brandScope}
+        filterLabel={filterLabel}
+        startDate={startDate}
+        endDate={endDate}
       />
       <PaymentBreakdownModal
         isOpen={isPaymentBreakdownOpen}
