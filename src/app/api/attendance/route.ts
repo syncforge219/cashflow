@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
 import Attendance from "@/models/Attendance";
 import Batch from "@/models/Batch";
@@ -34,7 +35,11 @@ export async function GET(request: Request) {
       let customBatchId = "";
       if (batchId) {
         try {
-          const batchObj = await Batch.findOne({ $or: [{ _id: batchId }, { batchId: batchId }] }).lean();
+          const bQuery: any[] = [{ batchId: batchId }];
+          if (mongoose.Types.ObjectId.isValid(batchId)) {
+            bQuery.push({ _id: new mongoose.Types.ObjectId(batchId) });
+          }
+          const batchObj = await Batch.findOne({ $or: bQuery }).lean();
           if (batchObj) {
             targetBatchName = batchObj.batchName;
             targetCourse = batchObj.course || "";
@@ -48,16 +53,19 @@ export async function GET(request: Request) {
       if (batchId) {
         batchOrQuery.push({ batchId: batchId });
       }
-      if (customBatchId) {
+      if (customBatchId && customBatchId !== batchId) {
         batchOrQuery.push({ batchId: customBatchId });
       }
       if (targetBatchName) {
         batchOrQuery.push({ batch: targetBatchName.trim() });
       }
 
-      const admissions = await Admission.find({
-        $or: batchOrQuery
-      }).select("fullName studentFullName mobileNumber phone email admissionId batch batchId course").lean();
+      let admissions: any[] = [];
+      if (batchOrQuery.length > 0) {
+        admissions = await Admission.find({
+          $or: batchOrQuery
+        }).select("fullName studentFullName mobileNumber phone email admissionId batch batchId course").lean();
+      }
 
       let studentRoster = admissions.map((a: any) => ({
         studentName: a.fullName || a.studentFullName || "Student",

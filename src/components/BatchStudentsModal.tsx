@@ -33,7 +33,7 @@ export default function BatchStudentsModal({
         // Fetch students from admissions & roster endpoints using unique batchId and exact batch match
         const [admissionsRes, rosterRes] = await Promise.all([
           fetch(`/api/admissions?batchId=${encodeURIComponent(batchId)}&batch=${encodeURIComponent(batchName)}&exactBatch=true`).then((r) => r.json().catch(() => ({}))),
-          fetch(`/api/attendance?batchId=${batchId}&rosterOnly=true`).then((r) => r.json().catch(() => ({}))),
+          fetch(`/api/attendance?batchId=${encodeURIComponent(batchId)}&batchName=${encodeURIComponent(batchName)}&rosterOnly=true`).then((r) => r.json().catch(() => ({}))),
         ]);
 
         const admStudents = admissionsRes.success && Array.isArray(admissionsRes.data) ? admissionsRes.data : [];

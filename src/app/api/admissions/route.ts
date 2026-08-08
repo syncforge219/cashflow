@@ -563,19 +563,40 @@ export async function GET(req: Request) {
     const batchIdParam = searchParams.get("batchId");
     const exactBatchParam = searchParams.get("exactBatch");
 
-    if (batchIdParam) {
-      andConditions.push({
-        $or: [
-          { batchId: batchIdParam.trim() },
-          { _id: batchIdParam.trim() },
-          ...(batchParam ? [{ batch: batchParam.trim() }] : [])
-        ]
-      });
-    } else if (batchParam) {
-      if (exactBatchParam === "true") {
-        query.batch = batchParam.trim();
-      } else {
-        query.batch = { $regex: new RegExp(`^${escapeRegExp(batchParam.trim())}$`, "i") };
+    if (batchIdParam || batchParam) {
+      let resolvedBatchName = batchParam ? batchParam.trim() : "";
+      let resolvedBatchId = batchIdParam ? batchIdParam.trim() : "";
+
+      if (resolvedBatchId) {
+        try {
+          const bQuery: any[] = [{ batchId: resolvedBatchId }];
+          if (mongoose.Types.ObjectId.isValid(resolvedBatchId)) {
+            bQuery.push({ _id: new mongoose.Types.ObjectId(resolvedBatchId) });
+          }
+          const batchDoc = await Batch.findOne({ $or: bQuery }).lean();
+          if (batchDoc) {
+            resolvedBatchName = batchDoc.batchName;
+            resolvedBatchId = batchDoc.batchId || resolvedBatchId;
+          }
+        } catch (_) {}
+      }
+
+      const batchConditions: any[] = [];
+      if (resolvedBatchId) {
+        batchConditions.push({ batchId: resolvedBatchId });
+      }
+      if (resolvedBatchName) {
+        if (exactBatchParam === "true" || resolvedBatchId) {
+          batchConditions.push({ batch: resolvedBatchName });
+        } else {
+          batchConditions.push({ batch: { $regex: new RegExp(`^${escapeRegExp(resolvedBatchName)}$`, "i") } });
+        }
+      }
+
+      if (batchConditions.length === 1) {
+        andConditions.push(batchConditions[0]);
+      } else if (batchConditions.length > 1) {
+        andConditions.push({ $or: batchConditions });
       }
     }
 
