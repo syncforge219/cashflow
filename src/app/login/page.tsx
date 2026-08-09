@@ -109,7 +109,7 @@ export default function LoginPage() {
         handleRoleRedirect(data.user?.role);
       }
     } catch (err) {
-      setErrors({ general: "An unexpected error occurred. Please try again." });
+      setErrors({ general: "An unexpected network error occurred. Please try again." });
       setIsLoading(false);
     }
   };
@@ -146,7 +146,7 @@ export default function LoginPage() {
         setSuccessMsg(`OTP code has been sent to ${email}. Please check your inbox.`);
       }
     } catch (err) {
-      setErrors({ general: "Failed to connect to server. Please try again." });
+      setErrors({ general: "Failed to connect to authentication server." });
     } finally {
       setIsLoading(false);
     }
@@ -158,7 +158,7 @@ export default function LoginPage() {
     setSuccessMsg("");
 
     if (!otp || otp.trim().length !== 6) {
-      setErrors({ otp: "Please enter the 6-digit OTP code sent to your email" });
+      setErrors({ otp: "Please enter the 6-digit OTP code" });
       return;
     }
 
@@ -174,7 +174,7 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setErrors({ otp: data.error || "Verification failed" });
+        setErrors({ otp: data.error || "Invalid or expired OTP code." });
         setIsLoading(false);
       } else {
         handleRoleRedirect(data.user?.role);
@@ -186,36 +186,36 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-50 px-4 py-12 text-slate-800 font-sans selection:bg-indigo-500 selection:text-white">
-      {/* Background Particle Effect */}
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-50 px-4 py-12 text-slate-900 font-sans selection:bg-indigo-500 selection:text-white">
+      {/* Particle Network Canvas */}
       <ParticleNetwork />
 
       {/* Ambient Glows */}
-      <div className="absolute -top-40 -left-40 h-[520px] w-[520px] rounded-full bg-indigo-300/30 blur-[130px] pointer-events-none animate-pulse-glow"></div>
-      <div className="absolute -bottom-40 -right-40 h-[520px] w-[520px] rounded-full bg-purple-300/30 blur-[130px] pointer-events-none animate-pulse-glow" style={{ animationDelay: "2.5s" }}></div>
+      <div className="absolute -top-40 -left-40 h-[520px] w-[520px] rounded-full bg-indigo-300/30 blur-[130px] pointer-events-none animate-pulse-glow" />
+      <div className="absolute -bottom-40 -right-40 h-[520px] w-[520px] rounded-full bg-purple-300/30 blur-[130px] pointer-events-none animate-pulse-glow" style={{ animationDelay: "2.5s" }} />
 
       {/* Main Login Card */}
-      <div className="relative w-full max-w-md rounded-3xl border border-slate-200/80 bg-white/95 backdrop-blur-xl p-8 sm:p-10 shadow-2xl shadow-slate-200/80 transition-all duration-500">
-        
+      <div className="relative w-full max-w-md rounded-3xl border border-slate-200/90 bg-white/95 backdrop-blur-2xl p-8 sm:p-10 shadow-2xl shadow-slate-200/80 transition-all duration-300">
         {/* Brand Logo */}
         <div className="flex justify-center mb-6">
-          <div className="group relative flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-600 shadow-lg shadow-indigo-600/30 transition-transform duration-300 hover:scale-105">
-            <span className="text-white font-extrabold text-xl tracking-tight font-sans">CF</span>
-          </div>
+          <Link href="/" className="group relative flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-700 shadow-lg shadow-indigo-600/30 transition-transform duration-300 hover:scale-105">
+            <span className="text-white font-extrabold text-xl tracking-tight font-heading">L2L</span>
+            <div className="absolute -inset-1 rounded-2xl bg-indigo-400/20 blur-md opacity-0 group-hover:opacity-100 transition-opacity" />
+          </Link>
         </div>
 
         {/* Header */}
         <div className="mb-6 text-center">
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-800 font-sans">
+          <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 font-heading">
             Welcome back
           </h2>
-          <p className="mt-1.5 text-xs sm:text-sm font-medium text-slate-400 font-sans">
-            Sign in to access your portal
+          <p className="mt-1 text-xs sm:text-sm font-medium text-slate-500">
+            Sign in to access your Lead2Ledger workspace
           </p>
         </div>
 
         {/* Mode Selector Tabs */}
-        <div className="flex rounded-2xl bg-slate-100 p-1 mb-6 border border-slate-200/60">
+        <div className="flex rounded-2xl bg-slate-100/90 p-1 mb-6 border border-slate-200/70">
           <button
             type="button"
             onClick={() => {
@@ -223,10 +223,10 @@ export default function LoginPage() {
               setErrors({});
               setSuccessMsg("");
             }}
-            className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${
+            className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
               loginMode === "password"
                 ? "bg-white text-indigo-600 shadow-sm"
-                : "text-slate-500 hover:text-slate-800"
+                : "text-slate-500 hover:text-slate-900"
             }`}
           >
             Password Login
@@ -238,35 +238,35 @@ export default function LoginPage() {
               setErrors({});
               setSuccessMsg("");
             }}
-            className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${
+            className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
               loginMode === "otp"
                 ? "bg-white text-indigo-600 shadow-sm"
-                : "text-slate-500 hover:text-slate-800"
+                : "text-slate-500 hover:text-slate-900"
             }`}
           >
-            ✉️ Email OTP Login
+            Email OTP
           </button>
         </div>
 
         {/* Global Error Banner */}
         {errors.general && (
-          <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-600 text-xs font-semibold text-center">
+          <div className="mb-4 p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-rose-700 text-xs font-semibold text-center animate-in fade-in duration-200">
             {errors.general}
           </div>
         )}
 
         {/* Global Success Banner */}
         {successMsg && (
-          <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-xs font-semibold text-center">
+          <div className="mb-4 p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 text-xs font-semibold text-center animate-in fade-in duration-200">
             {successMsg}
           </div>
         )}
 
         {/* --- PASSWORD LOGIN FORM --- */}
         {loginMode === "password" && (
-          <form onSubmit={handlePasswordSubmit} className="space-y-5">
+          <form onSubmit={handlePasswordSubmit} className="space-y-4">
             <div className="group">
-              <label htmlFor="email" className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">
+              <label htmlFor="email" className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5 font-heading">
                 EMAIL ADDRESS
               </label>
               <div className="relative">
@@ -278,17 +278,19 @@ export default function LoginPage() {
                     setEmail(e.target.value);
                     if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
                   }}
-                  className={`block w-full rounded-2xl border bg-slate-50/70 py-3 px-4 text-xs font-semibold text-slate-800 placeholder-slate-400 outline-none ${
-                    errors.email ? "border-rose-400 focus:ring-2 focus:ring-rose-400/20" : "border-slate-200 focus:border-indigo-500 focus:bg-white"
+                  className={`block w-full rounded-2xl border bg-slate-50/80 py-3 px-4 text-xs font-semibold text-slate-900 placeholder-slate-400 outline-none transition-all ${
+                    errors.email
+                      ? "border-rose-400 focus:ring-4 focus:ring-rose-400/15"
+                      : "border-slate-200 focus:border-indigo-600 focus:bg-white focus:ring-4 focus:ring-indigo-600/10"
                   }`}
-                  placeholder="name@example.com"
+                  placeholder="name@company.com"
                 />
               </div>
-              {errors.email && <p className="mt-1 text-xs text-rose-500 font-semibold">{errors.email}</p>}
+              {errors.email && <p className="mt-1 text-xs text-rose-600 font-semibold">{errors.email}</p>}
             </div>
 
             <div className="group">
-              <label htmlFor="password" className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">
+              <label htmlFor="password" className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5 font-heading">
                 PASSWORD
               </label>
               <div className="relative">
@@ -300,38 +302,40 @@ export default function LoginPage() {
                     setPassword(e.target.value);
                     if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }));
                   }}
-                  className={`block w-full rounded-2xl border bg-slate-50/70 py-3 pl-4 pr-10 text-xs font-semibold text-slate-800 placeholder-slate-400 outline-none ${
-                    errors.password ? "border-rose-400 focus:ring-2 focus:ring-rose-400/20" : "border-slate-200 focus:border-indigo-500 focus:bg-white"
+                  className={`block w-full rounded-2xl border bg-slate-50/80 py-3 pl-4 pr-11 text-xs font-semibold text-slate-900 placeholder-slate-400 outline-none transition-all ${
+                    errors.password
+                      ? "border-rose-400 focus:ring-4 focus:ring-rose-400/15"
+                      : "border-slate-200 focus:border-indigo-600 focus:bg-white focus:ring-4 focus:ring-indigo-600/10"
                   }`}
                   placeholder="••••••••"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-slate-400 hover:text-indigo-600 cursor-pointer"
+                  className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-xs font-bold text-slate-400 hover:text-indigo-600 cursor-pointer"
                 >
                   {showPassword ? "Hide" : "Show"}
                 </button>
               </div>
-              {errors.password && <p className="mt-1 text-xs text-rose-500 font-semibold">{errors.password}</p>}
+              {errors.password && <p className="mt-1 text-xs text-rose-600 font-semibold">{errors.password}</p>}
             </div>
 
             <button
               type="submit"
               disabled={isLoading}
-              className="flex w-full items-center justify-center rounded-2xl bg-indigo-600 hover:bg-indigo-700 py-3.5 text-xs font-bold text-white transition-all shadow-md cursor-pointer disabled:opacity-75"
+              className="flex w-full items-center justify-center rounded-2xl bg-indigo-600 hover:bg-indigo-700 py-3.5 text-xs font-extrabold text-white transition-all shadow-md shadow-indigo-600/25 hover:shadow-indigo-600/40 cursor-pointer disabled:opacity-70 mt-2 active:scale-[0.99]"
             >
-              {isLoading ? "Signing in..." : "Sign In"}
+              {isLoading ? "Authenticating..." : "Sign In to Workspace"}
             </button>
           </form>
         )}
 
         {/* --- EMAIL OTP LOGIN FORM --- */}
         {loginMode === "otp" && (
-          <form onSubmit={isOtpSent ? handleVerifyOtp : handleSendOtp} className="space-y-5">
+          <form onSubmit={isOtpSent ? handleVerifyOtp : handleSendOtp} className="space-y-4">
             <div className="group">
-              <label htmlFor="otp-email" className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">
-                WORK / REGISTERED EMAIL
+              <label htmlFor="otp-email" className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5 font-heading">
+                REGISTERED WORK EMAIL
               </label>
               <div className="relative">
                 <input
@@ -343,18 +347,20 @@ export default function LoginPage() {
                     setEmail(e.target.value);
                     if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
                   }}
-                  className={`block w-full rounded-2xl border bg-slate-50/70 py-3 px-4 text-xs font-semibold text-slate-800 placeholder-slate-400 outline-none ${
-                    errors.email ? "border-rose-400 focus:ring-2 focus:ring-rose-400/20" : "border-slate-200 focus:border-indigo-500 focus:bg-white"
-                  } ${isOtpSent ? "opacity-70 bg-slate-100" : ""}`}
+                  className={`block w-full rounded-2xl border bg-slate-50/80 py-3 px-4 text-xs font-semibold text-slate-900 placeholder-slate-400 outline-none transition-all ${
+                    errors.email
+                      ? "border-rose-400 focus:ring-4 focus:ring-rose-400/15"
+                      : "border-slate-200 focus:border-indigo-600 focus:bg-white focus:ring-4 focus:ring-indigo-600/10"
+                  } ${isOtpSent ? "opacity-75 bg-slate-100" : ""}`}
                   placeholder="user@example.com"
                 />
               </div>
-              {errors.email && <p className="mt-1 text-xs text-rose-500 font-semibold">{errors.email}</p>}
+              {errors.email && <p className="mt-1 text-xs text-rose-600 font-semibold">{errors.email}</p>}
             </div>
 
             {isOtpSent && (
               <div className="group animate-in fade-in slide-in-from-top-2 duration-300">
-                <label htmlFor="otp-input" className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">
+                <label htmlFor="otp-input" className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5 font-heading">
                   ENTER 6-DIGIT EMAIL OTP
                 </label>
                 <div className="relative">
@@ -367,13 +373,13 @@ export default function LoginPage() {
                       setOtp(e.target.value.replace(/[^0-9]/g, ""));
                       if (errors.otp) setErrors((prev) => ({ ...prev, otp: undefined }));
                     }}
-                    className={`block w-full rounded-2xl border bg-slate-50/70 py-3.5 px-4 text-center text-lg font-mono font-bold tracking-[8px] text-slate-900 placeholder-slate-300 outline-none ${
-                      errors.otp ? "border-rose-400 focus:ring-2 focus:ring-rose-400/20" : "border-indigo-300 focus:border-indigo-600 focus:bg-white"
+                    className={`block w-full rounded-2xl border bg-slate-50/80 py-3.5 px-4 text-center text-lg font-mono font-bold tracking-[8px] text-slate-900 placeholder-slate-300 outline-none ${
+                      errors.otp ? "border-rose-400 focus:ring-4 focus:ring-rose-400/15" : "border-indigo-400 focus:border-indigo-600 focus:bg-white focus:ring-4 focus:ring-indigo-600/10"
                     }`}
                     placeholder="000000"
                   />
                 </div>
-                {errors.otp && <p className="mt-1 text-xs text-rose-500 font-semibold">{errors.otp}</p>}
+                {errors.otp && <p className="mt-1 text-xs text-rose-600 font-semibold">{errors.otp}</p>}
 
                 <div className="flex items-center justify-between mt-3 text-xs">
                   <button
@@ -383,7 +389,7 @@ export default function LoginPage() {
                       setOtp("");
                       setSuccessMsg("");
                     }}
-                    className="font-bold text-slate-500 hover:text-slate-800"
+                    className="font-bold text-slate-500 hover:text-slate-900 cursor-pointer"
                   >
                     ← Change Email
                   </button>
@@ -391,7 +397,7 @@ export default function LoginPage() {
                     type="button"
                     disabled={resendTimer > 0 || isLoading}
                     onClick={() => handleSendOtp()}
-                    className="font-bold text-indigo-600 hover:text-indigo-700 disabled:opacity-50"
+                    className="font-bold text-indigo-600 hover:text-indigo-700 disabled:opacity-50 cursor-pointer"
                   >
                     {resendTimer > 0 ? `Resend OTP in ${resendTimer}s` : "Resend OTP"}
                   </button>
@@ -402,7 +408,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="flex w-full items-center justify-center rounded-2xl bg-indigo-600 hover:bg-indigo-700 py-3.5 text-xs font-bold text-white transition-all shadow-md cursor-pointer disabled:opacity-75"
+              className="flex w-full items-center justify-center rounded-2xl bg-indigo-600 hover:bg-indigo-700 py-3.5 text-xs font-extrabold text-white transition-all shadow-md shadow-indigo-600/25 hover:shadow-indigo-600/40 cursor-pointer disabled:opacity-70 mt-2 active:scale-[0.99]"
             >
               {isLoading
                 ? "Processing..."
@@ -414,7 +420,7 @@ export default function LoginPage() {
         )}
 
         {/* Footer */}
-        <div className="mt-8 text-center text-xs font-medium text-slate-400 font-sans">
+        <div className="mt-8 text-center text-xs font-medium text-slate-500">
           Don&apos;t have an account?{" "}
           <Link href="/signup" className="font-bold text-indigo-600 hover:text-indigo-700 hover:underline transition-colors">
             Sign up

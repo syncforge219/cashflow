@@ -207,28 +207,6 @@ export default function AdminAdmissionHub() {
               </svg>
               Import Historical Data (Excel)
             </button>
-            <button
-              onClick={async () => {
-                if (confirm("Do you want to run automatic repair on past admission dates for existing records in database?")) {
-                  try {
-                    const res = await fetch("/api/admin/fix-admission-dates");
-                    const data = await res.json();
-                    if (data.success) {
-                      alert(`Repair Completed! Updated ${data.updatedCount || 0} records with true historical admission dates.`);
-                      fetchAdmissions();
-                    } else {
-                      alert("Repair failed: " + data.message);
-                    }
-                  } catch (err) {
-                    alert("Failed to connect to repair API");
-                  }
-                }
-              }}
-              className="flex items-center gap-2 bg-white border border-amber-300 hover:border-amber-500 hover:bg-amber-50 text-amber-800 text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm whitespace-nowrap mt-1 cursor-pointer"
-              title="Automatically inspect payment dates, enquiry dates, and EMI plans to fix any past admission dates set to present system timestamp"
-            >
-              📅 Repair Past Admission Dates
-            </button>
           </header>
 
           {/* Student Search & Action Center */}
