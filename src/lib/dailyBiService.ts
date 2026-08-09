@@ -188,11 +188,41 @@ export async function getDailyBiReportData(targetDate?: Date): Promise<DailyBiRe
   ] = await Promise.all([
     Enquiry.find({ createdAt: { $gte: todayStart, $lte: todayEnd } }).lean(),
     Enquiry.find({ createdAt: { $gte: yesterdayStart, $lte: yesterdayEnd } }).lean(),
-    Admission.find({ createdAt: { $gte: todayStart, $lte: todayEnd } }).lean(),
-    Admission.find({ createdAt: { $gte: yesterdayStart, $lte: yesterdayEnd } }).lean(),
-    Payment.find({ createdAt: { $gte: todayStart, $lte: todayEnd } }).lean(),
-    Payment.find({ createdAt: { $gte: yesterdayStart, $lte: yesterdayEnd } }).lean(),
-    Payment.find({ createdAt: { $gte: lastWeekStart, $lte: lastWeekEnd } }).lean(),
+    Admission.find({
+      $or: [
+        { admissionDate: { $gte: todayStart, $lte: todayEnd } },
+        { $and: [{ admissionDate: { $exists: false } }, { createdAt: { $gte: todayStart, $lte: todayEnd } }] },
+        { $and: [{ admissionDate: null }, { createdAt: { $gte: todayStart, $lte: todayEnd } }] }
+      ]
+    }).lean(),
+    Admission.find({
+      $or: [
+        { admissionDate: { $gte: yesterdayStart, $lte: yesterdayEnd } },
+        { $and: [{ admissionDate: { $exists: false } }, { createdAt: { $gte: yesterdayStart, $lte: yesterdayEnd } }] },
+        { $and: [{ admissionDate: null }, { createdAt: { $gte: yesterdayStart, $lte: yesterdayEnd } }] }
+      ]
+    }).lean(),
+    Payment.find({
+      $or: [
+        { paymentDate: { $gte: todayStart, $lte: todayEnd } },
+        { $and: [{ paymentDate: { $exists: false } }, { createdAt: { $gte: todayStart, $lte: todayEnd } }] },
+        { $and: [{ paymentDate: null }, { createdAt: { $gte: todayStart, $lte: todayEnd } }] }
+      ]
+    }).lean(),
+    Payment.find({
+      $or: [
+        { paymentDate: { $gte: yesterdayStart, $lte: yesterdayEnd } },
+        { $and: [{ paymentDate: { $exists: false } }, { createdAt: { $gte: yesterdayStart, $lte: yesterdayEnd } }] },
+        { $and: [{ paymentDate: null }, { createdAt: { $gte: yesterdayStart, $lte: yesterdayEnd } }] }
+      ]
+    }).lean(),
+    Payment.find({
+      $or: [
+        { paymentDate: { $gte: lastWeekStart, $lte: lastWeekEnd } },
+        { $and: [{ paymentDate: { $exists: false } }, { createdAt: { $gte: lastWeekStart, $lte: lastWeekEnd } }] },
+        { $and: [{ paymentDate: null }, { createdAt: { $gte: lastWeekStart, $lte: lastWeekEnd } }] }
+      ]
+    }).lean(),
     Admission.find({}).lean(),
     Enquiry.find({}).lean(),
     User.find({}).select("-password").lean(),
@@ -257,11 +287,17 @@ export async function getDailyBiReportData(targetDate?: Date): Promise<DailyBiRe
     const dayName = dStart.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
 
     const dayAdmissions = allAdmissions.filter((a: any) => {
-      const dt = new Date(a.createdAt);
+      const dt = new Date(a.admissionDate || a.createdAt);
       return dt >= dStart && dt <= dEnd;
     });
 
-    const dayPayments = (await Payment.find({ createdAt: { $gte: dStart, $lte: dEnd } }).lean());
+    const dayPayments = (await Payment.find({
+      $or: [
+        { paymentDate: { $gte: dStart, $lte: dEnd } },
+        { $and: [{ paymentDate: { $exists: false } }, { createdAt: { $gte: dStart, $lte: dEnd } }] },
+        { $and: [{ paymentDate: null }, { createdAt: { $gte: dStart, $lte: dEnd } }] }
+      ]
+    }).lean());
     const dayLeads = allEnquiries.filter((e: any) => {
       const dt = new Date(e.createdAt);
       return dt >= dStart && dt <= dEnd;

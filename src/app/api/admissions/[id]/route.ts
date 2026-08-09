@@ -283,6 +283,49 @@ export async function PUT(
 
     const updatedDoc = await Admission.findByIdAndUpdate(id, updatePayload, { new: true });
 
+    // Synchronize initial registration Payment record so registration fee belongs to the admission month
+    try {
+      const effectiveAdmDate = updatedDoc?.admissionDate ? new Date(updatedDoc.admissionDate) : (existingDoc.admissionDate ? new Date(existingDoc.admissionDate) : new Date());
+      const effectiveRegAmt = Number(updatedDoc?.registrationAmount !== undefined ? updatedDoc.registrationAmount : (updatedDoc?.amountReceivedToday || 0));
+
+      const firstPayment = await Payment.findOne({ admissionId: existingDoc._id }).sort({ createdAt: 1 });
+      if (firstPayment) {
+        firstPayment.paymentDate = effectiveAdmDate;
+        if (effectiveRegAmt > 0) {
+          if (!firstPayment.particulars) {
+            firstPayment.particulars = { courseFeeDue: 0, registrationFeeDue: effectiveRegAmt, materialFeeDue: 0, examFeeDue: 0 };
+          } else {
+            firstPayment.particulars.registrationFeeDue = effectiveRegAmt;
+          }
+        }
+        if (updatedDoc?.fullName) firstPayment.studentName = updatedDoc.fullName;
+        if (updatedDoc?.brand) firstPayment.brand = updatedDoc.brand;
+        if (updatedDoc?.companyAssigned) firstPayment.company = updatedDoc.companyAssigned;
+        await firstPayment.save();
+      } else if (effectiveRegAmt > 0) {
+        const newRegPayment = new Payment({
+          admissionId: existingDoc._id,
+          studentName: updatedDoc?.fullName || existingDoc.fullName,
+          amountReceived: effectiveRegAmt,
+          paymentMode: updatedDoc?.paymentMode || existingDoc.paymentMode || "Cash",
+          referenceNo: updatedDoc?.transactionNo || existingDoc.transactionNo || "N/A",
+          company: updatedDoc?.companyAssigned || existingDoc.companyAssigned || "Cash",
+          brand: updatedDoc?.brand || existingDoc.brand || "Cadd Mantra",
+          paymentDate: effectiveAdmDate,
+          particulars: {
+            courseFeeDue: 0,
+            registrationFeeDue: effectiveRegAmt,
+            materialFeeDue: 0,
+            examFeeDue: 0,
+          },
+          remarks: "Initial registration payment upon admission",
+        });
+        await newRegPayment.save();
+      }
+    } catch (syncPayErr) {
+      console.error("Error synchronizing registration payment with admission date:", syncPayErr);
+    }
+
     return NextResponse.json({
       success: true,
       message: "Student record updated successfully",

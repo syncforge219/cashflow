@@ -133,7 +133,20 @@ export async function GET(req: Request) {
     }
 
     if (isFiltered) {
-      paymentQuery.createdAt = dateRangeFilter;
+      const paymentDateCondition = [
+        { paymentDate: dateRangeFilter },
+        { $and: [{ paymentDate: { $exists: false } }, { createdAt: dateRangeFilter }] },
+        { $and: [{ paymentDate: null }, { createdAt: dateRangeFilter }] }
+      ];
+      if (paymentQuery.$or) {
+        paymentQuery.$and = [
+          { $or: paymentQuery.$or },
+          { $or: paymentDateCondition }
+        ];
+        delete paymentQuery.$or;
+      } else {
+        paymentQuery.$or = paymentDateCondition;
+      }
     }
     const paymentsList = await Payment.find(paymentQuery).lean();
     let totalCollection = 0;
