@@ -331,15 +331,15 @@ export async function POST(req: NextRequest) {
         referenceNo: data.transactionNo || "N/A",
         company: finalCompany,
         brand: data.brand,
-        // Use explicitly entered paymentDate if provided, otherwise fallback to admissionDate
-        paymentDate: data.paymentDate ? new Date(data.paymentDate) : (admission.admissionDate || data.admissionDate ? new Date(admission.admissionDate || data.admissionDate) : new Date()),
+        // Ensure initial registration payment is counted in the admission month (use admissionDate as authoritative payment date)
+        paymentDate: admission.admissionDate ? new Date(admission.admissionDate) : (data.admissionDate ? new Date(data.admissionDate) : (data.paymentDate ? new Date(data.paymentDate) : new Date())),
         particulars: {
           courseFeeDue: 0,
-          registrationFeeDue: Number(data.registrationAmount || 0),
+          registrationFeeDue: Number(data.registrationAmount || data.amountReceivedToday || initialCollectedAmount),
           materialFeeDue: 0,
           examFeeDue: 0
         },
-        remarks: "Initial payment upon admission"
+        remarks: "Initial registration payment upon admission"
       });
       initialPaymentObj = await initialPayment.save();
 

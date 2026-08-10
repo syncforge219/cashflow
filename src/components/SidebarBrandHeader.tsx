@@ -39,7 +39,7 @@ export default function SidebarBrandHeader({
   }, [isEditingName]);
 
   const brandLogo = localLogo || user?.brandLogo || "";
-  const currentAppName = user?.customAppName || localAppName || "Coach";
+  const currentAppName = user?.customAppName || localAppName || "Lead2Ledger";
 
   // --- LOGO UPLOAD & RESET HANDLERS ---
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
