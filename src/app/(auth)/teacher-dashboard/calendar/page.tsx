@@ -5,6 +5,7 @@ import { useUser } from "@/app/component/context/user-context";
 import TeacherSidebar from "@/components/TeacherSidebar";
 import TakeAttendanceModal from "@/components/TakeAttendanceModal";
 import { motion, AnimatePresence, Variants } from "framer-motion";
+import { isBatchActiveOnDate, getLocalDateStr } from "@/lib/batchHelper";
 
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
@@ -105,13 +106,9 @@ export default function TeacherCalendarPage() {
   };
 
   // Selected date formatted string YYYY-MM-DD
-  const selYear = selectedDate.getFullYear();
-  const selMonth = String(selectedDate.getMonth() + 1).padStart(2, "0");
-  const selDay = String(selectedDate.getDate()).padStart(2, "0");
-  const selectedDateStr = `${selYear}-${selMonth}-${selDay}`;
-
+  const selectedDateStr = getLocalDateStr(selectedDate);
   const dayNamesShort = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const selectedDayOfWeek = dayNamesShort[selectedDate.getDay()].toUpperCase();
+  const selectedDayOfWeek = dayNamesShort[selectedDate.getDay()];
 
   // 1. Demos for selected date
   const selectedDemos = demos.filter((d) => {
@@ -120,14 +117,9 @@ export default function TeacherCalendarPage() {
     return dateStr === selectedDateStr;
   });
 
-  // 2. Batches active on selected day of week
+  // 2. Batches active on selected date (strictly valid between start date & end date, and scheduled day)
   const selectedBatches = batches.filter((b) => {
-    if (!Array.isArray(b.days) || b.days.length === 0) return true;
-    const dayMap: Record<string, string> = {
-      SUN: "Sun", MON: "Mon", TUE: "Tue", WED: "Wed", THU: "Thu", FRI: "Fri", SAT: "Sat"
-    };
-    const targetDay = dayMap[selectedDayOfWeek] || "Mon";
-    return b.days.includes(targetDay);
+    return isBatchActiveOnDate(b, selectedDateStr, selectedDayOfWeek);
   });
 
   // 3. Attendance Logs logged on selected date
@@ -216,9 +208,13 @@ export default function TeacherCalendarPage() {
                   const selected = isSelected(day);
 
                   // Count events on this day
-                  const cellDateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                  const cellDate = new Date(year, month, day);
+                  const cellDateStr = getLocalDateStr(cellDate);
+                  const cellDayOfWeek = dayNamesShort[cellDate.getDay()];
+
                   const dayDemos = demos.filter((d) => (d.demoDate || "").includes(cellDateStr)).length;
                   const dayAttendance = attendanceLogs.filter((att) => att.dateStr === cellDateStr).length;
+                  const dayBatches = batches.filter((b) => isBatchActiveOnDate(b, cellDateStr, cellDayOfWeek)).length;
 
                   return (
                     <div
@@ -254,6 +250,11 @@ export default function TeacherCalendarPage() {
 
                       {/* Micro event indicators */}
                       <div className="space-y-1 mt-1">
+                        {dayBatches > 0 && (
+                          <div className="text-[9px] font-bold px-1.5 py-0.5 bg-indigo-100 text-indigo-800 rounded-md truncate">
+                            🎓 {dayBatches} Class{dayBatches > 1 ? "es" : ""}
+                          </div>
+                        )}
                         {dayDemos > 0 && (
                           <div className="text-[9px] font-bold px-1.5 py-0.5 bg-purple-100 text-purple-800 rounded-md truncate">
                             🗓️ {dayDemos} Demo{dayDemos > 1 ? "s" : ""}

@@ -100,6 +100,7 @@ export default function BatchDisplay() {
 
   const activeBatchesCount = batches.filter((b) => b.status === "Active").length;
   const upcomingBatchesCount = batches.filter((b) => b.status === "Upcoming").length;
+  const completedBatchesCount = batches.filter((b) => b.status === "Completed").length;
   const assignedFacultyCount = new Set(batches.map((b) => b.teacherId).filter(Boolean)).size;
 
   return (
@@ -134,7 +135,7 @@ export default function BatchDisplay() {
       </div>
 
       {/* KPI Cards Summary */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
         <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Total Batches</span>
           <span className="text-2xl font-black text-slate-800 tracking-tight">{batches.length}</span>
@@ -146,6 +147,10 @@ export default function BatchDisplay() {
         <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs">
           <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider block mb-1">Upcoming Batches</span>
           <span className="text-2xl font-black text-indigo-600 tracking-tight">{upcomingBatchesCount}</span>
+        </div>
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs">
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Completed Batches</span>
+          <span className="text-2xl font-black text-slate-600 tracking-tight">{completedBatchesCount}</span>
         </div>
         <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs">
           <span className="text-[10px] font-bold text-purple-500 uppercase tracking-wider block mb-1">Assigned Faculty</span>

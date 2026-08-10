@@ -112,7 +112,17 @@ export default function BatchStudentsModal({
                   {batch.batchId}
                 </span>
               )}
-              <span className="px-2.5 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-lg text-[10px] font-extrabold">
+              <span
+                className={`px-2.5 py-0.5 rounded-lg text-[10px] font-extrabold uppercase border ${
+                  batch.status === "Active"
+                    ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                    : batch.status === "Upcoming"
+                    ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/30"
+                    : batch.status === "Completed"
+                    ? "bg-slate-500/20 text-slate-300 border-slate-500/30"
+                    : "bg-rose-500/20 text-rose-300 border-rose-500/30"
+                }`}
+              >
                 {batch.status || "Active"}
               </span>
             </div>

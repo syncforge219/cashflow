@@ -7,6 +7,7 @@ import Admission from "@/models/Admission";
 import Batch from "@/models/Batch";
 import Attendance from "@/models/Attendance";
 import { getUserFromCookies } from "@/lib/helper";
+import { computeBatchStatus, isBatchActiveOnDate, getLocalDateStr } from "@/lib/batchHelper";
 
 export async function GET(req: Request) {
   try {
@@ -227,18 +228,23 @@ export async function GET(req: Request) {
 
     // 7. Dynamic Counts strictly from MongoDB
     const assignedSubjectsCount = assignedSubjects.length > 0 ? assignedSubjects.length : teacherCourses.length;
-    const activeBatchesCount = teacherBatches.length;
+    const activeBatches = teacherBatches.filter(
+      (b: any) => computeBatchStatus(b.startDate, b.endDate, b.status) === "Active"
+    );
+    const activeBatchesCount = activeBatches.length;
     const totalDemosScheduled = extractedDemos.length;
     const totalDemosCompleted = extractedDemos.filter(
       (d) => d.status === "Completed" || d.status === "Attended" || d.status === "Demo Attended"
     ).length;
     const highPriorityDemosCount = extractedDemos.filter((d) => d.status === "Scheduled").length;
 
+    const todayDate = new Date();
+    const todayDateStr = getLocalDateStr(todayDate);
     const dayNamesShort = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    const todayDayShort = dayNamesShort[new Date().getDay()];
+    const todayDayShort = dayNamesShort[todayDate.getDay()];
 
     const todaysClassesCount = teacherBatches.filter((b: any) =>
-      Array.isArray(b.days) ? b.days.includes(todayDayShort) : false
+      isBatchActiveOnDate(b, todayDateStr, todayDayShort)
     ).length;
 
     const conversionRatePct =

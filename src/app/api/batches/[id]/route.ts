@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Batch from "@/models/Batch";
 import User from "@/models/User";
+import { computeBatchStatus } from "@/lib/batchHelper";
 
 export async function GET(
   request: Request,
@@ -17,6 +18,12 @@ export async function GET(
         { success: false, error: "Batch not found" },
         { status: 404 }
       );
+    }
+
+    const calculatedStatus = computeBatchStatus(batch.startDate, batch.endDate, batch.status);
+    if (calculatedStatus !== batch.status && batch.status !== "Cancelled") {
+      await Batch.findByIdAndUpdate(id, { status: calculatedStatus });
+      batch.status = calculatedStatus;
     }
 
     return NextResponse.json({ success: true, data: batch });
@@ -57,6 +64,15 @@ export async function PATCH(
         { success: false, error: "Batch not found" },
         { status: 404 }
       );
+    }
+
+    // Determine target status
+    const effectiveStart = body.startDate !== undefined ? body.startDate : oldBatch.startDate;
+    const effectiveEnd = body.endDate !== undefined ? body.endDate : oldBatch.endDate;
+    const explicitStatus = body.status;
+
+    if (!explicitStatus || (explicitStatus !== "Cancelled" && (body.startDate !== undefined || body.endDate !== undefined))) {
+      body.status = computeBatchStatus(effectiveStart, effectiveEnd, explicitStatus || oldBatch.status);
     }
 
     const updatedBatch = await Batch.findByIdAndUpdate(id, body, {

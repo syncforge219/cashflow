@@ -3,6 +3,7 @@ import dbConnect from "@/lib/db";
 import Batch from "@/models/Batch";
 import User from "@/models/User";
 import { getUserFromCookies } from "@/lib/helper";
+import { computeBatchStatus } from "@/lib/batchHelper";
 
 export async function GET(request: Request) {
   try {
@@ -74,11 +75,17 @@ export async function GET(request: Request) {
       ];
     }
 
-    const batches = await Batch.find(query).sort({ createdAt: -1 }).lean();
+    let batches = await Batch.find(query).sort({ createdAt: -1 }).lean();
 
-    // Auto-migrate any batches lacking batchId in the background
+    // Auto-migrate batch IDs and synchronize dynamic batch status lifecycle (Upcoming -> Active -> Completed)
+    const updatePromises: Promise<any>[] = [];
+
     for (let i = 0; i < batches.length; i++) {
-      if (!batches[i].batchId) {
+      const b = batches[i];
+      let needsDbUpdate = false;
+      const updates: any = {};
+
+      if (!b.batchId) {
         const lastBatchWithId = await Batch.findOne({ batchId: /^BAT\d+$/ }).sort({ batchId: -1 });
         let nextNum = 1;
         if (lastBatchWithId && lastBatchWithId.batchId) {
@@ -86,9 +93,30 @@ export async function GET(request: Request) {
           if (match) nextNum = parseInt(match[1], 10) + 1;
         }
         const genId = `BAT${String(nextNum).padStart(6, "0")}`;
-        await Batch.findByIdAndUpdate(batches[i]._id, { batchId: genId });
+        updates.batchId = genId;
         batches[i].batchId = genId;
+        needsDbUpdate = true;
       }
+
+      const calculatedStatus = computeBatchStatus(b.startDate, b.endDate, b.status);
+      if (calculatedStatus !== b.status && b.status !== "Cancelled") {
+        updates.status = calculatedStatus;
+        batches[i].status = calculatedStatus;
+        needsDbUpdate = true;
+      }
+
+      if (needsDbUpdate) {
+        updatePromises.push(Batch.findByIdAndUpdate(b._id, updates));
+      }
+    }
+
+    if (updatePromises.length > 0) {
+      await Promise.all(updatePromises);
+    }
+
+    // If a specific status filter was requested in query, re-filter in memory to guarantee synced statuses match
+    if (status && status !== "All Status") {
+      batches = batches.filter((b) => b.status === status);
     }
 
     return NextResponse.json({
@@ -167,6 +195,8 @@ export async function POST(request: Request) {
       finalBatchId = `BAT${String(nextNum).padStart(6, "0")}`;
     }
 
+    const initialStatus = computeBatchStatus(startDate, endDate);
+
     const newBatch = await Batch.create({
       batchId: finalBatchId,
       batchName: batchName.trim(),
@@ -184,7 +214,7 @@ export async function POST(request: Request) {
       notes,
       createdBy: createdBy || "System User",
       creatorRole: creatorRole || "super admin",
-      status: "Upcoming",
+      status: initialStatus,
     });
 
     return NextResponse.json(
