@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Company from "@/models/Company";
+import Payment from "@/models/Payment";
 import Brand from "@/models/Brand";
 import { getUserFromCookies } from "@/lib/helper";
 import { runUppercaseDataMigration } from "@/lib/uppercaseMigration";
@@ -42,6 +43,28 @@ export async function GET(req: Request) {
 
     let list = await Company.find(query).sort({ createdAt: -1 }).lean();
     
+    // Compute actual collected revenue from Payment records (source of truth)
+    // This replaces the stale $inc-based collectedRevenue counter on the Company model
+    const paymentAgg = await Payment.aggregate([
+      {
+        $match: {
+          company: { $nin: [null, "", "Cash", "Unallocated", "Cash (Unallocated)"] }
+        }
+      },
+      {
+        $group: {
+          _id: { $toUpper: { $trim: { input: "$company" } } },
+          totalCollected: { $sum: "$amountReceived" }
+        }
+      }
+    ]);
+
+    // Build a lookup map: uppercase company name -> total collected
+    const revenueMap = new Map<string, number>();
+    for (const entry of paymentAgg) {
+      revenueMap.set(entry._id, entry.totalCollected || 0);
+    }
+
     // Reverse mapping: Find brands that have associated this company
     const allBrands = await Brand.find({}).lean();
     list = list.map((company: any) => {
@@ -57,12 +80,17 @@ export async function GET(req: Request) {
         ...reversedBrands
       ]);
       if (company.brand) finalBrandsSet.add(String(company.brand).toUpperCase().trim());
+
+      // Override stale collectedRevenue with real aggregated payment total
+      // Also check legalName in case payments were recorded under that variant
+      const realRevenue = revenueMap.get(companyName) || revenueMap.get(companyLegalName) || 0;
       
       return {
         ...company,
         name: companyName,
         legalName: companyLegalName,
-        brands: Array.from(finalBrandsSet)
+        brands: Array.from(finalBrandsSet),
+        collectedRevenue: realRevenue
       };
     });
 

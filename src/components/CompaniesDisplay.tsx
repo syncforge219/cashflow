@@ -566,7 +566,7 @@ export default function CompaniesDisplay() {
                     Remaining Allocation Space
                   </span>
                   <span className="text-sm font-extrabold text-emerald-600 block mt-1">
-                    {selectedCompany.cap}
+                    ₹{Math.max(0, selectedCompany.capNum - selectedCompany.revenueNum).toLocaleString("en-IN")}
                   </span>
                 </div>
               </div>
