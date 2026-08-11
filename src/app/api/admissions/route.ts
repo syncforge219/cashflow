@@ -87,6 +87,20 @@ export async function POST(req: NextRequest) {
     data.downpaymentAmount = Number(data.downpaymentAmount) || 0;
     data.downpaymentDueDate = data.downpaymentDueDate ? new Date(data.downpaymentDueDate) : undefined;
     data.remainingBalance = Math.max(0, data.finalFee - data.registrationAmount - data.downpaymentAmount);
+
+    // Reconcile custom EMI plan so its total strictly matches remainingBalance (excluding downpayment & registration)
+    if (Array.isArray(data.customEmiPlan) && data.customEmiPlan.length > 0) {
+      const planSum = data.customEmiPlan.reduce((sum: number, item: any) => sum + (Number(item?.amount) || 0), 0);
+      if (planSum !== data.remainingBalance && data.remainingBalance >= 0) {
+        const count = data.customEmiPlan.length;
+        const baseAmt = Math.floor(data.remainingBalance / count);
+        const remainder = data.remainingBalance - baseAmt * count;
+        data.customEmiPlan = data.customEmiPlan.map((item: any, idx: number) => ({
+          ...item,
+          amount: idx === count - 1 ? baseAmt + remainder : baseAmt
+        }));
+      }
+    }
     data.paymentDate = data.paymentDate ? new Date(data.paymentDate) : new Date();
     data.companyAssigned = data.companyAssigned?.trim() || "Cash";
     data.brand = data.brand?.trim() || "Cadd Mantra";

@@ -350,8 +350,14 @@ export default function CounsellorFeeCollectionPage() {
         const dpAmt = Number(studentAny.downpaymentAmount ?? 0);
         const upfrontPayments = regAmt + dpAmt;
 
-        const emiPrincipal = Math.max(0, selectedStudent.finalFee - upfrontPayments);
+        // EMI Principal is strictly the fee remaining after subtracting both registration AND downpayment
+        const emiPrincipal = Math.max(0, (selectedStudent.finalFee || (selectedStudent as any).totalCourseFee || 0) - upfrontPayments);
         const baseAmount = selectedStudent.installmentAmount || Math.floor(emiPrincipal / (totalInst || 1));
+
+        // Calculate sum of custom EMI plan to detect if downpayment was mistakenly included
+        const customPlanSum = hasCustomPlan && selectedStudent.customEmiPlan
+            ? selectedStudent.customEmiPlan.reduce((sum: number, item: any) => sum + (Number(item?.amount) || 0), 0)
+            : 0;
 
         // Amount paid specifically towards EMIs (total paid minus upfront registration & downpayment)
         let runningPaid = Math.max(0, totalPaid - upfrontPayments);
@@ -363,9 +369,24 @@ export default function CounsellorFeeCollectionPage() {
         for (let i = 1; i <= totalInst; i++) {
             const customEntry = (hasCustomPlan && selectedStudent.customEmiPlan) ? selectedStudent.customEmiPlan[i - 1] : null;
 
-            let instAmount = customEntry
-                ? Number(customEntry.amount || 0)
-                : (i === totalInst ? emiPrincipal - baseAmount * (totalInst - 1) : baseAmount);
+            let rawAmount = customEntry ? Number(customEntry.amount || 0) : 0;
+            let instAmount = 0;
+
+            if (hasCustomPlan && customEntry) {
+                // If custom plan was saved with amounts exceeding emiPrincipal (e.g. downpayment was included in the EMI plan),
+                // adjust the installment amount proportionally to match emiPrincipal
+                if (customPlanSum > emiPrincipal && customPlanSum > 0) {
+                    instAmount = totalInst === 1
+                        ? emiPrincipal
+                        : (i === totalInst
+                            ? Math.max(0, emiPrincipal - Math.floor(emiPrincipal / totalInst) * (totalInst - 1))
+                            : Math.floor(emiPrincipal / totalInst));
+                } else {
+                    instAmount = rawAmount;
+                }
+            } else {
+                instAmount = i === totalInst ? emiPrincipal - baseAmount * (totalInst - 1) : baseAmount;
+            }
 
             let dueDate = customEntry && customEntry.dueDate
                 ? new Date(customEntry.dueDate)
@@ -383,7 +404,7 @@ export default function CounsellorFeeCollectionPage() {
                 statusClass = "text-emerald-600 bg-emerald-50 border-emerald-100";
                 bulletClass = "bg-emerald-500 border-emerald-600";
                 dueAmount = 0;
-            } else if (runningPaid >= instAmount) {
+            } else if (runningPaid >= instAmount && instAmount > 0) {
                 status = "Paid";
                 statusClass = "text-emerald-600 bg-emerald-50 border-emerald-100";
                 bulletClass = "bg-emerald-500 border-emerald-600";
@@ -393,7 +414,7 @@ export default function CounsellorFeeCollectionPage() {
                 status = "Partial";
                 statusClass = "text-amber-600 bg-amber-50 border-amber-100";
                 bulletClass = "bg-amber-500 border-amber-600";
-                dueAmount = instAmount - runningPaid;
+                dueAmount = Math.max(0, instAmount - runningPaid);
                 runningPaid = 0;
             }
 

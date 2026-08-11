@@ -186,7 +186,8 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
 
   useEffect(() => {
     if (hasEmi) {
-      if (customEmiItems.length !== numInstallments || customEmiItems.length === 0) {
+      const currentSum = customEmiItems.reduce((acc, item) => acc + (Number(item.amount) || 0), 0);
+      if (customEmiItems.length !== numInstallments || customEmiItems.length === 0 || currentSum !== remainingBalance) {
         setCustomEmiItems(generateDefaultEmiItems(numInstallments, remainingBalance));
       }
     } else {
