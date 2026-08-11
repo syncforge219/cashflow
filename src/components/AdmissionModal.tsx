@@ -1088,18 +1088,25 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
                     <label className="text-xs font-bold text-slate-500 h-5 flex items-center">
                       Remaining Balance (₹)
                     </label>
-                    <div className="flex items-center gap-2">
-                      <div className="w-full h-11 px-4 rounded-xl border border-slate-200 text-base font-extrabold text-slate-800 bg-white flex items-center">
-                        ₹{remainingBalance.toLocaleString("en-IN")}
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-full h-11 px-4 rounded-xl border border-slate-200 text-base font-extrabold text-slate-800 bg-white flex items-center">
+                          ₹{remainingBalance.toLocaleString("en-IN")}
+                        </div>
+                        {hasEmi && scheduledEmiSum !== remainingBalance && (
+                          <button
+                            type="button"
+                            onClick={distributeEvenly}
+                            className="shrink-0 px-3 py-2.5 bg-indigo-600 text-white rounded-xl text-[11px] font-bold hover:bg-indigo-700 transition-colors shadow-sm whitespace-nowrap"
+                          >
+                            Auto-Fix Balance
+                          </button>
+                        )}
                       </div>
                       {hasEmi && scheduledEmiSum !== remainingBalance && (
-                        <button
-                          type="button"
-                          onClick={distributeEvenly}
-                          className="shrink-0 px-3 py-2.5 bg-indigo-600 text-white rounded-xl text-[11px] font-bold hover:bg-indigo-700 transition-colors shadow-sm whitespace-nowrap"
-                        >
-                          Auto-Fix Balance
-                        </button>
+                        <span className="px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-bold text-[11px] w-fit">
+                          ⚠ Diff: ₹{Math.abs(emiDifference).toLocaleString("en-IN")} {emiDifference > 0 ? "remaining to schedule" : "exceeds remaining balance"}
+                        </span>
                       )}
                     </div>
                   </div>
@@ -1252,13 +1259,9 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
                             <span>Total Scheduled EMI:</span>
                             <span className="text-sm font-extrabold text-indigo-700">₹{scheduledEmiSum.toLocaleString("en-IN")}</span>
                           </div>
-                          {scheduledEmiSum === remainingBalance ? (
+                          {scheduledEmiSum === remainingBalance && (
                             <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-[11px] flex items-center gap-1">
                               ✔ EMI sum perfectly matches remaining balance (₹{remainingBalance.toLocaleString("en-IN")})
-                            </span>
-                          ) : (
-                            <span className="px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-bold text-[11px]">
-                              ⚠ Diff: ₹{Math.abs(emiDifference).toLocaleString("en-IN")} {emiDifference > 0 ? "remaining to schedule" : "exceeds remaining balance"}
                             </span>
                           )}
                         </div>
