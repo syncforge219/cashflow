@@ -32,7 +32,10 @@ async function resolveMongoUri(uri: string): Promise<string> {
     });
 
     if (records && records.length > 0) {
-      const hostList = records.map(r => `${r.name}:${r.port}`).join(",");
+      const hostList = records
+        .map(r => `${r.name}:${r.port}`)
+        .sort()
+        .join(",");
       return `mongodb://${user}:${encodeURIComponent(pass)}@${hostList}/${dbName}?ssl=true&authSource=admin&${queryParams}`;
     }
   } catch (err: any) {
@@ -65,7 +68,7 @@ async function dbConnect() {
 
   if (!cached.promise || mongoose.connection.readyState === 0) {
     const opts = {
-      bufferCommands: false,
+      bufferCommands: true,
       serverSelectionTimeoutMS: 5000,
       family: 4,
     };
