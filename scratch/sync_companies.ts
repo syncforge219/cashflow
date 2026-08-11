@@ -8,117 +8,148 @@ async function run() {
   await dbConnect();
   console.log("Connected to MongoDB successfully.");
 
-  const MISSPELLED_LIST = [
-    "SP DESIGN GATEWAY TRAINING SERVICES",
-    "SP DESIGN GATEEWAY TRAINING SERVICES LLP",
-    "SP DESIGN GATEEWAY TRAINING SERVICES",
-    "SP DESIGN GATEEWAY TRAINING SERVICE",
-    "SP DESIGN GATEWAY TRAINING SERVICE"
-  ];
-  const CORRECT = "SP DESIGN GATEWAY TRAINING SERVICES LLP";
-
-  // Build a regex pattern to match any of the misspelled/alternate names
-  const escapedAlternates = MISSPELLED_LIST.map(name => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-  const matchRegex = new RegExp(`^(?:${escapedAlternates.join('|')})$`, "i");
-
-  console.log(`\n=== STEP 1: MERGING COMPANY RECORDS (Alternates -> "${CORRECT}") ===`);
-  
-  // Find correct company record
-  let correctCompany = await Company.findOne({
-    $or: [
-      { name: { $regex: new RegExp(`^${CORRECT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") } },
-      { legalName: { $regex: new RegExp(`^${CORRECT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") } }
-    ]
-  });
-
-  if (!correctCompany) {
-    console.log(`Correct company record "${CORRECT}" not found. Creating one...`);
-    correctCompany = await Company.create({
-      name: CORRECT,
-      legalName: CORRECT,
-      status: "ACTIVE",
+  const MERGE_GROUPS = [
+    {
+      correct: "SP DESIGN GATEWAY TRAINING SERVICES LLP",
+      alternates: [
+        "SP DESIGN GATEWAY TRAINING SERVICES",
+        "SP DESIGN GATEEWAY TRAINING SERVICES LLP",
+        "SP DESIGN GATEEWAY TRAINING SERVICES",
+        "SP DESIGN GATEEWAY TRAINING SERVICE",
+        "SP DESIGN GATEWAY TRAINING SERVICE"
+      ],
       brands: ["DESIGN GATEWAY", "CADD MANTRA"]
+    },
+    {
+      correct: "SICCES PRIVATE LIMITED",
+      alternates: [
+        "SICCES PVT LTD",
+        "SICCES PRIVATE LTD",
+        "SICCES PVT LIMITED"
+      ],
+      brands: ["SICCES"]
+    }
+  ];
+
+  let totalMergedCompanyCount = 0;
+  let totalAdmissionsMigrated = 0;
+  let totalPaymentsMigrated = 0;
+
+  for (const group of MERGE_GROUPS) {
+    const CORRECT = group.correct;
+    const MISSPELLED_LIST = group.alternates;
+
+    // Build a regex pattern to match any of the misspelled/alternate names
+    const escapedAlternates = MISSPELLED_LIST.map(name => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const matchRegex = new RegExp(`^(?:${escapedAlternates.join('|')})$`, "i");
+
+    console.log(`\n=== MERGING COMPANY RECORDS (Alternates -> "${CORRECT}") ===`);
+    
+    // Find correct company record
+    let correctCompany = await Company.findOne({
+      $or: [
+        { name: { $regex: new RegExp(`^${CORRECT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") } },
+        { legalName: { $regex: new RegExp(`^${CORRECT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") } }
+      ]
     });
-  }
 
-  // Find all alternate/misspelled company records
-  const alternateCompanies = await Company.find({
-    _id: { $ne: correctCompany._id },
-    $or: [
-      { name: { $regex: matchRegex } },
-      { legalName: { $regex: matchRegex } }
-    ]
-  });
-
-  console.log(`Found ${alternateCompanies.length} alternate/misspelled company record(s).`);
-  for (const alt of alternateCompanies) {
-    console.log(`Merging alternate company record: ID=${alt._id}, Name="${alt.name}"`);
-    
-    // Merge brands list
-    const mergedBrands = Array.from(
-      new Set([
-        ...(correctCompany.brands || []),
-        ...(alt.brands || [])
-      ])
-    );
-    correctCompany.brands = mergedBrands;
-    
-    // Keep max capacity or sum capacity
-    correctCompany.annualCapacityCap = Math.max(
-      correctCompany.annualCapacityCap || 0,
-      alt.annualCapacityCap || 0
-    );
-
-    await correctCompany.save();
-    
-    // Delete the alternate company record
-    await Company.deleteOne({ _id: alt._id });
-    console.log(`Deleted alternate company record.`);
-  }
-
-  console.log(`\n=== STEP 2: UPDATING ADMISSIONS (Alternates -> "${CORRECT}") ===`);
-  
-  const admissionsToUpdate = await Admission.find({
-    $or: [
-      { companyAssigned: { $regex: matchRegex } },
-      { company: { $regex: matchRegex } }
-    ]
-  });
-
-  console.log(`Found ${admissionsToUpdate.length} admission(s) with alternate/misspelled company.`);
-  let admUpdatedCount = 0;
-  for (const adm of admissionsToUpdate) {
-    const isAssignedMatched = adm.companyAssigned && MISSPELLED_LIST.some(m => adm.companyAssigned?.trim().toUpperCase() === m.toUpperCase());
-    if (isAssignedMatched) {
-      adm.companyAssigned = CORRECT;
+    if (!correctCompany) {
+      console.log(`Correct company record "${CORRECT}" not found. Creating one...`);
+      correctCompany = await Company.create({
+        name: CORRECT,
+        legalName: CORRECT,
+        status: "ACTIVE",
+        brands: group.brands
+      });
+    } else {
+      // Merge group brands into existing
+      const existingBrands = correctCompany.brands || [];
+      const combinedBrands = Array.from(new Set([...existingBrands, ...group.brands]));
+      correctCompany.brands = combinedBrands;
+      await correctCompany.save();
     }
-    const legacyCompany = adm.get("company");
-    const isLegacyMatched = legacyCompany && typeof legacyCompany === "string" && MISSPELLED_LIST.some(m => legacyCompany.trim().toUpperCase() === m.toUpperCase());
-    if (isLegacyMatched) {
-      adm.set("company", CORRECT, { strict: false });
+
+    // Find all alternate/misspelled company records
+    const alternateCompanies = await Company.find({
+      _id: { $ne: correctCompany._id },
+      $or: [
+        { name: { $regex: matchRegex } },
+        { legalName: { $regex: matchRegex } }
+      ]
+    });
+
+    console.log(`Found ${alternateCompanies.length} alternate/misspelled company record(s) for "${CORRECT}".`);
+    for (const alt of alternateCompanies) {
+      console.log(`Merging alternate company record: ID=${alt._id}, Name="${alt.name}"`);
+      
+      // Merge brands list
+      const mergedBrands = Array.from(
+        new Set([
+          ...(correctCompany.brands || []),
+          ...(alt.brands || [])
+        ])
+      );
+      correctCompany.brands = mergedBrands;
+      
+      // Keep max capacity or sum capacity
+      correctCompany.annualCapacityCap = Math.max(
+        correctCompany.annualCapacityCap || 0,
+        alt.annualCapacityCap || 0
+      );
+
+      await correctCompany.save();
+      
+      // Delete the alternate company record
+      await Company.deleteOne({ _id: alt._id });
+      totalMergedCompanyCount++;
+      console.log(`Deleted alternate company record.`);
     }
-    await adm.save();
-    admUpdatedCount++;
-    console.log(`Updated Admission ID=${adm._id} | Student: ${adm.fullName}`);
+
+    console.log(`\n=== UPDATING ADMISSIONS (Alternates -> "${CORRECT}") ===`);
+    const admissionsToUpdate = await Admission.find({
+      $or: [
+        { companyAssigned: { $regex: matchRegex } },
+        { company: { $regex: matchRegex } }
+      ]
+    });
+
+    console.log(`Found ${admissionsToUpdate.length} admission(s) with alternate/misspelled company.`);
+    let admUpdatedCount = 0;
+    for (const adm of admissionsToUpdate) {
+      const isAssignedMatched = adm.companyAssigned && MISSPELLED_LIST.some(m => adm.companyAssigned?.trim().toUpperCase() === m.toUpperCase());
+      if (isAssignedMatched) {
+        adm.companyAssigned = CORRECT;
+      }
+      const legacyCompany = adm.get("company");
+      const isLegacyMatched = legacyCompany && typeof legacyCompany === "string" && MISSPELLED_LIST.some(m => legacyCompany.trim().toUpperCase() === m.toUpperCase());
+      if (isLegacyMatched) {
+        adm.set("company", CORRECT, { strict: false });
+      }
+      await adm.save();
+      admUpdatedCount++;
+      totalAdmissionsMigrated++;
+      console.log(`Updated Admission ID=${adm._id} | Student: ${adm.fullName}`);
+    }
+    console.log(`Successfully updated ${admUpdatedCount} admission record(s).`);
+
+    console.log(`\n=== UPDATING PAYMENTS (Alternates -> "${CORRECT}") ===`);
+    const paymentsToUpdate = await Payment.find({
+      company: { $regex: matchRegex }
+    });
+
+    console.log(`Found ${paymentsToUpdate.length} payment(s) with alternate/misspelled company.`);
+    let payUpdatedCount = 0;
+    for (const p of paymentsToUpdate) {
+      p.company = CORRECT;
+      await p.save();
+      payUpdatedCount++;
+      totalPaymentsMigrated++;
+      console.log(`Updated Payment ID=${p._id} | Receipt: ${p.receiptNo || p.referenceNo}`);
+    }
+    console.log(`Successfully updated ${payUpdatedCount} payment record(s).`);
   }
-  console.log(`Successfully updated ${admUpdatedCount} admission record(s).`);
 
-  console.log(`\n=== STEP 3: UPDATING PAYMENTS (Alternates -> "${CORRECT}") ===`);
-  const paymentsToUpdate = await Payment.find({
-    company: { $regex: matchRegex }
-  });
-
-  console.log(`Found ${paymentsToUpdate.length} payment(s) with alternate/misspelled company.`);
-  let payUpdatedCount = 0;
-  for (const p of paymentsToUpdate) {
-    p.company = CORRECT;
-    await p.save();
-    payUpdatedCount++;
-    console.log(`Updated Payment ID=${p._id} | Receipt: ${p.receiptNo || p.referenceNo}`);
-  }
-  console.log(`Successfully updated ${payUpdatedCount} payment record(s).`);
-
-  console.log(`\n=== STEP 4: RECONCILING AND ALIGNING ALL STUDENT PAYMENTS TO THEIR ADMISSION COMPANIES ===`);
+  console.log(`\n=== RECONCILING AND ALIGNING ALL STUDENT PAYMENTS TO THEIR ADMISSION COMPANIES ===`);
   // 1. Map all admissions by ID
   const admissionsList = await Admission.find({}).lean();
   const admissionMap = new Map<string, any>();
@@ -158,7 +189,7 @@ async function run() {
   }
   console.log(`Aligned ${totalPaymentsSynced} payment record(s) with their student's correct admission company.`);
 
-  console.log(`\n=== STEP 5: RECONCILING COMPANY LEDGER CAPACITIES ===`);
+  console.log(`\n=== RECONCILING COMPANY LEDGER CAPACITIES ===`);
   const normalizeKey = (n: string) =>
     (n || "")
       .toUpperCase()

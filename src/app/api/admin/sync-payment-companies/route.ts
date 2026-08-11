@@ -8,103 +8,124 @@ export async function GET() {
   try {
     await dbConnect();
 
-    const MISSPELLED_LIST = [
-      "SP DESIGN GATEWAY TRAINING SERVICES",
-      "SP DESIGN GATEEWAY TRAINING SERVICES LLP",
-      "SP DESIGN GATEEWAY TRAINING SERVICES",
-      "SP DESIGN GATEEWAY TRAINING SERVICE",
-      "SP DESIGN GATEWAY TRAINING SERVICE"
-    ];
-    const CORRECT = "SP DESIGN GATEWAY TRAINING SERVICES LLP";
-
-    // Build a regex pattern to match any of the misspelled/alternate names
-    const escapedAlternates = MISSPELLED_LIST.map(name => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-    const matchRegex = new RegExp(`^(?:${escapedAlternates.join('|')})$`, "i");
-
-    // 1. Merge company records if alternate/misspelled ones exist
-    let correctCompany = await Company.findOne({
-      $or: [
-        { name: { $regex: new RegExp(`^${CORRECT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") } },
-        { legalName: { $regex: new RegExp(`^${CORRECT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") } }
-      ]
-    });
-
-    if (!correctCompany) {
-      correctCompany = await Company.create({
-        name: CORRECT,
-        legalName: CORRECT,
-        status: "ACTIVE",
+    const MERGE_GROUPS = [
+      {
+        correct: "SP DESIGN GATEWAY TRAINING SERVICES LLP",
+        alternates: [
+          "SP DESIGN GATEWAY TRAINING SERVICES",
+          "SP DESIGN GATEEWAY TRAINING SERVICES LLP",
+          "SP DESIGN GATEEWAY TRAINING SERVICES",
+          "SP DESIGN GATEEWAY TRAINING SERVICE",
+          "SP DESIGN GATEWAY TRAINING SERVICE"
+        ],
         brands: ["DESIGN GATEWAY", "CADD MANTRA"]
-      });
-    }
-
-    const alternateCompanies = await Company.find({
-      _id: { $ne: correctCompany._id },
-      $or: [
-        { name: { $regex: matchRegex } },
-        { legalName: { $regex: matchRegex } }
-      ]
-    });
+      },
+      {
+        correct: "SICCES PRIVATE LIMITED",
+        alternates: [
+          "SICCES PVT LTD",
+          "SICCES PRIVATE LTD",
+          "SICCES PVT LIMITED"
+        ],
+        brands: ["SICCES"]
+      }
+    ];
 
     let mergedCompanyCount = 0;
-    for (const alt of alternateCompanies) {
-      // Merge brands list
-      const mergedBrands = Array.from(
-        new Set([
-          ...(correctCompany.brands || []),
-          ...(alt.brands || [])
-        ])
-      );
-      correctCompany.brands = mergedBrands;
-      
-      // Keep max capacity or sum capacity
-      correctCompany.annualCapacityCap = Math.max(
-        correctCompany.annualCapacityCap || 0,
-        alt.annualCapacityCap || 0
-      );
+    let admissionsMigrated = 0;
+    let paymentsMigrated = 0;
 
-      await correctCompany.save();
-      await Company.deleteOne({ _id: alt._id });
-      mergedCompanyCount++;
-    }
+    for (const group of MERGE_GROUPS) {
+      const CORRECT = group.correct;
+      const MISSPELLED_LIST = group.alternates;
 
-    // 2. Migrate Admissions with misspelled/alternate company name
-    const admissionsToUpdate = await Admission.find({
-      $or: [
-        { companyAssigned: { $regex: matchRegex } },
-        { company: { $regex: matchRegex } }
-      ]
-    });
-    for (const adm of admissionsToUpdate) {
-      const isAssignedMatched = adm.companyAssigned && MISSPELLED_LIST.some(m => adm.companyAssigned?.trim().toUpperCase() === m.toUpperCase());
-      if (isAssignedMatched) {
-        adm.companyAssigned = CORRECT;
+      const escapedAlternates = MISSPELLED_LIST.map(name => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+      const matchRegex = new RegExp(`^(?:${escapedAlternates.join('|')})$`, "i");
+
+      let correctCompany = await Company.findOne({
+        $or: [
+          { name: { $regex: new RegExp(`^${CORRECT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") } },
+          { legalName: { $regex: new RegExp(`^${CORRECT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") } }
+        ]
+      });
+
+      if (!correctCompany) {
+        correctCompany = await Company.create({
+          name: CORRECT,
+          legalName: CORRECT,
+          status: "ACTIVE",
+          brands: group.brands
+        });
+      } else {
+        const existingBrands = correctCompany.brands || [];
+        const combinedBrands = Array.from(new Set([...existingBrands, ...group.brands]));
+        correctCompany.brands = combinedBrands;
+        await correctCompany.save();
       }
-      const legacyCompany = adm.get("company");
-      const isLegacyMatched = legacyCompany && typeof legacyCompany === "string" && MISSPELLED_LIST.some(m => legacyCompany.trim().toUpperCase() === m.toUpperCase());
-      if (isLegacyMatched) {
-        adm.set("company", CORRECT, { strict: false });
+
+      const alternateCompanies = await Company.find({
+        _id: { $ne: correctCompany._id },
+        $or: [
+          { name: { $regex: matchRegex } },
+          { legalName: { $regex: matchRegex } }
+        ]
+      });
+
+      for (const alt of alternateCompanies) {
+        const mergedBrands = Array.from(
+          new Set([
+            ...(correctCompany.brands || []),
+            ...(alt.brands || [])
+          ])
+        );
+        correctCompany.brands = mergedBrands;
+        
+        correctCompany.annualCapacityCap = Math.max(
+          correctCompany.annualCapacityCap || 0,
+          alt.annualCapacityCap || 0
+        );
+
+        await correctCompany.save();
+        await Company.deleteOne({ _id: alt._id });
+        mergedCompanyCount++;
       }
-      await adm.save();
+
+      const admissionsToUpdate = await Admission.find({
+        $or: [
+          { companyAssigned: { $regex: matchRegex } },
+          { company: { $regex: matchRegex } }
+        ]
+      });
+      for (const adm of admissionsToUpdate) {
+        const isAssignedMatched = adm.companyAssigned && MISSPELLED_LIST.some(m => adm.companyAssigned?.trim().toUpperCase() === m.toUpperCase());
+        if (isAssignedMatched) {
+          adm.companyAssigned = CORRECT;
+        }
+        const legacyCompany = adm.get("company");
+        const isLegacyMatched = legacyCompany && typeof legacyCompany === "string" && MISSPELLED_LIST.some(m => legacyCompany.trim().toUpperCase() === m.toUpperCase());
+        if (isLegacyMatched) {
+          adm.set("company", CORRECT, { strict: false });
+        }
+        await adm.save();
+        admissionsMigrated++;
+      }
+
+      const paymentsToUpdate = await Payment.find({
+        company: { $regex: matchRegex }
+      });
+      for (const p of paymentsToUpdate) {
+        p.company = CORRECT;
+        await p.save();
+        paymentsMigrated++;
+      }
     }
 
-    // 3. Migrate Payments with misspelled/alternate company name
-    const paymentsToUpdate = await Payment.find({
-      company: { $regex: matchRegex }
-    });
-    for (const p of paymentsToUpdate) {
-      p.company = CORRECT;
-      await p.save();
-    }
-
-    // 4. Fetch all admissions and map by ID
     const admissions = await Admission.find({}).lean();
     const admissionMap = new Map<string, any>();
     for (const adm of admissions) {
       admissionMap.set(adm._id.toString(), adm);
     }
 
-    // 5. Fetch all payments and align
     const payments = await Payment.find({});
     let totalUpdated = 0;
     const updatedDetails: any[] = [];
@@ -117,7 +138,6 @@ export async function GET() {
 
       const admissionCompany = (admission.companyAssigned || admission.company || "").trim().toUpperCase();
 
-      // Only update if admission has a valid legal company assigned
       if (
         admissionCompany &&
         admissionCompany !== "CASH" &&
@@ -126,12 +146,11 @@ export async function GET() {
         admissionCompany !== "AUTO" &&
         admissionCompany !== "SELECT COMPANY..."
       ) {
-        // If payment mode is not Cash and company differs from admission company
         const currentPaymentCompany = (payment.company || "").trim().toUpperCase();
 
         if (payment.paymentMode?.toLowerCase() !== "cash" && currentPaymentCompany !== admissionCompany) {
           const oldComp = payment.company;
-          payment.company = admission.companyAssigned || admission.company; // keep original case/legal casing
+          payment.company = admission.companyAssigned || admission.company;
           await payment.save();
 
           totalUpdated++;
@@ -147,7 +166,6 @@ export async function GET() {
       }
     }
 
-    // 6. Reconcile Company Ledgers: Re-sync blocked revenue across all legal entities
     const normalizeKey = (n: string) =>
       (n || "")
         .toUpperCase()
@@ -205,8 +223,8 @@ export async function GET() {
       success: true,
       message: `Successfully synchronized ${totalUpdated} payment(s) to match student admission company, merged misspelled company, and migrated associated records.`,
       mergedCompanyCount,
-      admissionsMigrated: admissionsToUpdate.length,
-      paymentsMigrated: paymentsToUpdate.length,
+      admissionsMigrated,
+      paymentsMigrated,
       totalPaymentsChecked: payments.length,
       totalPaymentsUpdated: totalUpdated,
       updatedPayments: updatedDetails,
