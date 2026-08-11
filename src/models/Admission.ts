@@ -55,7 +55,7 @@ const AdmissionSchema = new Schema(
     finalFee: { type: Number, default: 0 },
     discountApprovalStatus: {
       type: String,
-      enum: ["Approved", "Pending Approval", "Rejected"],
+      enum: ["Approved", "Pending Approval", "Rejected", "Read"],
       default: "Approved",
     },
     maxDiscountLimitAtAdmission: { type: Number, default: 0 },
