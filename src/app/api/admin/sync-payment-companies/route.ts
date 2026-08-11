@@ -28,6 +28,17 @@ export async function GET() {
           "SICCES PVT LIMITED"
         ],
         brands: ["DESIGN GATEWAY", "DIGIFOOTPRINTS", "CADD MANTRA"]
+      },
+      {
+        correct: "CT ENTERPRISES",
+        alternates: [
+          "C T ENTERPRISES",
+          "C.T. ENTERPRISES",
+          "C. T. ENTERPRISES",
+          "CT ENTERPRISE",
+          "C T ENTERPRISE"
+        ],
+        brands: ["CADD MANTRA", "DIGIFOOTPRINTS", "DESIGN GATEWAY"]
       }
     ];
 
