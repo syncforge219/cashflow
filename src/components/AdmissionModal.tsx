@@ -797,7 +797,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
                     <input type="text" value={duration} onChange={e=>setDuration(e.target.value)} placeholder="e.g. 6 Months" className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white" />
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-500">Start Date <span className="text-rose-500">*</span></label>
+                    <label className="text-xs font-bold text-slate-500">Start Date</label>
                     <input type="date" value={startDate} onChange={e=>setStartDate(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white" />
                   </div>
                   <div className="flex flex-col gap-1.5">
