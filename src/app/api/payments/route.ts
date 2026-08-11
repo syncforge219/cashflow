@@ -141,8 +141,8 @@ export async function POST(req: Request) {
       } else {
         const previousNonCashPayment = await Payment.findOne({
           admissionId,
-          paymentMode: { $ne: "Cash" },
-          company: { $nin: ["Cash", "Unallocated", "Cash (Unallocated)"] }
+          paymentMode: { $not: /^cash$/i },
+          company: { $nin: ["Cash", "CASH", "cash", "Unallocated", "UNALLOCATED", "unallocated", "Cash (Unallocated)", "CASH (UNALLOCATED)"] }
         });
 
         if (previousNonCashPayment && previousNonCashPayment.company) {

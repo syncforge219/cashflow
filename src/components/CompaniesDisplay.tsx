@@ -38,10 +38,15 @@ export default function CompaniesDisplay() {
             .replace(/LIMITED/g, "LTD")
             .replace(/SERVICES/g, "")
             .replace(/GATEEWAY/g, "GATEWAY")
+            .replace(/INSTITUTE/g, "INSTITUE")
             .replace(/LLP/g, "");
 
           const cap = c.annualCapacityCap || 1949999;
-          const revenue = c.collectedRevenue || 0;
+          const blocked = c.blockedAmount !== undefined ? Number(c.blockedAmount) : (Number(c.collectedRevenue) || 0);
+          const actualCollected = c.actualCollected !== undefined ? Number(c.actualCollected) : 0;
+          const remCap = Math.max(0, cap - blocked);
+          const capacityPct = cap > 0 ? ((blocked / cap) * 100).toFixed(1) : "0.0";
+
           const compObj = {
             id: c.companyId || `COMP-${c._id}`,
             mongoId: c._id,
@@ -49,13 +54,18 @@ export default function CompaniesDisplay() {
             legalName: c.legalName || c.name || "",
             gst: c.gst || "Not Provided",
             pan: c.pan || "Not Provided",
-            collected: `₹${revenue.toLocaleString("en-IN")}`,
-            capacity: `${((revenue / Math.max(cap, 1)) * 100).toFixed(1)}% Capacity`,
+            collected: `₹${actualCollected.toLocaleString("en-IN")}`,
+            actualCollectedNum: actualCollected,
+            blocked: `₹${blocked.toLocaleString("en-IN")}`,
+            blockedNum: blocked,
+            capacity: `${capacityPct}% Cap Blocked`,
+            capacityPctNum: Number(capacityPct),
             status: c.status || "ACTIVE",
             bank: c.bank || "Bank Of India",
             cap: `₹${cap.toLocaleString("en-IN")}`,
             capNum: cap,
-            revenueNum: revenue,
+            remainingSpace: `₹${remCap.toLocaleString("en-IN")}`,
+            remainingNum: remCap,
             address: c.address || "No listed street, No City, No State, PIN",
             brands: c.brands && c.brands.length > 0 ? c.brands : (c.brand ? [c.brand] : []),
           };
@@ -64,9 +74,32 @@ export default function CompaniesDisplay() {
             deduppedMap.set(normKey, compObj);
           } else {
             const existing = deduppedMap.get(normKey);
-            if (rawName.length > existing.name.length) {
-              deduppedMap.set(normKey, compObj);
-            }
+            const totalActual = existing.actualCollectedNum + actualCollected;
+            const totalBlocked = existing.blockedNum + blocked;
+            const combinedCap = Math.max(existing.capNum, cap);
+            const combinedRem = Math.max(0, combinedCap - totalBlocked);
+            const combinedPct = combinedCap > 0 ? ((totalBlocked / combinedCap) * 100).toFixed(1) : "0.0";
+            
+            const chosenName = rawName.length > existing.name.length ? rawName : existing.name;
+            const chosenLegalName = (c.legalName && c.legalName.length > existing.legalName.length) ? c.legalName : existing.legalName;
+            const chosenBrands = Array.from(new Set([...existing.brands, ...compObj.brands]));
+
+            deduppedMap.set(normKey, {
+              ...existing,
+              name: chosenName,
+              legalName: chosenLegalName,
+              brands: chosenBrands,
+              collected: `₹${totalActual.toLocaleString("en-IN")}`,
+              actualCollectedNum: totalActual,
+              blocked: `₹${totalBlocked.toLocaleString("en-IN")}`,
+              blockedNum: totalBlocked,
+              capacity: `${combinedPct}% Cap Blocked`,
+              capacityPctNum: Number(combinedPct),
+              cap: `₹${combinedCap.toLocaleString("en-IN")}`,
+              capNum: combinedCap,
+              remainingSpace: `₹${combinedRem.toLocaleString("en-IN")}`,
+              remainingNum: combinedRem,
+            });
           }
         });
 
@@ -148,7 +181,7 @@ export default function CompaniesDisplay() {
 
   const handleExportCSV = () => {
     if (companiesList.length === 0) return;
-    const headers = ["Company ID", "Company Name", "GST No", "PAN No", "Bank", "Annual Cap", "Collected Revenue", "Brand"];
+    const headers = ["Company ID", "Company Name", "GST No", "PAN No", "Bank", "Annual Cap", "Actual Collected", "Blocked Fee", "Remaining Space", "Brand"];
     const rows = companiesList.map((c) => [
       `"${c.id}"`,
       `"${c.name}"`,
@@ -156,7 +189,9 @@ export default function CompaniesDisplay() {
       `"${c.pan}"`,
       `"${c.bank}"`,
       `"${c.capNum}"`,
-      `"${c.revenueNum}"`,
+      `"${c.actualCollectedNum}"`,
+      `"${c.blockedNum}"`,
+      `"${c.remainingNum}"`,
       `"${c.brands.join(", ")}"`,
     ]);
     const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
@@ -406,9 +441,16 @@ export default function CompaniesDisplay() {
 
                     <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 select-none">
                       <span>
-                        Collected: <span className="text-slate-600">{comp.collected}</span>
+                        Collected: <span className="text-slate-700 font-extrabold">{comp.collected}</span>
                       </span>
-                      <span className="text-emerald-600">{comp.capacity}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-slate-400 font-medium">Blocked: <span className="text-indigo-600 font-bold">{comp.blocked}</span></span>
+                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold ${
+                          comp.capacityPctNum >= 80 ? "bg-amber-50 text-amber-600 border border-amber-200" : "bg-emerald-50 text-emerald-600 border border-emerald-100"
+                        }`}>
+                          {comp.capacity}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 );
@@ -538,9 +580,26 @@ export default function CompaniesDisplay() {
 
               {/* Capacity Indicators */}
               <div className="space-y-3">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block select-none">
-                  Capacity Indicators
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block select-none">
+                    Capacity & Allocation Indicators
+                  </label>
+                  <span className={`text-[10px] font-bold ${
+                    (selectedCompany.capacityPctNum || 0) >= 80 ? "text-amber-600" : "text-indigo-600"
+                  }`}>
+                    {selectedCompany.capacityPctNum || 0}% Cap Reserved
+                  </span>
+                </div>
+
+                {/* Progress bar */}
+                <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-300 ${
+                      (selectedCompany.capacityPctNum || 0) >= 80 ? "bg-amber-500" : "bg-indigo-600"
+                    }`}
+                    style={{ width: `${Math.min(100, selectedCompany.capacityPctNum || 0)}%` }}
+                  />
+                </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-slate-50/50 border border-slate-100 rounded-xl p-3">
@@ -553,21 +612,31 @@ export default function CompaniesDisplay() {
                   </div>
                   <div className="bg-slate-50/50 border border-slate-100 rounded-xl p-3">
                     <span className="text-[9px] font-bold text-slate-400 uppercase block select-none">
-                      Collected Revenue
+                      Actual Collected (Cash/Bank)
                     </span>
-                    <span className="text-sm font-extrabold text-slate-800 block mt-1">
+                    <span className="text-sm font-extrabold text-emerald-600 block mt-1">
                       {selectedCompany.collected}
                     </span>
                   </div>
                 </div>
 
-                <div className="bg-slate-50/50 border border-slate-100 rounded-xl p-3">
-                  <span className="text-[9px] font-bold text-slate-400 uppercase block select-none">
-                    Remaining Allocation Space
-                  </span>
-                  <span className="text-sm font-extrabold text-emerald-600 block mt-1">
-                    ₹{Math.max(0, selectedCompany.capNum - selectedCompany.revenueNum).toLocaleString("en-IN")}
-                  </span>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-slate-50/50 border border-slate-100 rounded-xl p-3">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase block select-none">
+                      Total Blocked / Committed Fee
+                    </span>
+                    <span className="text-sm font-extrabold text-indigo-600 block mt-1">
+                      {selectedCompany.blocked}
+                    </span>
+                  </div>
+                  <div className="bg-slate-50/50 border border-slate-100 rounded-xl p-3">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase block select-none">
+                      Remaining Allocation Space
+                    </span>
+                    <span className="text-sm font-extrabold text-emerald-600 block mt-1">
+                      {selectedCompany.remainingSpace}
+                    </span>
+                  </div>
                 </div>
               </div>
 
