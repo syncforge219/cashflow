@@ -40,6 +40,25 @@ export default function CompaniesDisplay() {
     }
   };
 
+  // Collected Payments Modal
+  const [collectedPaymentsModal, setCollectedPaymentsModal] = useState<{ open: boolean; companyName: string; payments: any[]; loading: boolean }>({ open: false, companyName: "", payments: [], loading: false });
+
+  const handleViewCollectedPayments = async (companyName: string) => {
+    setCollectedPaymentsModal({ open: true, companyName, payments: [], loading: true });
+    try {
+      const res = await fetch(`/api/payments?company=${encodeURIComponent(companyName)}`);
+      const data = await res.json();
+      if (data.success && data.data) {
+        setCollectedPaymentsModal((prev) => ({ ...prev, payments: data.data, loading: false }));
+      } else {
+        setCollectedPaymentsModal((prev) => ({ ...prev, payments: [], loading: false }));
+      }
+    } catch (err) {
+      console.error("Failed to fetch collected payments:", err);
+      setCollectedPaymentsModal((prev) => ({ ...prev, payments: [], loading: false }));
+    }
+  };
+
   const loadCompanies = async () => {
     try {
       setIsLoading(true);
@@ -459,11 +478,27 @@ export default function CompaniesDisplay() {
                     <div className="border-t border-slate-100 my-3"></div>
 
                     <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 select-none">
-                      <span>
-                        Collected: <span className="text-slate-700 font-extrabold">{comp.collected}</span>
+                      <span
+                        className="cursor-pointer hover:text-emerald-600 transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleViewCollectedPayments(comp.name);
+                        }}
+                        title="Click to view fee payments collected in this company"
+                      >
+                        Collected: <span className="text-slate-700 font-extrabold hover:text-emerald-600 underline decoration-slate-200 decoration-1 underline-offset-2">{comp.collected}</span>
                       </span>
                       <div className="flex items-center gap-2">
-                        <span className="text-slate-400 font-medium">Blocked: <span className="text-indigo-600 font-bold">{comp.blocked}</span></span>
+                        <span
+                          className="text-slate-400 font-medium cursor-pointer hover:text-indigo-600 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleViewBlockedStudents(comp.name);
+                          }}
+                          title="Click to view students assigned to this company"
+                        >
+                          Blocked: <span className="text-indigo-600 font-bold hover:underline decoration-indigo-200 underline-offset-2">{comp.blocked}</span>
+                        </span>
                         <span className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold ${
                           comp.capacityPctNum >= 80 ? "bg-amber-50 text-amber-600 border border-amber-200" : "bg-emerald-50 text-emerald-600 border border-emerald-100"
                         }`}>
@@ -629,12 +664,19 @@ export default function CompaniesDisplay() {
                       {selectedCompany.cap}
                     </span>
                   </div>
-                  <div className="bg-slate-50/50 border border-slate-100 rounded-xl p-3">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase block select-none">
+                  <div
+                    className="bg-slate-50/50 border border-slate-100 rounded-xl p-3 cursor-pointer hover:bg-emerald-50/50 hover:border-emerald-200 transition-all group"
+                    onClick={() => handleViewCollectedPayments(selectedCompany.name)}
+                    title="Click to view payments & students who paid in this company"
+                  >
+                    <span className="text-[9px] font-bold text-slate-400 uppercase block select-none group-hover:text-emerald-600 transition-colors">
                       Actual Collected (Cash/Bank)
                     </span>
-                    <span className="text-sm font-extrabold text-emerald-600 block mt-1">
+                    <span className="text-sm font-extrabold text-emerald-600 block mt-1 flex items-center gap-1.5">
                       {selectedCompany.collected}
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity text-emerald-500">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                      </svg>
                     </span>
                   </div>
                 </div>
@@ -793,7 +835,7 @@ export default function CompaniesDisplay() {
                           <th className="text-left px-4 py-2.5 font-bold text-slate-500 uppercase tracking-wider text-[10px]">Student Name</th>
                           <th className="text-left px-4 py-2.5 font-bold text-slate-500 uppercase tracking-wider text-[10px]">Brand</th>
                           <th className="text-left px-4 py-2.5 font-bold text-slate-500 uppercase tracking-wider text-[10px]">Course</th>
-                          <th className="text-right px-4 py-2.5 font-bold text-slate-500 uppercase tracking-wider text-[10px]">Fee (₹)</th>
+                          <th className="text-right px-4 py-2.5 font-bold text-slate-500 uppercase tracking-wider text-[10px]">Admission Fee (₹)</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -807,7 +849,7 @@ export default function CompaniesDisplay() {
                               </span>
                             </td>
                             <td className="px-4 py-2.5 text-slate-600 font-medium">{s.course || "-"}</td>
-                            <td className="px-4 py-2.5 text-right font-extrabold text-slate-700">₹{(s.courseFee || 0).toLocaleString("en-IN")}</td>
+                            <td className="px-4 py-2.5 text-right font-extrabold text-slate-700">₹{(s.finalFee || s.courseFee || 0).toLocaleString("en-IN")}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -821,6 +863,127 @@ export default function CompaniesDisplay() {
             <div className="px-6 py-3 border-t border-slate-100 flex justify-end shrink-0 bg-slate-50/50">
               <button
                 onClick={() => setBlockedStudentsModal({ open: false, companyName: "", students: [], loading: false })}
+                className="px-4 py-2 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Collected Payments List */}
+      {collectedPaymentsModal.open && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setCollectedPaymentsModal({ open: false, companyName: "", payments: [], loading: false })} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 max-h-[85vh] flex flex-col overflow-hidden border border-slate-200">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-gradient-to-r from-emerald-50 to-white">
+              <div>
+                <h2 className="text-base font-extrabold text-slate-800 tracking-tight">Fee Collections & Paid Students</h2>
+                <p className="text-[11px] text-slate-500 mt-0.5 font-medium">{collectedPaymentsModal.companyName}</p>
+              </div>
+              <button
+                onClick={() => setCollectedPaymentsModal({ open: false, companyName: "", payments: [], loading: false })}
+                className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              {collectedPaymentsModal.loading ? (
+                <div className="flex items-center justify-center py-12 gap-2 text-slate-400">
+                  <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  <span className="text-xs font-bold">Loading collections...</span>
+                </div>
+              ) : collectedPaymentsModal.payments.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-sm font-bold text-slate-500">No payment records found</p>
+                  <p className="text-xs text-slate-400 mt-1">No fee transactions have been collected under this legal company entity yet.</p>
+                </div>
+              ) : (
+                <>
+                  {/* Summary badges */}
+                  <div className="mb-3 flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1 rounded-lg text-xs font-bold">
+                      <span>Total Collections:</span>
+                      <span className="font-extrabold">{collectedPaymentsModal.payments.length}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 bg-slate-100 text-slate-700 border border-slate-200 px-3 py-1 rounded-lg text-xs font-bold">
+                      <span>Unique Students:</span>
+                      <span className="font-extrabold">
+                        {new Set(collectedPaymentsModal.payments.map((p: any) => (p.studentName || p.admissionId?.fullName || "").trim()).filter(Boolean)).size}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1 rounded-lg text-xs font-bold ml-auto">
+                      <span>Total Collected:</span>
+                      <span className="font-extrabold">
+                        ₹{collectedPaymentsModal.payments.reduce((sum: number, p: any) => sum + (Number(p.amountReceived) || 0), 0).toLocaleString("en-IN")}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="border border-slate-200 rounded-xl overflow-hidden">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-200">
+                          <th className="text-left px-3.5 py-2.5 font-bold text-slate-500 uppercase tracking-wider text-[10px]">#</th>
+                          <th className="text-left px-3.5 py-2.5 font-bold text-slate-500 uppercase tracking-wider text-[10px]">Receipt / Ref</th>
+                          <th className="text-left px-3.5 py-2.5 font-bold text-slate-500 uppercase tracking-wider text-[10px]">Student Name</th>
+                          <th className="text-left px-3.5 py-2.5 font-bold text-slate-500 uppercase tracking-wider text-[10px]">Brand</th>
+                          <th className="text-left px-3.5 py-2.5 font-bold text-slate-500 uppercase tracking-wider text-[10px]">Course</th>
+                          <th className="text-left px-3.5 py-2.5 font-bold text-slate-500 uppercase tracking-wider text-[10px]">Mode</th>
+                          <th className="text-left px-3.5 py-2.5 font-bold text-slate-500 uppercase tracking-wider text-[10px]">Date</th>
+                          <th className="text-right px-3.5 py-2.5 font-bold text-slate-500 uppercase tracking-wider text-[10px]">Amount Paid (₹)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {collectedPaymentsModal.payments.map((p: any, idx: number) => {
+                          const sName = p.studentName || p.admissionId?.fullName || "-";
+                          const brandName = p.brand || p.admissionId?.brand || "-";
+                          const courseName = p.admissionId?.course || p.particulars?.course || "-";
+                          const pDate = p.paymentDate || p.createdAt ? new Date(p.paymentDate || p.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "-";
+                          const receiptNum = p.receiptNo || p.referenceNo || "-";
+
+                          return (
+                            <tr key={p._id || idx} className={`border-b border-slate-100 last:border-b-0 ${idx % 2 === 0 ? "bg-white" : "bg-slate-50/50"} hover:bg-emerald-50/30 transition-colors`}>
+                              <td className="px-3.5 py-2.5 text-slate-400 font-bold">{idx + 1}</td>
+                              <td className="px-3.5 py-2.5 font-mono text-[11px] text-slate-700 font-semibold">{receiptNum}</td>
+                              <td className="px-3.5 py-2.5 font-bold text-slate-800">{sName}</td>
+                              <td className="px-3.5 py-2.5">
+                                <span className="inline-flex items-center text-[10px] font-bold bg-indigo-50 text-indigo-600 rounded-md px-2 py-0.5 border border-indigo-100">
+                                  {brandName}
+                                </span>
+                              </td>
+                              <td className="px-3.5 py-2.5 text-slate-600 font-medium truncate max-w-[140px]" title={courseName}>{courseName}</td>
+                              <td className="px-3.5 py-2.5">
+                                <span className="inline-flex items-center text-[10px] font-bold bg-slate-100 text-slate-700 rounded-md px-1.5 py-0.5">
+                                  {p.paymentMode || "Cash"}
+                                </span>
+                              </td>
+                              <td className="px-3.5 py-2.5 text-slate-500 whitespace-nowrap text-[11px]">{pDate}</td>
+                              <td className="px-3.5 py-2.5 text-right font-extrabold text-emerald-700">₹{(p.amountReceived || 0).toLocaleString("en-IN")}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-3 border-t border-slate-100 flex justify-end shrink-0 bg-slate-50/50">
+              <button
+                onClick={() => setCollectedPaymentsModal({ open: false, companyName: "", payments: [], loading: false })}
                 className="px-4 py-2 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
               >
                 Close

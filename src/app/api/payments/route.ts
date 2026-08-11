@@ -18,6 +18,7 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const admissionId = searchParams.get("admissionId");
     const brandParam = searchParams.get("brand");
+    const companyParam = searchParams.get("company");
     const startDateParam = searchParams.get("startDate");
     const endDateParam = searchParams.get("endDate");
     const filterParam = searchParams.get("filter");
@@ -29,6 +30,25 @@ export async function GET(req: Request) {
 
     if (admissionId) {
       andConditions.push({ admissionId });
+    }
+
+    if (companyParam) {
+      const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const cleanComp = companyParam.trim();
+      const compRegex = new RegExp(`^${escapeRegExp(cleanComp)}$`, "i");
+
+      const compAdmissions = await Admission.find({
+        companyAssigned: compRegex
+      }).select("_id").lean();
+      const compAdmissionIds = compAdmissions.map((a: any) => a._id);
+
+      andConditions.push({
+        $or: [
+          { company: compRegex },
+          { company: { $regex: new RegExp(escapeRegExp(cleanComp), "i") } },
+          ...(compAdmissionIds.length > 0 ? [{ admissionId: { $in: compAdmissionIds } }] : [])
+        ]
+      });
     }
 
     const targetBrand = brandParam && brandParam !== "All Brands" && brandParam !== "all" ? brandParam : isBrandRestricted ? userBrand : null;
@@ -86,7 +106,7 @@ export async function GET(req: Request) {
     const query = andConditions.length > 0 ? { $and: andConditions } : {};
 
     let payments = await Payment.find(query)
-      .populate("admissionId", "fullName admissionId brand course batch counsellor mobileNumber remainingBalance finalFee admissionDate")
+      .populate("admissionId", "fullName admissionId brand course batch counsellor mobileNumber remainingBalance finalFee admissionDate companyAssigned")
       .sort({ createdAt: -1 })
       .lean();
 
