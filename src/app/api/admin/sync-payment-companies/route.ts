@@ -27,7 +27,7 @@ export async function GET() {
           "SICCES PRIVATE LTD",
           "SICCES PVT LIMITED"
         ],
-        brands: ["SICCES"]
+        brands: ["DESIGN GATEWAY", "DIGIFOOTPRINTS", "CADD MANTRA"]
       }
     ];
 
