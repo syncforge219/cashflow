@@ -45,7 +45,6 @@ export async function GET(req: Request) {
       andConditions.push({
         $or: [
           { company: compRegex },
-          { company: { $regex: new RegExp(escapeRegExp(cleanComp), "i") } },
           ...(compAdmissionIds.length > 0 ? [{ admissionId: { $in: compAdmissionIds } }] : [])
         ]
       });
