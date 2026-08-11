@@ -8,75 +8,89 @@ export async function GET() {
   try {
     await dbConnect();
 
-    const MISSPELLED = "SP DESIGN GATEEWAY TRAINING SERVICES LLP";
+    const MISSPELLED_LIST = [
+      "SP DESIGN GATEWAY TRAINING SERVICES",
+      "SP DESIGN GATEEWAY TRAINING SERVICES LLP",
+      "SP DESIGN GATEEWAY TRAINING SERVICES",
+      "SP DESIGN GATEEWAY TRAINING SERVICE",
+      "SP DESIGN GATEWAY TRAINING SERVICE"
+    ];
     const CORRECT = "SP DESIGN GATEWAY TRAINING SERVICES LLP";
 
-    // 1. Merge company records if misspelled one exists
-    const misspelledCompany = await Company.findOne({
-      $or: [
-        { name: { $regex: new RegExp(`^${MISSPELLED.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") } },
-        { legalName: { $regex: new RegExp(`^${MISSPELLED.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") } }
-      ]
-    });
+    // Build a regex pattern to match any of the misspelled/alternate names
+    const escapedAlternates = MISSPELLED_LIST.map(name => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const matchRegex = new RegExp(`^(?:${escapedAlternates.join('|')})$`, "i");
 
-    const correctCompany = await Company.findOne({
+    // 1. Merge company records if alternate/misspelled ones exist
+    let correctCompany = await Company.findOne({
       $or: [
         { name: { $regex: new RegExp(`^${CORRECT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") } },
         { legalName: { $regex: new RegExp(`^${CORRECT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") } }
       ]
     });
 
-    let mergedCompanyCount = 0;
-    if (misspelledCompany) {
-      if (correctCompany) {
-        // Merge brands list
-        const mergedBrands = Array.from(
-          new Set([
-            ...(correctCompany.brands || []),
-            ...(misspelledCompany.brands || [])
-          ])
-        );
-        correctCompany.brands = mergedBrands;
-        
-        // Keep max capacity or sum capacity
-        correctCompany.annualCapacityCap = Math.max(
-          correctCompany.annualCapacityCap || 0,
-          misspelledCompany.annualCapacityCap || 0
-        );
-
-        await correctCompany.save();
-        await Company.deleteOne({ _id: misspelledCompany._id });
-        mergedCompanyCount++;
-      } else {
-        misspelledCompany.name = CORRECT;
-        misspelledCompany.legalName = CORRECT;
-        await misspelledCompany.save();
-        mergedCompanyCount++;
-      }
+    if (!correctCompany) {
+      correctCompany = await Company.create({
+        name: CORRECT,
+        legalName: CORRECT,
+        status: "ACTIVE",
+        brands: ["DESIGN GATEWAY", "CADD MANTRA"]
+      });
     }
 
-    // 2. Migrate Admissions with misspelled company name
-    const admRegex = new RegExp(`^${MISSPELLED.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i");
+    const alternateCompanies = await Company.find({
+      _id: { $ne: correctCompany._id },
+      $or: [
+        { name: { $regex: matchRegex } },
+        { legalName: { $regex: matchRegex } }
+      ]
+    });
+
+    let mergedCompanyCount = 0;
+    for (const alt of alternateCompanies) {
+      // Merge brands list
+      const mergedBrands = Array.from(
+        new Set([
+          ...(correctCompany.brands || []),
+          ...(alt.brands || [])
+        ])
+      );
+      correctCompany.brands = mergedBrands;
+      
+      // Keep max capacity or sum capacity
+      correctCompany.annualCapacityCap = Math.max(
+        correctCompany.annualCapacityCap || 0,
+        alt.annualCapacityCap || 0
+      );
+
+      await correctCompany.save();
+      await Company.deleteOne({ _id: alt._id });
+      mergedCompanyCount++;
+    }
+
+    // 2. Migrate Admissions with misspelled/alternate company name
     const admissionsToUpdate = await Admission.find({
       $or: [
-        { companyAssigned: { $regex: admRegex } },
-        { company: { $regex: admRegex } }
+        { companyAssigned: { $regex: matchRegex } },
+        { company: { $regex: matchRegex } }
       ]
     });
     for (const adm of admissionsToUpdate) {
-      if (adm.companyAssigned && adm.companyAssigned.trim().toUpperCase() === MISSPELLED.toUpperCase()) {
+      const isAssignedMatched = adm.companyAssigned && MISSPELLED_LIST.some(m => adm.companyAssigned?.trim().toUpperCase() === m.toUpperCase());
+      if (isAssignedMatched) {
         adm.companyAssigned = CORRECT;
       }
       const legacyCompany = adm.get("company");
-      if (legacyCompany && typeof legacyCompany === "string" && legacyCompany.trim().toUpperCase() === MISSPELLED.toUpperCase()) {
+      const isLegacyMatched = legacyCompany && typeof legacyCompany === "string" && MISSPELLED_LIST.some(m => legacyCompany.trim().toUpperCase() === m.toUpperCase());
+      if (isLegacyMatched) {
         adm.set("company", CORRECT, { strict: false });
       }
       await adm.save();
     }
 
-    // 3. Migrate Payments with misspelled company name
+    // 3. Migrate Payments with misspelled/alternate company name
     const paymentsToUpdate = await Payment.find({
-      company: { $regex: admRegex }
+      company: { $regex: matchRegex }
     });
     for (const p of paymentsToUpdate) {
       p.company = CORRECT;
