@@ -6,6 +6,11 @@ const CompanySchema = new Schema(
       type: String,
       unique: true,
     },
+    uniqueId: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
     name: {
       type: String,
       required: [true, "Company Name is required"],
@@ -79,6 +84,21 @@ CompanySchema.pre("save", async function () {
   if (!this.companyId) {
     const count = await mongoose.models.Company.countDocuments();
     this.companyId = `COMP-${Date.now()}${count + 1}`;
+  }
+  if (!this.uniqueId) {
+    const lastCompany = await mongoose.models.Company.findOne({
+      uniqueId: /^COMP\d+$/
+    }).sort({ uniqueId: -1 });
+
+    let nextNumber = 1;
+    if (lastCompany && lastCompany.uniqueId) {
+      const match = lastCompany.uniqueId.match(/^COMP(\d+)$/);
+      if (match) {
+        nextNumber = parseInt(match[1], 10) + 1;
+      }
+    }
+    
+    this.uniqueId = `COMP${String(nextNumber).padStart(6, "0")}`;
   }
 });
 
