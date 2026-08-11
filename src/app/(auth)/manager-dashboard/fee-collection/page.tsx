@@ -86,16 +86,28 @@ export default function FeeCollectionPage() {
     }, [selectedStudent, user]);
 
     useEffect(() => {
-        if (selectedStudent && paymentMode !== "Cash") {
-            fetch(`/api/engine/allocate?brand=${encodeURIComponent(selectedStudent.brand || "")}`)
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success && data.company) {
-                        setAutoAllocatedCompany(data.company);
-                        setSelectedCompany(data.company);
-                    }
-                })
-                .catch(err => console.error("Failed to fetch allocated company", err));
+        if (selectedStudent) {
+            const assignedComp = (selectedStudent.companyAssigned || "").trim();
+            const hasValidAssignedCompany = assignedComp && assignedComp !== "Unallocated" && assignedComp !== "Cash (Unallocated)" && assignedComp !== "Auto";
+
+            if (hasValidAssignedCompany) {
+                // Always use the company assigned at admission! Do not re-allocate!
+                setAutoAllocatedCompany(assignedComp);
+                setSelectedCompany(assignedComp);
+            } else if (paymentMode !== "Cash") {
+                // Only run auto-allocation engine if student has no company assigned at admission
+                fetch(`/api/engine/allocate?brand=${encodeURIComponent(selectedStudent.brand || "")}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success && data.company) {
+                            setAutoAllocatedCompany(data.company);
+                            setSelectedCompany(data.company);
+                        }
+                    })
+                    .catch(err => console.error("Failed to fetch allocated company", err));
+            } else {
+                setSelectedCompany("Cash (Unallocated)");
+            }
         }
     }, [selectedStudent, paymentMode]);
 
@@ -846,7 +858,7 @@ export default function FeeCollectionPage() {
                                                     <label className="block text-[9px] uppercase tracking-widest text-slate-400">Company Allocation</label>
                                                     {paymentMode !== "Cash" && (selectedStudent?.companyAssigned || autoAllocatedCompany) && (
                                                         <span className="text-[9px] text-emerald-600 font-extrabold flex items-center gap-0.5">
-                                                            Suggested (Editable)
+                                                            {selectedStudent?.companyAssigned && selectedStudent.companyAssigned !== "Unallocated" ? "✓ Assigned at Admission" : "Suggested (Editable)"}
                                                         </span>
                                                     )}
                                                 </div>
@@ -862,7 +874,7 @@ export default function FeeCollectionPage() {
                                                         <>
                                                             {(selectedStudent?.companyAssigned || autoAllocatedCompany) && (
                                                                 <option value={selectedStudent?.companyAssigned || autoAllocatedCompany}>
-                                                                    ✨ {selectedStudent?.companyAssigned || autoAllocatedCompany} (Auto-Suggested System Choice)
+                                                                    ✨ {selectedStudent?.companyAssigned || autoAllocatedCompany} {selectedStudent?.companyAssigned && selectedStudent.companyAssigned !== "Unallocated" ? "(Assigned at Admission)" : "(Auto-Suggested System Choice)"}
                                                                 </option>
                                                             )}
                                                             {availableCompaniesList

@@ -152,11 +152,21 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2. Company Allocation Engine: Use explicitly selected company if provided by user in receipt form
+    // 2. Company Allocation Engine: Use student's admission company first
+    const studentAdmissionCompany = (admission.companyAssigned || "").trim();
+    const hasValidAdmissionCompany = studentAdmissionCompany && 
+      studentAdmissionCompany !== "Cash" && 
+      studentAdmissionCompany !== "Unallocated" && 
+      studentAdmissionCompany !== "Cash (Unallocated)" && 
+      studentAdmissionCompany !== "Auto";
+
     let finalCompany = (company || body.allocatedCompany || body.companyAssigned || "").trim();
 
     if (!finalCompany || finalCompany === "Auto" || finalCompany === "Select Company..." || finalCompany === "Unallocated" || finalCompany === "Cash (Unallocated)") {
-      if (paymentMode === "Cash") {
+      if (hasValidAdmissionCompany) {
+        // ALWAYS use the company assigned at admission! Do not re-allocate!
+        finalCompany = studentAdmissionCompany;
+      } else if (paymentMode === "Cash") {
         finalCompany = "Cash";
       } else {
         const previousNonCashPayment = await Payment.findOne({
