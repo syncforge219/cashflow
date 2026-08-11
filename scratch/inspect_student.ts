@@ -1,46 +1,45 @@
+process.env.DISABLE_CRON = "true";
 import dbConnect from "../src/lib/db";
 import Payment from "../src/models/Payment";
 import Admission from "../src/models/Admission";
+import Company from "../src/models/Company";
 
 async function run() {
   await dbConnect();
   console.log("Connected to DB successfully.");
 
-  const payments = await Payment.find({ admissionId: { $exists: true } }).populate("admissionId").lean();
-  console.log(`Checking ${payments.length} populated payments...`);
+  // Check companies with GATEEWAY
+  const companies = await Company.find({
+    $or: [
+      { name: /GATEEWAY/i },
+      { legalName: /GATEEWAY/i }
+    ]
+  }).lean();
+  console.log("Companies with GATEEWAY:", companies);
 
-  let countMismatched = 0;
-  for (const p of payments) {
-    if (!p.admissionId) continue;
-    const adm: any = p.admissionId;
+  // Check admissions with GATEEWAY
+  const admissions = await Admission.find({
+    $or: [
+      { companyAssigned: /GATEEWAY/i },
+      { company: /GATEEWAY/i }
+    ]
+  }).lean();
+  console.log("Admissions with GATEEWAY:", admissions.map((a: any) => ({
+    _id: a._id,
+    fullName: a.fullName,
+    companyAssigned: a.companyAssigned,
+    company: a.company
+  })));
 
-    const admComp = (adm.companyAssigned || adm.company || "").trim().toUpperCase();
-    const curComp = (p.company || "").trim().toUpperCase();
-    const pMode = (p.paymentMode || "").trim().toLowerCase();
+  // Check payments with GATEEWAY
+  const payments = await Payment.find({ company: /GATEEWAY/i }).lean();
+  console.log("Payments with GATEEWAY:", payments.map(p => ({
+    _id: p._id,
+    receiptNo: p.receiptNo,
+    studentName: p.studentName,
+    company: p.company
+  })));
 
-    if (
-      admComp &&
-      admComp !== "CASH" &&
-      admComp !== "UNALLOCATED" &&
-      admComp !== "CASH (UNALLOCATED)" &&
-      admComp !== "AUTO" &&
-      admComp !== "SELECT COMPANY..."
-    ) {
-      if (pMode !== "cash" && curComp !== admComp) {
-        countMismatched++;
-        console.log(`MISMATCH [${countMismatched}]:`, {
-          paymentId: p._id,
-          receiptNo: p.receiptNo,
-          studentName: p.studentName || adm.fullName,
-          paymentMode: p.paymentMode,
-          paymentCompany: p.company,
-          admissionCompany: adm.companyAssigned || adm.company,
-        });
-      }
-    }
-  }
-
-  console.log(`Total mismatched non-cash payments found: ${countMismatched}`);
   process.exit(0);
 }
 

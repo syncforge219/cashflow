@@ -51,10 +51,12 @@ async function dbConnect() {
   }
 
   // Auto-start / ensure background worker for overdue EMI WhatsApp reminders
-  try {
-    initEmiReminderCron();
-  } catch (err) {
-    console.error("Error initializing EMI cron:", err);
+  if (process.env.DISABLE_CRON !== "true") {
+    try {
+      initEmiReminderCron();
+    } catch (err) {
+      console.error("Error initializing EMI cron:", err);
+    }
   }
 
   if (cached.conn && mongoose.connection.readyState === 1) {

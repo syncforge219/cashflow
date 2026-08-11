@@ -8,14 +8,89 @@ export async function GET() {
   try {
     await dbConnect();
 
-    // 1. Fetch all admissions and map by ID
+    const MISSPELLED = "SP DESIGN GATEEWAY TRAINING SERVICES LLP";
+    const CORRECT = "SP DESIGN GATEWAY TRAINING SERVICES LLP";
+
+    // 1. Merge company records if misspelled one exists
+    const misspelledCompany = await Company.findOne({
+      $or: [
+        { name: { $regex: new RegExp(`^${MISSPELLED.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") } },
+        { legalName: { $regex: new RegExp(`^${MISSPELLED.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") } }
+      ]
+    });
+
+    const correctCompany = await Company.findOne({
+      $or: [
+        { name: { $regex: new RegExp(`^${CORRECT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") } },
+        { legalName: { $regex: new RegExp(`^${CORRECT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") } }
+      ]
+    });
+
+    let mergedCompanyCount = 0;
+    if (misspelledCompany) {
+      if (correctCompany) {
+        // Merge brands list
+        const mergedBrands = Array.from(
+          new Set([
+            ...(correctCompany.brands || []),
+            ...(misspelledCompany.brands || [])
+          ])
+        );
+        correctCompany.brands = mergedBrands;
+        
+        // Keep max capacity or sum capacity
+        correctCompany.annualCapacityCap = Math.max(
+          correctCompany.annualCapacityCap || 0,
+          misspelledCompany.annualCapacityCap || 0
+        );
+
+        await correctCompany.save();
+        await Company.deleteOne({ _id: misspelledCompany._id });
+        mergedCompanyCount++;
+      } else {
+        misspelledCompany.name = CORRECT;
+        misspelledCompany.legalName = CORRECT;
+        await misspelledCompany.save();
+        mergedCompanyCount++;
+      }
+    }
+
+    // 2. Migrate Admissions with misspelled company name
+    const admRegex = new RegExp(`^${MISSPELLED.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i");
+    const admissionsToUpdate = await Admission.find({
+      $or: [
+        { companyAssigned: { $regex: admRegex } },
+        { company: { $regex: admRegex } }
+      ]
+    });
+    for (const adm of admissionsToUpdate) {
+      if (adm.companyAssigned && adm.companyAssigned.trim().toUpperCase() === MISSPELLED.toUpperCase()) {
+        adm.companyAssigned = CORRECT;
+      }
+      const legacyCompany = adm.get("company");
+      if (legacyCompany && typeof legacyCompany === "string" && legacyCompany.trim().toUpperCase() === MISSPELLED.toUpperCase()) {
+        adm.set("company", CORRECT, { strict: false });
+      }
+      await adm.save();
+    }
+
+    // 3. Migrate Payments with misspelled company name
+    const paymentsToUpdate = await Payment.find({
+      company: { $regex: admRegex }
+    });
+    for (const p of paymentsToUpdate) {
+      p.company = CORRECT;
+      await p.save();
+    }
+
+    // 4. Fetch all admissions and map by ID
     const admissions = await Admission.find({}).lean();
     const admissionMap = new Map<string, any>();
     for (const adm of admissions) {
       admissionMap.set(adm._id.toString(), adm);
     }
 
-    // 2. Fetch all payments
+    // 5. Fetch all payments and align
     const payments = await Payment.find({});
     let totalUpdated = 0;
     const updatedDetails: any[] = [];
@@ -42,7 +117,7 @@ export async function GET() {
 
         if (payment.paymentMode?.toLowerCase() !== "cash" && currentPaymentCompany !== admissionCompany) {
           const oldComp = payment.company;
-          payment.company = admissionCompany;
+          payment.company = admission.companyAssigned || admission.company; // keep original case/legal casing
           await payment.save();
 
           totalUpdated++;
@@ -52,13 +127,13 @@ export async function GET() {
             paymentMode: payment.paymentMode,
             amount: payment.amountReceived,
             oldCompany: oldComp,
-            newCompany: admissionCompany,
+            newCompany: payment.company,
           });
         }
       }
     }
 
-    // 3. Reconcile Company Ledgers: Re-sync blocked revenue across all legal entities
+    // 6. Reconcile Company Ledgers: Re-sync blocked revenue across all legal entities
     const normalizeKey = (n: string) =>
       (n || "")
         .toUpperCase()
@@ -114,7 +189,10 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
-      message: `Successfully synchronized ${totalUpdated} payment(s) to match student admission company.`,
+      message: `Successfully synchronized ${totalUpdated} payment(s) to match student admission company, merged misspelled company, and migrated associated records.`,
+      mergedCompanyCount,
+      admissionsMigrated: admissionsToUpdate.length,
+      paymentsMigrated: paymentsToUpdate.length,
       totalPaymentsChecked: payments.length,
       totalPaymentsUpdated: totalUpdated,
       updatedPayments: updatedDetails,

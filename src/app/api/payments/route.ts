@@ -160,14 +160,16 @@ export async function POST(req: Request) {
       studentAdmissionCompany !== "Cash (Unallocated)" && 
       studentAdmissionCompany !== "Auto";
 
-    let finalCompany = (company || body.allocatedCompany || body.companyAssigned || "").trim();
-
-    if (!finalCompany || finalCompany === "Auto" || finalCompany === "Select Company..." || finalCompany === "Unallocated" || finalCompany === "Cash (Unallocated)") {
-      if (hasValidAdmissionCompany) {
-        // ALWAYS use the company assigned at admission! Do not re-allocate!
-        finalCompany = studentAdmissionCompany;
-      } else if (paymentMode === "Cash") {
-        finalCompany = "Cash";
+    let finalCompany = "";
+    if (paymentMode === "Cash") {
+      finalCompany = "Cash";
+    } else if (hasValidAdmissionCompany) {
+      // ALWAYS use the company assigned at admission! Do not re-allocate!
+      finalCompany = studentAdmissionCompany;
+    } else {
+      const reqCompany = (company || body.allocatedCompany || body.companyAssigned || "").trim();
+      if (reqCompany && reqCompany !== "Auto" && reqCompany !== "Select Company..." && reqCompany !== "Unallocated" && reqCompany !== "Cash (Unallocated)") {
+        finalCompany = reqCompany;
       } else {
         const previousNonCashPayment = await Payment.findOne({
           admissionId,
