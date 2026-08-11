@@ -1088,8 +1088,19 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
                     <label className="text-xs font-bold text-slate-500 h-5 flex items-center">
                       Remaining Balance (₹)
                     </label>
-                    <div className="w-full h-11 px-4 rounded-xl border border-slate-200 text-base font-extrabold text-slate-800 bg-white flex items-center">
-                      ₹{remainingBalance.toLocaleString("en-IN")}
+                    <div className="flex items-center gap-2">
+                      <div className="w-full h-11 px-4 rounded-xl border border-slate-200 text-base font-extrabold text-slate-800 bg-white flex items-center">
+                        ₹{remainingBalance.toLocaleString("en-IN")}
+                      </div>
+                      {hasEmi && scheduledEmiSum !== remainingBalance && (
+                        <button
+                          type="button"
+                          onClick={distributeEvenly}
+                          className="shrink-0 px-3 py-2.5 bg-indigo-600 text-white rounded-xl text-[11px] font-bold hover:bg-indigo-700 transition-colors shadow-sm whitespace-nowrap"
+                        >
+                          Auto-Fix Balance
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -1246,18 +1257,9 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
                               ✔ EMI sum perfectly matches remaining balance (₹{remainingBalance.toLocaleString("en-IN")})
                             </span>
                           ) : (
-                            <div className="flex items-center gap-2">
-                              <span className="px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-bold text-[11px]">
-                                ⚠ Diff: ₹{Math.abs(emiDifference).toLocaleString("en-IN")} {emiDifference > 0 ? "remaining to schedule" : "exceeds remaining balance"}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={distributeEvenly}
-                                className="px-2.5 py-1 bg-indigo-600 text-white rounded-lg text-[11px] font-bold hover:bg-indigo-700 transition-colors shadow-xs"
-                              >
-                                Auto-Fix Balance
-                              </button>
-                            </div>
+                            <span className="px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-bold text-[11px]">
+                              ⚠ Diff: ₹{Math.abs(emiDifference).toLocaleString("en-IN")} {emiDifference > 0 ? "remaining to schedule" : "exceeds remaining balance"}
+                            </span>
                           )}
                         </div>
                       </div>
