@@ -7,6 +7,7 @@ async function run() {
   console.log("Connected.");
 
   const db = mongoose.connection.db;
+  if (!db) throw new Error("Database connection not established");
 
   // Find all companies with the name SICCES PRIVATE LIMITED
   const companies = await db.collection("companies").find({ name: /^SICCES PRIVATE LIMITED$/i }).toArray();

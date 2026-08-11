@@ -6,6 +6,7 @@ export async function GET() {
   try {
     await dbConnect();
     const db = mongoose.connection.db;
+    if (!db) throw new Error("Database connection not initialized");
 
     // Find all SICCES PRIVATE LIMITED documents
     const companies = await db.collection("companies").find({
