@@ -357,17 +357,26 @@ export async function POST(req: NextRequest) {
       });
       initialPaymentObj = await initialPayment.save();
 
-      // Trigger MSG91 WhatsApp Fee Receipt notification
+      // Trigger MSG91 WhatsApp Fee Receipt notification (ONLY if admission date is today's date)
       try {
-        if (admission.mobileNumber) {
+        const todayIST = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+        const admDateObj = admission.admissionDate
+          ? new Date(admission.admissionDate)
+          : (data.admissionDate ? new Date(data.admissionDate) : new Date());
+        const admDateIST = admDateObj.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+        const isTodayAdmission = admDateIST === todayIST;
+
+        if (admission.mobileNumber && isTodayAdmission) {
           sendWhatsAppFeeReceipt({
             studentName: admission.fullName,
             mobileNumber: admission.mobileNumber,
             courseName: admission.course,
-            amountPaid: Number(data.amountReceivedToday),
+            amountPaid: initialPaymentObj.amountReceived || Number(data.amountReceivedToday) || initialCollectedAmount,
             paymentDate: new Date(initialPaymentObj.createdAt || Date.now()).toLocaleDateString("en-IN"),
             receiptNo: initialPaymentObj.receiptNo,
           }).catch((err) => console.error("Async MSG91 WhatsApp Error:", err));
+        } else if (!isTodayAdmission) {
+          console.log(`[Admission API] Skipping WhatsApp fee receipt: admissionDate (${admDateIST}) is not today (${todayIST})`);
         }
       } catch (waErr) {
         console.error("Failed to trigger WhatsApp receipt:", waErr);
