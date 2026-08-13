@@ -235,6 +235,9 @@ export async function POST(request: Request) {
       centreHead ||
       (userRole.includes("manager") || userRole.includes("head") ? user?.name : "Main Centre");
 
+    const isValidId = (val: any) =>
+      val && typeof val === "string" && val.length === 24 && /^[0-9a-fA-F]{24}$/.test(val);
+
     const newTraining = new CorporateTraining({
       companyName: companyName.trim(),
       contactPerson: contactPerson?.trim() || "",
@@ -246,7 +249,7 @@ export async function POST(request: Request) {
       numberOfParticipants: Number(numberOfParticipants) || 1,
       location: location?.trim() || "",
       faculty: faculty.trim(),
-      facultyId: facultyId || undefined,
+      facultyId: isValidId(facultyId) ? facultyId : undefined,
       facultyEmail: facultyEmail?.trim() || "",
       facultyPhone: facultyPhone?.trim() || "",
       startDate: new Date(startDate),
@@ -260,11 +263,11 @@ export async function POST(request: Request) {
       brand: brand || user?.brandScope || "CADD MANTRA",
       companyAssigned: companyAssigned || "INSTITUTE OF CREATIVE STUDIES",
       salesExecutive: defaultSalesExec,
-      salesExecutiveId: userRole.includes("counsellor") || userRole.includes("counselor") ? user?._id : undefined,
+      salesExecutiveId: isValidId(user?._id) ? user?._id : undefined,
       centreHead: defaultCentreHead,
-      centreHeadId: userRole.includes("manager") || userRole.includes("head") ? user?._id : undefined,
+      centreHeadId: isValidId(user?._id) && (userRole.includes("manager") || userRole.includes("head")) ? user?._id : undefined,
       status: status || (remainingBal === 0 && totalAmtNum > 0 ? "Ongoing" : "Scheduled"),
-      createdBy: user?._id,
+      createdBy: isValidId(user?._id) ? user?._id : undefined,
       createdByName: user?.name || "Staff",
       createdByRole: user?.role || "Admin",
       remarks: remarks?.trim() || "",

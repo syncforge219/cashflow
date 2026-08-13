@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 
 interface AddCorporateTrainingModalProps {
   isOpen: boolean;
@@ -167,14 +167,39 @@ export default function AddCorporateTrainingModal({
       .catch(console.error);
   }, [isOpen, currentUser]);
 
+  const getFacultyDisplayName = (f: any): string => {
+    if (!f) return "";
+    const nameStr = `${f.firstName || ""} ${f.lastName || ""}`.trim();
+    if (nameStr) return nameStr;
+    if (typeof f.name === "string") return f.name.trim();
+    return "";
+  };
+
+  const getFacultySubtext = (f: any): string => {
+    if (!f) return "";
+    if (Array.isArray(f.subjects) && f.subjects.length > 0) {
+      return f.subjects.filter(Boolean).join(", ");
+    }
+    if (typeof f.subject === "string" && f.subject) {
+      return f.subject;
+    }
+    if (typeof f.email === "string" && f.email) {
+      return f.email;
+    }
+    if (typeof f.phone === "string" && f.phone) {
+      return f.phone;
+    }
+    return "";
+  };
+
   const handleSelectFaculty = (f: any) => {
-    const name = `${f.firstName || ""} ${f.lastName || ""}`.trim() || f.name;
+    const name = getFacultyDisplayName(f);
     setFormData((prev) => ({
       ...prev,
       faculty: name,
-      facultyId: f._id || "",
-      facultyEmail: f.email || "",
-      facultyPhone: f.phone || f.mobile || "",
+      facultyId: f._id ? String(f._id) : "",
+      facultyEmail: typeof f.email === "string" ? f.email : "",
+      facultyPhone: typeof f.phone === "string" ? f.phone : (typeof f.mobile === "string" ? f.mobile : ""),
     }));
     setFacultySearch(name);
     setIsFacultyDropdownOpen(false);
@@ -190,7 +215,7 @@ export default function AddCorporateTrainingModal({
   };
 
   const handleSelectSalesExecutive = (c: any) => {
-    const name = c.name || `${c.firstName || ""} ${c.lastName || ""}`.trim();
+    const name = (c.name || `${c.firstName || ""} ${c.lastName || ""}`).trim();
     setFormData((prev) => ({
       ...prev,
       salesExecutive: name,
@@ -199,19 +224,29 @@ export default function AddCorporateTrainingModal({
     setIsSalesDropdownOpen(false);
   };
 
-  const filteredFaculty = facultyList.filter((f: any) => {
-    const name = `${f.firstName || ""} ${f.lastName || ""}`.trim() || f.name || "";
-    const email = f.email || "";
-    const subject = f.subject || "";
-    const q = facultySearch.toLowerCase().trim();
-    return name.toLowerCase().includes(q) || email.toLowerCase().includes(q) || subject.toLowerCase().includes(q);
-  });
+  const filteredFaculty = useMemo(() => {
+    if (!Array.isArray(facultyList)) return [];
+    const q = (facultySearch || "").toLowerCase().trim();
+    if (!q) return facultyList;
 
-  const filteredCounsellors = counsellorsList.filter((c: any) => {
-    const name = c.name || `${c.firstName || ""} ${c.lastName || ""}`.trim();
-    const q = salesSearch.toLowerCase().trim();
-    return name.toLowerCase().includes(q);
-  });
+    return facultyList.filter((f: any) => {
+      const name = getFacultyDisplayName(f).toLowerCase();
+      const email = (typeof f.email === "string" ? f.email : "").toLowerCase();
+      const subtext = getFacultySubtext(f).toLowerCase();
+      return name.includes(q) || email.includes(q) || subtext.includes(q);
+    });
+  }, [facultyList, facultySearch]);
+
+  const filteredCounsellors = useMemo(() => {
+    if (!Array.isArray(counsellorsList)) return [];
+    const q = (salesSearch || "").toLowerCase().trim();
+    if (!q) return counsellorsList;
+
+    return counsellorsList.filter((c: any) => {
+      const name = (c.name || `${c.firstName || ""} ${c.lastName || ""}`).trim().toLowerCase();
+      return name.includes(q);
+    });
+  }, [counsellorsList, salesSearch]);
 
   const totalAmtNum = Number(formData.totalAmount) || 0;
   const amountRcvdNum = Number(formData.amountReceived) || 0;
@@ -421,14 +456,18 @@ export default function AddCorporateTrainingModal({
 
                     {filteredFaculty.length > 0 ? (
                       filteredFaculty.map((f: any) => {
-                        const name = `${f.firstName || ""} ${f.lastName || ""}`.trim() || f.name;
-                        const isSelected = formData.faculty.toLowerCase() === name.toLowerCase();
+                        const name = getFacultyDisplayName(f);
+                        const isSelected = (formData.faculty || "").toLowerCase() === name.toLowerCase();
+                        const subtext = getFacultySubtext(f);
                         const initials = (f.firstName ? f.firstName[0] : "") + (f.lastName ? f.lastName[0] : "") || name.substring(0, 2);
 
                         return (
                           <div
-                            key={f._id || name}
-                            onClick={() => handleSelectFaculty(f)}
+                            key={f._id ? String(f._id) : name}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              handleSelectFaculty(f);
+                            }}
                             className={`px-3 py-2 rounded-xl flex items-center justify-between gap-2.5 cursor-pointer transition-all ${
                               isSelected
                                 ? "bg-indigo-50 text-indigo-900 border border-indigo-200/80 font-black"
@@ -443,9 +482,9 @@ export default function AddCorporateTrainingModal({
                               </div>
                               <div className="truncate">
                                 <div className="text-xs truncate">{name}</div>
-                                {(f.subject || f.email) && (
+                                {subtext && (
                                   <div className="text-[10px] text-slate-400 font-semibold truncate">
-                                    {f.subject || f.email}
+                                    {subtext}
                                   </div>
                                 )}
                               </div>
@@ -462,7 +501,8 @@ export default function AddCorporateTrainingModal({
 
                     {facultySearch.trim() && (
                       <div
-                        onClick={() => {
+                        onMouseDown={(e) => {
+                          e.preventDefault();
                           setFormData((prev) => ({ ...prev, faculty: facultySearch.trim(), facultyId: "" }));
                           setIsFacultyDropdownOpen(false);
                         }}
@@ -694,13 +734,16 @@ export default function AddCorporateTrainingModal({
 
                     {filteredCounsellors.length > 0 ? (
                       filteredCounsellors.map((c: any) => {
-                        const name = c.name || `${c.firstName || ""} ${c.lastName || ""}`.trim();
-                        const isSelected = formData.salesExecutive.toLowerCase() === name.toLowerCase();
+                        const name = (c.name || `${c.firstName || ""} ${c.lastName || ""}`).trim();
+                        const isSelected = (formData.salesExecutive || "").toLowerCase() === name.toLowerCase();
 
                         return (
                           <div
-                            key={c._id || name}
-                            onClick={() => handleSelectSalesExecutive(c)}
+                            key={c._id ? String(c._id) : name}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              handleSelectSalesExecutive(c);
+                            }}
                             className={`px-3 py-2 rounded-xl flex items-center justify-between gap-2.5 cursor-pointer transition-all ${
                               isSelected
                                 ? "bg-indigo-50 text-indigo-900 border border-indigo-200/80 font-black"
