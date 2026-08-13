@@ -7,15 +7,16 @@ import Enquiry from "@/models/Enquiry";
 import Payment from "@/models/Payment";
 import Company from "@/models/Company";
 import Brand from "@/models/Brand";
+import User from "@/models/User";
 
 const SMTP_USER = process.env.SMTP_USER || "sc@caddmantra.com";
 const SMTP_PASS = (process.env.SMTP_PASS || "uqpbmaxoashfpauk").replace(/\s+/g, "");
 const SMTP_HOST = process.env.SMTP_HOST || "smtp.gmail.com";
-const SMTP_PORT = Number(process.env.SMTP_PORT) || 465;
+const SMTP_PORT = Number(process.env.SMTP_PORT) || 587;
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "sc@caddmantra.com";
 
 const transporter = nodemailer.createTransport({
-  host: SMTP_HOST,
+  host: SMTP_HOST || "smtp.gmail.com",
   port: SMTP_PORT,
   secure: SMTP_PORT === 465,
   auth: {
@@ -704,7 +705,19 @@ export async function sendMasterExcelReportEmail({
   try {
     await dbConnect();
 
-    const recipient = targetEmail || ADMIN_EMAIL;
+    let recipientsList: string[] = [];
+    if (targetEmail) {
+      recipientsList = targetEmail.split(",").map((e: string) => e.trim()).filter(Boolean);
+    } else {
+      const adminUsers = await User.find({
+        role: { $in: ["admin", "super_admin", "super admin", "Admin", "Super Admin"] }
+      }).select("email").lean();
+      
+      const dbEmails = adminUsers.map((u: any) => (u.email || "").trim()).filter(Boolean);
+      recipientsList = Array.from(new Set([...dbEmails, ADMIN_EMAIL].filter(Boolean)));
+    }
+
+    const recipient = recipientsList.join(", ");
     const now = new Date();
 
     let enquiryQuery: any = {};
