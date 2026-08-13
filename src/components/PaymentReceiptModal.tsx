@@ -208,31 +208,16 @@ export default function PaymentReceiptModal({
   );
   const currentPayment = Number(receipt.amountReceived || 0);
 
-  // Calculate total paid to date accurately
+  // Calculate total paid to date accurately from verified payment receipts
   let calculatedTotalPaid = 0;
 
   if (Array.isArray(paymentsHistory) && paymentsHistory.length > 0) {
-    const historySum = paymentsHistory.reduce(
+    calculatedTotalPaid = paymentsHistory.reduce(
       (acc, item) => acc + Number(item.amountReceived || 0),
       0
     );
-    const isCurrentInHistory = paymentsHistory.some(
-      (item) =>
-        (receipt._id && item._id === receipt._id) ||
-        (receipt.receiptNo && item.receiptNo === receipt.receiptNo)
-    );
-    calculatedTotalPaid = isCurrentInHistory
-      ? historySum
-      : historySum + currentPayment;
-  } else if (student.totalPaid !== undefined && student.totalPaid !== null) {
+  } else if (student.totalPaid !== undefined && student.totalPaid !== null && Number(student.totalPaid) > 0) {
     calculatedTotalPaid = Number(student.totalPaid);
-  } else if (student.remainingBalance !== undefined && student.remainingBalance !== null) {
-    const rawRem = Number(student.remainingBalance);
-    if (rawRem <= finalFee - currentPayment) {
-      calculatedTotalPaid = Math.max(currentPayment, finalFee - rawRem);
-    } else {
-      calculatedTotalPaid = Math.max(currentPayment, finalFee - rawRem + currentPayment);
-    }
   } else {
     calculatedTotalPaid = currentPayment;
   }
@@ -575,25 +560,17 @@ export default function PaymentReceiptModal({
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
                     <tr>
-                      <td className="p-2">566</td>
+                      <td className="p-2">{student.admissionId || "INV-01"}</td>
                       <td className="p-2 font-semibold text-slate-900">{student.course}</td>
-                      <td className="p-2 font-bold text-indigo-900">Course Fee / Payment Received Today</td>
+                      <td className="p-2 font-bold text-indigo-900">
+                        {typeof receipt.particulars === "string" && receipt.particulars
+                          ? receipt.particulars
+                          : "Course Fee / Registration Payment Received"}
+                      </td>
                       <td className="p-2">{paymentDateFormatted}</td>
-                      <td className="p-2 text-right">{finalFee.toLocaleString("en-IN")}</td>
-                      <td className="p-2 text-right font-bold text-emerald-700">₹{(regAmount || currentPayment).toLocaleString("en-IN")}</td>
+                      <td className="p-2 text-right">₹{finalFee.toLocaleString("en-IN")}</td>
+                      <td className="p-2 text-right font-bold text-emerald-700">₹{currentPayment.toLocaleString("en-IN")}</td>
                     </tr>
-                    {dpAmount > 0 && (
-                      <tr className="bg-amber-50/50">
-                        <td className="p-2">566</td>
-                        <td className="p-2 font-semibold text-slate-900">{student.course}</td>
-                        <td className="p-2 font-bold text-amber-900">
-                          Downpayment Amount {dpDueDateFormatted ? `(Due Date: ${dpDueDateFormatted})` : ''}
-                        </td>
-                        <td className="p-2">{dpDueDateFormatted || paymentDateFormatted}</td>
-                        <td className="p-2 text-right">-</td>
-                        <td className="p-2 text-right font-bold text-amber-800">₹{dpAmount.toLocaleString("en-IN")}</td>
-                      </tr>
-                    )}
                   </tbody>
                 </table>
               </div>

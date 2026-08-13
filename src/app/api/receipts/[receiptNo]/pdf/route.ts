@@ -93,8 +93,13 @@ export async function GET(
     });
 
     const finalFee = Number(admission?.finalFee || admission?.courseFee || 0);
-    const remainingBalance = Number(admission?.remainingBalance ?? 0);
-    const totalPaidToDate = Math.max(0, finalFee - remainingBalance);
+    const allPayments = admission?._id
+      ? await Payment.find({ admissionId: admission._id }).select("amountReceived").lean()
+      : [];
+    const totalPaidToDate = allPayments.length > 0
+      ? allPayments.reduce((sum: number, p: any) => sum + (Number(p.amountReceived) || 0), 0)
+      : Number(payment?.amountReceived || 0);
+    const remainingBalance = Math.max(0, finalFee - totalPaidToDate);
     const targetBrandName = payment?.brand || admission?.brand || "CADD MANTRA";
     const brand = await Brand.findOne({
       $or: [
