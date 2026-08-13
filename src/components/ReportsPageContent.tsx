@@ -656,9 +656,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
                            (name ? paymentsByStudentName[name] : 0) ||
                            0;
 
-      const fromAdmModel = Number(adm.amountReceivedToday || 0) ||
-                           ((Number(adm.registrationAmount) || 0) + (Number(adm.downpaymentAmount) || 0)) ||
-                           Math.max(0, Number(adm.finalFee || adm.courseFee || 0) - Number(adm.remainingBalance || 0));
+      const fromAdmModel = Number(adm.amountReceivedToday !== undefined ? adm.amountReceivedToday : adm.registrationAmount) || 0;
 
       return Math.max(fromPayments, fromAdmModel, 0);
     };
@@ -1509,9 +1507,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
                            (admCode ? paymentsByAdmissionId[admCode] : 0) ||
                            (phone ? paymentsByStudentPhone[phone] : 0) ||
                            (name ? paymentsByStudentName[name] : 0) || 0;
-      const fromAdmModel = Number(adm.amountReceivedToday || 0) ||
-                           ((Number(adm.registrationAmount) || 0) + (Number(adm.downpaymentAmount) || 0)) ||
-                           Math.max(0, Number(adm.finalFee || adm.courseFee || 0) - Number(adm.remainingBalance || 0));
+      const fromAdmModel = Number(adm.amountReceivedToday !== undefined ? adm.amountReceivedToday : adm.registrationAmount) || 0;
       return Math.max(fromPayments, fromAdmModel, 0);
     };
 
@@ -1689,9 +1685,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
                            (admCode ? paymentsByAdmissionId[admCode] : 0) ||
                            (phone ? paymentsByStudentPhone[phone] : 0) ||
                            (name ? paymentsByStudentName[name] : 0) || 0;
-      const fromAdmModel = Number(adm.amountReceivedToday || 0) ||
-                           ((Number(adm.registrationAmount) || 0) + (Number(adm.downpaymentAmount) || 0)) ||
-                           Math.max(0, Number(adm.finalFee || adm.courseFee || 0) - Number(adm.remainingBalance || 0));
+      const fromAdmModel = Number(adm.amountReceivedToday !== undefined ? adm.amountReceivedToday : adm.registrationAmount) || 0;
       return Math.max(fromPayments, fromAdmModel, 0);
     };
 

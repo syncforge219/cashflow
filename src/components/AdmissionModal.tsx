@@ -105,7 +105,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split("T")[0]);
   
   const amountReceivedToday = registrationAmount;
-  const remainingBalance = Math.max(0, finalFee - registrationAmount - downpaymentAmount);
+  const remainingBalance = Math.max(0, finalFee - registrationAmount);
 
   const [hasEmi, setHasEmi] = useState(false);
   const [numInstallments, setNumInstallments] = useState(1);
@@ -506,7 +506,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
         targetCourses: selectedCourses,
         batch, batchId, duration, startDate, academicYear, admissionDate, companyAssigned,
         courseFee, scholarshipType, scholarshipAmount, discountType, discountAmount, additionalDiscount, totalDiscount, finalFee,
-        paymentMode, transactionNo, amountReceivedToday: (Number(registrationAmount) || 0) + (Number(downpaymentAmount) || 0), registrationAmount: Number(registrationAmount), downpaymentAmount: Number(downpaymentAmount), downpaymentDueDate, paymentDate, remainingBalance, hasEmi,
+        paymentMode, transactionNo, amountReceivedToday: Number(registrationAmount) || 0, registrationAmount: Number(registrationAmount) || 0, downpaymentAmount: Number(downpaymentAmount) || 0, downpaymentDueDate, paymentDate, remainingBalance: Math.max(0, finalFee - (Number(registrationAmount) || 0)), hasEmi,
         numInstallments: customEmiItems.length || numInstallments,
         installmentAmount: customEmiItems.length > 0 ? Math.round(scheduledEmiSum / customEmiItems.length) : installmentAmount,
         customEmiPlan

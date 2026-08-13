@@ -86,6 +86,24 @@ export async function GET(req: Request) {
     const trendStart = isFiltered ? targetStart : thirtyDaysAgo;
     const trendEnd = isFiltered ? targetEnd : targetEnd;
     const trendStartStr = trendStart.toISOString().split("T")[0];
+    // Reconcile any historical payments where uncollected downpayment was prematurely bundled into initial payment
+    try {
+      const unrecAdmissions = await Admission.find({
+        downpaymentAmount: { $gt: 0 },
+        registrationAmount: { $gt: 0 }
+      }).select("_id registrationAmount downpaymentAmount finalFee courseFee").lean();
+
+      for (const adm of unrecAdmissions) {
+        const pmts = await Payment.find({ admissionId: adm._id }).sort({ createdAt: 1 }).lean();
+        const regAmt = Number(adm.registrationAmount) || 0;
+        const dpAmt = Number(adm.downpaymentAmount) || 0;
+        if (pmts.length === 1 && Number(pmts[0].amountReceived) === regAmt + dpAmt && regAmt > 0) {
+          await Payment.updateOne({ _id: pmts[0]._id }, { $set: { amountReceived: regAmt } });
+          const correctBal = Math.max(0, Number(adm.finalFee || adm.courseFee || 0) - regAmt);
+          await Admission.updateOne({ _id: adm._id }, { $set: { remainingBalance: correctBal, amountReceivedToday: regAmt } });
+        }
+      }
+    } catch (_) {}
 
     // Parallel execution of all primary data queries using MongoDB Aggregations
     const [
