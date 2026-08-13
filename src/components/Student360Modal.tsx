@@ -528,32 +528,17 @@ export default function Student360Modal({
     }
   };
 
-  if (!isOpen) return null;
-
   const totalAgreedFee = Number(studentData?.finalFee || studentData?.courseFee || 0);
   const regAmt = Number(studentData?.registrationAmount ?? studentData?.amountReceivedToday) || 0;
-  const dpAmt = Number(studentData?.downpaymentAmount) || 0;
-  const emiItems = studentData?.customEmiPlan || formData.customEmiPlan || [];
-  const pendingEmisSum = emiItems.filter((e: any) => !e.isPaid).reduce((acc: number, e: any) => acc + (Number(e.amount) || 0), 0);
-  const remainingBalFromData = Number(studentData?.remainingBalance);
 
-  let computedBalance = 0;
-  if (studentData) {
-    if (pendingEmisSum > 0) {
-      computedBalance = pendingEmisSum;
-    } else if (!isNaN(remainingBalFromData) && remainingBalFromData >= 0) {
-      computedBalance = remainingBalFromData;
-    } else {
-      computedBalance = Math.max(0, totalAgreedFee - regAmt - dpAmt);
-    }
-  }
-
+  // Actual verified payments recorded in ledger
   const validPaymentsSum = payments.reduce((acc, p) => acc + (Number(p.amountReceived) || 0), 0);
-  let totalCollected = Math.max(0, totalAgreedFee - computedBalance);
 
-  if (validPaymentsSum > totalCollected && computedBalance === 0) {
-    totalCollected = validPaymentsSum;
-  }
+  // Total collected strictly uses verified payments if any exist, otherwise initial registration amount
+  const totalCollected = payments.length > 0 ? validPaymentsSum : regAmt;
+
+  // Remaining balance is total agreed fee minus total verified collected amount
+  const computedBalance = Math.max(0, totalAgreedFee - totalCollected);
 
   let feeProgress = 0;
   if (totalAgreedFee > 0) {
@@ -575,6 +560,8 @@ export default function Student360Modal({
   const cleanPhone = (phone?: string) => (phone || "").replace(/[^0-9]/g, "");
 
   const emiPlanToRender = formData.customEmiPlan || [];
+
+  if (!isOpen) return null;
 
   return (
     <div
