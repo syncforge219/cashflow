@@ -377,18 +377,19 @@ export default function Student360PortalPage() {
           </div>
         </div>
 
-        {/* Filter, Search & Date-Wise Sorting Bar */}
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 mb-6 shadow-xs space-y-3">
-          {/* Top Row: Search & Dropdown Filters */}
-          <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
-            <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 w-full lg:w-96">
+        {/* Filter, Search & Date-Wise Sorting Toolbar */}
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 mb-6 shadow-xs space-y-3.5">
+          {/* Top Row: Search + Clean 4-Column Filter Grid */}
+          <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3">
+            {/* Search Input */}
+            <form onSubmit={handleSearchSubmit} className="relative flex-1 min-w-[280px] max-w-lg flex items-center gap-2">
               <div className="relative w-full">
                 <input
                   type="text"
-                  placeholder="Search 360 by student name, ID, phone, email, course..."
+                  placeholder="Search by student name, ID, phone, email, course..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 font-semibold"
+                  className="w-full pl-9 pr-3 py-2 h-9 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 font-semibold"
                 />
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-slate-400 absolute left-3 top-2.5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.637 10.637Z" />
@@ -396,44 +397,41 @@ export default function Student360PortalPage() {
               </div>
               <button
                 type="submit"
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-colors shrink-0 cursor-pointer"
+                className="px-4 h-9 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-colors shrink-0 cursor-pointer shadow-xs"
               >
                 Search
               </button>
             </form>
 
-            <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-              {/* Date-Wise & Attribute Sorting Dropdown */}
-              <div className="flex items-center gap-1.5 shrink-0 bg-indigo-50/60 border border-indigo-200/80 rounded-xl px-2.5 py-1">
-                <span className="text-xs font-black text-indigo-700 flex items-center gap-1">
-                  <span>⇅</span> Sort:
-                </span>
+            {/* Filter & Sort Controls in a Clean 4-Column Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 items-center w-full xl:w-auto">
+              {/* Sort Order Selector */}
+              <div className="relative">
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
-                  className="px-2 py-1 text-xs font-extrabold bg-white border border-indigo-200 rounded-lg text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
+                  className="w-full h-9 px-3 text-xs font-extrabold bg-indigo-50/80 border border-indigo-200 text-indigo-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
                 >
                   <option value="date-desc">📅 Date: Newest First</option>
                   <option value="date-asc">📅 Date: Oldest First</option>
                   <option value="name-asc">👤 Name: A → Z</option>
                   <option value="name-desc">👤 Name: Z → A</option>
-                  <option value="fee-desc">💰 Agreed Fee: High → Low</option>
-                  <option value="fee-asc">💰 Agreed Fee: Low → High</option>
+                  <option value="fee-desc">💰 Fee: High → Low</option>
+                  <option value="fee-asc">💰 Fee: Low → High</option>
                   <option value="balance-desc">⚠️ Balance: High → Low</option>
                   <option value="balance-asc">⚠️ Balance: Low → High</option>
                 </select>
               </div>
 
               {/* Brand Filter */}
-              <div className="flex items-center gap-1.5 shrink-0">
-                <span className="text-xs font-bold text-slate-500">Brand:</span>
+              <div className="relative">
                 <select
                   value={selectedBrand}
                   disabled={isBrandManager && Boolean(user?.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All")}
                   onChange={(e) => setSelectedBrand(e.target.value)}
-                  className="px-3 py-1.5 text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-700 cursor-pointer disabled:opacity-60"
+                  className="w-full h-9 px-3 text-xs font-bold bg-slate-50 border border-slate-200 text-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer disabled:opacity-60"
                 >
-                  <option value="All Brands">All Brands</option>
+                  <option value="All Brands">🏢 All Brands</option>
                   {brands.map((b) => (
                     <option key={b} value={b}>{b}</option>
                   ))}
@@ -441,14 +439,13 @@ export default function Student360PortalPage() {
               </div>
 
               {/* Company Filter */}
-              <div className="flex items-center gap-1.5 shrink-0">
-                <span className="text-xs font-bold text-slate-500">Company:</span>
+              <div className="relative">
                 <select
                   value={selectedCompany}
                   onChange={(e) => setSelectedCompany(e.target.value)}
-                  className="px-3 py-1.5 text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-700 cursor-pointer"
+                  className="w-full h-9 px-3 text-xs font-bold bg-slate-50 border border-slate-200 text-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
                 >
-                  <option value="All Companies">All Companies</option>
+                  <option value="All Companies">🏛️ All Companies</option>
                   {companies.map((c) => (
                     <option key={c} value={c}>{c}</option>
                   ))}
@@ -456,26 +453,25 @@ export default function Student360PortalPage() {
               </div>
 
               {/* Fee Status Filter */}
-              <div className="flex items-center gap-1.5 shrink-0">
-                <span className="text-xs font-bold text-slate-500">Fee Status:</span>
+              <div className="relative">
                 <select
                   value={selectedFeeStatus}
                   onChange={(e) => setSelectedFeeStatus(e.target.value)}
-                  className="px-3 py-1.5 text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-700 cursor-pointer"
+                  className="w-full h-9 px-3 text-xs font-bold bg-slate-50 border border-slate-200 text-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
                 >
-                  <option value="All">All Statuses</option>
-                  <option value="Balance Due">Balance Due</option>
-                  <option value="Fully Paid">Fully Paid</option>
+                  <option value="All">💳 All Fee Statuses</option>
+                  <option value="Balance Due">⚠️ Balance Due</option>
+                  <option value="Fully Paid">✅ Fully Paid</option>
                 </select>
               </div>
             </div>
           </div>
 
-          {/* Bottom Row: Date Presets & Custom Date Range Filter */}
-          <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs">
+          {/* Bottom Row: Date Scope Presets & Custom Date Range */}
+          <div className="bg-slate-50/70 border border-slate-100 rounded-xl px-3.5 py-2 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
             {/* Quick Date Presets */}
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider mr-1">Date Scope:</span>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-1.5">Date Scope:</span>
               {[
                 { id: "all", label: "All Dates" },
                 { id: "today", label: "Today" },
@@ -487,10 +483,10 @@ export default function Student360PortalPage() {
                   key={p.id}
                   type="button"
                   onClick={() => handleDatePresetChange(p.id)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    datePreset === p.id
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    datePreset === p.id && (!startDate && !endDate && p.id === "all" || p.id !== "all")
                       ? "bg-indigo-600 text-white shadow-xs"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                   }`}
                 >
                   {p.label}
@@ -498,10 +494,10 @@ export default function Student360PortalPage() {
               ))}
             </div>
 
-            {/* Custom Start & End Date Inputs */}
+            {/* Custom From & To Date Pickers */}
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1">
-                <span className="text-[11px] font-bold text-slate-400">From:</span>
+              <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2 py-0.5 shadow-2xs">
+                <span className="text-[10px] font-bold text-slate-400 uppercase">From:</span>
                 <input
                   type="date"
                   value={startDate}
@@ -509,12 +505,12 @@ export default function Student360PortalPage() {
                     setStartDate(e.target.value);
                     setDatePreset("custom");
                   }}
-                  className="px-2 py-1 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="text-xs font-semibold text-slate-700 bg-transparent focus:outline-none cursor-pointer"
                 />
               </div>
 
-              <div className="flex items-center gap-1">
-                <span className="text-[11px] font-bold text-slate-400">To:</span>
+              <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2 py-0.5 shadow-2xs">
+                <span className="text-[10px] font-bold text-slate-400 uppercase">To:</span>
                 <input
                   type="date"
                   value={endDate}
@@ -522,7 +518,7 @@ export default function Student360PortalPage() {
                     setEndDate(e.target.value);
                     setDatePreset("custom");
                   }}
-                  className="px-2 py-1 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="text-xs font-semibold text-slate-700 bg-transparent focus:outline-none cursor-pointer"
                 />
               </div>
 
@@ -530,8 +526,8 @@ export default function Student360PortalPage() {
                 <button
                   type="button"
                   onClick={() => handleDatePresetChange("all")}
-                  className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
-                  title="Clear Date Filter"
+                  className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                  title="Reset Date Filter"
                 >
                   ✕ Clear
                 </button>
