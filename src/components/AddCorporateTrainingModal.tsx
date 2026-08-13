@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 interface AddCorporateTrainingModalProps {
   isOpen: boolean;
@@ -23,6 +23,16 @@ export default function AddCorporateTrainingModal({
   const [companies, setCompanies] = useState<string[]>([]);
   const [facultyList, setFacultyList] = useState<any[]>([]);
   const [counsellorsList, setCounsellorsList] = useState<any[]>([]);
+
+  // Search & Dropdown State for Faculty
+  const [facultySearch, setFacultySearch] = useState("");
+  const [isFacultyDropdownOpen, setIsFacultyDropdownOpen] = useState(false);
+  const facultyDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Search & Dropdown State for Sales Executive
+  const [salesSearch, setSalesSearch] = useState("");
+  const [isSalesDropdownOpen, setIsSalesDropdownOpen] = useState(false);
+  const salesDropdownRef = useRef<HTMLDivElement>(null);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -71,11 +81,29 @@ export default function AddCorporateTrainingModal({
     userRole === "center head" ||
     userRole === "center_head";
 
+  // Click outside to close dropdowns
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (facultyDropdownRef.current && !facultyDropdownRef.current.contains(e.target as Node)) {
+        setIsFacultyDropdownOpen(false);
+      }
+      if (salesDropdownRef.current && !salesDropdownRef.current.contains(e.target as Node)) {
+        setIsSalesDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   // Fetch Brands, Companies, Faculty & Counsellors on modal open
   useEffect(() => {
     if (!isOpen) return;
 
     setErrorMsg("");
+    setFacultySearch("");
+    setSalesSearch("");
+    setIsFacultyDropdownOpen(false);
+    setIsSalesDropdownOpen(false);
 
     // Set default sales exec & centre head from current user
     const defaultBrand = currentUser?.brandScope && currentUser.brandScope !== "All Brands" && currentUser.brandScope !== "All"
@@ -88,6 +116,10 @@ export default function AddCorporateTrainingModal({
       salesExecutive: isCounsellor ? currentUser?.name || "" : prev.salesExecutive,
       centreHead: isCentreHead ? currentUser?.name || "" : prev.centreHead,
     }));
+
+    if (isCounsellor && currentUser?.name) {
+      setSalesSearch(currentUser.name);
+    }
 
     // Fetch Brands
     fetch("/api/brands")
@@ -135,28 +167,51 @@ export default function AddCorporateTrainingModal({
       .catch(console.error);
   }, [isOpen, currentUser]);
 
-  const handleFacultySelect = (facultyName: string) => {
-    const matched = facultyList.find(
-      (f: any) => `${f.firstName || ""} ${f.lastName || ""}`.trim().toLowerCase() === facultyName.trim().toLowerCase() ||
-                  (f.name || "").trim().toLowerCase() === facultyName.trim().toLowerCase()
-    );
-
-    if (matched) {
-      setFormData((prev) => ({
-        ...prev,
-        faculty: `${matched.firstName || ""} ${matched.lastName || ""}`.trim() || matched.name || facultyName,
-        facultyId: matched._id || "",
-        facultyEmail: matched.email || "",
-        facultyPhone: matched.phone || matched.mobile || "",
-      }));
-    } else {
-      setFormData((prev) => ({
-        ...prev,
-        faculty: facultyName,
-        facultyId: "",
-      }));
-    }
+  const handleSelectFaculty = (f: any) => {
+    const name = `${f.firstName || ""} ${f.lastName || ""}`.trim() || f.name;
+    setFormData((prev) => ({
+      ...prev,
+      faculty: name,
+      facultyId: f._id || "",
+      facultyEmail: f.email || "",
+      facultyPhone: f.phone || f.mobile || "",
+    }));
+    setFacultySearch(name);
+    setIsFacultyDropdownOpen(false);
   };
+
+  const handleCustomFacultyInput = (val: string) => {
+    setFacultySearch(val);
+    setFormData((prev) => ({
+      ...prev,
+      faculty: val,
+      facultyId: "",
+    }));
+  };
+
+  const handleSelectSalesExecutive = (c: any) => {
+    const name = c.name || `${c.firstName || ""} ${c.lastName || ""}`.trim();
+    setFormData((prev) => ({
+      ...prev,
+      salesExecutive: name,
+    }));
+    setSalesSearch(name);
+    setIsSalesDropdownOpen(false);
+  };
+
+  const filteredFaculty = facultyList.filter((f: any) => {
+    const name = `${f.firstName || ""} ${f.lastName || ""}`.trim() || f.name || "";
+    const email = f.email || "";
+    const subject = f.subject || "";
+    const q = facultySearch.toLowerCase().trim();
+    return name.toLowerCase().includes(q) || email.toLowerCase().includes(q) || subject.toLowerCase().includes(q);
+  });
+
+  const filteredCounsellors = counsellorsList.filter((c: any) => {
+    const name = c.name || `${c.firstName || ""} ${c.lastName || ""}`.trim();
+    const q = salesSearch.toLowerCase().trim();
+    return name.toLowerCase().includes(q);
+  });
 
   const totalAmtNum = Number(formData.totalAmount) || 0;
   const amountRcvdNum = Number(formData.amountReceived) || 0;
@@ -327,7 +382,7 @@ export default function AddCorporateTrainingModal({
                 />
               </div>
 
-              <div>
+              <div className="relative" ref={facultyDropdownRef}>
                 <label className="block text-[11px] font-extrabold text-slate-700 mb-1">
                   Faculty / Lead Trainer <span className="text-rose-500">*</span>
                 </label>
@@ -335,19 +390,90 @@ export default function AddCorporateTrainingModal({
                   <input
                     type="text"
                     required
-                    list="faculty-options"
-                    placeholder="Select or enter trainer name"
-                    value={formData.faculty}
-                    onChange={(e) => handleFacultySelect(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 font-bold text-slate-800 shadow-2xs"
+                    placeholder="Search or enter trainer name..."
+                    value={facultySearch || formData.faculty}
+                    onFocus={() => setIsFacultyDropdownOpen(true)}
+                    onChange={(e) => {
+                      handleCustomFacultyInput(e.target.value);
+                      setIsFacultyDropdownOpen(true);
+                    }}
+                    className="w-full pl-9 pr-8 py-2.5 bg-white border border-slate-300 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 font-bold text-slate-800 shadow-2xs text-xs"
                   />
-                  <datalist id="faculty-options">
-                    {facultyList.map((f: any) => {
-                      const name = `${f.firstName || ""} ${f.lastName || ""}`.trim() || f.name;
-                      return <option key={f._id || name} value={name} />;
-                    })}
-                  </datalist>
+                  <span className="absolute left-3 top-2.5 text-slate-400 text-sm">👨‍🏫</span>
+                  <button
+                    type="button"
+                    onClick={() => setIsFacultyDropdownOpen((prev) => !prev)}
+                    className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={`w-4 h-4 transition-transform ${isFacultyDropdownOpen ? "rotate-180 text-indigo-600" : ""}`}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                    </svg>
+                  </button>
                 </div>
+
+                {/* Custom Styled Faculty Dropdown Menu */}
+                {isFacultyDropdownOpen && (
+                  <div className="absolute z-40 left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-2xl max-h-60 overflow-y-auto p-1.5 space-y-1 animate-fadeIn">
+                    <div className="px-2.5 py-1 text-[10px] font-black text-slate-400 uppercase tracking-wider border-b border-slate-100 flex justify-between items-center">
+                      <span>Select Registered Faculty</span>
+                      <span>{filteredFaculty.length} Found</span>
+                    </div>
+
+                    {filteredFaculty.length > 0 ? (
+                      filteredFaculty.map((f: any) => {
+                        const name = `${f.firstName || ""} ${f.lastName || ""}`.trim() || f.name;
+                        const isSelected = formData.faculty.toLowerCase() === name.toLowerCase();
+                        const initials = (f.firstName ? f.firstName[0] : "") + (f.lastName ? f.lastName[0] : "") || name.substring(0, 2);
+
+                        return (
+                          <div
+                            key={f._id || name}
+                            onClick={() => handleSelectFaculty(f)}
+                            className={`px-3 py-2 rounded-xl flex items-center justify-between gap-2.5 cursor-pointer transition-all ${
+                              isSelected
+                                ? "bg-indigo-50 text-indigo-900 border border-indigo-200/80 font-black"
+                                : "hover:bg-slate-50 text-slate-700 font-bold"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className={`h-7 w-7 rounded-lg flex items-center justify-center font-black text-[10px] shrink-0 uppercase ${
+                                isSelected ? "bg-indigo-600 text-white" : "bg-indigo-100 text-indigo-700"
+                              }`}>
+                                {initials || "FC"}
+                              </div>
+                              <div className="truncate">
+                                <div className="text-xs truncate">{name}</div>
+                                {(f.subject || f.email) && (
+                                  <div className="text-[10px] text-slate-400 font-semibold truncate">
+                                    {f.subject || f.email}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            {isSelected && <span className="text-indigo-600 font-black text-xs shrink-0">✓</span>}
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="p-3 text-center text-slate-400 font-semibold text-xs">
+                        No registered faculty found matching &quot;{facultySearch}&quot;
+                      </div>
+                    )}
+
+                    {facultySearch.trim() && (
+                      <div
+                        onClick={() => {
+                          setFormData((prev) => ({ ...prev, faculty: facultySearch.trim(), facultyId: "" }));
+                          setIsFacultyDropdownOpen(false);
+                        }}
+                        className="px-3 py-2 bg-indigo-50/60 hover:bg-indigo-100/80 text-indigo-700 border border-indigo-200/60 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer transition-colors mt-1"
+                      >
+                        <span>➕</span>
+                        <span>Use &quot;{facultySearch.trim()}&quot; as custom trainer</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Start Date */}
@@ -531,21 +657,71 @@ export default function AddCorporateTrainingModal({
                 </select>
               </div>
 
-              <div>
+              <div className="relative" ref={salesDropdownRef}>
                 <label className="block text-[11px] font-extrabold text-slate-700 mb-1">Sales Executive / Closer</label>
-                <input
-                  type="text"
-                  list="sales-options"
-                  placeholder="Sales Executive"
-                  value={formData.salesExecutive}
-                  onChange={(e) => setFormData({ ...formData, salesExecutive: e.target.value })}
-                  className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 font-bold text-slate-800 shadow-2xs"
-                />
-                <datalist id="sales-options">
-                  {counsellorsList.map((c: any) => (
-                    <option key={c._id || c.name} value={c.name} />
-                  ))}
-                </datalist>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search or enter closer name..."
+                    value={salesSearch || formData.salesExecutive}
+                    onFocus={() => setIsSalesDropdownOpen(true)}
+                    onChange={(e) => {
+                      setSalesSearch(e.target.value);
+                      setFormData((p) => ({ ...p, salesExecutive: e.target.value }));
+                      setIsSalesDropdownOpen(true);
+                    }}
+                    className="w-full pl-8 pr-8 py-2.5 bg-white border border-slate-300 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 font-bold text-slate-800 shadow-2xs text-xs"
+                  />
+                  <span className="absolute left-2.5 top-2.5 text-slate-400 text-sm">👤</span>
+                  <button
+                    type="button"
+                    onClick={() => setIsSalesDropdownOpen((prev) => !prev)}
+                    className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={`w-4 h-4 transition-transform ${isSalesDropdownOpen ? "rotate-180 text-indigo-600" : ""}`}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Custom Styled Sales Executive Dropdown Menu */}
+                {isSalesDropdownOpen && (
+                  <div className="absolute z-40 left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-2xl max-h-56 overflow-y-auto p-1.5 space-y-1 animate-fadeIn">
+                    <div className="px-2.5 py-1 text-[10px] font-black text-slate-400 uppercase tracking-wider border-b border-slate-100 flex justify-between items-center">
+                      <span>Counsellors & Sales Team</span>
+                      <span>{filteredCounsellors.length} Found</span>
+                    </div>
+
+                    {filteredCounsellors.length > 0 ? (
+                      filteredCounsellors.map((c: any) => {
+                        const name = c.name || `${c.firstName || ""} ${c.lastName || ""}`.trim();
+                        const isSelected = formData.salesExecutive.toLowerCase() === name.toLowerCase();
+
+                        return (
+                          <div
+                            key={c._id || name}
+                            onClick={() => handleSelectSalesExecutive(c)}
+                            className={`px-3 py-2 rounded-xl flex items-center justify-between gap-2.5 cursor-pointer transition-all ${
+                              isSelected
+                                ? "bg-indigo-50 text-indigo-900 border border-indigo-200/80 font-black"
+                                : "hover:bg-slate-50 text-slate-700 font-bold"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-xs">👤</span>
+                              <div className="text-xs truncate">{name}</div>
+                            </div>
+                            {isSelected && <span className="text-indigo-600 font-black text-xs shrink-0">✓</span>}
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="p-3 text-center text-slate-400 font-semibold text-xs">
+                        No team member found matching &quot;{salesSearch}&quot;
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div>
