@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
 import Notification from "@/models/Notification";
 import Admission from "@/models/Admission";
@@ -140,7 +141,10 @@ export async function PATCH(req: Request) {
     await notif.save();
 
     if (notif.admissionId && action) {
-      await Admission.findByIdAndUpdate(notif.admissionId, {
+      const admFilter = mongoose.Types.ObjectId.isValid(notif.admissionId)
+        ? { _id: notif.admissionId }
+        : { admissionId: notif.admissionId };
+      await Admission.findOneAndUpdate(admFilter, {
         $set: { discountApprovalStatus: action }
       });
     }

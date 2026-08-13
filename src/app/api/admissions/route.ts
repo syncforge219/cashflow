@@ -57,7 +57,11 @@ export async function POST(req: NextRequest) {
     let finalBatchId = (data.batchId || "").trim() || "";
 
     if (finalBatchId) {
-      const batchDoc = await Batch.findOne({ $or: [{ batchId: finalBatchId }, { _id: finalBatchId }] }).lean();
+      const bQuery: any[] = [{ batchId: finalBatchId }];
+      if (mongoose.Types.ObjectId.isValid(finalBatchId)) {
+        bQuery.push({ _id: new mongoose.Types.ObjectId(finalBatchId) });
+      }
+      const batchDoc = await Batch.findOne({ $or: bQuery }).lean();
       if (batchDoc) {
         finalBatchName = batchDoc.batchName;
         finalBatchId = batchDoc.batchId || batchDoc._id.toString();

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
 import Payment from "@/models/Payment";
 import Admission from "@/models/Admission";
@@ -143,7 +144,10 @@ export async function POST(req: Request) {
     }
 
     // 1. Find the admission record
-    const admission = await Admission.findById(admissionId);
+    const admFilter: any = mongoose.Types.ObjectId.isValid(admissionId)
+      ? { _id: admissionId }
+      : { admissionId: String(admissionId) };
+    const admission: any = await Admission.findOne(admFilter);
     if (!admission) {
       return NextResponse.json(
         { success: false, message: "Admission record not found." },

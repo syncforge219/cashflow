@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
 import Batch from "@/models/Batch";
 import User from "@/models/User";
@@ -11,7 +12,10 @@ export async function GET(
   try {
     await dbConnect();
     const { id } = await params;
-    const batch = await Batch.findById(id).lean();
+    const batchFilter = mongoose.Types.ObjectId.isValid(id)
+      ? { _id: id }
+      : { batchId: id };
+    const batch = await Batch.findOne(batchFilter).lean();
 
     if (!batch) {
       return NextResponse.json(
@@ -22,7 +26,7 @@ export async function GET(
 
     const calculatedStatus = computeBatchStatus(batch.startDate, batch.endDate, batch.status);
     if (calculatedStatus !== batch.status && batch.status !== "Cancelled") {
-      await Batch.findByIdAndUpdate(id, { status: calculatedStatus });
+      await Batch.updateOne({ _id: batch._id }, { status: calculatedStatus });
       batch.status = calculatedStatus;
     }
 
@@ -44,7 +48,7 @@ export async function PATCH(
     const { id } = await params;
     const body = await request.json();
 
-    if (body.teacherId) {
+    if (body.teacherId && mongoose.Types.ObjectId.isValid(body.teacherId)) {
       const teacher = await User.findById(body.teacherId);
       if (teacher) {
         body.teacherName = teacher.name;
@@ -58,7 +62,10 @@ export async function PATCH(
       body.endDate = new Date(body.endDate);
     }
 
-    const oldBatch = await Batch.findById(id);
+    const batchFilter = mongoose.Types.ObjectId.isValid(id)
+      ? { _id: id }
+      : { batchId: id };
+    const oldBatch = await Batch.findOne(batchFilter);
     if (!oldBatch) {
       return NextResponse.json(
         { success: false, error: "Batch not found" },
@@ -75,7 +82,7 @@ export async function PATCH(
       body.status = computeBatchStatus(effectiveStart, effectiveEnd, explicitStatus || oldBatch.status);
     }
 
-    const updatedBatch = await Batch.findByIdAndUpdate(id, body, {
+    const updatedBatch = await Batch.findByIdAndUpdate(oldBatch._id, body, {
       new: true,
       runValidators: true,
     });
@@ -112,7 +119,10 @@ export async function DELETE(
   try {
     await dbConnect();
     const { id } = await params;
-    const deletedBatch = await Batch.findByIdAndDelete(id);
+    const batchFilter = mongoose.Types.ObjectId.isValid(id)
+      ? { _id: id }
+      : { batchId: id };
+    const deletedBatch = await Batch.findOneAndDelete(batchFilter);
 
     if (!deletedBatch) {
       return NextResponse.json(

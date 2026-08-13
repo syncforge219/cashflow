@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
 import Batch from "@/models/Batch";
 import User from "@/models/User";
@@ -37,8 +38,10 @@ export async function GET(request: Request) {
       let teacherName = user?.name;
       if (user?._id?.toString() !== teacherId && (user as any)?.id !== teacherId) {
         try {
-          const teacherUser = await User.findById(teacherId).lean();
-          if (teacherUser) teacherName = teacherUser.name;
+          if (mongoose.Types.ObjectId.isValid(teacherId)) {
+            const teacherUser = await User.findById(teacherId).lean();
+            if (teacherUser) teacherName = teacherUser.name;
+          }
         } catch (_) {}
       }
 
@@ -69,10 +72,17 @@ export async function GET(request: Request) {
     const batchIdParam = searchParams.get("batchId");
 
     if (batchIdParam) {
-      query.$or = [
-        { batchId: batchIdParam.trim() },
-        { _id: batchIdParam.trim() },
-      ];
+      const trimmedBId = batchIdParam.trim();
+      const bQuery: any[] = [{ batchId: trimmedBId }];
+      if (mongoose.Types.ObjectId.isValid(trimmedBId)) {
+        bQuery.push({ _id: new mongoose.Types.ObjectId(trimmedBId) });
+      }
+      if (query.$or) {
+        query.$and = [{ $or: query.$or }, { $or: bQuery }];
+        delete query.$or;
+      } else {
+        query.$or = bQuery;
+      }
     }
 
     let batches = await Batch.find(query).sort({ createdAt: -1 }).lean();
@@ -176,7 +186,7 @@ export async function POST(request: Request) {
 
     // Verify assigned teacher exists
     let assignedFacultyName = teacherName;
-    if (teacherId) {
+    if (teacherId && mongoose.Types.ObjectId.isValid(teacherId)) {
       const teacher = await User.findById(teacherId);
       if (teacher) {
         assignedFacultyName = teacher.name;

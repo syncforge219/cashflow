@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import mongoose from "mongoose";
 import { readFile } from "fs/promises";
 import path from "path";
 import dbConnect from "@/lib/db";

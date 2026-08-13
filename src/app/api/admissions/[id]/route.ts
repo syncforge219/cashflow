@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
 import Admission from "@/models/Admission";
 import Payment from "@/models/Payment";
@@ -22,7 +23,11 @@ export async function GET(
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
 
-    const admission = await Admission.findById(id).lean();
+    const admFilter = mongoose.Types.ObjectId.isValid(id)
+      ? { _id: id }
+      : { admissionId: id };
+
+    const admission = await Admission.findOne(admFilter).lean();
     if (!admission) {
       return NextResponse.json({ success: false, message: "Student record not found" }, { status: 404 });
     }
@@ -46,10 +51,17 @@ export async function GET(
     }
 
     // Fetch related payment history & tasks
-    const payments = await Payment.find({ admissionId: id }).sort({ createdAt: -1 }).lean();
+    const admIdStr = admission._id ? admission._id.toString() : id;
+    const paymentOrConditions: any[] = [{ admissionId: admIdStr }, { admissionId: id }];
+    if ((admission as any).admissionId) {
+      paymentOrConditions.push({ admissionId: (admission as any).admissionId });
+    }
+
+    const payments = await Payment.find({ $or: paymentOrConditions }).sort({ createdAt: -1 }).lean();
     const tasks = await Task.find({
       $or: [
         { linkedStudentId: id },
+        { linkedStudentId: admIdStr },
         { linkedStudentName: (admission as any).fullName }
       ]
     }).sort({ createdAt: -1 }).lean();
@@ -109,7 +121,11 @@ export async function PUT(
 
     const body = await req.json();
 
-    const existingDoc = await Admission.findById(id);
+    const admFilter = mongoose.Types.ObjectId.isValid(id)
+      ? { _id: id }
+      : { admissionId: id };
+
+    const existingDoc = await Admission.findOne(admFilter);
     if (!existingDoc) {
       return NextResponse.json({ success: false, message: "Student record not found" }, { status: 404 });
     }
@@ -172,9 +188,14 @@ export async function PUT(
     let assignedBatchName = body.batch !== undefined ? body.batch.trim() : existingDoc.batch;
     let assignedBatchId = body.batchId !== undefined ? body.batchId.trim() : existingDoc.batchId;
 
-    if (body.batchId) {
+    if (body.batchId && body.batchId.trim()) {
       const Batch = (await import("@/models/Batch")).default;
-      const batchDoc = await Batch.findOne({ $or: [{ batchId: body.batchId }, { _id: body.batchId }] }).lean();
+      const trimmedBId = body.batchId.trim();
+      const bQuery: any[] = [{ batchId: trimmedBId }];
+      if (mongoose.Types.ObjectId.isValid(trimmedBId)) {
+        bQuery.push({ _id: new mongoose.Types.ObjectId(trimmedBId) });
+      }
+      const batchDoc = await Batch.findOne({ $or: bQuery }).lean();
       if (batchDoc) {
         assignedBatchName = batchDoc.batchName;
         assignedBatchId = batchDoc.batchId || batchDoc._id.toString();
@@ -281,7 +302,7 @@ export async function PUT(
       }
     }
 
-    const updatedDoc = await Admission.findByIdAndUpdate(id, updatePayload, { new: true });
+    const updatedDoc = await Admission.findOneAndUpdate(admFilter, updatePayload, { new: true });
 
     // Synchronize initial registration Payment record so registration fee belongs to the admission month
     try {
@@ -371,7 +392,11 @@ export async function DELETE(
       return NextResponse.json({ success: false, message: "Forbidden: You do not have permission to delete student records." }, { status: 403 });
     }
 
-    const admission = await Admission.findById(id);
+    const admFilter = mongoose.Types.ObjectId.isValid(id)
+      ? { _id: id }
+      : { admissionId: id };
+
+    const admission = await Admission.findOne(admFilter);
     if (!admission) {
       return NextResponse.json({ success: false, message: "Student record not found or already deleted" }, { status: 404 });
     }
@@ -455,7 +480,7 @@ export async function DELETE(
     }
 
     // 7. Delete main Admission record
-    await Admission.findByIdAndDelete(id);
+    await Admission.findOneAndDelete(admFilter);
 
     return NextResponse.json({ success: true, message: "Student record and all associated payments, tasks, attendance, and receipts deleted successfully." });
   } catch (error: any) {

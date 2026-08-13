@@ -109,7 +109,18 @@ export async function GET(request: Request) {
 
     // Otherwise, query attendance records
     const query: any = {};
-    if (batchId) query.batchId = batchId;
+    if (batchId) {
+      if (mongoose.Types.ObjectId.isValid(batchId)) {
+        query.batchId = batchId;
+      } else {
+        const foundBatch = await Batch.findOne({ batchId: batchId.trim() }).lean();
+        if (foundBatch && foundBatch._id) {
+          query.batchId = foundBatch._id;
+        } else {
+          query.batchId = batchId;
+        }
+      }
+    }
     if (batchName) query.batchName = { $regex: new RegExp(`^${batchName.trim()}$`, "i") };
     if (dateStr) query.dateStr = dateStr;
     if (teacherId) query.teacherId = teacherId;
@@ -159,6 +170,14 @@ export async function POST(request: Request) {
       );
     }
 
+    let finalBatchMongoId = batchId;
+    if (!mongoose.Types.ObjectId.isValid(batchId)) {
+      const foundBatch = await Batch.findOne({ batchId: batchId.trim() }).lean();
+      if (foundBatch && foundBatch._id) {
+        finalBatchMongoId = foundBatch._id;
+      }
+    }
+
     // Normalize dateStr to YYYY-MM-DD
     const dateObj = new Date(date);
     const dateStr = dateObj.toISOString().split("T")[0];
@@ -180,9 +199,9 @@ export async function POST(request: Request) {
 
     // Upsert (update if attendance already taken for this batch & date, else create)
     const attendanceDoc = await Attendance.findOneAndUpdate(
-      { batchId, dateStr },
+      { batchId: finalBatchMongoId, dateStr },
       {
-        batchId,
+        batchId: finalBatchMongoId,
         batchName,
         course: course || "",
         date: dateObj,

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
 import Admission from "@/models/Admission";
 import Task from "@/models/Task";
@@ -31,8 +32,12 @@ export async function POST(req: Request) {
       .filter((e: any) => !e.isPaid)
       .reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
 
-    const admission = await Admission.findByIdAndUpdate(
-      studentId,
+    const admFilter = mongoose.Types.ObjectId.isValid(studentId)
+      ? { _id: studentId }
+      : { admissionId: studentId };
+
+    const admission = await Admission.findOneAndUpdate(
+      admFilter,
       { customEmiPlan: formattedPlan, remainingBalance: unpaidSum },
       { new: true }
     );
