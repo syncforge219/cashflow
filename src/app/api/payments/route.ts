@@ -30,7 +30,16 @@ export async function GET(req: Request) {
     const andConditions: any[] = [];
 
     if (admissionId) {
-      andConditions.push({ admissionId });
+      if (mongoose.Types.ObjectId.isValid(admissionId)) {
+        andConditions.push({ admissionId: new mongoose.Types.ObjectId(admissionId) });
+      } else {
+        const foundAdm = await Admission.findOne({ admissionId: admissionId.trim() }).select("_id").lean();
+        if (foundAdm && foundAdm._id) {
+          andConditions.push({ admissionId: foundAdm._id });
+        } else {
+          andConditions.push({ admissionId: new mongoose.Types.ObjectId("000000000000000000000000") });
+        }
+      }
     }
 
     if (companyParam) {
@@ -175,7 +184,7 @@ export async function POST(req: Request) {
         finalCompany = reqCompany;
       } else {
         const previousNonCashPayment = await Payment.findOne({
-          admissionId,
+          admissionId: admission._id,
           paymentMode: { $not: /^cash$/i },
           company: { $nin: ["Cash", "CASH", "cash", "Unallocated", "UNALLOCATED", "unallocated", "Cash (Unallocated)", "CASH (UNALLOCATED)"] }
         });
@@ -280,7 +289,7 @@ export async function POST(req: Request) {
 
     // 2. Create the payment record
     const payment = new Payment({
-      admissionId,
+      admissionId: admission._id,
       studentName: admission.fullName,
       amountReceived: Number(amountReceived),
       paymentMode,

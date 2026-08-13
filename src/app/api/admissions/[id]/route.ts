@@ -52,12 +52,7 @@ export async function GET(
 
     // Fetch related payment history & tasks
     const admIdStr = admission._id ? admission._id.toString() : id;
-    const paymentOrConditions: any[] = [{ admissionId: admIdStr }, { admissionId: id }];
-    if ((admission as any).admissionId) {
-      paymentOrConditions.push({ admissionId: (admission as any).admissionId });
-    }
-
-    const payments = await Payment.find({ $or: paymentOrConditions }).sort({ createdAt: -1 }).lean();
+    const payments = await Payment.find({ admissionId: admission._id }).sort({ createdAt: -1 }).lean();
     const tasks = await Task.find({
       $or: [
         { linkedStudentId: id },
@@ -402,14 +397,15 @@ export async function DELETE(
     }
 
     // 1. Delete associated Payment Receipts
-    await Payment.deleteMany({
-      $or: [
-        { admissionId: id },
-        { admissionId: admission._id },
-        { studentName: admission.fullName },
-        { mobileNumber: admission.mobileNumber }
-      ]
-    });
+    const paymentDeleteConditions: any[] = [
+      { admissionId: admission._id },
+      { studentName: admission.fullName },
+      { mobileNumber: admission.mobileNumber }
+    ];
+    if (id && mongoose.Types.ObjectId.isValid(id) && id !== admission._id.toString()) {
+      paymentDeleteConditions.push({ admissionId: new mongoose.Types.ObjectId(id) });
+    }
+    await Payment.deleteMany({ $or: paymentDeleteConditions });
 
     // 2. Delete associated Tasks (SOP tasks, followups, EMI reminders)
     await Task.deleteMany({
