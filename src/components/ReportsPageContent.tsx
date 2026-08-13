@@ -326,12 +326,47 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [message, setMessage] = useState({ text: "", type: "" });
 
-  // WhatsApp States
+  // WhatsApp & Email States
   const [adminPhone, setAdminPhone] = useState("919335913286");
   const [isSendingWhatsAppReport, setIsSendingWhatsAppReport] = useState(false);
   const [waReportStatus, setWaReportStatus] = useState({ text: "", type: "" });
   const [isSendingMonthlyReport, setIsSendingMonthlyReport] = useState(false);
   const [monthlyReportStatus, setMonthlyReportStatus] = useState({ text: "", type: "" });
+  const [isSendingEmailReport, setIsSendingEmailReport] = useState(false);
+  const [emailReportStatus, setEmailReportStatus] = useState({ text: "", type: "" });
+
+  const handleSendEmailReport = async () => {
+    setIsSendingEmailReport(true);
+    setEmailReportStatus({ text: "Compiling master datasets & emailing Excel report...", type: "info" });
+    try {
+      const res = await fetch("/api/reports/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: (user as any)?.email,
+          startDate,
+          endDate,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setEmailReportStatus({
+          text: `Master Excel Workbook (.xlsx) successfully sent to ${data.recipient}!`,
+          type: "success",
+        });
+      } else {
+        setEmailReportStatus({
+          text: data.message || "Failed to send email report.",
+          type: "error",
+        });
+      }
+    } catch (err: any) {
+      console.error(err);
+      setEmailReportStatus({ text: err.message || "Failed to trigger email report.", type: "error" });
+    } finally {
+      setIsSendingEmailReport(false);
+    }
+  };
 
   useEffect(() => {
     fetch("/api/brands")
@@ -569,7 +604,99 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
     workbook.creator = "SyncForge CRM";
     workbook.created = new Date();
 
-    const { enquiries = [], payments = [], brands = [], companies = [], counsellors = [] } = master;
+    const { enquiries = [], admissions = [], payments = [], brands = [], companies = [], counsellors = [] } = master;
+
+    // Helper to clean 10-digit phone number
+    const getCleanPhone = (phone: any): string => {
+      if (!phone) return "";
+      return String(phone).replace(/\D/g, "").slice(-10);
+    };
+
+    // 1. Index payments by admission ID, phone, and student name for fast O(1) lookup
+    const paymentsByAdmissionId: Record<string, number> = {};
+    const paymentsByStudentPhone: Record<string, number> = {};
+    const paymentsByStudentName: Record<string, number> = {};
+
+    payments.forEach((p: any) => {
+      const amount = Number(p.amountReceived || 0);
+      if (!amount) return;
+
+      const admId = p.admissionId?._id?.toString() || (typeof p.admissionId === "string" ? p.admissionId : "");
+      if (admId) {
+        paymentsByAdmissionId[admId] = (paymentsByAdmissionId[admId] || 0) + amount;
+      }
+
+      const admCode = p.admissionId?.admissionId || (typeof p.admissionId === "string" && p.admissionId.startsWith("ADM") ? p.admissionId : "");
+      if (admCode) {
+        paymentsByAdmissionId[admCode] = (paymentsByAdmissionId[admCode] || 0) + amount;
+      }
+
+      const phone = getCleanPhone(p.admissionId?.mobileNumber || p.admissionId?.primaryPhoneMobile || p.phone || p.mobileNumber);
+      if (phone) {
+        paymentsByStudentPhone[phone] = (paymentsByStudentPhone[phone] || 0) + amount;
+      }
+
+      const name = (p.studentName || p.admissionId?.fullName || "").trim().toLowerCase();
+      if (name) {
+        paymentsByStudentName[name] = (paymentsByStudentName[name] || 0) + amount;
+      }
+    });
+
+    // 2. Helper: Total fees collected for an Admission
+    const getAdmissionFeeCollected = (adm: any): number => {
+      if (!adm) return 0;
+      const admIdStr = adm._id?.toString() || "";
+      const admCode = adm.admissionId || "";
+      const phone = getCleanPhone(adm.mobileNumber || adm.primaryPhoneMobile);
+      const name = (adm.fullName || "").trim().toLowerCase();
+
+      const fromPayments = (admIdStr ? paymentsByAdmissionId[admIdStr] : 0) ||
+                           (admCode ? paymentsByAdmissionId[admCode] : 0) ||
+                           (phone ? paymentsByStudentPhone[phone] : 0) ||
+                           (name ? paymentsByStudentName[name] : 0) ||
+                           0;
+
+      const fromAdmModel = Number(adm.amountReceivedToday || 0) ||
+                           ((Number(adm.registrationAmount) || 0) + (Number(adm.downpaymentAmount) || 0)) ||
+                           Math.max(0, Number(adm.finalFee || adm.courseFee || 0) - Number(adm.remainingBalance || 0));
+
+      return Math.max(fromPayments, fromAdmModel, 0);
+    };
+
+    // 3. Helper: Total fees collected for an Enquiry / Lead
+    const getEnquiryFeeCollected = (enq: any): number => {
+      if (!enq) return 0;
+      const enqIdStr = enq._id?.toString() || "";
+      const enqCode = enq.enquiryId || "";
+      const phone = getCleanPhone(enq.primaryPhoneMobile || enq.phone || enq.mobile || enq.mobileNumber);
+      const name = (enq.studentFullName || enq.fullName || enq.name || "").trim().toLowerCase();
+
+      // Check for matching admission
+      const matchedAdm = admissions.find((a: any) => {
+        const aEnqId = a.enquiryId?._id?.toString() || a.enquiryId?.toString() || "";
+        if (aEnqId && (aEnqId === enqIdStr || aEnqId === enqCode)) return true;
+        if (a.admissionId && enqCode && a.admissionId === enqCode) return true;
+        const aPhone = getCleanPhone(a.mobileNumber || a.primaryPhoneMobile);
+        if (phone && aPhone && phone === aPhone) return true;
+        const aName = (a.fullName || "").trim().toLowerCase();
+        if (name && aName && name === aName && (a.brand || "").toLowerCase() === (enq.targetBrand || enq.brand || "").toLowerCase()) return true;
+        return false;
+      });
+
+      if (matchedAdm) {
+        return getAdmissionFeeCollected(matchedAdm);
+      }
+
+      if (phone && paymentsByStudentPhone[phone]) {
+        return paymentsByStudentPhone[phone];
+      }
+      if (name && paymentsByStudentName[name]) {
+        return paymentsByStudentName[name];
+      }
+
+      const rawFee = parseFloat(String(enq.feesCollected || enq.actualAdmissionFee || enq.expectedConversionFee || "0").replace(/[^0-9.]/g, "")) || 0;
+      return rawFee;
+    };
 
     // Helper data calculations
     const brandCollectionMap: Record<string, { name: string; brandId: string; enquiries: number; admissions: number; collection: number }> = {};
@@ -579,19 +706,29 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
         (e.targetBrand || "").toLowerCase().trim() === bNameLower ||
         (e.brand || "").toLowerCase().trim() === bNameLower
       );
-      const bAdmissions = bEnquiries.filter((e: any) => (e.status || "").toLowerCase() === "admitted").length;
+      const bAdmissions = admissions.filter((a: any) =>
+        (a.brand || "").toLowerCase().trim() === bNameLower ||
+        (a.targetBrand || "").toLowerCase().trim() === bNameLower
+      );
+      const totalAdmissionsCount = Math.max(
+        bEnquiries.filter((e: any) => (e.status || "").toLowerCase() === "admitted").length,
+        bAdmissions.length
+      );
 
-      const bRev = payments.reduce((sum: number, p: any) => {
+      const bPaymentsRev = payments.reduce((sum: number, p: any) => {
         const admission = p.admissionId || {};
         const pBrand = (admission.brand || p.brand || "").toLowerCase().trim();
         return pBrand === bNameLower ? sum + Number(p.amountReceived || 0) : sum;
       }, 0);
 
+      const bAdmRev = bAdmissions.reduce((sum: number, a: any) => sum + getAdmissionFeeCollected(a), 0);
+      const bRev = Math.max(bPaymentsRev, bAdmRev);
+
       brandCollectionMap[bNameLower] = {
         name: b.name,
         brandId: b.brandId || "N/A",
         enquiries: bEnquiries.length,
-        admissions: bAdmissions,
+        admissions: totalAdmissionsCount,
         collection: bRev,
       };
     });
@@ -641,7 +778,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
         (e.brand || "").toLowerCase().trim() === bNameLower
       );
       const bDemos = bEnquiries.filter((e: any) => e.isDemoScheduled || (e.demos && e.demos.length > 0) || (e.status || "").toLowerCase().includes("demo")).length;
-      const bAdmissions = bEnquiries.filter((e: any) => (e.status || "").toLowerCase() === "admitted").length;
+      const bAdmissions = brandCollectionMap[bNameLower]?.admissions || 0;
       const bRev = brandCollectionMap[bNameLower]?.collection || 0;
       const convPct = bEnquiries.length > 0 ? ((bAdmissions / bEnquiries.length) * 100).toFixed(1) + "%" : "0.0%";
 
@@ -786,7 +923,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
       const course = e.targetCourse || e.course || "General";
       const brand = e.targetBrand || e.brand || "N/A";
       const company = e.companyAssigned || e.company || "N/A";
-      const fee = parseFloat(String(e.feesCollected || "0").replace(/[^0-9.]/g, "")) || 0;
+      const fee = getEnquiryFeeCollected(e);
 
       const row = leadsSheet.addRow([
         e.enquiryId || "N/A",
@@ -841,10 +978,56 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
     // ── SHEET 3: ADMITTED STUDENTS REGISTER (DEDICATED ADMISSION SHEET) ────────
     const admissionSheet = workbook.addWorksheet("Admitted Students Register");
 
-    const admittedEnquiries = enquiries.filter((e: any) => (e.status || "").toLowerCase() === "admitted");
+    // Build comprehensive admitted list from admissions + admitted enquiries
+    const admittedList: any[] = [];
+    const seenAdmittedKeys = new Set<string>();
+
+    admissions.forEach((a: any) => {
+      const phone = getCleanPhone(a.mobileNumber || a.primaryPhoneMobile);
+      if (phone) seenAdmittedKeys.add(phone);
+      if (a.admissionId) seenAdmittedKeys.add(a.admissionId);
+      if (a._id) seenAdmittedKeys.add(a._id.toString());
+      const fee = getAdmissionFeeCollected(a);
+
+      admittedList.push({
+        id: a.admissionId || "N/A",
+        name: a.fullName || "Student",
+        phone: a.mobileNumber || a.primaryPhoneMobile || "N/A",
+        email: a.email || "N/A",
+        course: a.course || "General",
+        brand: a.brand || "N/A",
+        company: a.companyAssigned || "N/A",
+        counsellor: a.counsellor || "Unassigned",
+        fee: fee,
+        status: "Admitted",
+        date: a.admissionDate ? new Date(a.admissionDate).toLocaleDateString("en-IN") : (a.createdAt ? new Date(a.createdAt).toLocaleDateString("en-IN") : "N/A")
+      });
+    });
+
+    enquiries.filter((e: any) => (e.status || "").toLowerCase() === "admitted").forEach((e: any) => {
+      const phone = getCleanPhone(e.primaryPhoneMobile || e.phone || e.mobile);
+      if (phone && seenAdmittedKeys.has(phone)) return;
+      if (e.enquiryId && seenAdmittedKeys.has(e.enquiryId)) return;
+      if (e._id && seenAdmittedKeys.has(e._id.toString())) return;
+
+      const fee = getEnquiryFeeCollected(e);
+      admittedList.push({
+        id: e.enquiryId || "N/A",
+        name: e.studentFullName || e.fullName || e.name || "Student",
+        phone: e.primaryPhoneMobile || e.phone || "N/A",
+        email: e.emailAddress || e.email || "N/A",
+        course: e.targetCourse || e.course || "General",
+        brand: e.targetBrand || e.brand || "N/A",
+        company: e.companyAssigned || e.company || "N/A",
+        counsellor: e.assignedCrmAdvisor || e.counsellor || "Unassigned",
+        fee: fee,
+        status: "Admitted",
+        date: e.createdAt ? new Date(e.createdAt).toLocaleDateString("en-IN") : "N/A"
+      });
+    });
 
     admissionSheet.addRow(["OFFICIAL ADMITTED STUDENTS & ADMISSIONS REGISTER"]);
-    admissionSheet.addRow([`Export Date: ${new Date().toLocaleString('en-IN')}`, `Total Admitted Students: ${admittedEnquiries.length}`]);
+    admissionSheet.addRow([`Export Date: ${new Date().toLocaleString('en-IN')}`, `Total Admitted Students: ${admittedList.length}`]);
     admissionSheet.addRow([]);
 
     // BRAND-WISE ADMISSION COLLECTION BOX ON TOP
@@ -879,25 +1062,19 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
     aMainH.font = { bold: true, color: { argb: "FFFFFFFF" } };
     aMainH.eachCell(c => c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF10B981" } });
 
-    admittedEnquiries.forEach((e: any, idx: number) => {
-      const phone = e.primaryPhoneMobile || e.phone || e.mobile || e.mobileNumber || "N/A";
-      const course = e.targetCourse || e.course || "General";
-      const brand = e.targetBrand || e.brand || "N/A";
-      const company = e.companyAssigned || e.company || "N/A";
-      const fee = parseFloat(String(e.feesCollected || "0").replace(/[^0-9.]/g, "")) || 0;
-
+    admittedList.forEach((adm: any, idx: number) => {
       const row = admissionSheet.addRow([
-        e.enquiryId || "N/A",
-        e.studentFullName || e.fullName || e.name || "Student",
-        phone,
-        e.emailAddress || e.email || "N/A",
-        course,
-        brand,
-        company,
-        e.assignedCrmAdvisor || e.counsellor || "Unassigned",
-        fee,
-        "Admitted",
-        e.createdAt ? new Date(e.createdAt).toLocaleDateString("en-IN") : "N/A"
+        adm.id,
+        adm.name,
+        adm.phone,
+        adm.email,
+        adm.course,
+        adm.brand,
+        adm.company,
+        adm.counsellor,
+        adm.fee,
+        adm.status,
+        adm.date
       ]);
 
       if (idx % 2 === 1) {
@@ -913,13 +1090,11 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
       const admCompCountMap: Record<string, number> = {};
       const admCourseMap: Record<string, number> = {};
 
-      admittedEnquiries.forEach((e: any) => {
-        const br = e.targetBrand || e.brand || "N/A";
-        const cp = e.companyAssigned || e.company || "N/A";
-        const crs = e.targetCourse || e.course || "General";
-        const fee = parseFloat(String(e.feesCollected || "0").replace(/[^0-9.]/g, "")) || 0;
-
-        admBrandRevMap[br] = (admBrandRevMap[br] || 0) + fee;
+      admittedList.forEach((adm: any) => {
+        const br = adm.brand || "N/A";
+        const cp = adm.company || "N/A";
+        const crs = adm.course || "General";
+        admBrandRevMap[br] = (admBrandRevMap[br] || 0) + adm.fee;
         admCompCountMap[cp] = (admCompCountMap[cp] || 0) + 1;
         admCourseMap[crs] = (admCourseMap[crs] || 0) + 1;
       });
@@ -943,7 +1118,14 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
         (e.targetBrand || "").toLowerCase().trim() === bNameLower ||
         (e.brand || "").toLowerCase().trim() === bNameLower
       );
-      const bAdmissions = bEnquiries.filter((e: any) => (e.status || "").toLowerCase() === "admitted").length;
+      const bAdmissions = admissions.filter((a: any) =>
+        (a.brand || "").toLowerCase().trim() === bNameLower ||
+        (a.targetBrand || "").toLowerCase().trim() === bNameLower
+      );
+      const bAdmissionsCount = Math.max(
+        bEnquiries.filter((e: any) => (e.status || "").toLowerCase() === "admitted").length,
+        bAdmissions.length
+      );
       const bCollection = brandCollectionMap[bNameLower]?.collection || 0;
 
       const safeSheetName = `Brand - ${b.name}`.replace(/[?*/\\[\]]/g, '').substring(0, 31);
@@ -957,7 +1139,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
       const bTopH = sheet.addRow(["Brand Name", "Brand ID", "Total Enquiries", "Admissions Closed", "Total Collection (INR)"]);
       bTopH.font = { bold: true, color: { argb: "FFFFFFFF" } };
       bTopH.eachCell(c => c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4F46E5" } });
-      sheet.addRow([b.name, b.brandId || "N/A", bEnquiries.length, bAdmissions, bCollection]);
+      sheet.addRow([b.name, b.brandId || "N/A", bEnquiries.length, bAdmissionsCount, bCollection]);
       sheet.addRow([]);
 
       // COMPANY HIGHLIGHTS FOR THIS BRAND ON TOP
@@ -993,7 +1175,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
       bEnquiries.forEach((e: any, idx: number) => {
         const phone = e.primaryPhoneMobile || e.phone || e.mobile || e.mobileNumber || "N/A";
         const course = e.targetCourse || e.course || "General";
-        const fee = parseFloat(String(e.feesCollected || "0").replace(/[^0-9.]/g, "")) || 0;
+        const fee = getEnquiryFeeCollected(e);
 
         const row = sheet.addRow([
           e.enquiryId || "N/A",
@@ -1293,13 +1475,87 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
     sheet.getRow(4).font = { bold: true, color: { argb: "FFFFFFFF" } };
     sheet.getRow(4).eachCell(c => c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF7C3AED" } }); // Purple
 
+    const { enquiries = [], admissions = [], payments = [], counsellors = [] } = master;
+
+    const getCleanPhone = (phone: any): string => {
+      if (!phone) return "";
+      return String(phone).replace(/\D/g, "").slice(-10);
+    };
+
+    const paymentsByAdmissionId: Record<string, number> = {};
+    const paymentsByStudentPhone: Record<string, number> = {};
+    const paymentsByStudentName: Record<string, number> = {};
+
+    payments.forEach((p: any) => {
+      const amount = Number(p.amountReceived || 0);
+      if (!amount) return;
+      const admId = p.admissionId?._id?.toString() || (typeof p.admissionId === "string" ? p.admissionId : "");
+      if (admId) paymentsByAdmissionId[admId] = (paymentsByAdmissionId[admId] || 0) + amount;
+      const admCode = p.admissionId?.admissionId || (typeof p.admissionId === "string" && p.admissionId.startsWith("ADM") ? p.admissionId : "");
+      if (admCode) paymentsByAdmissionId[admCode] = (paymentsByAdmissionId[admCode] || 0) + amount;
+      const phone = getCleanPhone(p.admissionId?.mobileNumber || p.admissionId?.primaryPhoneMobile || p.phone || p.mobileNumber);
+      if (phone) paymentsByStudentPhone[phone] = (paymentsByStudentPhone[phone] || 0) + amount;
+      const name = (p.studentName || p.admissionId?.fullName || "").trim().toLowerCase();
+      if (name) paymentsByStudentName[name] = (paymentsByStudentName[name] || 0) + amount;
+    });
+
+    const getAdmissionFeeCollected = (adm: any): number => {
+      if (!adm) return 0;
+      const admIdStr = adm._id?.toString() || "";
+      const admCode = adm.admissionId || "";
+      const phone = getCleanPhone(adm.mobileNumber || adm.primaryPhoneMobile);
+      const name = (adm.fullName || "").trim().toLowerCase();
+      const fromPayments = (admIdStr ? paymentsByAdmissionId[admIdStr] : 0) ||
+                           (admCode ? paymentsByAdmissionId[admCode] : 0) ||
+                           (phone ? paymentsByStudentPhone[phone] : 0) ||
+                           (name ? paymentsByStudentName[name] : 0) || 0;
+      const fromAdmModel = Number(adm.amountReceivedToday || 0) ||
+                           ((Number(adm.registrationAmount) || 0) + (Number(adm.downpaymentAmount) || 0)) ||
+                           Math.max(0, Number(adm.finalFee || adm.courseFee || 0) - Number(adm.remainingBalance || 0));
+      return Math.max(fromPayments, fromAdmModel, 0);
+    };
+
+    const getEnquiryFeeCollected = (enq: any): number => {
+      if (!enq) return 0;
+      const enqIdStr = enq._id?.toString() || "";
+      const enqCode = enq.enquiryId || "";
+      const phone = getCleanPhone(enq.primaryPhoneMobile || enq.phone || enq.mobile || enq.mobileNumber);
+      const name = (enq.studentFullName || enq.fullName || enq.name || "").trim().toLowerCase();
+
+      const matchedAdm = admissions.find((a: any) => {
+        const aEnqId = a.enquiryId?._id?.toString() || a.enquiryId?.toString() || "";
+        if (aEnqId && (aEnqId === enqIdStr || aEnqId === enqCode)) return true;
+        if (a.admissionId && enqCode && a.admissionId === enqCode) return true;
+        const aPhone = getCleanPhone(a.mobileNumber || a.primaryPhoneMobile);
+        if (phone && aPhone && phone === aPhone) return true;
+        const aName = (a.fullName || "").trim().toLowerCase();
+        if (name && aName && name === aName && (a.brand || "").toLowerCase() === (enq.targetBrand || enq.brand || "").toLowerCase()) return true;
+        return false;
+      });
+
+      if (matchedAdm) return getAdmissionFeeCollected(matchedAdm);
+      if (phone && paymentsByStudentPhone[phone]) return paymentsByStudentPhone[phone];
+      if (name && paymentsByStudentName[name]) return paymentsByStudentName[name];
+
+      const rawFee = parseFloat(String(enq.feesCollected || enq.actualAdmissionFee || enq.expectedConversionFee || "0").replace(/[^0-9.]/g, "")) || 0;
+      return rawFee;
+    };
+
     const statsMap: Record<string, any> = {};
 
-    (master.enquiries || []).forEach((e: any) => {
-      const cName = (e.assignedCrmAdvisor || "Unassigned").trim();
+    counsellors.forEach((c: any) => {
+      const cName = (c.name || "Counsellor").trim();
       const key = cName.toLowerCase();
       if (!statsMap[key]) {
-        statsMap[key] = { name: cName, leads: 0, demos: 0, admissions: 0, revenue: 0 };
+        statsMap[key] = { name: cName, email: c.email || "-", brand: c.brandScope || "-", leads: 0, demos: 0, admissions: 0, revenue: 0 };
+      }
+    });
+
+    enquiries.forEach((e: any) => {
+      const cName = (e.assignedCrmAdvisor || e.counsellor || "Unassigned").trim();
+      const key = cName.toLowerCase();
+      if (!statsMap[key]) {
+        statsMap[key] = { name: cName, email: "-", brand: e.targetBrand || "-", leads: 0, demos: 0, admissions: 0, revenue: 0 };
       }
       statsMap[key].leads++;
       if (e.isDemoScheduled || (e.demos && e.demos.length > 0) || (e.status || "").toLowerCase().includes("demo")) {
@@ -1307,14 +1563,31 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
       }
       if ((e.status || "").toLowerCase() === "admitted") {
         statsMap[key].admissions++;
-        const fee = parseFloat(String(e.feesCollected || "0").replace(/[^0-9.]/g, ""));
-        statsMap[key].revenue += isNaN(fee) ? 0 : fee;
+        const fee = getEnquiryFeeCollected(e);
+        statsMap[key].revenue += fee;
+      }
+    });
+
+    admissions.forEach((a: any) => {
+      const phone = getCleanPhone(a.mobileNumber || a.primaryPhoneMobile);
+      const matchingEnq = enquiries.find((e: any) => {
+        const ePhone = getCleanPhone(e.primaryPhoneMobile || e.phone || e.mobile);
+        return (phone && ePhone && phone === ePhone) || (a.admissionId && e.enquiryId && a.admissionId === e.enquiryId);
+      });
+      if (!matchingEnq || (matchingEnq.status || "").toLowerCase() !== "admitted") {
+        const cName = (a.counsellor || "Unassigned").trim();
+        const key = cName.toLowerCase();
+        if (!statsMap[key]) {
+          statsMap[key] = { name: cName, email: "-", brand: a.brand || "-", leads: 0, demos: 0, admissions: 0, revenue: 0 };
+        }
+        statsMap[key].admissions++;
+        statsMap[key].revenue += getAdmissionFeeCollected(a);
       }
     });
 
     Object.values(statsMap).forEach((c: any, idx: number) => {
       const conv = c.leads > 0 ? ((c.admissions / c.leads) * 100).toFixed(1) + "%" : "0.0%";
-      const row = sheet.addRow([c.name, "-", "-", c.leads, c.demos, c.admissions, conv, c.revenue]);
+      const row = sheet.addRow([c.name, c.email || "-", c.brand || "-", c.leads, c.demos, c.admissions, conv, c.revenue]);
       if (idx % 2 === 1) {
         row.eachCell(cell => cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFAF5FF" } });
       }
@@ -1382,21 +1655,71 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
     sheet.getRow(4).font = { bold: true, color: { argb: "FFFFFFFF" } };
     sheet.getRow(4).eachCell(c => c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2563EB" } }); // Blue
 
-    (master.brands || []).forEach((b: any, idx: number) => {
+    const { enquiries = [], admissions = [], payments = [], brands = [] } = master;
+
+    const getCleanPhone = (phone: any): string => {
+      if (!phone) return "";
+      return String(phone).replace(/\D/g, "").slice(-10);
+    };
+
+    const paymentsByAdmissionId: Record<string, number> = {};
+    const paymentsByStudentPhone: Record<string, number> = {};
+    const paymentsByStudentName: Record<string, number> = {};
+
+    payments.forEach((p: any) => {
+      const amount = Number(p.amountReceived || 0);
+      if (!amount) return;
+      const admId = p.admissionId?._id?.toString() || (typeof p.admissionId === "string" ? p.admissionId : "");
+      if (admId) paymentsByAdmissionId[admId] = (paymentsByAdmissionId[admId] || 0) + amount;
+      const admCode = p.admissionId?.admissionId || (typeof p.admissionId === "string" && p.admissionId.startsWith("ADM") ? p.admissionId : "");
+      if (admCode) paymentsByAdmissionId[admCode] = (paymentsByAdmissionId[admCode] || 0) + amount;
+      const phone = getCleanPhone(p.admissionId?.mobileNumber || p.admissionId?.primaryPhoneMobile || p.phone || p.mobileNumber);
+      if (phone) paymentsByStudentPhone[phone] = (paymentsByStudentPhone[phone] || 0) + amount;
+      const name = (p.studentName || p.admissionId?.fullName || "").trim().toLowerCase();
+      if (name) paymentsByStudentName[name] = (paymentsByStudentName[name] || 0) + amount;
+    });
+
+    const getAdmissionFeeCollected = (adm: any): number => {
+      if (!adm) return 0;
+      const admIdStr = adm._id?.toString() || "";
+      const admCode = adm.admissionId || "";
+      const phone = getCleanPhone(adm.mobileNumber || adm.primaryPhoneMobile);
+      const name = (adm.fullName || "").trim().toLowerCase();
+      const fromPayments = (admIdStr ? paymentsByAdmissionId[admIdStr] : 0) ||
+                           (admCode ? paymentsByAdmissionId[admCode] : 0) ||
+                           (phone ? paymentsByStudentPhone[phone] : 0) ||
+                           (name ? paymentsByStudentName[name] : 0) || 0;
+      const fromAdmModel = Number(adm.amountReceivedToday || 0) ||
+                           ((Number(adm.registrationAmount) || 0) + (Number(adm.downpaymentAmount) || 0)) ||
+                           Math.max(0, Number(adm.finalFee || adm.courseFee || 0) - Number(adm.remainingBalance || 0));
+      return Math.max(fromPayments, fromAdmModel, 0);
+    };
+
+    brands.forEach((b: any, idx: number) => {
       const bNameLower = (b.name || "").toLowerCase().trim();
-      const bEnquiries = (master.enquiries || []).filter((e: any) =>
+      const bEnquiries = enquiries.filter((e: any) =>
         (e.targetBrand || "").toLowerCase().trim() === bNameLower ||
         (e.brand || "").toLowerCase().trim() === bNameLower
       );
 
-      const bDemos = bEnquiries.filter((e: any) => e.isDemoScheduled || (e.demos && e.demos.length > 0) || (e.status || "").toLowerCase().includes("demo")).length;
-      const bAdmitted = bEnquiries.filter((e: any) => (e.status || "").toLowerCase() === "admitted").length;
+      const bAdmissions = admissions.filter((a: any) =>
+        (a.brand || "").toLowerCase().trim() === bNameLower ||
+        (a.targetBrand || "").toLowerCase().trim() === bNameLower
+      );
 
-      const bRev = (master.payments || []).reduce((sum: number, p: any) => {
+      const bDemos = bEnquiries.filter((e: any) => e.isDemoScheduled || (e.demos && e.demos.length > 0) || (e.status || "").toLowerCase().includes("demo")).length;
+      const bAdmitted = Math.max(
+        bEnquiries.filter((e: any) => (e.status || "").toLowerCase() === "admitted").length,
+        bAdmissions.length
+      );
+
+      const bPaymentsRev = payments.reduce((sum: number, p: any) => {
         const admission = p.admissionId || {};
         const pBrand = (admission.brand || p.brand || "").toLowerCase().trim();
         return pBrand === bNameLower ? sum + Number(p.amountReceived || 0) : sum;
       }, 0);
+      const bAdmRev = bAdmissions.reduce((sum: number, a: any) => sum + getAdmissionFeeCollected(a), 0);
+      const bRev = Math.max(bPaymentsRev, bAdmRev);
 
       const conv = bEnquiries.length > 0 ? ((bAdmitted / bEnquiries.length) * 100).toFixed(1) + "%" : "0.0%";
 
@@ -1425,18 +1748,27 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
       const bRevenues: number[] = [];
       const bAdmissions: number[] = [];
 
-      (master.brands || []).forEach((b: any) => {
+      brands.forEach((b: any) => {
         const bNameLower = (b.name || "").toLowerCase().trim();
-        const bEnquiries = (master.enquiries || []).filter((e: any) =>
+        const bEnquiries = enquiries.filter((e: any) =>
           (e.targetBrand || "").toLowerCase().trim() === bNameLower ||
           (e.brand || "").toLowerCase().trim() === bNameLower
         );
-        const bAdmitted = bEnquiries.filter((e: any) => (e.status || "").toLowerCase() === "admitted").length;
-        const bRev = (master.payments || []).reduce((sum: number, p: any) => {
+        const bAdms = admissions.filter((a: any) =>
+          (a.brand || "").toLowerCase().trim() === bNameLower ||
+          (a.targetBrand || "").toLowerCase().trim() === bNameLower
+        );
+        const bAdmitted = Math.max(
+          bEnquiries.filter((e: any) => (e.status || "").toLowerCase() === "admitted").length,
+          bAdms.length
+        );
+        const bPaymentsRev = payments.reduce((sum: number, p: any) => {
           const admission = p.admissionId || {};
           const pBrand = (admission.brand || p.brand || "").toLowerCase().trim();
           return pBrand === bNameLower ? sum + Number(p.amountReceived || 0) : sum;
         }, 0);
+        const bAdmRev = bAdms.reduce((sum: number, a: any) => sum + getAdmissionFeeCollected(a), 0);
+        const bRev = Math.max(bPaymentsRev, bAdmRev);
 
         bNames.push(b.name);
         bRevenues.push(bRev);
@@ -1931,17 +2263,17 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
             <p className="text-slate-500 font-medium mt-1">Export multi-sheet Excel workbooks or trigger instant WhatsApp PDF reports.</p>
           </div>
 
-          {/* Daily & Monthly WhatsApp Report Trigger Cards */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Daily & Monthly WhatsApp Report Trigger Cards + Email Dispatch Card */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Daily WhatsApp & PDF Trigger */}
             <div className="bg-white border border-emerald-200/80 rounded-3xl p-6 shadow-md space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  Daily Executive PDF Report
+                  Daily Executive PDF
                 </h3>
                 <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[9px] font-extrabold uppercase">
-                  Daily WhatsApp & PDF
+                  WhatsApp
                 </span>
               </div>
               <p className="text-xs text-slate-500 font-medium">Triggers 24-hour midnight dispatch & instant PDF summary on WhatsApp.</p>
@@ -1951,7 +2283,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
                   disabled={isSendingWhatsAppReport}
                   className="py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-extrabold shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
-                  {isSendingWhatsAppReport ? "Sending..." : "📲 WhatsApp Report"}
+                  {isSendingWhatsAppReport ? "Sending..." : "📲 Send WhatsApp"}
                 </button>
                 <a
                   href="/api/reports/daily/pdf"
@@ -1959,7 +2291,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
                   rel="noopener noreferrer"
                   className="py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-extrabold shadow-sm transition-all flex items-center justify-center gap-2 text-center"
                 >
-                  📄 View / Download PDF
+                  📄 View PDF
                 </a>
               </div>
               {waReportStatus.text && <p className="text-[11px] font-bold text-emerald-700">{waReportStatus.text}</p>}
@@ -1970,10 +2302,10 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full bg-indigo-600 animate-pulse"></span>
-                  Monthly MTD PDF Report
+                  Monthly MTD PDF
                 </h3>
                 <span className="px-2.5 py-0.5 bg-indigo-100 text-indigo-800 rounded-full text-[9px] font-extrabold uppercase">
-                  Monthly MTD & PDF
+                  Monthly MTD
                 </span>
               </div>
               <p className="text-xs text-slate-500 font-medium">Aggregates Day 1 to Today MTD metrics into a formal executive PDF on WhatsApp.</p>
@@ -1991,10 +2323,45 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
                   rel="noopener noreferrer"
                   className="py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-extrabold shadow-sm transition-all flex items-center justify-center gap-2 text-center"
                 >
-                  📄 View / Download MTD PDF
+                  📄 View PDF
                 </a>
               </div>
               {monthlyReportStatus.text && <p className="text-[11px] font-bold text-indigo-700">{monthlyReportStatus.text}</p>}
+            </div>
+
+            {/* Email Excel Report to Admin Trigger */}
+            <div className="bg-white border border-purple-200/80 rounded-3xl p-6 shadow-md space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-purple-600 animate-pulse"></span>
+                  Master Excel Email Dispatch
+                </h3>
+                <span className="px-2.5 py-0.5 bg-purple-100 text-purple-800 rounded-full text-[9px] font-extrabold uppercase">
+                  Admin Email
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 font-medium">Dispatches the complete Super Master Excel Workbook (.xlsx) with all fee receipts to admin email.</p>
+              <div>
+                <button
+                  onClick={handleSendEmailReport}
+                  disabled={isSendingEmailReport}
+                  className="w-full py-2.5 px-4 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-extrabold shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {isSendingEmailReport ? (
+                    <>
+                      <div className="h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Emailing Workbook...
+                    </>
+                  ) : (
+                    "📧 Send Excel to Admin Mail"
+                  )}
+                </button>
+              </div>
+              {emailReportStatus.text && (
+                <p className={`text-[11px] font-bold ${emailReportStatus.type === 'error' ? 'text-rose-600' : 'text-purple-700'}`}>
+                  {emailReportStatus.text}
+                </p>
+              )}
             </div>
           </div>
 
@@ -2142,7 +2509,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
                   )}
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                   {activeReportTab === "expenses" && (
                     <button
                       onClick={() => {
@@ -2155,17 +2522,35 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
 
                         window.open(`/api/expenses/pdf?${params.toString()}`, "_blank");
                       }}
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs px-6 py-3.5 rounded-xl shadow-md shadow-indigo-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer min-w-[220px]"
+                      className="bg-slate-800 hover:bg-slate-700 text-white font-extrabold text-xs px-5 py-3.5 rounded-xl shadow-md shadow-slate-800/20 transition-all flex items-center justify-center gap-2 cursor-pointer min-w-[200px]"
                     >
                       <span>📄</span>
-                      <span>Download Expense PDF Report</span>
+                      <span>Expense PDF Report</span>
                     </button>
                   )}
 
                   <button
+                    onClick={handleSendEmailReport}
+                    disabled={isSendingEmailReport}
+                    className="bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-xs px-5 py-3.5 rounded-xl shadow-md shadow-purple-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 min-w-[200px]"
+                  >
+                    {isSendingEmailReport ? (
+                      <>
+                        <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Emailing Excel...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>📧</span>
+                        <span>Email Report to Admin</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
                     onClick={handleGenerateReport}
                     disabled={isGenerating}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs px-6 py-3.5 rounded-xl shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 min-w-[240px]"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs px-6 py-3.5 rounded-xl shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 min-w-[220px]"
                   >
                     {isGenerating ? (
                       <>

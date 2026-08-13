@@ -4,13 +4,15 @@ import { checkAndSendOverdueEmiReminders } from "@/lib/emiReminderService";
 import { checkAndSendBirthdayReminders } from "@/lib/birthdayReminderService";
 import { getDailyReportStats, getMonthlyReportStats } from "@/lib/dailyReportService";
 import { sendWhatsAppDailyReport, sendWhatsAppMonthlyReport } from "@/lib/msg91";
+import { sendMasterExcelReportEmail } from "@/lib/emailService";
 
 /**
  * Initialize automatic background cron workers for:
- * 1. Daily Overdue EMI WhatsApp reminders (Fires at 16:00 IST / 4:00 PM IST)
- * 2. Student Birthday WhatsApp wishes (Fires daily at 09:00 IST / 9:00 AM IST using "happy_birthday" template)
- * 3. Daily Collection Report to Admin on WhatsApp (Fires at 19:00 IST / 7:00 PM IST using "dailyreport" template)
- * 4. Monthly Collection Report to Admin on WhatsApp (Fires on 1st of every month at 19:00 IST / 7:00 PM IST)
+ * 1. Student Birthday WhatsApp wishes (Fires daily at 09:00 IST / 9:00 AM IST using "happy_birthday" template)
+ * 2. Daily Master Excel Report to Admin on Email (Fires daily at 12:00 Noon IST / 12:00 PM IST)
+ * 3. Daily Overdue EMI WhatsApp reminders (Fires at 16:00 IST / 4:00 PM IST)
+ * 4. Daily Collection Report to Admin on WhatsApp (Fires at 19:00 IST / 7:00 PM IST using "dailyreport" template)
+ * 5. Monthly Collection Report to Admin on WhatsApp (Fires on 1st of every month at 19:00 IST / 7:00 PM IST)
  *
  * Safe to call multiple times — checks if already scheduled/run today.
  */
@@ -21,7 +23,7 @@ export function initEmiReminderCron() {
     (global as any).__emiCronIntervalId = null;
   }
 
-  console.log("⚡ [AUTOMATED CRON WORKER] Initialized: Student Birthday (09:00 IST), Daily Overdue EMI (16:00 IST), Daily Report (19:00 IST), Monthly Report (1st of month at 19:00 IST).");
+  console.log("⚡ [AUTOMATED CRON WORKER] Initialized: Birthday (09:00 IST), Admin Excel Email (12:00 Noon IST), EMI Reminders (16:00 IST), Daily Report (19:00 IST), Monthly Report (1st of month at 19:00 IST).");
 
   // Check function to run time evaluation
   const checkTimeAndTrigger = () => {
@@ -55,6 +57,18 @@ export function initEmiReminderCron() {
         (global as any).__birthdayCronLastFiredDate = istDateStr;
         console.log(`🎂 [BIRTHDAY CRON] Triggering 09:00 IST daily student birthday check (Date: ${istDateStr})...`);
         runBirthdayCheckSilently();
+      }
+
+      // -------------------------------------------------------------------
+      // TRIGGER 1: Daily 12:00 Noon IST Master Excel Email Report to Admin
+      // -------------------------------------------------------------------
+      const isPast1200 = istHour > 12 || (istHour === 12 && istMinute >= 0);
+      const lastNoonEmailDate = (global as any).__noonEmailReportLastFiredDate;
+
+      if (isPast1200 && lastNoonEmailDate !== istDateStr) {
+        (global as any).__noonEmailReportLastFiredDate = istDateStr;
+        console.log(`📧 [NOON EMAIL REPORT CRON] Triggering 12:00 Noon IST Master Excel Report email to Admin (Date: ${istDateStr})...`);
+        runNoonEmailReportSilently();
       }
 
       // -------------------------------------------------------------------
@@ -108,6 +122,7 @@ export function initEmiReminderCron() {
 
 let isCronRunning = false;
 let isBirthdayCronRunning = false;
+let isNoonEmailRunning = false;
 let isDailyReportRunning = false;
 let isMonthlyReportRunning = false;
 
@@ -121,6 +136,23 @@ async function runBirthdayCheckSilently() {
     console.error("❌ [BIRTHDAY CRON] Background execution error:", err);
   } finally {
     isBirthdayCronRunning = false;
+  }
+}
+
+async function runNoonEmailReportSilently() {
+  if (isNoonEmailRunning) return;
+  isNoonEmailRunning = true;
+  try {
+    const res = await sendMasterExcelReportEmail();
+    if (res.success) {
+      console.log(`✅ [NOON EMAIL REPORT CRON] Dispatched Master Excel Workbook at 12:00 Noon IST to Admin (${res.recipient}). MessageId: ${res.messageId}`);
+    } else {
+      console.error("❌ [NOON EMAIL REPORT CRON] Failed to dispatch email report:", res.error);
+    }
+  } catch (err) {
+    console.error("❌ [NOON EMAIL REPORT CRON] Background execution error:", err);
+  } finally {
+    isNoonEmailRunning = false;
   }
 }
 

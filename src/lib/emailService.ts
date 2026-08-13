@@ -597,6 +597,11 @@ export async function sendWeeklyExecutiveExcelReport(targetAdminEmail?: string) 
     admHeaderRow.eachCell(c => c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4F46E5" } });
 
     admissions.forEach((a: any) => {
+      const aPaymentsSum = payments
+        .filter((p: any) => p.admissionId?.toString() === a._id?.toString())
+        .reduce((sum: number, p: any) => sum + Number(p.amountReceived || 0), 0);
+      const paid = aPaymentsSum > 0 ? aPaymentsSum : Number(a.amountReceivedToday || 0);
+
       admSheet.addRow([
         a.admissionId || "N/A",
         a.fullName || "N/A",
@@ -606,7 +611,7 @@ export async function sendWeeklyExecutiveExcelReport(targetAdminEmail?: string) 
         a.brand || "Main",
         a.counsellor || "Staff",
         Number(a.finalFee || 0),
-        Number(a.amountReceivedToday || 0),
+        paid,
         Number(a.remainingBalance || 0),
         a.paymentMode || "Cash",
         a.admissionDate ? new Date(a.admissionDate).toLocaleDateString("en-IN") : "N/A"
@@ -680,6 +685,369 @@ export async function sendWeeklyExecutiveExcelReport(targetAdminEmail?: string) 
     return { success: true, messageId: info.messageId, recipient };
   } catch (error: any) {
     console.error("[EmailService] Error sending weekly Excel report:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * 5. Generate & Send Complete Super Master Excel Report to Admin Email
+ */
+export async function sendMasterExcelReportEmail({
+  targetEmail,
+  startDate,
+  endDate,
+}: {
+  targetEmail?: string;
+  startDate?: string;
+  endDate?: string;
+} = {}) {
+  try {
+    await dbConnect();
+
+    const recipient = targetEmail || ADMIN_EMAIL;
+    const now = new Date();
+
+    let enquiryQuery: any = {};
+    let admissionQuery: any = {};
+    let paymentQuery: any = {};
+
+    if (startDate || endDate) {
+      const gteDate = startDate ? new Date(startDate) : undefined;
+      let lteDate: Date | undefined;
+      if (endDate) {
+        lteDate = new Date(endDate);
+        lteDate.setHours(23, 59, 59, 999);
+      }
+
+      if (gteDate || lteDate) {
+        const dateFilter: any = {};
+        if (gteDate) dateFilter.$gte = gteDate;
+        if (lteDate) dateFilter.$lte = lteDate;
+
+        enquiryQuery.createdAt = dateFilter;
+        admissionQuery.$or = [
+          { admissionDate: dateFilter },
+          { $and: [{ admissionDate: { $exists: false } }, { createdAt: dateFilter }] },
+          { $and: [{ admissionDate: null }, { createdAt: dateFilter }] },
+        ];
+        paymentQuery.$or = [
+          { paymentDate: dateFilter },
+          { $and: [{ paymentDate: { $exists: false } }, { createdAt: dateFilter }] },
+        ];
+      }
+    }
+
+    const [enquiries, admissions, payments, brands, companies] = await Promise.all([
+      Enquiry.find(enquiryQuery).sort({ createdAt: -1 }).lean(),
+      Admission.find(admissionQuery).sort({ createdAt: -1 }).lean(),
+      Payment.find(paymentQuery).populate("admissionId").sort({ createdAt: -1 }).lean(),
+      Brand.find({}).sort({ name: 1 }).lean(),
+      Company.find({}).sort({ name: 1 }).lean(),
+    ]);
+
+    const getCleanPhone = (phone: any): string => {
+      if (!phone) return "";
+      return String(phone).replace(/\D/g, "").slice(-10);
+    };
+
+    // Index payments
+    const paymentsByAdmissionId: Record<string, number> = {};
+    const paymentsByStudentPhone: Record<string, number> = {};
+    const paymentsByStudentName: Record<string, number> = {};
+
+    payments.forEach((p: any) => {
+      const amount = Number(p.amountReceived || 0);
+      if (!amount) return;
+
+      const admId = p.admissionId?._id?.toString() || (typeof p.admissionId === "string" ? p.admissionId : "");
+      if (admId) paymentsByAdmissionId[admId] = (paymentsByAdmissionId[admId] || 0) + amount;
+
+      const admCode = p.admissionId?.admissionId || (typeof p.admissionId === "string" && p.admissionId.startsWith("ADM") ? p.admissionId : "");
+      if (admCode) paymentsByAdmissionId[admCode] = (paymentsByAdmissionId[admCode] || 0) + amount;
+
+      const phone = getCleanPhone(p.admissionId?.mobileNumber || p.admissionId?.primaryPhoneMobile || p.phone || p.mobileNumber);
+      if (phone) paymentsByStudentPhone[phone] = (paymentsByStudentPhone[phone] || 0) + amount;
+
+      const name = (p.studentName || p.admissionId?.fullName || "").trim().toLowerCase();
+      if (name) paymentsByStudentName[name] = (paymentsByStudentName[name] || 0) + amount;
+    });
+
+    const getAdmissionFeeCollected = (adm: any): number => {
+      if (!adm) return 0;
+      const admIdStr = adm._id?.toString() || "";
+      const admCode = adm.admissionId || "";
+      const phone = getCleanPhone(adm.mobileNumber || adm.primaryPhoneMobile);
+      const name = (adm.fullName || "").trim().toLowerCase();
+
+      const fromPayments = (admIdStr ? paymentsByAdmissionId[admIdStr] : 0) ||
+                           (admCode ? paymentsByAdmissionId[admCode] : 0) ||
+                           (phone ? paymentsByStudentPhone[phone] : 0) ||
+                           (name ? paymentsByStudentName[name] : 0) || 0;
+
+      const fromAdmModel = Number(adm.amountReceivedToday || 0) ||
+                           ((Number(adm.registrationAmount) || 0) + (Number(adm.downpaymentAmount) || 0)) ||
+                           Math.max(0, Number(adm.finalFee || adm.courseFee || 0) - Number(adm.remainingBalance || 0));
+
+      return Math.max(fromPayments, fromAdmModel, 0);
+    };
+
+    const getEnquiryFeeCollected = (enq: any): number => {
+      if (!enq) return 0;
+      const enqIdStr = enq._id?.toString() || "";
+      const enqCode = enq.enquiryId || "";
+      const phone = getCleanPhone(enq.primaryPhoneMobile || enq.phone || enq.mobile || enq.mobileNumber);
+      const name = (enq.studentFullName || enq.fullName || enq.name || "").trim().toLowerCase();
+
+      const matchedAdm = admissions.find((a: any) => {
+        const aEnqId = a.enquiryId?._id?.toString() || a.enquiryId?.toString() || "";
+        if (aEnqId && (aEnqId === enqIdStr || aEnqId === enqCode)) return true;
+        if (a.admissionId && enqCode && a.admissionId === enqCode) return true;
+        const aPhone = getCleanPhone(a.mobileNumber || a.primaryPhoneMobile);
+        if (phone && aPhone && phone === aPhone) return true;
+        const aName = (a.fullName || "").trim().toLowerCase();
+        if (name && aName && name === aName && (a.brand || "").toLowerCase() === (enq.targetBrand || enq.brand || "").toLowerCase()) return true;
+        return false;
+      });
+
+      if (matchedAdm) return getAdmissionFeeCollected(matchedAdm);
+      if (phone && paymentsByStudentPhone[phone]) return paymentsByStudentPhone[phone];
+      if (name && paymentsByStudentName[name]) return paymentsByStudentName[name];
+
+      const rawFee = parseFloat(String(enq.feesCollected || enq.actualAdmissionFee || enq.expectedConversionFee || "0").replace(/[^0-9.]/g, "")) || 0;
+      return rawFee;
+    };
+
+    const brandCollectionMap: Record<string, { name: string; brandId: string; enquiries: number; admissions: number; collection: number }> = {};
+    brands.forEach((b: any) => {
+      const bNameLower = (b.name || "").toLowerCase().trim();
+      const bEnquiries = enquiries.filter((e: any) =>
+        (e.targetBrand || "").toLowerCase().trim() === bNameLower ||
+        (e.brand || "").toLowerCase().trim() === bNameLower
+      );
+      const bAdmissions = admissions.filter((a: any) =>
+        (a.brand || "").toLowerCase().trim() === bNameLower ||
+        (a.targetBrand || "").toLowerCase().trim() === bNameLower
+      );
+      const totalAdmissionsCount = Math.max(
+        bEnquiries.filter((e: any) => (e.status || "").toLowerCase() === "admitted").length,
+        bAdmissions.length
+      );
+
+      const bPaymentsRev = payments.reduce((sum: number, p: any) => {
+        const admission = p.admissionId || {};
+        const pBrand = (admission.brand || p.brand || "").toLowerCase().trim();
+        return pBrand === bNameLower ? sum + Number(p.amountReceived || 0) : sum;
+      }, 0);
+
+      const bAdmRev = bAdmissions.reduce((sum: number, a: any) => sum + getAdmissionFeeCollected(a), 0);
+      const bRev = Math.max(bPaymentsRev, bAdmRev);
+
+      brandCollectionMap[bNameLower] = {
+        name: b.name,
+        brandId: b.brandId || "N/A",
+        enquiries: bEnquiries.length,
+        admissions: totalAdmissionsCount,
+        collection: bRev,
+      };
+    });
+
+    const companyCollectionMap: Record<string, { name: string; bank: string; count: number; collection: number }> = {};
+    companies.forEach((comp: any) => {
+      const cNameLower = (comp.name || "").toLowerCase().trim();
+      const compPayments = payments.filter((p: any) => {
+        const admission = p.admissionId || {};
+        const pComp = (admission.companyAssigned || p.company || "").toLowerCase().trim();
+        return pComp.includes(cNameLower) || cNameLower.includes(pComp);
+      });
+      const compRev = compPayments.reduce((sum: number, p: any) => sum + Number(p.amountReceived || 0), 0);
+      const bankInfo = comp.bankAccount || comp.bankName || comp.bank || comp.bankDetails || "Primary Bank";
+
+      companyCollectionMap[cNameLower] = {
+        name: comp.name,
+        bank: bankInfo,
+        count: compPayments.length,
+        collection: compRev,
+      };
+    });
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = "Lead2Ledger CRM";
+    workbook.created = now;
+
+    // Sheet 1: Master Executive Summary
+    const summarySheet = workbook.addWorksheet("Master Executive Summary");
+    summarySheet.addRow(["ACADEMIC & CORPORATE MASTER EXECUTIVE SUMMARY REPORT"]);
+    summarySheet.addRow([`Report Generated: ${now.toLocaleString("en-IN")}`, `Date Scope: ${startDate || 'Beginning'} to ${endDate || 'Today'}`]);
+    summarySheet.addRow([]);
+
+    summarySheet.addRow(["1. ALL BRANDS PERFORMANCE SUMMARY"]);
+    const brandHeaders = ["Brand Name", "Brand ID", "Total Enquiries", "Admissions Closed", "Total Collection (INR)"];
+    const brandHeaderRow = summarySheet.addRow(brandHeaders);
+    brandHeaderRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    brandHeaderRow.eachCell(c => c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4F46E5" } });
+
+    let globalTotalEnquiries = 0;
+    let globalTotalAdmissions = 0;
+    let globalTotalRevenue = 0;
+
+    brands.forEach((b: any) => {
+      const bNameLower = (b.name || "").toLowerCase().trim();
+      const bData = brandCollectionMap[bNameLower] || { enquiries: 0, admissions: 0, collection: 0 };
+      globalTotalEnquiries += bData.enquiries;
+      globalTotalAdmissions += bData.admissions;
+      globalTotalRevenue += bData.collection;
+      summarySheet.addRow([b.name, b.brandId || "N/A", bData.enquiries, bData.admissions, bData.collection]);
+    });
+
+    const bTotal = summarySheet.addRow(["TOTAL ALL BRANDS", "-", globalTotalEnquiries, globalTotalAdmissions, globalTotalRevenue]);
+    bTotal.font = { bold: true };
+    summarySheet.addRow([]);
+    summarySheet.addRow([]);
+
+    summarySheet.addRow(["2. ALL LEGAL COMPANIES FINANCIAL SUMMARY"]);
+    const compHeaders = ["Company Name", "Bank / Account Details", "Receipts Issued", "Total Billed Collections (INR)"];
+    const compHeaderRow = summarySheet.addRow(compHeaders);
+    compHeaderRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    compHeaderRow.eachCell(c => c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF059669" } });
+
+    let globalCompRev = 0;
+    let globalCompCount = 0;
+    companies.forEach((comp: any) => {
+      const cNameLower = (comp.name || "").toLowerCase().trim();
+      const cData = companyCollectionMap[cNameLower] || { count: 0, collection: 0, bank: "Primary Bank" };
+      globalCompRev += cData.collection;
+      globalCompCount += cData.count;
+      summarySheet.addRow([comp.name, cData.bank, cData.count, cData.collection]);
+    });
+    const cTotal = summarySheet.addRow(["TOTAL ALL COMPANIES", "-", globalCompCount, globalCompRev]);
+    cTotal.font = { bold: true };
+    summarySheet.columns.forEach(col => col.width = 24);
+
+    // Sheet 2: All Leads Register
+    const leadsSheet = workbook.addWorksheet("All Leads Register");
+    leadsSheet.addRow(["ALL LEADS & ENQUIRIES COMPREHENSIVE REGISTER"]);
+    leadsSheet.addRow([`Export Date: ${now.toLocaleString("en-IN")}`, `Total Leads: ${enquiries.length}`]);
+    leadsSheet.addRow([]);
+
+    const lHeader = leadsSheet.addRow([
+      "Enquiry ID", "Student Name", "Mobile", "Email", "Target Course",
+      "Brand", "Legal Company", "Counsellor", "Lead Source", "Status", "Fees Collected (INR)", "Date Created"
+    ]);
+    lHeader.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    lHeader.eachCell(c => c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2563EB" } });
+
+    enquiries.forEach((e: any) => {
+      leadsSheet.addRow([
+        e.enquiryId || "N/A",
+        e.studentFullName || e.fullName || "Student",
+        e.primaryPhoneMobile || e.phone || "N/A",
+        e.emailAddress || e.email || "N/A",
+        e.targetCourse || e.course || "General",
+        e.targetBrand || e.brand || "N/A",
+        e.companyAssigned || "N/A",
+        e.assignedCrmAdvisor || "Unassigned",
+        e.leadSource || "Direct",
+        e.status || "New",
+        getEnquiryFeeCollected(e),
+        e.createdAt ? new Date(e.createdAt).toLocaleDateString("en-IN") : "N/A"
+      ]);
+    });
+    leadsSheet.columns.forEach(col => col.width = 20);
+
+    // Sheet 3: Admitted Students Register
+    const admSheet = workbook.addWorksheet("Admitted Students Register");
+    admSheet.addRow(["OFFICIAL ADMITTED STUDENTS & ADMISSIONS REGISTER"]);
+    admSheet.addRow([`Export Date: ${now.toLocaleString("en-IN")}`]);
+    admSheet.addRow([]);
+
+    const aHeader = admSheet.addRow([
+      "Admission ID", "Student Name", "Mobile", "Email", "Enrolled Course",
+      "Brand", "Assigned Legal Company", "Counsellor", "Total Fees Collected (INR)", "Status", "Date Admitted"
+    ]);
+    aHeader.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    aHeader.eachCell(c => c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF10B981" } });
+
+    const seenAdmitted = new Set<string>();
+    admissions.forEach((a: any) => {
+      const phone = getCleanPhone(a.mobileNumber || a.primaryPhoneMobile);
+      if (phone) seenAdmitted.add(phone);
+      if (a.admissionId) seenAdmitted.add(a.admissionId);
+      admSheet.addRow([
+        a.admissionId || "N/A",
+        a.fullName || "Student",
+        a.mobileNumber || a.primaryPhoneMobile || "N/A",
+        a.email || "N/A",
+        a.course || "General",
+        a.brand || "N/A",
+        a.companyAssigned || "N/A",
+        a.counsellor || "Staff",
+        getAdmissionFeeCollected(a),
+        "Admitted",
+        a.admissionDate ? new Date(a.admissionDate).toLocaleDateString("en-IN") : "N/A"
+      ]);
+    });
+
+    enquiries.filter((e: any) => (e.status || "").toLowerCase() === "admitted").forEach((e: any) => {
+      const phone = getCleanPhone(e.primaryPhoneMobile || e.phone);
+      if (phone && seenAdmitted.has(phone)) return;
+      if (e.enquiryId && seenAdmitted.has(e.enquiryId)) return;
+
+      admSheet.addRow([
+        e.enquiryId || "N/A",
+        e.studentFullName || e.fullName || "Student",
+        e.primaryPhoneMobile || e.phone || "N/A",
+        e.emailAddress || e.email || "N/A",
+        e.targetCourse || e.course || "General",
+        e.targetBrand || e.brand || "N/A",
+        e.companyAssigned || "N/A",
+        e.assignedCrmAdvisor || "Unassigned",
+        getEnquiryFeeCollected(e),
+        "Admitted",
+        e.createdAt ? new Date(e.createdAt).toLocaleDateString("en-IN") : "N/A"
+      ]);
+    });
+    admSheet.columns.forEach(col => col.width = 20);
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const dateStr = now.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    const filename = `Super_Master_Report_${now.toISOString().split("T")[0]}.xlsx`;
+
+    const mailOptions = {
+      from: `"Lead2Ledger Reports" <${SMTP_USER}>`,
+      to: recipient,
+      subject: `📊 Super Master Academic & Financial Report (${dateStr})`,
+      html: `
+        <div style="font-family: Arial, sans-serif; color: #1e293b; max-width: 600px; margin: 0 auto; padding: 20px; background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0;">
+          <h2 style="color: #4f46e5; margin-top: 0;">Super Master Academic & Financial Report</h2>
+          <p>Dear Admin,</p>
+          <p>Please find attached the official <strong>Super Master Report Excel Workbook (.xlsx)</strong> containing comprehensive records for all leads, admitted students, and brand-wise financial collections with real-time fee receipt totals.</p>
+          
+          <div style="background: #f8fafc; padding: 16px; border-radius: 8px; border-left: 4px solid #4f46e5; margin: 16px 0;">
+            <ul style="margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.6;">
+              <li><strong>Total System Leads:</strong> ${enquiries.length} Enquiries</li>
+              <li><strong>Total Admitted Students:</strong> ${admissions.length} Registered</li>
+              <li><strong>Total Revenue Collected:</strong> ₹${globalTotalRevenue.toLocaleString("en-IN")}</li>
+              <li><strong>Legal Companies Billed:</strong> ₹${globalCompRev.toLocaleString("en-IN")}</li>
+            </ul>
+          </div>
+
+          <p style="font-size: 12px; color: #64748b;">Attached File: <code>${filename}</code></p>
+        </div>
+      `,
+      attachments: [
+        {
+          filename: filename,
+          content: Buffer.from(buffer),
+          contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        }
+      ]
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`[EmailService] Super Master Report email sent to ${recipient}. MessageId: ${info.messageId}`);
+    return { success: true, messageId: info.messageId, recipient, totalRevenue: globalTotalRevenue };
+  } catch (error: any) {
+    console.error("[EmailService] Error sending Super Master report email:", error);
     return { success: false, error: error.message };
   }
 }
