@@ -159,6 +159,9 @@ export async function GET(
       totalFee: finalFee,
       totalPaidToDate,
       remainingBalance,
+      downpaymentAmount: admission?.downpaymentAmount,
+      downpaymentDueDate: admission?.downpaymentDueDate,
+      customEmiPlan: admission?.customEmiPlan,
       generatedAtStr,
     });
 

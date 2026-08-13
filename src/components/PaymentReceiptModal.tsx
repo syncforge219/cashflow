@@ -228,7 +228,18 @@ export default function PaymentReceiptModal({
   const regAmount = Number(student?.registrationAmount ?? receipt?.registrationAmount ?? student?.amountReceivedToday ?? receipt?.amountReceived ?? 0);
   const dpAmount = Number(student?.downpaymentAmount ?? receipt?.downpaymentAmount ?? 0);
   const dpDueDateRaw = student?.downpaymentDueDate || receipt?.downpaymentDueDate;
-  const dpDueDateFormatted = dpDueDateRaw ? new Date(dpDueDateRaw).toLocaleDateString("en-IN") : null;
+  const isDownpaymentPaid = totalPaid >= (regAmount + dpAmount) && dpAmount > 0;
+
+  const formatScheduleDate = (dateVal: any) => {
+    if (!dateVal) return "-";
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return String(dateVal);
+    return d.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric"
+    });
+  };
 
   const [matchedBrand, setMatchedBrand] = React.useState<any>(null);
   const [matchedCompany, setMatchedCompany] = React.useState<any>(null);
@@ -576,11 +587,18 @@ export default function PaymentReceiptModal({
               </div>
             </div>
 
-            {/* Installment Payments Schedule Table */}
+            {/* Installment & Downpayment Payments Schedule Table */}
             <div className="space-y-1.5">
-              <h3 className="text-xs font-bold text-slate-800 border-b border-slate-200 pb-1">
-                Installment Payments Schedule
-              </h3>
+              <div className="flex items-center justify-between border-b border-slate-200 pb-1">
+                <h3 className="text-xs font-bold text-slate-800">
+                  Installment & Downpayment Payments Schedule
+                </h3>
+                {dpAmount > 0 && dpDueDateRaw && (
+                  <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                    Downpayment Due: {formatScheduleDate(dpDueDateRaw)}
+                  </span>
+                )}
+              </div>
               <div className="border border-slate-200 rounded-lg overflow-hidden">
                 <table className="w-full text-left text-[11px]">
                   <thead>
@@ -594,12 +612,47 @@ export default function PaymentReceiptModal({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
+                    {/* 1. Downpayment Row (if applicable) */}
+                    {dpAmount > 0 && (
+                      <tr className={isDownpaymentPaid ? "bg-emerald-50/40" : "bg-amber-50/30"}>
+                        <td className="p-2 font-semibold text-slate-900">
+                          {formatScheduleDate(dpDueDateRaw)}
+                        </td>
+                        <td className="p-2 font-bold text-slate-800">
+                          Downpayment Amount
+                        </td>
+                        <td className="p-2 text-right font-bold text-slate-900">
+                          ₹{dpAmount.toLocaleString("en-IN")}
+                        </td>
+                        <td className="p-2 text-right font-bold">
+                          {isDownpaymentPaid ? (
+                            <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">Paid</span>
+                          ) : (
+                            <span className="text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">Pending</span>
+                          )}
+                        </td>
+                        <td className="p-2 text-right font-bold text-rose-600">
+                          {isDownpaymentPaid ? "₹0" : `₹${dpAmount.toLocaleString("en-IN")}`}
+                        </td>
+                        <td className="p-2 text-[10px] text-slate-500 font-mono">
+                          {isDownpaymentPaid ? "Downpayment Cleared" : `Scheduled Due: ${formatScheduleDate(dpDueDateRaw)}`}
+                        </td>
+                      </tr>
+                    )}
+
+                    {/* 2. Custom EMI Plan Installments */}
                     {Array.isArray(student?.customEmiPlan) && student.customEmiPlan.length > 0 ? (
                       student.customEmiPlan.map((emi: any, idx: number) => (
                         <tr key={idx} className={emi.isPaid ? "bg-emerald-50/40" : "bg-white"}>
-                          <td className="p-2 font-semibold">{emi.dueDate ? new Date(emi.dueDate).toLocaleDateString("en-IN") : "-"}</td>
-                          <td className="p-2 font-bold text-slate-800">{emi.installmentName || `Installment #${idx + 1}`}</td>
-                          <td className="p-2 text-right font-bold text-slate-900">₹{Number(emi.amount || 0).toLocaleString("en-IN")}</td>
+                          <td className="p-2 font-semibold text-slate-900">
+                            {formatScheduleDate(emi.dueDate)}
+                          </td>
+                          <td className="p-2 font-bold text-slate-800">
+                            {emi.installmentName || `Installment #${idx + 1}`}
+                          </td>
+                          <td className="p-2 text-right font-bold text-slate-900">
+                            ₹{Number(emi.amount || 0).toLocaleString("en-IN")}
+                          </td>
                           <td className="p-2 text-right font-bold">
                             {emi.isPaid ? (
                               <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">Paid</span>
@@ -611,21 +664,23 @@ export default function PaymentReceiptModal({
                             {emi.isPaid ? "₹0" : `₹${Number(emi.amount || 0).toLocaleString("en-IN")}`}
                           </td>
                           <td className="p-2 text-[10px] text-slate-500 font-mono">
-                            {emi.isPaid ? `Paid on ${emi.paidDate ? new Date(emi.paidDate).toLocaleDateString("en-IN") : paymentDateFormatted}` : `Scheduled`}
+                            {emi.isPaid ? `Paid on ${formatScheduleDate(emi.paidDate || paymentDateFormatted)}` : `Scheduled Due: ${formatScheduleDate(emi.dueDate)}`}
                           </td>
                         </tr>
                       ))
                     ) : (
-                      <tr>
-                        <td className="p-2">{paymentDateFormatted}</td>
-                        <td className="p-2">Initial Registration Fee</td>
-                        <td className="p-2 text-right">{finalFee.toLocaleString("en-IN")}</td>
-                        <td className="p-2 text-right font-semibold">{totalPaid.toLocaleString("en-IN")}</td>
-                        <td className="p-2 text-right font-semibold text-rose-600">{remainingBalance.toLocaleString("en-IN")}</td>
-                        <td className="p-2 text-[10px] text-slate-600 font-mono">
-                          {receiptNo} {paymentDateFormatted} ₹{Number(receipt.amountReceived).toLocaleString("en-IN")} {receipt.paymentMode || "Online"}
-                        </td>
-                      </tr>
+                      dpAmount === 0 && (
+                        <tr>
+                          <td className="p-2">{paymentDateFormatted}</td>
+                          <td className="p-2">Initial Registration Fee</td>
+                          <td className="p-2 text-right">₹{finalFee.toLocaleString("en-IN")}</td>
+                          <td className="p-2 text-right font-semibold">₹{totalPaid.toLocaleString("en-IN")}</td>
+                          <td className="p-2 text-right font-semibold text-rose-600">₹{remainingBalance.toLocaleString("en-IN")}</td>
+                          <td className="p-2 text-[10px] text-slate-600 font-mono">
+                            {receiptNo} {paymentDateFormatted} ₹{Number(receipt.amountReceived).toLocaleString("en-IN")} {receipt.paymentMode || "Online"}
+                          </td>
+                        </tr>
+                      )
                     )}
                     <tr className="bg-slate-200/90 font-bold text-slate-900 border-t border-slate-300 text-xs">
                       <td className="p-2 text-right" colSpan={2}>TOTALS:</td>

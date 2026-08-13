@@ -16,6 +16,9 @@ export interface ReceiptPdfData {
   totalFee?: number | string;
   totalPaidToDate?: number | string;
   remainingBalance?: number | string;
+  downpaymentAmount?: number | string;
+  downpaymentDueDate?: string | Date;
+  customEmiPlan?: any[];
   generatedAtStr?: string;
 }
 
@@ -135,26 +138,35 @@ export function generateReceiptPdfBuffer(data: ReceiptPdfData): Buffer {
     `BT /F2 8 Tf 0.1 0.5 0.2 rg 490 570 Td (${amountVal}) Tj ET`,
 
     // Installment Payments Section
-    `BT /F2 10 Tf 0.1 0.1 0.1 rg 50 545 Td (Installment Payments) Tj ET`,
+    `BT /F2 10 Tf 0.1 0.1 0.1 rg 50 545 Td (Installment & Downpayment Payments Schedule) Tj ET`,
     fillRoundedRect("0.82 0.82 0.82", 50, 525, 495, 18, 4),
     `BT /F2 8 Tf 0.2 0.2 0.2 rg 55 530 Td (Due Date) Tj ET`,
-    `BT /F2 8 Tf 0.2 0.2 0.2 rg 125 530 Td (Invoice) Tj ET`,
-    `BT /F2 8 Tf 0.2 0.2 0.2 rg 165 530 Td (Due Fee) Tj ET`,
-    `BT /F2 8 Tf 0.2 0.2 0.2 rg 225 530 Td (Received Fee) Tj ET`,
+    `BT /F2 8 Tf 0.2 0.2 0.2 rg 125 530 Td (Invoice / Item) Tj ET`,
+    `BT /F2 8 Tf 0.2 0.2 0.2 rg 185 530 Td (Due Fee) Tj ET`,
+    `BT /F2 8 Tf 0.2 0.2 0.2 rg 235 530 Td (Received Fee) Tj ET`,
     `BT /F2 8 Tf 0.2 0.2 0.2 rg 295 530 Td (Balance Fee) Tj ET`,
     `BT /F2 8 Tf 0.2 0.2 0.2 rg 365 530 Td (Payment Details) Tj ET`,
 
-    `BT /F1 8 Tf 0.2 0.2 0.2 rg 55 510 Td (${shortPayDate}) Tj ET`,
-    `BT /F1 8 Tf 0.2 0.2 0.2 rg 125 510 Td (566) Tj ET`,
-    `BT /F1 8 Tf 0.2 0.2 0.2 rg 165 510 Td (${finalFeeVal}) Tj ET`,
-    `BT /F1 8 Tf 0.2 0.2 0.2 rg 225 510 Td (${totalPaidVal}) Tj ET`,
-    `BT /F1 8 Tf 0.2 0.2 0.2 rg 295 510 Td (${remainingVal}) Tj ET`,
-    `BT /F1 7 Tf 0.4 0.4 0.4 rg 365 510 Td (${receiptNo} ${shortPayDate} ${amountVal} ${mode}) Tj ET`,
+    ...(Number(data.downpaymentAmount || 0) > 0 ? [
+      `BT /F1 8 Tf 0.2 0.2 0.2 rg 55 510 Td (${data.downpaymentDueDate ? new Date(data.downpaymentDueDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : shortPayDate}) Tj ET`,
+      `BT /F1 8 Tf 0.2 0.2 0.2 rg 125 510 Td (Downpayment) Tj ET`,
+      `BT /F1 8 Tf 0.2 0.2 0.2 rg 185 510 Td (${Number(data.downpaymentAmount || 0)}) Tj ET`,
+      `BT /F1 8 Tf 0.2 0.2 0.2 rg 235 510 Td (${totalPaidVal >= amountVal + Number(data.downpaymentAmount || 0) ? Number(data.downpaymentAmount || 0) : 0}) Tj ET`,
+      `BT /F1 8 Tf 0.2 0.2 0.2 rg 295 510 Td (${totalPaidVal >= amountVal + Number(data.downpaymentAmount || 0) ? 0 : Number(data.downpaymentAmount || 0)}) Tj ET`,
+      `BT /F1 7 Tf 0.4 0.4 0.4 rg 365 510 Td (Scheduled Due Date: ${data.downpaymentDueDate ? new Date(data.downpaymentDueDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : shortPayDate}) Tj ET`,
+    ] : [
+      `BT /F1 8 Tf 0.2 0.2 0.2 rg 55 510 Td (${shortPayDate}) Tj ET`,
+      `BT /F1 8 Tf 0.2 0.2 0.2 rg 125 510 Td (566) Tj ET`,
+      `BT /F1 8 Tf 0.2 0.2 0.2 rg 185 510 Td (${finalFeeVal}) Tj ET`,
+      `BT /F1 8 Tf 0.2 0.2 0.2 rg 235 510 Td (${totalPaidVal}) Tj ET`,
+      `BT /F1 8 Tf 0.2 0.2 0.2 rg 295 510 Td (${remainingVal}) Tj ET`,
+      `BT /F1 7 Tf 0.4 0.4 0.4 rg 365 510 Td (${receiptNo} ${shortPayDate} ${amountVal} ${mode}) Tj ET`,
+    ]),
 
     // Totals Bar
     fillRoundedRect("0.88 0.88 0.88", 50, 490, 495, 16, 4),
-    `BT /F2 8 Tf 0.1 0.1 0.1 rg 165 494 Td (${finalFeeVal}) Tj ET`,
-    `BT /F2 8 Tf 0.1 0.5 0.2 rg 225 494 Td (${totalPaidVal}) Tj ET`,
+    `BT /F2 8 Tf 0.1 0.1 0.1 rg 185 494 Td (${finalFeeVal}) Tj ET`,
+    `BT /F2 8 Tf 0.1 0.5 0.2 rg 235 494 Td (${totalPaidVal}) Tj ET`,
     `BT /F2 8 Tf 0.7 0.1 0.1 rg 295 494 Td (${remainingVal}) Tj ET`,
 
     // Terms & Conditions Title
