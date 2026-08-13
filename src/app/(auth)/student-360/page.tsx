@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Sidebar from "@/components/Sidebar";
 import ManagerSidebar from "@/components/ManagerSidebar";
 import CounsellorSidebar from "@/components/CounsellorSidebar";
@@ -17,11 +17,17 @@ export default function Student360PortalPage() {
   const [companies, setCompanies] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Filters & Search
+  // Filters, Search & Date-Wise Sorting
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedBrand, setSelectedBrand] = useState("All Brands");
   const [selectedCompany, setSelectedCompany] = useState("All Companies");
   const [selectedFeeStatus, setSelectedFeeStatus] = useState("All");
+
+  // Date Filtering & Sorting State
+  const [sortBy, setSortBy] = useState<string>("date-desc"); // "date-desc" | "date-asc" | "name-asc" | "name-desc" | "fee-desc" | "fee-asc" | "balance-desc" | "balance-asc"
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+  const [datePreset, setDatePreset] = useState<string>("all");
 
   // Selected Student for 360 Modal
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
@@ -33,7 +39,63 @@ export default function Student360PortalPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedBrand, selectedCompany, selectedFeeStatus]);
+  }, [searchQuery, selectedBrand, selectedCompany, selectedFeeStatus, sortBy, startDate, endDate]);
+
+  // Date Preset Handler
+  const handleDatePresetChange = (preset: string) => {
+    setDatePreset(preset);
+    const now = new Date();
+    const toYMD = (d: Date) => d.toISOString().split("T")[0];
+
+    if (preset === "all") {
+      setStartDate("");
+      setEndDate("");
+    } else if (preset === "today") {
+      const todayStr = toYMD(now);
+      setStartDate(todayStr);
+      setEndDate(todayStr);
+    } else if (preset === "yesterday") {
+      const y = new Date();
+      y.setDate(y.getDate() - 1);
+      const yStr = toYMD(y);
+      setStartDate(yStr);
+      setEndDate(yStr);
+    } else if (preset === "this_week") {
+      const w = new Date();
+      w.setDate(w.getDate() - 7);
+      setStartDate(toYMD(w));
+      setEndDate(toYMD(now));
+    } else if (preset === "this_month") {
+      const m = new Date(now.getFullYear(), now.getMonth(), 1);
+      setStartDate(toYMD(m));
+      setEndDate(toYMD(now));
+    }
+  };
+
+  // Helper to extract timestamp for sorting/filtering
+  const getRecordTimestamp = (s: any): number => {
+    const dStr = s.admissionDate || s.createdAt || s.updatedAt;
+    if (!dStr) return 0;
+    const t = new Date(dStr).getTime();
+    return isNaN(t) ? 0 : t;
+  };
+
+  // Format Date for Display
+  const formatAdmissionDate = (s: any): string => {
+    const dStr = s.admissionDate || s.createdAt;
+    if (!dStr) return "N/A";
+    try {
+      const d = new Date(dStr);
+      if (isNaN(d.getTime())) return "N/A";
+      return d.toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+    } catch {
+      return "N/A";
+    }
+  };
 
   // Role validation
   const userRole = (user?.role || "").toLowerCase();
@@ -130,26 +192,88 @@ export default function Student360PortalPage() {
     setIs360ModalOpen(true);
   };
 
-  // Filter students locally for instant reactivity
-  const filteredStudents = students.filter((s) => {
-    if (selectedCompany !== "All Companies" && s.companyAssigned !== selectedCompany) {
-      return false;
+  // Toggle Header Sort
+  const handleToggleSort = (field: "date" | "name" | "fee" | "balance") => {
+    if (field === "date") {
+      setSortBy((prev) => (prev === "date-desc" ? "date-asc" : "date-desc"));
+    } else if (field === "name") {
+      setSortBy((prev) => (prev === "name-asc" ? "name-desc" : "name-asc"));
+    } else if (field === "fee") {
+      setSortBy((prev) => (prev === "fee-desc" ? "fee-asc" : "fee-desc"));
+    } else if (field === "balance") {
+      setSortBy((prev) => (prev === "balance-desc" ? "balance-asc" : "balance-desc"));
     }
-    const remBal = Number(s.remainingBalance) || 0;
-    if (selectedFeeStatus === "Balance Due" && remBal <= 0) return false;
-    if (selectedFeeStatus === "Fully Paid" && remBal > 0) return false;
+  };
 
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      const matchName = (s.fullName || "").toLowerCase().includes(q);
-      const matchId = (s.admissionId || "").toLowerCase().includes(q);
-      const matchMobile = (s.mobileNumber || "").toLowerCase().includes(q);
-      const matchParent = (s.parentPhone || s.parentsPhoneNumber || "").toLowerCase().includes(q);
-      const matchCourse = (s.course || "").toLowerCase().includes(q);
-      return matchName || matchId || matchMobile || matchParent || matchCourse;
-    }
-    return true;
-  });
+  // Filter and Sort students locally for instant reactivity
+  const filteredStudents = useMemo(() => {
+    const list = students.filter((s) => {
+      if (selectedCompany !== "All Companies" && s.companyAssigned !== selectedCompany) {
+        return false;
+      }
+      const remBal = Number(s.remainingBalance) || 0;
+      if (selectedFeeStatus === "Balance Due" && remBal <= 0) return false;
+      if (selectedFeeStatus === "Fully Paid" && remBal > 0) return false;
+
+      // Date range filtering
+      if (startDate || endDate) {
+        const recTimestamp = getRecordTimestamp(s);
+        if (recTimestamp > 0) {
+          if (startDate) {
+            const startMs = new Date(startDate).setHours(0, 0, 0, 0);
+            if (recTimestamp < startMs) return false;
+          }
+          if (endDate) {
+            const endMs = new Date(endDate).setHours(23, 59, 59, 999);
+            if (recTimestamp > endMs) return false;
+          }
+        }
+      }
+
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchName = (s.fullName || "").toLowerCase().includes(q);
+        const matchId = (s.admissionId || "").toLowerCase().includes(q);
+        const matchMobile = (s.mobileNumber || "").toLowerCase().includes(q);
+        const matchParent = (s.parentPhone || s.parentsPhoneNumber || "").toLowerCase().includes(q);
+        const matchCourse = (s.course || "").toLowerCase().includes(q);
+        return matchName || matchId || matchMobile || matchParent || matchCourse;
+      }
+      return true;
+    });
+
+    // Apply Sorting
+    return list.sort((a, b) => {
+      const dateA = getRecordTimestamp(a);
+      const dateB = getRecordTimestamp(b);
+
+      if (sortBy === "date-desc") {
+        return dateB - dateA;
+      }
+      if (sortBy === "date-asc") {
+        return dateA - dateB;
+      }
+      if (sortBy === "name-asc") {
+        return (a.fullName || "").localeCompare(b.fullName || "", undefined, { sensitivity: "base" });
+      }
+      if (sortBy === "name-desc") {
+        return (b.fullName || "").localeCompare(a.fullName || "", undefined, { sensitivity: "base" });
+      }
+      if (sortBy === "fee-desc") {
+        return (Number(b.finalFee) || 0) - (Number(a.finalFee) || 0);
+      }
+      if (sortBy === "fee-asc") {
+        return (Number(a.finalFee) || 0) - (Number(b.finalFee) || 0);
+      }
+      if (sortBy === "balance-desc") {
+        return (Number(b.remainingBalance) || 0) - (Number(a.remainingBalance) || 0);
+      }
+      if (sortBy === "balance-asc") {
+        return (Number(a.remainingBalance) || 0) - (Number(b.remainingBalance) || 0);
+      }
+      return dateB - dateA;
+    });
+  }, [students, selectedCompany, selectedFeeStatus, searchQuery, startDate, endDate, sortBy]);
 
   // Calculate Metrics
   const totalBilledFee = filteredStudents.reduce((acc, s) => acc + (Number(s.finalFee) || 0), 0);
@@ -253,70 +377,165 @@ export default function Student360PortalPage() {
           </div>
         </div>
 
-        {/* Filter & Search Bar */}
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 mb-6 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
-          <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 w-full sm:w-96">
-            <div className="relative w-full">
-              <input
-                type="text"
-                placeholder="Search 360 by student name, ID, phone, email, course..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 font-semibold"
-              />
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-slate-400 absolute left-3 top-2.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.637 10.637Z" />
-              </svg>
-            </div>
-            <button
-              type="submit"
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-colors shrink-0"
-            >
-              Search
-            </button>
-          </form>
-
-          <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="text-xs font-bold text-slate-500">Brand:</span>
-              <select
-                value={selectedBrand}
-                disabled={isBrandManager && Boolean(user?.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All")}
-                onChange={(e) => setSelectedBrand(e.target.value)}
-                className="px-3 py-1.5 text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-700 cursor-pointer disabled:opacity-60"
+        {/* Filter, Search & Date-Wise Sorting Bar */}
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 mb-6 shadow-xs space-y-3">
+          {/* Top Row: Search & Dropdown Filters */}
+          <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
+            <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 w-full lg:w-96">
+              <div className="relative w-full">
+                <input
+                  type="text"
+                  placeholder="Search 360 by student name, ID, phone, email, course..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 font-semibold"
+                />
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-slate-400 absolute left-3 top-2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.637 10.637Z" />
+                </svg>
+              </div>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-colors shrink-0 cursor-pointer"
               >
-                <option value="All Brands">All Brands</option>
-                {brands.map((b) => (
-                  <option key={b} value={b}>{b}</option>
-                ))}
-              </select>
+                Search
+              </button>
+            </form>
+
+            <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+              {/* Date-Wise & Attribute Sorting Dropdown */}
+              <div className="flex items-center gap-1.5 shrink-0 bg-indigo-50/60 border border-indigo-200/80 rounded-xl px-2.5 py-1">
+                <span className="text-xs font-black text-indigo-700 flex items-center gap-1">
+                  <span>⇅</span> Sort:
+                </span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="px-2 py-1 text-xs font-extrabold bg-white border border-indigo-200 rounded-lg text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
+                >
+                  <option value="date-desc">📅 Date: Newest First</option>
+                  <option value="date-asc">📅 Date: Oldest First</option>
+                  <option value="name-asc">👤 Name: A → Z</option>
+                  <option value="name-desc">👤 Name: Z → A</option>
+                  <option value="fee-desc">💰 Agreed Fee: High → Low</option>
+                  <option value="fee-asc">💰 Agreed Fee: Low → High</option>
+                  <option value="balance-desc">⚠️ Balance: High → Low</option>
+                  <option value="balance-asc">⚠️ Balance: Low → High</option>
+                </select>
+              </div>
+
+              {/* Brand Filter */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-xs font-bold text-slate-500">Brand:</span>
+                <select
+                  value={selectedBrand}
+                  disabled={isBrandManager && Boolean(user?.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All")}
+                  onChange={(e) => setSelectedBrand(e.target.value)}
+                  className="px-3 py-1.5 text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-700 cursor-pointer disabled:opacity-60"
+                >
+                  <option value="All Brands">All Brands</option>
+                  {brands.map((b) => (
+                    <option key={b} value={b}>{b}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Company Filter */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-xs font-bold text-slate-500">Company:</span>
+                <select
+                  value={selectedCompany}
+                  onChange={(e) => setSelectedCompany(e.target.value)}
+                  className="px-3 py-1.5 text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-700 cursor-pointer"
+                >
+                  <option value="All Companies">All Companies</option>
+                  {companies.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Fee Status Filter */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-xs font-bold text-slate-500">Fee Status:</span>
+                <select
+                  value={selectedFeeStatus}
+                  onChange={(e) => setSelectedFeeStatus(e.target.value)}
+                  className="px-3 py-1.5 text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-700 cursor-pointer"
+                >
+                  <option value="All">All Statuses</option>
+                  <option value="Balance Due">Balance Due</option>
+                  <option value="Fully Paid">Fully Paid</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Row: Date Presets & Custom Date Range Filter */}
+          <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs">
+            {/* Quick Date Presets */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider mr-1">Date Scope:</span>
+              {[
+                { id: "all", label: "All Dates" },
+                { id: "today", label: "Today" },
+                { id: "yesterday", label: "Yesterday" },
+                { id: "this_week", label: "Last 7 Days" },
+                { id: "this_month", label: "This Month" },
+              ].map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => handleDatePresetChange(p.id)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    datePreset === p.id
+                      ? "bg-indigo-600 text-white shadow-xs"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="text-xs font-bold text-slate-500">Company:</span>
-              <select
-                value={selectedCompany}
-                onChange={(e) => setSelectedCompany(e.target.value)}
-                className="px-3 py-1.5 text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-700 cursor-pointer"
-              >
-                <option value="All Companies">All Companies</option>
-                {companies.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </div>
+            {/* Custom Start & End Date Inputs */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                <span className="text-[11px] font-bold text-slate-400">From:</span>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => {
+                    setStartDate(e.target.value);
+                    setDatePreset("custom");
+                  }}
+                  className="px-2 py-1 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
 
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="text-xs font-bold text-slate-500">Fee Status:</span>
-              <select
-                value={selectedFeeStatus}
-                onChange={(e) => setSelectedFeeStatus(e.target.value)}
-                className="px-3 py-1.5 text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-700 cursor-pointer"
-              >
-                <option value="All">All Fee Statuses</option>
-                <option value="Balance Due">Balance Due</option>
-                <option value="Fully Paid">Fully Paid</option>
-              </select>
+              <div className="flex items-center gap-1">
+                <span className="text-[11px] font-bold text-slate-400">To:</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => {
+                    setEndDate(e.target.value);
+                    setDatePreset("custom");
+                  }}
+                  className="px-2 py-1 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+
+              {(startDate || endDate || datePreset !== "all") && (
+                <button
+                  type="button"
+                  onClick={() => handleDatePresetChange("all")}
+                  className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
+                  title="Clear Date Filter"
+                >
+                  ✕ Clear
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -327,27 +546,62 @@ export default function Student360PortalPage() {
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-slate-100 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                  <th className="pb-3 pr-4 min-w-[170px]">Student & ID</th>
+                  <th 
+                    onClick={() => handleToggleSort("name")}
+                    className="pb-3 pr-4 min-w-[170px] cursor-pointer select-none hover:text-indigo-600 transition-colors"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span>Student & ID</span>
+                      <span className="text-indigo-600 font-black">{sortBy === "name-asc" ? "▲" : sortBy === "name-desc" ? "▼" : "⇅"}</span>
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleToggleSort("date")}
+                    className="pb-3 pr-3 min-w-[130px] cursor-pointer select-none hover:text-indigo-600 transition-colors"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span>Admission Date</span>
+                      <span className="text-indigo-600 font-black">
+                        {sortBy === "date-desc" ? "▼ (Newest)" : sortBy === "date-asc" ? "▲ (Oldest)" : "⇅"}
+                      </span>
+                    </div>
+                  </th>
                   <th className="pb-3 pr-4 min-w-[120px]">Mobile & Parent</th>
                   <th className="pb-3 pr-3 min-w-[130px]">Course & Batch</th>
-                  <th className="pb-3 pr-3 min-w-[100px]">Brand Tag</th>
-                  <th className="pb-3 pr-3 min-w-[100px]">Company</th>
-                  <th className="pb-3 px-3 text-right min-w-[90px]">Agreed Fee</th>
-                  <th className="pb-3 px-3 text-right min-w-[90px]">Balance Due</th>
-                  <th className="pb-3 text-center min-w-[120px]">Fee Progress</th>
-                  <th className="pb-3 text-right min-w-[110px]">360 Action</th>
+                  <th className="pb-3 pr-3 min-w-[90px]">Brand</th>
+                  <th className="pb-3 pr-3 min-w-[90px]">Company</th>
+                  <th 
+                    onClick={() => handleToggleSort("fee")}
+                    className="pb-3 px-3 text-right min-w-[90px] cursor-pointer select-none hover:text-indigo-600 transition-colors"
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      <span>Agreed Fee</span>
+                      <span className="text-indigo-600 font-black">{sortBy === "fee-desc" ? "▼" : sortBy === "fee-asc" ? "▲" : "⇅"}</span>
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleToggleSort("balance")}
+                    className="pb-3 px-3 text-right min-w-[90px] cursor-pointer select-none hover:text-indigo-600 transition-colors"
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      <span>Balance Due</span>
+                      <span className="text-indigo-600 font-black">{sortBy === "balance-desc" ? "▼" : sortBy === "balance-asc" ? "▲" : "⇅"}</span>
+                    </div>
+                  </th>
+                  <th className="pb-3 text-center min-w-[110px]">Fee Progress</th>
+                  <th className="pb-3 text-right min-w-[100px]">360 Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100/60 font-semibold text-slate-600">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={9} className="py-12 text-center text-slate-400 font-bold">
+                    <td colSpan={10} className="py-12 text-center text-slate-400 font-bold">
                       Loading Student 360 Directory...
                     </td>
                   </tr>
                 ) : filteredStudents.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-12 text-center text-slate-400 font-bold">
+                    <td colSpan={10} className="py-12 text-center text-slate-400 font-bold">
                       No matching student records found.
                     </td>
                   </tr>
@@ -378,6 +632,18 @@ export default function Student360PortalPage() {
                           </div>
                         </td>
 
+                        <td className="pr-3 whitespace-nowrap">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-indigo-500 text-xs">📅</span>
+                            <div>
+                              <div className="font-extrabold text-slate-800">{formatAdmissionDate(s)}</div>
+                              <div className="text-[10px] font-medium text-slate-400">
+                                {s.createdAt ? new Date(s.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : ""}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+
                         <td className="pr-4 text-slate-700">
                           <div className="font-bold">{s.mobileNumber || "-"}</div>
                           <div className="text-[10px] text-slate-400 truncate max-w-[120px]">
@@ -396,7 +662,7 @@ export default function Student360PortalPage() {
                           </span>
                         </td>
 
-                        <td className="pr-3 text-slate-600 font-bold text-[11px] truncate max-w-[100px]">
+                        <td className="pr-3 text-slate-600 font-bold text-[11px] truncate max-w-[90px]">
                           {s.companyAssigned || "-"}
                         </td>
 
