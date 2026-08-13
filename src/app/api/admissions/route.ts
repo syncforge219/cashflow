@@ -86,13 +86,13 @@ export async function POST(req: NextRequest) {
     data.courseFee = Number(data.courseFee) || 0;
     data.finalFee = Number(data.finalFee) || 0;
     data.paymentMode = data.paymentMode?.trim() || "Cash";
-    data.registrationAmount = Number(data.registrationAmount || data.amountReceivedToday) || 0;
+    data.registrationAmount = Number(data.registrationAmount !== undefined ? data.registrationAmount : data.amountReceivedToday) || 0;
     data.amountReceivedToday = data.registrationAmount;
     data.downpaymentAmount = Number(data.downpaymentAmount) || 0;
     data.downpaymentDueDate = data.downpaymentDueDate ? new Date(data.downpaymentDueDate) : undefined;
-    data.remainingBalance = Math.max(0, data.finalFee - data.registrationAmount - data.downpaymentAmount);
+    data.remainingBalance = Math.max(0, data.finalFee - data.registrationAmount);
 
-    // Reconcile custom EMI plan so its total strictly matches remainingBalance (excluding downpayment & registration)
+    // Reconcile custom EMI plan so its total strictly matches remainingBalance
     if (Array.isArray(data.customEmiPlan) && data.customEmiPlan.length > 0) {
       const planSum = data.customEmiPlan.reduce((sum: number, item: any) => sum + (Number(item?.amount) || 0), 0);
       if (planSum !== data.remainingBalance && data.remainingBalance >= 0) {
@@ -334,11 +334,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Automatically generate a Payment record for the initial payment collected during admission (Registration + Downpayment)
+    // Automatically generate a Payment record for the actual initial payment collected during admission (Registration Fee collected today)
     let initialPaymentObj = null;
-    const initialCollectedAmount = Number(data.amountReceivedToday) > 0
-      ? Number(data.amountReceivedToday)
-      : ((Number(data.registrationAmount) || 0) + (Number(data.downpaymentAmount) || 0));
+    const initialCollectedAmount = Number(data.amountReceivedToday !== undefined ? data.amountReceivedToday : data.registrationAmount) || 0;
 
     if (initialCollectedAmount > 0) {
       const initialPayment = new Payment({

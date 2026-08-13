@@ -153,9 +153,9 @@ export async function PUT(
       { $group: { _id: null, total: { $sum: "$amountReceived" } } }
     ]);
     const regAmt = body.registrationAmount !== undefined ? Number(body.registrationAmount) : (body.amountReceivedToday !== undefined ? Number(body.amountReceivedToday) : (existingDoc.registrationAmount || existingDoc.amountReceivedToday || 0));
-    const dpAmt = body.downpaymentAmount !== undefined ? Number(body.downpaymentAmount) : (existingDoc.downpaymentAmount || 0);
+    const totalPaymentsReceived = paymentsSumResult.length > 0 ? Number(paymentsSumResult[0].total) : regAmt;
 
-    const calculatedBalance = Math.max(0, finalFee - regAmt - dpAmt);
+    const calculatedBalance = Math.max(0, finalFee - totalPaymentsReceived);
 
     const rawEmiPlan = body.customEmiPlan !== undefined ? body.customEmiPlan : existingDoc.customEmiPlan;
     const formattedEmiPlan = Array.isArray(rawEmiPlan)
