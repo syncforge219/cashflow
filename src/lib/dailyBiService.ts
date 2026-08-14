@@ -489,6 +489,14 @@ export async function getDailyBiReportData(targetDate?: Date): Promise<DailyBiRe
     return salesRoleSet.has(roleLower) || activeAdvisorNames.has(nameLower) || activeAdvisorNames.has(emailLower);
   });
 
+  // Create admission mapping for attributing payments to counsellors / centre heads
+  const admissionMap = new Map<string, any>();
+  allAdmissions.forEach((a: any) => {
+    if (a._id) admissionMap.set(a._id.toString(), a);
+    const sName = (a.fullName || a.studentName || "").toLowerCase().trim();
+    if (sName) admissionMap.set(sName, a);
+  });
+
   const rawCounsellorStats = salesExecs.map((exec: any) => {
     const name = exec.name || "Sales Exec";
     const email = exec.email || "";
@@ -504,7 +512,22 @@ export async function getDailyBiReportData(targetDate?: Date): Promise<DailyBiRe
 
     const cLeads = todayLeads.filter((e: any) => isMatch(e.assignedCrmAdvisor));
     const cAdmissions = todayAdmissions.filter((a: any) => isMatch(a.counsellor) || isMatch(a.assignedCrmAdvisor) || isMatch(a.recordedBy) || isMatch(a.createdBy));
-    const cPayments = todayPayments.filter((p: any) => isMatch(p.recordedBy) || isMatch(p.counsellor));
+    const cPayments = todayPayments.filter((p: any) => {
+      if (isMatch(p.recordedBy) || isMatch(p.counsellor)) return true;
+      if (p.admissionId) {
+        const adm = admissionMap.get(p.admissionId.toString());
+        if (adm) {
+          return isMatch(adm.counsellor) || isMatch(adm.assignedCrmAdvisor) || isMatch(adm.createdBy);
+        }
+      }
+      if (p.studentName) {
+        const adm = admissionMap.get(p.studentName.toLowerCase().trim());
+        if (adm) {
+          return isMatch(adm.counsellor) || isMatch(adm.assignedCrmAdvisor) || isMatch(adm.createdBy);
+        }
+      }
+      return false;
+    });
 
     let cFollowups = 0;
     allEnquiries.forEach((e: any) => {
@@ -554,33 +577,6 @@ export async function getDailyBiReportData(targetDate?: Date): Promise<DailyBiRe
       isLowPerformer: false
     };
   });
-
-  // Track unmatched leads, admissions, or collections
-  const matchedLeads = rawCounsellorStats.reduce((sum, cs) => sum + cs.leadsAssigned, 0);
-  const matchedAdmissions = rawCounsellorStats.reduce((sum, cs) => sum + cs.admissionsConverted, 0);
-  const matchedCollections = rawCounsellorStats.reduce((sum, cs) => sum + cs.collectionsGenerated, 0);
-  const matchedFollowups = rawCounsellorStats.reduce((sum, cs) => sum + cs.followupsDone, 0);
-
-  const unmatchedLeads = Math.max(0, todayLeadsCount - matchedLeads);
-  const unmatchedAdmissions = Math.max(0, todayAdmissionsCount - matchedAdmissions);
-  const unmatchedCollections = Math.max(0, todayColl - matchedCollections);
-  const unmatchedFollowups = Math.max(0, totalFollowupsTodayCount - matchedFollowups);
-
-  if (unmatchedLeads > 0 || unmatchedAdmissions > 0 || unmatchedCollections > 0) {
-    rawCounsellorStats.push({
-      name: "Direct / Head Office",
-      email: "info@institute.com",
-      brandScope: "General",
-      leadsAssigned: unmatchedLeads,
-      followupsDone: unmatchedFollowups,
-      admissionsConverted: unmatchedAdmissions,
-      conversionPct: unmatchedLeads > 0 ? Number(((unmatchedAdmissions / unmatchedLeads) * 100).toFixed(1)) : (unmatchedAdmissions > 0 ? 100 : 0),
-      collectionsGenerated: unmatchedCollections,
-      followupPerformance: "Standard",
-      isTopPerformer: false,
-      isLowPerformer: false,
-    });
-  }
 
   // Sort & Flag Top and Low Performers
   rawCounsellorStats.sort((a, b) => b.admissionsConverted - a.admissionsConverted || b.collectionsGenerated - a.collectionsGenerated || b.leadsAssigned - a.leadsAssigned);
