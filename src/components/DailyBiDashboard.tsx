@@ -368,6 +368,7 @@ export default function DailyBiDashboard() {
                 <th className="py-3 px-4">Sales Executive</th>
                 <th className="py-3 px-4">Brand Scope</th>
                 <th className="py-3 px-4">Leads Assigned</th>
+                <th className="py-3 px-4">Follow-ups Done</th>
                 <th className="py-3 px-4">Admissions</th>
                 <th className="py-3 px-4">Conversion %</th>
                 <th className="py-3 px-4">Collections</th>
@@ -384,6 +385,7 @@ export default function DailyBiDashboard() {
                   </td>
                   <td className="py-3 px-4 font-semibold text-slate-600">{exec.brandScope}</td>
                   <td className="py-3 px-4 font-semibold text-slate-700">{exec.leadsAssigned}</td>
+                  <td className="py-3 px-4 font-semibold text-indigo-600">{exec.followupsDone || 0}</td>
                   <td className="py-3 px-4 font-extrabold text-indigo-600 font-heading">{exec.admissionsConverted}</td>
                   <td className="py-3 px-4 font-bold text-purple-600">{exec.conversionPct}%</td>
                   <td className="py-3 px-4 font-bold text-emerald-600">{formatCurrency(exec.collectionsGenerated)}</td>

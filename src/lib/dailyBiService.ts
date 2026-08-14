@@ -18,6 +18,7 @@ export interface DailyBiReportData {
     conversionRate: { value: number; prevValue: number; changePct: number };
     outstandingFees: { value: number; prevValue: number; changePct: number };
     businessLoss: { value: number; prevValue: number; changePct: number };
+    totalFollowupsDone: { value: number; prevValue: number; changePct: number };
   };
 
   // 14-30 Day Revenue Trend
@@ -72,6 +73,7 @@ export interface DailyBiReportData {
     totalLeads: number;
     admissions: number;
     dailyCollections: number;
+    followupsDone: number;
     conversionRate: number;
     estimatedBusinessLoss: number;
   }>;
@@ -82,6 +84,7 @@ export interface DailyBiReportData {
     email: string;
     brandScope: string;
     leadsAssigned: number;
+    followupsDone: number;
     admissionsConverted: number;
     conversionPct: number;
     collectionsGenerated: number;
@@ -265,6 +268,45 @@ export async function getDailyBiReportData(targetDate?: Date): Promise<DailyBiRe
     return Number((((current - prev) / prev) * 100).toFixed(1));
   };
 
+  const isDateToday = (d: any) => {
+    if (!d) return false;
+    const dt = new Date(d);
+    return !isNaN(dt.getTime()) && dt >= todayStart && dt <= todayEnd;
+  };
+
+  const isStringDateToday = (s: string) => {
+    if (!s) return false;
+    const sClean = s.trim();
+    const dt = new Date(sClean);
+    if (!isNaN(dt.getTime()) && dt >= todayStart && dt <= todayEnd) return true;
+    const todayLocalStr = now.toLocaleDateString("en-IN");
+    const todayIsoStr = now.toISOString().split("T")[0];
+    return sClean === todayLocalStr || sClean === todayIsoStr || sClean.includes(todayIsoStr);
+  };
+
+  // Find all followups done today across all enquiries
+  let totalFollowupsTodayCount = 0;
+  allEnquiries.forEach((e: any) => {
+    let leadFollowupDoneToday = false;
+    if (Array.isArray(e.followUps)) {
+      e.followUps.forEach((f: any) => {
+        if (isDateToday(f.completedAt) || isDateToday(f.createdAt) || isStringDateToday(f.date)) {
+          totalFollowupsTodayCount++;
+          leadFollowupDoneToday = true;
+        }
+      });
+    }
+    if (!leadFollowupDoneToday) {
+      if (isDateToday(e.updatedAt) && (e.status === "Follow-up" || e.status === "In Progress" || e.followUpNotes)) {
+        totalFollowupsTodayCount++;
+      }
+    }
+  });
+
+  if (totalFollowupsTodayCount === 0) {
+    totalFollowupsTodayCount = todayLeads.filter((e: any) => e.nextFollowUpDate || e.remarks || e.status === "Follow-up" || e.status === "In Progress").length;
+  }
+
   const executiveSummary = {
     totalRevenue: { value: todayRevenue, prevValue: yesterdayRevenue, changePct: getPctChange(todayRevenue, yesterdayRevenue) },
     totalCollections: { value: todayColl, prevValue: yesterdayColl, changePct: getPctChange(todayColl, yesterdayColl) },
@@ -273,6 +315,7 @@ export async function getDailyBiReportData(targetDate?: Date): Promise<DailyBiRe
     conversionRate: { value: Number(todayConvRate.toFixed(1)), prevValue: Number(yesterdayConvRate.toFixed(1)), changePct: getPctChange(todayConvRate, yesterdayConvRate) },
     outstandingFees: { value: totalOutstandingFees, prevValue: totalOutstandingFees, changePct: 0 },
     businessLoss: { value: todayBusinessLoss, prevValue: yesterdayBusinessLoss, changePct: getPctChange(todayBusinessLoss, yesterdayBusinessLoss) },
+    totalFollowupsDone: { value: totalFollowupsTodayCount, prevValue: totalFollowupsTodayCount, changePct: 0 },
   };
 
   // 2. 14-30 Day Revenue Trend Calculation
@@ -316,7 +359,7 @@ export async function getDailyBiReportData(targetDate?: Date): Promise<DailyBiRe
   }
 
   // 3. Lead Conversion Funnel
-  const followupsCompleted = todayLeads.filter((e: any) => e.nextFollowUpDate || e.remarks || e.status === "Follow-up" || e.status === "In Progress").length;
+  const followupsCompleted = totalFollowupsTodayCount;
   const demosScheduled = todayLeads.filter((e: any) => e.isDemoScheduled || (e.status && e.status.toLowerCase().includes("demo"))).length;
 
   const followupPct = todayLeadsCount > 0 ? Number(((followupsCompleted / todayLeadsCount) * 100).toFixed(1)) : 0;
@@ -376,6 +419,22 @@ export async function getDailyBiReportData(targetDate?: Date): Promise<DailyBiRe
     const bAdmissions = todayAdmissions.filter((a: any) => (a.brand || "").trim().toLowerCase() === bNameLower);
     const bPayments = todayPayments.filter((p: any) => (p.brand || "").trim().toLowerCase() === bNameLower);
 
+    let bFollowups = 0;
+    allEnquiries.forEach((e: any) => {
+      if ((e.targetBrand || e.brand || "").trim().toLowerCase() === bNameLower) {
+        if (Array.isArray(e.followUps)) {
+          e.followUps.forEach((f: any) => {
+            if (isDateToday(f.completedAt) || isDateToday(f.createdAt) || isStringDateToday(f.date)) {
+              bFollowups++;
+            }
+          });
+        }
+      }
+    });
+    if (bFollowups === 0) {
+      bFollowups = bLeads.filter((e: any) => e.nextFollowUpDate || e.remarks || e.status === "Follow-up" || e.status === "In Progress").length;
+    }
+
     const bLeadsCount = bLeads.length;
     const bAdmCount = bAdmissions.length;
     const bColl = sumAmount(bPayments);
@@ -387,6 +446,7 @@ export async function getDailyBiReportData(targetDate?: Date): Promise<DailyBiRe
       totalLeads: bLeadsCount,
       admissions: bAdmCount,
       dailyCollections: bColl,
+      followupsDone: bFollowups,
       conversionRate: bConvRate,
       estimatedBusinessLoss: bLoss
     };
@@ -406,21 +466,42 @@ export async function getDailyBiReportData(targetDate?: Date): Promise<DailyBiRe
     const cAdmissions = todayAdmissions.filter((a: any) => (a.counsellor || "").toLowerCase() === name.toLowerCase());
     const cPayments = todayPayments.filter((p: any) => (p.recordedBy || p.counsellor || "").toLowerCase() === name.toLowerCase());
 
+    let cFollowups = 0;
+    allEnquiries.forEach((e: any) => {
+      const isAssigned = (e.assignedCrmAdvisor || "").toLowerCase() === name.toLowerCase();
+      if (isAssigned) {
+        if (Array.isArray(e.followUps)) {
+          e.followUps.forEach((f: any) => {
+            if (isDateToday(f.completedAt) || isDateToday(f.createdAt) || isStringDateToday(f.date) || (f.assignedTo && f.assignedTo.toLowerCase() === name.toLowerCase() && isDateToday(f.completedAt || f.createdAt))) {
+              cFollowups++;
+            }
+          });
+        }
+        if (isDateToday(e.updatedAt) && (e.status === "Follow-up" || e.status === "In Progress" || e.followUpNotes)) {
+          cFollowups++;
+        }
+      }
+    });
+    if (cFollowups === 0) {
+      cFollowups = cLeads.filter((e: any) => e.nextFollowUpDate || e.remarks || e.status === "Follow-up" || e.status === "In Progress").length;
+    }
+
     const leadsAssigned = cLeads.length;
     const admissionsConverted = cAdmissions.length;
-    const conversionPct = leadsAssigned > 0 ? Number(((admissionsConverted / leadsAssigned) * 100).toFixed(1)) : 0;
+    const conversionPct = leadsAssigned > 0 ? Number(((admissionsConverted / leadsAssigned) * 100).toFixed(1)) : (admissionsConverted > 0 ? 100 : 0);
     const collectionsGenerated = sumAmount(cPayments);
 
-    let followupPerformance = "Standard";
-    if (conversionPct >= 50 && admissionsConverted > 0) followupPerformance = "Excellent";
-    else if (conversionPct >= 25) followupPerformance = "Good";
-    else if (leadsAssigned > 3 && admissionsConverted === 0) followupPerformance = "Needs Attention";
+    let followupPerformance = "Active";
+    if (conversionPct >= 40 && admissionsConverted > 0) followupPerformance = "Top Performer";
+    else if (conversionPct >= 20 || admissionsConverted > 0) followupPerformance = "Good";
+    else if (leadsAssigned > 2 && admissionsConverted === 0) followupPerformance = "Needs Followup";
 
     return {
       name,
       email,
       brandScope,
       leadsAssigned,
+      followupsDone: cFollowups,
       admissionsConverted,
       conversionPct,
       collectionsGenerated,
