@@ -8,6 +8,7 @@ import Expense from "@/models/Expense";
 import Course from "@/models/Course";
 import Batch from "@/models/Batch";
 import Attendance from "@/models/Attendance";
+import User from "@/models/User";
 
 // ============================================================
 // SYNCFORGE CRM ULTRA AI ENGINE v3.0
@@ -393,16 +394,44 @@ export async function POST(req: Request) {
     } else if (role === "teacher" || role === "faculty") {
       roleNotice = `Teacher/Faculty · ${userName || "Faculty Scope"} (${userBrandScope || "All Brands"})`;
       const scopeLower = (userBrandScope || "").toLowerCase().trim();
+      const isScopeRestricted = scopeLower && scopeLower !== "all" && scopeLower !== "all brands" && scopeLower !== "*";
 
-      teacherCourses = allCourses.filter((c: any) => {
-        const bMatches = !scopeLower || scopeLower === "all" || scopeLower === "all brands" || (c.brand || "").toLowerCase().trim() === scopeLower;
-        return bMatches;
-      });
+      const teacherUser = (userEmail ? await User.findOne({ email: userEmail.toLowerCase() }).lean() : null) ||
+                          (nameLower ? await User.findOne({ name: new RegExp(`^${nameLower}$`, "i") }).lean() : null);
+
+      const extractSubs = (val: any): string[] => {
+        if (Array.isArray(val)) return val.map((s: any) => String(s).trim()).filter(Boolean);
+        if (typeof val === "string" && val.trim()) return val.split(",").map((s: string) => s.trim()).filter(Boolean);
+        return [];
+      };
+
+      const assignedSubs = Array.from(
+        new Set([...extractSubs(teacherUser?.subjects), ...extractSubs(teacherUser?.subject)])
+      );
 
       teacherBatches = allBatches.filter((b: any) => {
-        const nameMatch = nameLower && (b.teacherName || "").toLowerCase().includes(nameLower);
-        const brandMatch = !scopeLower || scopeLower === "all" || scopeLower === "all brands" || (b.brand || "").toLowerCase().trim() === scopeLower;
-        return nameMatch || brandMatch;
+        const nameMatch = Boolean(nameLower && (b.teacherName || "").toLowerCase().includes(nameLower));
+        const brandMatch = !isScopeRestricted || (b.brand || "").toLowerCase().trim() === scopeLower;
+        return nameMatch && brandMatch;
+      });
+
+      const teacherBatchCourses: string[] = [];
+      teacherBatches.forEach((b: any) => {
+        if (b.course && typeof b.course === "string") teacherBatchCourses.push(b.course.trim().toLowerCase());
+        if (Array.isArray(b.courses)) b.courses.forEach((c: any) => typeof c === "string" && teacherBatchCourses.push(c.trim().toLowerCase()));
+      });
+
+      teacherCourses = allCourses.filter((c: any) => {
+        const brandMatch = !isScopeRestricted || (c.brand || "").toLowerCase().trim() === scopeLower;
+        if (!brandMatch) return false;
+        const cName = (c.name || "").toLowerCase().trim();
+        const cCode = (c.code || "").toLowerCase().trim();
+        const subMatch = assignedSubs.some(s => {
+          const sLower = s.toLowerCase().trim();
+          return cName === sLower || cCode === sLower || cName.includes(sLower) || sLower.includes(cName);
+        });
+        const batchMatch = teacherBatchCourses.some(bc => cName === bc || cName.includes(bc) || bc.includes(cName));
+        return subMatch || batchMatch;
       });
 
       const batchNames = teacherBatches.map((b: any) => b.batchName);
@@ -412,9 +441,10 @@ export async function POST(req: Request) {
 
       enquiries = allEnquiries.filter((e: any) => {
         const statusLower = (e.status || "").toLowerCase();
-        const brandMatch = !scopeLower || scopeLower === "all" || scopeLower === "all brands" || (e.targetBrand || "").toLowerCase().trim() === scopeLower;
-        const demoTeacherMatch = (e.demoTeacher || "").toLowerCase().includes(nameLower);
-        return (statusLower.includes("demo") || e.isDemoScheduled || demoTeacherMatch) && brandMatch;
+        const brandMatch = !isScopeRestricted || (e.targetBrand || "").toLowerCase().trim() === scopeLower;
+        const demoTeacherMatch = Boolean(nameLower && (e.demoTeacher || "").toLowerCase().includes(nameLower));
+        const courseMatch = teacherCourses.some((tc: any) => (tc.name || "").toLowerCase().trim() === (e.targetCourse || "").toLowerCase().trim());
+        return (demoTeacherMatch || courseMatch) && brandMatch && (statusLower.includes("demo") || e.isDemoScheduled || statusLower.includes("admitted"));
       });
     } else {
       enquiries = allEnquiries.filter((e: any) => {

@@ -23,55 +23,125 @@ export async function GET(req: Request) {
       Attendance.find({}).lean(),
     ]);
 
-    // Assigned subjects & brand scope
-    const assignedSubjects: string[] = Array.isArray(currentUser?.subjects)
-      ? currentUser.subjects
-      : Array.isArray(currentUser?.subject)
-      ? currentUser.subject
-      : typeof currentUser?.subject === "string"
-      ? currentUser.subject.split(",").map((s: string) => s.trim()).filter(Boolean)
-      : [];
+    // Normalize string helper
+    const norm = (s: any) => (typeof s === "string" ? s.trim().toLowerCase() : "");
 
-    const userBrandScope = (currentUser?.brandScope || "").toLowerCase().trim();
-    const teacherNameLower = (currentUser?.name || "").toLowerCase().trim();
+    // Extract assigned subjects safely from both currentUser.subjects and currentUser.subject
+    const extractSubs = (val: any): string[] => {
+      if (Array.isArray(val)) return val.map((s: any) => String(s).trim()).filter(Boolean);
+      if (typeof val === "string" && val.trim()) {
+        return val
+          .split(",")
+          .map((s: string) => s.trim())
+          .filter(Boolean);
+      }
+      return [];
+    };
+
+    const assignedSubjects = Array.from(
+      new Set([...extractSubs(currentUser?.subjects), ...extractSubs(currentUser?.subject)])
+    );
+
+    const userBrandScope = norm(currentUser?.brandScope);
+    const isBrandRestricted =
+      Boolean(userBrandScope) &&
+      userBrandScope !== "all" &&
+      userBrandScope !== "all brands" &&
+      userBrandScope !== "*" &&
+      userBrandScope !== "global";
+
+    const teacherNameLower = norm(currentUser?.name);
     const teacherIdStr = currentUser?._id ? currentUser._id.toString() : "";
 
-    // 2. Filter courses matching teacher's brand scope or assigned subjects
-    const teacherCourses = allCourses.filter((c: any) => {
-      const bMatches =
-        !userBrandScope ||
-        userBrandScope === "all" ||
-        userBrandScope === "all brands" ||
-        (c.brand || "").toLowerCase().trim() === userBrandScope;
-      const sMatches =
-        assignedSubjects.length === 0 ||
-        assignedSubjects.some(
-          (sub) =>
-            (c.name || "").toLowerCase().includes(sub.toLowerCase()) ||
-            (c.category || "").toLowerCase().includes(sub.toLowerCase())
-        );
-      return bMatches || sMatches;
-    });
-
-    // 3. Filter active batches assigned to this teacher / brand
+    // 2. Filter active batches assigned to this teacher
     const teacherBatches = allBatches.filter((b: any) => {
-      const idMatch = teacherIdStr && b.teacherId && b.teacherId.toString() === teacherIdStr;
-      const nameMatch = teacherNameLower && (b.teacherName || "").toLowerCase().includes(teacherNameLower);
+      const bTeacherId = b.teacherId ? (b.teacherId._id || b.teacherId.id || b.teacherId).toString() : "";
+      const idMatch = Boolean(teacherIdStr && bTeacherId && bTeacherId === teacherIdStr);
+      const nameMatch = Boolean(teacherNameLower && norm(b.teacherName).includes(teacherNameLower));
       const isAssigned = Boolean(idMatch || nameMatch);
 
-      const brandMatch =
-        !userBrandScope ||
-        userBrandScope === "all" ||
-        userBrandScope === "all brands" ||
-        (b.brand || "").toLowerCase().trim() === userBrandScope;
+      const brandMatch = !isBrandRestricted || norm(b.brand) === userBrandScope;
 
-      if (teacherIdStr || teacherNameLower) {
-        return isAssigned && brandMatch;
-      }
-      return brandMatch;
+      return isAssigned && brandMatch;
     });
 
-    const teacherBatchNames = teacherBatches.map((b: any) => b.batchName);
+    const teacherBatchNames = teacherBatches.map((b: any) => b.batchName).filter(Boolean);
+    const teacherBatchCourses: string[] = [];
+    teacherBatches.forEach((b: any) => {
+      if (b.course && typeof b.course === "string" && b.course.trim()) {
+        teacherBatchCourses.push(b.course.trim());
+      }
+      if (Array.isArray(b.courses)) {
+        b.courses.forEach((c: any) => {
+          if (c && typeof c === "string" && c.trim()) {
+            teacherBatchCourses.push(c.trim());
+          }
+        });
+      }
+    });
+
+    // 3. Filter courses strictly assigned to this teacher (assigned subjects + courses of assigned batches)
+    const matchedCourses = allCourses.filter((c: any) => {
+      const brandMatch = !isBrandRestricted || !c.brand || norm(c.brand) === userBrandScope;
+      if (!brandMatch) return false;
+
+      const cNameNorm = norm(c.name);
+      const cCodeNorm = norm(c.code);
+
+      const subjectMatch = assignedSubjects.some((sub: string) => {
+        const subNorm = norm(sub);
+        if (!subNorm) return false;
+        return cNameNorm === subNorm || cCodeNorm === subNorm || cNameNorm.includes(subNorm) || subNorm.includes(cNameNorm);
+      });
+
+      const batchMatch = teacherBatchCourses.some((bc: string) => {
+        const bcNorm = norm(bc);
+        if (!bcNorm) return false;
+        return cNameNorm === bcNorm || cCodeNorm === bcNorm || cNameNorm.includes(bcNorm) || bcNorm.includes(cNameNorm);
+      });
+
+      return subjectMatch || batchMatch;
+    });
+
+    // Create fallback courses for assigned subjects not found in Course collection so they still display
+    const matchedCourseNames = new Set(matchedCourses.map((c: any) => norm(c.name)));
+    const unmappedSubjects = assignedSubjects.filter((sub: string) => {
+      const subNorm = norm(sub);
+      return !Array.from(matchedCourseNames).some((cn) => cn === subNorm || cn.includes(subNorm) || subNorm.includes(cn));
+    });
+
+    const fallbackCourses = unmappedSubjects.map((sub: string) => ({
+      _id: `subj-${sub}`,
+      name: sub,
+      code: sub.toUpperCase().replace(/\s+/g, "_"),
+      brand: currentUser?.brandScope || "Assigned Brand",
+      category: "Specialized Course",
+      duration: "Standard",
+      fee: "N/A",
+      status: "ACTIVE",
+    }));
+
+    const teacherCourses = [...matchedCourses, ...fallbackCourses];
+
+    // Helper to check if a course is taught by this teacher
+    const isTeacherCourse = (targetCourseName: string) => {
+      if (!targetCourseName) return false;
+      const targetNorm = norm(targetCourseName);
+      return (
+        teacherCourses.some((c: any) => {
+          const cNameNorm = norm(c.name);
+          return cNameNorm === targetNorm || cNameNorm.includes(targetNorm) || targetNorm.includes(cNameNorm);
+        }) ||
+        assignedSubjects.some((sub: string) => {
+          const subNorm = norm(sub);
+          return subNorm === targetNorm || subNorm.includes(targetNorm) || targetNorm.includes(subNorm);
+        }) ||
+        teacherBatchCourses.some((bc: string) => {
+          const bcNorm = norm(bc);
+          return bcNorm === targetNorm || bcNorm.includes(targetNorm) || targetNorm.includes(bcNorm);
+        })
+      );
+    };
 
     // 4. Filter enrolled students (from Admission and Enquiry collections with deduplication)
     const enrolledStudentsList: any[] = [];
@@ -79,17 +149,14 @@ export async function GET(req: Request) {
     const addedStudentKeys = new Set<string>();
 
     allAdmissions.forEach((a: any) => {
-      const batchMatch = teacherBatchNames.includes(a.batch);
-      const brandMatch =
-        !userBrandScope ||
-        userBrandScope === "all" ||
-        userBrandScope === "all brands" ||
-        (a.brand || "").toLowerCase().trim() === userBrandScope;
+      const batchMatch = a.batch && teacherBatchNames.includes(a.batch);
+      const courseMatch = isTeacherCourse(a.course);
+      const brandMatch = !isBrandRestricted || !a.brand || norm(a.brand) === userBrandScope;
 
-      if (batchMatch || brandMatch) {
+      if (batchMatch || (courseMatch && brandMatch)) {
         const uid = a._id.toString();
         const mobileKey = (a.mobileNumber || "").trim();
-        const courseKey = (a.course || "").trim().toLowerCase();
+        const courseKey = norm(a.course);
         const studentKey = mobileKey ? `${mobileKey}_${courseKey}` : uid;
 
         if (!addedStudentIds.has(uid) && !addedStudentKeys.has(studentKey)) {
@@ -111,52 +178,43 @@ export async function GET(req: Request) {
     });
 
     allEnquiries.forEach((e: any) => {
-      const statusLower = (e.status || "").toLowerCase().trim();
+      const statusLower = norm(e.status);
       if (statusLower === "admitted" || statusLower === "admission done" || e.isAdmitted) {
-        const brandMatch =
-          !userBrandScope ||
-          userBrandScope === "all" ||
-          userBrandScope === "all brands" ||
-          (e.targetBrand || "").toLowerCase().trim() === userBrandScope;
+        const courseMatch = isTeacherCourse(e.targetCourse);
+        const brandMatch = !isBrandRestricted || !e.targetBrand || norm(e.targetBrand) === userBrandScope;
 
-        const uid = e._id.toString();
-        const mobileKey = (e.primaryPhoneMobile || "").trim();
-        const courseKey = (e.targetCourse || "").trim().toLowerCase();
-        const studentKey = mobileKey ? `${mobileKey}_${courseKey}` : uid;
+        if (courseMatch && brandMatch) {
+          const uid = e._id.toString();
+          const mobileKey = (e.primaryPhoneMobile || "").trim();
+          const courseKey = norm(e.targetCourse);
+          const studentKey = mobileKey ? `${mobileKey}_${courseKey}` : uid;
 
-        if (brandMatch && !addedStudentIds.has(uid) && !addedStudentKeys.has(studentKey)) {
-          addedStudentIds.add(uid);
-          addedStudentKeys.add(studentKey);
+          if (!addedStudentIds.has(uid) && !addedStudentKeys.has(studentKey)) {
+            addedStudentIds.add(uid);
+            addedStudentKeys.add(studentKey);
 
-          enrolledStudentsList.push({
-            _id: e._id,
-            studentFullName: e.studentFullName,
-            primaryPhoneMobile: e.primaryPhoneMobile,
-            targetCourse: e.targetCourse,
-            targetBrand: e.targetBrand,
-            enquiryId: e.enquiryId || "ENQ-LIVE",
-            status: "Admitted",
-            createdAt: e.createdAt,
-          });
+            enrolledStudentsList.push({
+              _id: e._id,
+              studentFullName: e.studentFullName,
+              primaryPhoneMobile: e.primaryPhoneMobile,
+              targetCourse: e.targetCourse,
+              targetBrand: e.targetBrand,
+              enquiryId: e.enquiryId || "ENQ-LIVE",
+              status: "Admitted",
+              createdAt: e.createdAt,
+            });
+          }
         }
       }
     });
 
-    // 5. Filter demos scheduled for this teacher/brand
+    // 5. Filter demos scheduled for this teacher
     const extractedDemos: any[] = [];
 
     allEnquiries.forEach((e: any) => {
-      const statusLower = (e.status || "").toLowerCase().trim();
-      const courseMatches = assignedSubjects.some((sub: string) => {
-        const subLower = sub.toLowerCase().trim();
-        const targetLower = (e.targetCourse || "").toLowerCase().trim();
-        return subLower.includes(targetLower) || targetLower.includes(subLower);
-      });
-      const brandMatches =
-        !userBrandScope ||
-        userBrandScope === "all" ||
-        userBrandScope === "all brands" ||
-        (e.targetBrand || "").toLowerCase().trim() === userBrandScope;
+      const statusLower = norm(e.status);
+      const courseMatch = isTeacherCourse(e.targetCourse);
+      const brandMatch = !isBrandRestricted || !e.targetBrand || norm(e.targetBrand) === userBrandScope;
 
       if (e.isDemoScheduled || (Array.isArray(e.demos) && e.demos.length > 0) || statusLower.includes("demo")) {
         const enquiryDemos =
@@ -173,15 +231,14 @@ export async function GET(req: Request) {
               ];
 
         enquiryDemos.forEach((d: any) => {
-          const noteText = d.notes || e.demoNotes || "";
-          const teacherMatch =
-            (e.demoTeacher && e.demoTeacher.toLowerCase().includes(teacherNameLower)) ||
-            noteText.toLowerCase().includes(teacherNameLower) ||
-            (d.teacher && d.teacher.toLowerCase().includes(teacherNameLower)) ||
-            courseMatches ||
-            brandMatches;
+          const noteText = norm(d.notes || e.demoNotes || "");
+          const demoTeacherNorm = norm(d.teacher || e.demoTeacher || "");
 
-          if (teacherMatch) {
+          const directTeacherMatch =
+            Boolean(teacherNameLower && (demoTeacherNorm.includes(teacherNameLower) || noteText.includes(teacherNameLower)));
+          const isAssignedDemo = (directTeacherMatch || courseMatch) && brandMatch;
+
+          if (isAssignedDemo) {
             extractedDemos.push({
               _id: e._id,
               enquiryId: e.enquiryId || "ENQ-LIVE",
@@ -204,13 +261,12 @@ export async function GET(req: Request) {
 
     // 6. Real Attendance Statistics from Attendance collection in MongoDB
     const teacherAttendanceLogs = allAttendance.filter((att: any) => {
-      const bMatch = teacherBatchNames.includes(att.batchName) || (teacherIdStr && att.teacherId && att.teacherId.toString() === teacherIdStr);
-      const brandMatch =
-        !userBrandScope ||
-        userBrandScope === "all" ||
-        userBrandScope === "all brands" ||
-        (att.brand || "").toLowerCase().trim() === userBrandScope;
-      return bMatch || brandMatch;
+      const bMatch = att.batchName && teacherBatchNames.includes(att.batchName);
+      const idMatch = Boolean(teacherIdStr && att.teacherId && att.teacherId.toString() === teacherIdStr);
+      const nameMatch = Boolean(teacherNameLower && norm(att.teacherName).includes(teacherNameLower));
+      const brandMatch = !isBrandRestricted || !att.brand || norm(att.brand) === userBrandScope;
+
+      return (bMatch || idMatch || nameMatch) && brandMatch;
     });
 
     let totalAttendancePresent = 0;
@@ -227,7 +283,7 @@ export async function GET(req: Request) {
         : "0.0%";
 
     // 7. Dynamic Counts strictly from MongoDB
-    const assignedSubjectsCount = assignedSubjects.length > 0 ? assignedSubjects.length : teacherCourses.length;
+    const assignedSubjectsCount = teacherCourses.length > 0 ? teacherCourses.length : assignedSubjects.length;
     const activeBatches = teacherBatches.filter(
       (b: any) => computeBatchStatus(b.startDate, b.endDate, b.status) === "Active"
     );
@@ -256,10 +312,10 @@ export async function GET(req: Request) {
 
     // 8. DYNAMIC DONUT CHART: Real Category Breakdown from MongoDB Courses (Normalized to 100%)
     const subjectCatMap: Record<string, number> = {};
-    const sourceCourses = teacherCourses.length > 0 ? teacherCourses : allCourses;
+    const sourceCourses = teacherCourses;
 
     sourceCourses.forEach((item: any) => {
-      const cat = item.category || item.name || "General Domain";
+      const cat = item.category || item.name || "Specialized Domain";
       subjectCatMap[cat] = (subjectCatMap[cat] || 0) + 1;
     });
 
@@ -306,7 +362,7 @@ export async function GET(req: Request) {
     }
 
     if (subjectBreakdown.length === 0) {
-      subjectBreakdown.push({ name: "General Domain", pctNum: 100, hex: "#6366f1" });
+      subjectBreakdown.push({ name: "No Assigned Courses", pctNum: 100, hex: "#6366f1" });
     }
 
     // 9. DYNAMIC LINE CHART: Day-by-Day Activity Trend (Mon-Sun) aggregated live from MongoDB
