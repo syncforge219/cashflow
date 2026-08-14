@@ -418,13 +418,13 @@ function buildEnhancedBiReportPdfBuffer(data: DailyBiReportData): Buffer {
     });
   });
 
-  page1Lines.push(`BT /F2 8.5 Tf 0.29 0.0 0.51 rg 22 472 Td (3. COUNSELLOR PERFORMANCE SCORECARD  \xb7  DAILY METRICS) Tj ET`);
+  page1Lines.push(`BT /F2 8.5 Tf 0.29 0.0 0.51 rg 22 472 Td (3. COUNSELLOR & CENTRE HEAD PERFORMANCE SCORECARD  \xb7  DAILY METRICS) Tj ET`);
 
   const tblHdrY = 450;
   page1Lines.push(fillRoundedRect("0.12 0.18 0.38", 20, tblHdrY, 555, 17, 3));
   const tCols = [
     { x: 26,  label: "#" },
-    { x: 44,  label: "Counsellor Name" },
+    { x: 44,  label: "Counsellor / Centre Head" },
     { x: 155, label: "Brand Scope" },
     { x: 245, label: "Leads (Today)" },
     { x: 308, label: "Follow-ups" },

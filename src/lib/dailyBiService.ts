@@ -452,31 +452,75 @@ export async function getDailyBiReportData(targetDate?: Date): Promise<DailyBiRe
     };
   });
 
-  // 6. Counsellor / Sales Executive Performance Dashboard
-  const salesExecs = allUsers.filter((u: any) => 
-    u.role === "counsellor" || u.role === "sales executive" || u.role === "sales-executive"
-  );
+  // 6. Counsellor / Sales Executive / Centre Head Performance Dashboard
+  const salesRoleSet = new Set([
+    "counsellor",
+    "sales executive",
+    "sales-executive",
+    "centre head",
+    "centre-head",
+    "center head",
+    "center-head",
+    "brand manager",
+    "brand-manager",
+    "branch manager",
+    "manager",
+  ]);
+
+  // Collect all users who have sales/counsellor/centre head role OR who have actions recorded today
+  const activeAdvisorNames = new Set<string>();
+  todayLeads.forEach((e: any) => {
+    const adv = (e.assignedCrmAdvisor || "").trim();
+    if (adv) activeAdvisorNames.add(adv.toLowerCase());
+  });
+  todayAdmissions.forEach((a: any) => {
+    const adv = (a.counsellor || a.assignedCrmAdvisor || a.recordedBy || a.createdBy || "").trim();
+    if (adv) activeAdvisorNames.add(adv.toLowerCase());
+  });
+  todayPayments.forEach((p: any) => {
+    const adv = (p.recordedBy || p.counsellor || "").trim();
+    if (adv) activeAdvisorNames.add(adv.toLowerCase());
+  });
+
+  const salesExecs = allUsers.filter((u: any) => {
+    const roleLower = (u.role || "").toLowerCase().trim();
+    const nameLower = (u.name || "").toLowerCase().trim();
+    const emailLower = (u.email || "").toLowerCase().trim();
+    return salesRoleSet.has(roleLower) || activeAdvisorNames.has(nameLower) || activeAdvisorNames.has(emailLower);
+  });
 
   const rawCounsellorStats = salesExecs.map((exec: any) => {
     const name = exec.name || "Sales Exec";
     const email = exec.email || "";
+    const nameLower = name.toLowerCase().trim();
+    const emailLower = email.toLowerCase().trim();
     const brandScope = exec.brandScope || "All";
 
-    const cLeads = todayLeads.filter((e: any) => (e.assignedCrmAdvisor || "").toLowerCase() === name.toLowerCase());
-    const cAdmissions = todayAdmissions.filter((a: any) => (a.counsellor || "").toLowerCase() === name.toLowerCase());
-    const cPayments = todayPayments.filter((p: any) => (p.recordedBy || p.counsellor || "").toLowerCase() === name.toLowerCase());
+    const isMatch = (val?: string) => {
+      if (!val) return false;
+      const vLower = val.toLowerCase().trim();
+      return vLower === nameLower || vLower === emailLower;
+    };
+
+    const cLeads = todayLeads.filter((e: any) => isMatch(e.assignedCrmAdvisor));
+    const cAdmissions = todayAdmissions.filter((a: any) => isMatch(a.counsellor) || isMatch(a.assignedCrmAdvisor) || isMatch(a.recordedBy) || isMatch(a.createdBy));
+    const cPayments = todayPayments.filter((p: any) => isMatch(p.recordedBy) || isMatch(p.counsellor));
 
     let cFollowups = 0;
     allEnquiries.forEach((e: any) => {
-      const isAssigned = (e.assignedCrmAdvisor || "").toLowerCase() === name.toLowerCase();
-      if (isAssigned) {
-        if (Array.isArray(e.followUps)) {
-          e.followUps.forEach((f: any) => {
-            if (isDateToday(f.completedAt) || isDateToday(f.createdAt) || isStringDateToday(f.date) || (f.assignedTo && f.assignedTo.toLowerCase() === name.toLowerCase() && isDateToday(f.completedAt || f.createdAt))) {
+      const isAssigned = isMatch(e.assignedCrmAdvisor);
+      let followedToday = false;
+      if (Array.isArray(e.followUps)) {
+        e.followUps.forEach((f: any) => {
+          if (isDateToday(f.completedAt) || isDateToday(f.createdAt) || isStringDateToday(f.date)) {
+            if (isMatch(f.assignedTo) || isMatch(f.plannedBy) || isAssigned) {
               cFollowups++;
+              followedToday = true;
             }
-          });
-        }
+          }
+        });
+      }
+      if (!followedToday && isAssigned) {
         if (isDateToday(e.updatedAt) && (e.status === "Follow-up" || e.status === "In Progress" || e.followUpNotes)) {
           cFollowups++;
         }
@@ -511,8 +555,35 @@ export async function getDailyBiReportData(targetDate?: Date): Promise<DailyBiRe
     };
   });
 
+  // Track unmatched leads, admissions, or collections
+  const matchedLeads = rawCounsellorStats.reduce((sum, cs) => sum + cs.leadsAssigned, 0);
+  const matchedAdmissions = rawCounsellorStats.reduce((sum, cs) => sum + cs.admissionsConverted, 0);
+  const matchedCollections = rawCounsellorStats.reduce((sum, cs) => sum + cs.collectionsGenerated, 0);
+  const matchedFollowups = rawCounsellorStats.reduce((sum, cs) => sum + cs.followupsDone, 0);
+
+  const unmatchedLeads = Math.max(0, todayLeadsCount - matchedLeads);
+  const unmatchedAdmissions = Math.max(0, todayAdmissionsCount - matchedAdmissions);
+  const unmatchedCollections = Math.max(0, todayColl - matchedCollections);
+  const unmatchedFollowups = Math.max(0, totalFollowupsTodayCount - matchedFollowups);
+
+  if (unmatchedLeads > 0 || unmatchedAdmissions > 0 || unmatchedCollections > 0) {
+    rawCounsellorStats.push({
+      name: "Direct / Head Office",
+      email: "info@institute.com",
+      brandScope: "General",
+      leadsAssigned: unmatchedLeads,
+      followupsDone: unmatchedFollowups,
+      admissionsConverted: unmatchedAdmissions,
+      conversionPct: unmatchedLeads > 0 ? Number(((unmatchedAdmissions / unmatchedLeads) * 100).toFixed(1)) : (unmatchedAdmissions > 0 ? 100 : 0),
+      collectionsGenerated: unmatchedCollections,
+      followupPerformance: "Standard",
+      isTopPerformer: false,
+      isLowPerformer: false,
+    });
+  }
+
   // Sort & Flag Top and Low Performers
-  rawCounsellorStats.sort((a, b) => b.admissionsConverted - a.admissionsConverted || b.collectionsGenerated - a.collectionsGenerated);
+  rawCounsellorStats.sort((a, b) => b.admissionsConverted - a.admissionsConverted || b.collectionsGenerated - a.collectionsGenerated || b.leadsAssigned - a.leadsAssigned);
   if (rawCounsellorStats.length > 0) {
     rawCounsellorStats[0].isTopPerformer = true;
     if (rawCounsellorStats.length > 1) {

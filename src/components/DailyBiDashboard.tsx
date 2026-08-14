@@ -353,11 +353,11 @@ export default function DailyBiDashboard() {
       <div className="glass-panel rounded-3xl p-6 shadow-xs border border-slate-200/90">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-base font-extrabold text-slate-900 font-heading">Sales Executive Performance Dashboard</h2>
+            <h2 className="text-base font-extrabold text-slate-900 font-heading">Counsellor & Centre Head Performance Dashboard</h2>
             <p className="text-xs text-slate-500 font-medium">Ranked by admissions converted, conversion %, collections & follow-up status</p>
           </div>
           <span className="text-xs font-bold text-purple-700 bg-purple-50 px-3 py-1 rounded-full border border-purple-100">
-            {counsellorPerformance.length} Sales Executives Active
+            {counsellorPerformance.length} Active Staff / Centre Heads
           </span>
         </div>
 
@@ -365,7 +365,7 @@ export default function DailyBiDashboard() {
           <table className="w-full text-left text-xs font-medium">
             <thead>
               <tr className="bg-slate-50/80 border-y border-slate-200 text-slate-600 font-extrabold uppercase text-[10px] tracking-wider font-heading">
-                <th className="py-3 px-4">Sales Executive</th>
+                <th className="py-3 px-4">Counsellor / Centre Head</th>
                 <th className="py-3 px-4">Brand Scope</th>
                 <th className="py-3 px-4">Leads Assigned</th>
                 <th className="py-3 px-4">Follow-ups Done</th>
