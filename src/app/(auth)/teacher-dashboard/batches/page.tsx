@@ -57,21 +57,7 @@ export default function TeacherBatchesPage() {
 
       setBatches(teacherBatches);
 
-      // Extract teacher's assigned subjects + courses from assigned batches
-      const extractSubs = (val: any): string[] => {
-        if (Array.isArray(val)) return val.map((s: any) => String(s).trim()).filter(Boolean);
-        if (typeof val === "string" && val.trim()) return val.split(",").map((s: string) => s.trim()).filter(Boolean);
-        return [];
-      };
-      const assignedSubs = Array.from(new Set([...extractSubs(user?.subjects), ...extractSubs((user as any)?.subject)]));
-      const teacherCoursesList: string[] = [...assignedSubs];
-      teacherBatches.forEach((b: any) => {
-        if (b.course && typeof b.course === "string") teacherCoursesList.push(b.course.trim());
-        if (Array.isArray(b.courses)) b.courses.forEach((c: any) => c && teacherCoursesList.push(String(c).trim()));
-      });
-
       const teacherBatchNames = new Set(teacherBatches.map((b: any) => (b.batchName || "").trim().toLowerCase()));
-      const teacherBatchIds = new Set(teacherBatches.map((b: any) => String(b.batchId || b._id || "").trim().toLowerCase()));
       const fetchedAdmissions = admissionsRes.success ? (admissionsRes.data || admissionsRes.admissions || []) : [];
       
       // Filter students by teacher's assigned brand / courses if scope exists
@@ -84,29 +70,13 @@ export default function TeacherBatchesPage() {
           if (admBrand && admBrand !== userBrand) return false;
         }
 
-        const studentBatch = (adm.batch || "").trim().toLowerCase();
-        const studentBatchId = String(adm.batchId || "").trim().toLowerCase();
-
         // If student is assigned to a specific batch, ensure it belongs to this teacher
         if (!isBatchUnassigned(adm.batch)) {
-          const isBelongsToTeacher =
-            (studentBatch && teacherBatchNames.has(studentBatch)) ||
-            (studentBatchId && teacherBatchIds.has(studentBatchId));
-          if (!isBelongsToTeacher) {
+          const studentBatch = (adm.batch || "").trim().toLowerCase();
+          if (teacherBatchNames.size > 0 && !teacherBatchNames.has(studentBatch)) {
             return false;
           }
-          return true;
         }
-
-        // If student is unassigned, check if they are enrolled in a course this teacher teaches
-        if (teacherCoursesList.length > 0) {
-          const admCourse = (adm.course || "").trim().toLowerCase();
-          return teacherCoursesList.some((tc) => {
-            const tcLower = tc.trim().toLowerCase();
-            return tcLower === admCourse || tcLower.includes(admCourse) || admCourse.includes(tcLower);
-          });
-        }
-
         return true;
       });
 
@@ -175,47 +145,24 @@ export default function TeacherBatchesPage() {
     }
   };
 
-  // Helper to get students enrolled in a specific batch (case-insensitive and robust ID/name matching)
+  // Helper to get students enrolled in a specific batch using batchId and exact batch match
   const getStudentsInBatch = (batchObj: any) => {
-    if (!batchObj) return [];
-    const bId = String(batchObj._id || "").trim().toLowerCase();
-    const bBatchCode = String(batchObj.batchId || "").trim().toLowerCase();
-    const bName = String(batchObj.batchName || "").trim().toLowerCase();
-
+    const bId = typeof batchObj === "object" ? (batchObj?.batchId || batchObj?._id) : "";
+    const bName = typeof batchObj === "object" ? batchObj?.batchName : batchObj;
     return students.filter((s) => {
-      if (isBatchUnassigned(s.batch)) return false;
-
-      const sBatchId = String(s.batchId || "").trim().toLowerCase();
-      const sBatch = String(s.batch || "").trim().toLowerCase();
-
-      // Check ID match
-      if (bId && (sBatchId === bId || sBatch === bId)) return true;
-      if (bBatchCode && (sBatchId === bBatchCode || sBatch === bBatchCode)) return true;
-
-      // Check Name match (case-insensitive & trimmed)
-      if (bName && sBatch === bName) return true;
-
+      if (bId && (s.batchId === bId || s.batchId === batchObj?._id || s.batchId === batchObj?.batchId)) {
+        return true;
+      }
+      if (bName && s.batch) {
+        return s.batch.trim() === String(bName).trim();
+      }
       return false;
     });
   };
 
-  // Track unique students assigned to any of this teacher's active batches
-  const assignedStudentsSet = new Set<string>();
-  batches.forEach((b) => {
-    getStudentsInBatch(b).forEach((s) => {
-      assignedStudentsSet.add(String(s._id || s.id));
-    });
-  });
-
-  const assignedCount = assignedStudentsSet.size;
-
-  // Unassigned students awaiting batch assignment
-  const unassignedStudents = students.filter((s) => {
-    const sId = String(s._id || s.id);
-    return isBatchUnassigned(s.batch) || !assignedStudentsSet.has(sId);
-  });
+  // Unassigned students
+  const unassignedStudents = students.filter((s) => isBatchUnassigned(s.batch));
   const unassignedCount = unassignedStudents.length;
-  const totalScopeCount = assignedCount + unassignedCount;
 
   // Filtered Students List for Directory View
   const filteredStudents = students.filter((s) => {
@@ -283,7 +230,7 @@ export default function TeacherBatchesPage() {
                   : "text-slate-600 hover:text-slate-900 cursor-pointer"
               }`}
             >
-              👥 All Students Allocation ({totalScopeCount})
+              👥 All Students Allocation ({students.length})
             </button>
           </div>
         </div>
@@ -306,7 +253,7 @@ export default function TeacherBatchesPage() {
           </div>
           <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs">
             <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider block mb-1">Assigned Students</span>
-            <span className="text-2xl font-black text-emerald-600 tracking-tight">{assignedCount}</span>
+            <span className="text-2xl font-black text-emerald-600 tracking-tight">{students.length - unassignedCount}</span>
           </div>
           <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs">
             <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wider block mb-1">Needs Batch Allocation</span>
@@ -314,7 +261,7 @@ export default function TeacherBatchesPage() {
           </div>
           <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Total Scope Students</span>
-            <span className="text-2xl font-black text-slate-800 tracking-tight">{totalScopeCount}</span>
+            <span className="text-2xl font-black text-slate-800 tracking-tight">{students.length}</span>
           </div>
         </div>
 
