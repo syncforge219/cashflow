@@ -722,6 +722,7 @@ function buildMonthlyBiReportPdfBuffer(data: MonthlyBiReportData): Buffer {
             quarterlyGrowthPct: 0,
           },
           financialPnL: {
+            thisMonthCollections: 0,
             totalInflowCollections: 0,
             totalAdmissionValue: 0,
             totalAllocatedExpenses: 0,
@@ -731,6 +732,18 @@ function buildMonthlyBiReportPdfBuffer(data: MonthlyBiReportData): Buffer {
             isProfit: true,
             marginPct: 0,
             statusLabel: "PROFIT" as const,
+            lastMonthName: "Last Month",
+            lastMonthCollections: 0,
+            collectionsGrowthDiff: 0,
+            collectionsGrowthPct: 0,
+            lastMonthAllocatedExpenses: 0,
+            lastMonthAllocatedPayroll: 0,
+            lastMonthTotalOutflow: 0,
+            lastMonthNetProfitOrLoss: 0,
+            lastMonthIsProfit: true,
+            lastMonthMarginPct: 0,
+            profitGrowthDiff: 0,
+            profitGrowthPct: 0,
           },
         },
       ];
@@ -774,6 +787,7 @@ function buildMonthlyBiReportPdfBuffer(data: MonthlyBiReportData): Buffer {
     const bCode = escapePdfText(brand.brandCode || `BRD_${bIdx + 1}`);
     const bInitials = escapePdfText(brand.brandInitials || "BM");
     const pnl = brand.financialPnL || {
+      thisMonthCollections: 0,
       totalInflowCollections: 0,
       totalAdmissionValue: 0,
       totalAllocatedExpenses: 0,
@@ -783,6 +797,18 @@ function buildMonthlyBiReportPdfBuffer(data: MonthlyBiReportData): Buffer {
       isProfit: true,
       marginPct: 0,
       statusLabel: "PROFIT",
+      lastMonthName: "Last Month",
+      lastMonthCollections: 0,
+      collectionsGrowthDiff: 0,
+      collectionsGrowthPct: 0,
+      lastMonthAllocatedExpenses: 0,
+      lastMonthAllocatedPayroll: 0,
+      lastMonthTotalOutflow: 0,
+      lastMonthNetProfitOrLoss: 0,
+      lastMonthIsProfit: true,
+      lastMonthMarginPct: 0,
+      profitGrowthDiff: 0,
+      profitGrowthPct: 0,
     };
 
     // ── 1. Top Executive Header Banner (Y: 765..822) ──
@@ -1054,67 +1080,102 @@ function buildMonthlyBiReportPdfBuffer(data: MonthlyBiReportData): Buffer {
     pageLines.push(fillRoundedRect(pnlHeaderBg, rightX, bBoxY + bBoxH - 22, rightW, 22, 4));
     pageLines.push(`BT /F2 8 Tf 1 1 1 rg ${rightX + 10} ${bBoxY + bBoxH - 14} Td (2B. BRAND FINANCIAL PROFITABILITY (P&L)) Tj ET`);
 
-    // Inflow vs Outflow Rows
-    let pY = bBoxY + bBoxH - 42;
-    pageLines.push(`BT /F2 7 Tf 0.02 0.59 0.41 rg ${rightX + 10} ${pY} Td (1. CASH INFLOW & COLLECTIONS (MTD)) Tj ET`);
-    pageLines.push(`BT /F2 8 Tf 0.02 0.59 0.41 rg ${rightX + 175} ${pY} Td (Rs.${fmt(pnl.totalInflowCollections)}) Tj ET`);
+    // Inflow & Collections Comparison Rows
+    const thisMoColl = pnl.thisMonthCollections ?? pnl.totalInflowCollections ?? 0;
+    const lastMoColl = pnl.lastMonthCollections ?? brand.lastMonth?.collections ?? 0;
+    const collGrowthDiff = pnl.collectionsGrowthDiff ?? (thisMoColl - lastMoColl);
+    const collGrowthPct = pnl.collectionsGrowthPct ?? (brand.lastMonth?.collectionsGrowthPct || 0);
+    const lmName = escapePdfText(pnl.lastMonthName || brand.lastMonth?.monthName || "Last Month");
 
-    pY -= 15;
-    pageLines.push(`BT /F1 6.5 Tf 0.35 0.40 0.50 rg ${rightX + 10} ${pY} Td (2. Confirmed Admission Value:) Tj ET`);
-    pageLines.push(`BT /F1 6.5 Tf 0.20 0.25 0.35 rg ${rightX + 175} ${pY} Td (Rs.${fmt(pnl.totalAdmissionValue)}) Tj ET`);
+    let pY = bBoxY + bBoxH - 38;
+    pageLines.push(`BT /F2 7 Tf 0.02 0.59 0.41 rg ${rightX + 10} ${pY} Td (1. COLLECTIONS COMPARISON (MTD vs LAST MO)) Tj ET`);
+
+    pY -= 13;
+    pageLines.push(`BT /F2 6.5 Tf 0.15 0.20 0.35 rg ${rightX + 10} ${pY} Td (This Month Collection (MTD):) Tj ET`);
+    pageLines.push(`BT /F2 7.5 Tf 0.02 0.59 0.41 rg ${rightX + 175} ${pY} Td (Rs.${fmt(thisMoColl)}) Tj ET`);
+
+    pY -= 13;
+    pageLines.push(`BT /F1 6.5 Tf 0.35 0.40 0.50 rg ${rightX + 10} ${pY} Td (Last Month Collection (${lmName}):) Tj ET`);
+    pageLines.push(`BT /F1 6.5 Tf 0.25 0.30 0.40 rg ${rightX + 175} ${pY} Td (Rs.${fmt(lastMoColl)}) Tj ET`);
+
+    pY -= 13;
+    const collDiffSign = collGrowthDiff >= 0 ? "+" : "-";
+    const collChgCol = collGrowthDiff >= 0 ? "0.02 0.59 0.41" : "0.88 0.17 0.24";
+    pageLines.push(`BT /F2 6.5 Tf 0.30 0.35 0.45 rg ${rightX + 10} ${pY} Td (Collection MoM Growth:) Tj ET`);
+    pageLines.push(`BT /F2 6.5 Tf ${collChgCol} rg ${rightX + 175} ${pY} Td (${collDiffSign}Rs.${fmt(Math.abs(collGrowthDiff))} (${fmtChg(collGrowthPct)})) Tj ET`);
 
     pY -= 12;
+    pageLines.push(`BT /F1 6 Tf 0.40 0.45 0.55 rg ${rightX + 10} ${pY} Td (Confirmed Course Pipeline Value:) Tj ET`);
+    pageLines.push(`BT /F1 6 Tf 0.20 0.25 0.35 rg ${rightX + 175} ${pY} Td (Rs.${fmt(pnl.totalAdmissionValue)}) Tj ET`);
+
+    pY -= 10;
     pageLines.push(fillRoundedRect("0.85 0.88 0.92", rightX + 8, pY, rightW - 16, 1, 0));
 
-    pY -= 14;
-    pageLines.push(`BT /F2 7 Tf 0.88 0.17 0.24 rg ${rightX + 10} ${pY} Td (3. OPERATIONAL OUTFLOW (MTD)) Tj ET`);
-    pageLines.push(`BT /F2 8 Tf 0.88 0.17 0.24 rg ${rightX + 175} ${pY} Td (Rs.${fmt(pnl.totalOutflow)}) Tj ET`);
+    // Operational Outflow Rows
+    pY -= 12;
+    pageLines.push(`BT /F2 7 Tf 0.88 0.17 0.24 rg ${rightX + 10} ${pY} Td (2. OPERATIONAL OUTFLOW & COSTS) Tj ET`);
+    pageLines.push(`BT /F2 7.5 Tf 0.88 0.17 0.24 rg ${rightX + 175} ${pY} Td (Rs.${fmt(pnl.totalOutflow)}) Tj ET`);
 
-    pY -= 15;
-    pageLines.push(`BT /F1 6.5 Tf 0.35 0.40 0.50 rg ${rightX + 10} ${pY} Td (- Allocated Operating Expenses:) Tj ET`);
-    pageLines.push(`BT /F1 6.5 Tf 0.20 0.25 0.35 rg ${rightX + 175} ${pY} Td (Rs.${fmt(pnl.totalAllocatedExpenses)}) Tj ET`);
+    pY -= 12;
+    pageLines.push(`BT /F1 6 Tf 0.35 0.40 0.50 rg ${rightX + 10} ${pY} Td (- Allocated Operating Expenses:) Tj ET`);
+    pageLines.push(`BT /F1 6 Tf 0.20 0.25 0.35 rg ${rightX + 175} ${pY} Td (Rs.${fmt(pnl.totalAllocatedExpenses)}) Tj ET`);
 
-    pY -= 14;
-    pageLines.push(`BT /F1 6.5 Tf 0.35 0.40 0.50 rg ${rightX + 10} ${pY} Td (- Allocated Payroll & Staff Costs:) Tj ET`);
-    pageLines.push(`BT /F1 6.5 Tf 0.20 0.25 0.35 rg ${rightX + 175} ${pY} Td (Rs.${fmt(pnl.totalAllocatedPayroll)}) Tj ET`);
+    pY -= 11;
+    pageLines.push(`BT /F1 6 Tf 0.35 0.40 0.50 rg ${rightX + 10} ${pY} Td (- Allocated Payroll & Staff Costs:) Tj ET`);
+    pageLines.push(`BT /F1 6 Tf 0.20 0.25 0.35 rg ${rightX + 175} ${pY} Td (Rs.${fmt(pnl.totalAllocatedPayroll)}) Tj ET`);
 
-    // ── PROMINENT P&L BANNER ──
-    const bannerY = pY - 110;
-    const bannerH = 100;
+    if (pnl.lastMonthTotalOutflow !== undefined && pnl.lastMonthTotalOutflow > 0) {
+      pY -= 11;
+      pageLines.push(`BT /F1 6 Tf 0.45 0.50 0.60 rg ${rightX + 10} ${pY} Td (Last Month Total Outflow:) Tj ET`);
+      pageLines.push(`BT /F1 6 Tf 0.35 0.40 0.50 rg ${rightX + 175} ${pY} Td (Rs.${fmt(pnl.lastMonthTotalOutflow)}) Tj ET`);
+    }
+
+    // ── PROMINENT P&L BANNER (TOTAL PROFIT OR TOTAL LOSS) ──
+    const bannerH = 106;
+    const bannerY = pY - bannerH - 8;
     const bannerBg = pnl.isProfit ? "0.92 0.99 0.96" : "1.0 0.95 0.96";
     const bannerBorder = pnl.isProfit ? "0.02 0.59 0.41" : "0.88 0.17 0.24";
 
     pageLines.push(fillRoundedRect(bannerBg, rightX + 8, bannerY, rightW - 16, bannerH, 6));
     pageLines.push(strokeRoundedRect(bannerBorder, rightX + 8, bannerY, rightW - 16, bannerH, 4));
 
-    const statusTitle = pnl.isProfit ? "NET RESULT: OPERATING PROFIT" : "NET RESULT: OPERATING LOSS";
+    const statusTitle = pnl.isProfit ? "NET RESULT: TOTAL OPERATING PROFIT" : "NET RESULT: TOTAL OPERATING LOSS";
     const netValStr = pnl.isProfit ? `+Rs.${fmt(pnl.netProfitOrLoss)}` : `-Rs.${fmt(Math.abs(pnl.netProfitOrLoss))}`;
     const marginStr = pnl.isProfit
       ? `Net Operating Margin: ${pnl.marginPct}% (Surplus Inflow)`
       : `Net Deficit Margin: ${pnl.marginPct}% (Deficit Outflow)`;
 
-    pageLines.push(`BT /F2 9.5 Tf ${bannerBorder} rg ${rightX + 18} ${bannerY + bannerH - 20} Td (${statusTitle}) Tj ET`);
-    pageLines.push(`BT /F2 16 Tf ${bannerBorder} rg ${rightX + 18} ${bannerY + bannerH - 45} Td (${netValStr}) Tj ET`);
-    pageLines.push(`BT /F2 7 Tf ${bannerBorder} rg ${rightX + 18} ${bannerY + bannerH - 65} Td (${escapePdfText(marginStr)}) Tj ET`);
-    pageLines.push(`BT /F1 6.5 Tf 0.30 0.35 0.45 rg ${rightX + 18} ${bannerY + bannerH - 85} Td (Formula: Collections Inflow - Total Outflow Expenses) Tj ET`);
+    pageLines.push(`BT /F2 9.5 Tf ${bannerBorder} rg ${rightX + 16} ${bannerY + bannerH - 18} Td (${statusTitle}) Tj ET`);
+    pageLines.push(`BT /F2 16 Tf ${bannerBorder} rg ${rightX + 16} ${bannerY + bannerH - 42} Td (${netValStr}) Tj ET`);
+    pageLines.push(`BT /F2 6.5 Tf ${bannerBorder} rg ${rightX + 16} ${bannerY + bannerH - 60} Td (${escapePdfText(marginStr)}) Tj ET`);
+
+    // P&L comparison with Last Month line
+    const profitGrowthDiff = pnl.profitGrowthDiff ?? 0;
+    const profitGrowthPct = pnl.profitGrowthPct ?? 0;
+    const profitCompText = pnl.isProfit
+      ? `Profit vs Last Month: ${profitGrowthDiff >= 0 ? "+" : "-"}Rs.${fmt(Math.abs(profitGrowthDiff))} (${profitGrowthPct >= 0 ? "+" : ""}${profitGrowthPct}% Growth)`
+      : `Deficit vs Last Month: -Rs.${fmt(Math.abs(pnl.netProfitOrLoss))} (Operating Loss)`;
+    pageLines.push(`BT /F2 6.5 Tf 0.20 0.30 0.45 rg ${rightX + 16} ${bannerY + bannerH - 76} Td (${escapePdfText(profitCompText)}) Tj ET`);
+
+    pageLines.push(`BT /F1 5.5 Tf 0.35 0.40 0.50 rg ${rightX + 16} ${bannerY + bannerH - 94} Td (Formula: Total Collections Inflow - Total Outflow Expenses) Tj ET`);
 
     // Management Guidance Note
-    const noteY = bBoxY + 10;
-    const noteH = bannerY - noteY - 10;
+    const noteY = bBoxY + 8;
+    const noteH = bannerY - noteY - 6;
     const noteBg = pnl.isProfit ? "0.95 0.98 0.96" : "0.98 0.95 0.95";
     pageLines.push(fillRoundedRect(noteBg, rightX + 8, noteY, rightW - 16, noteH, 4));
     pageLines.push(strokeRoundedRect("0.85 0.88 0.92", rightX + 8, noteY, rightW - 16, noteH, 4));
 
-    pageLines.push(`BT /F2 7 Tf 0.15 0.20 0.35 rg ${rightX + 14} ${noteY + noteH - 16} Td (EXECUTIVE MANAGEMENT ACTION) Tj ET`);
+    pageLines.push(`BT /F2 6.5 Tf 0.15 0.20 0.35 rg ${rightX + 14} ${noteY + noteH - 14} Td (EXECUTIVE P&L MANAGEMENT SUMMARY) Tj ET`);
     const actionText1 = pnl.isProfit
-      ? `Healthy positive cashflow of Rs.${fmt(pnl.netProfitOrLoss)} achieved.`
-      : `Outflow exceeds collections by Rs.${fmt(Math.abs(pnl.netProfitOrLoss))}.`;
+      ? `Healthy profit of Rs.${fmt(pnl.netProfitOrLoss)} (${collGrowthDiff >= 0 ? "+" : ""}${collGrowthPct}% Collections MoM).`
+      : `Operating loss of Rs.${fmt(Math.abs(pnl.netProfitOrLoss))} (Outflow Rs.${fmt(pnl.totalOutflow)} > Collections Rs.${fmt(thisMoColl)}).`;
     const actionText2 = pnl.isProfit
-      ? `Continue current enrollment pace & maintain fee collection discipline.`
-      : `Prioritize overdue fee recovery & scale high-intent admissions pipeline.`;
+      ? `Maintain current enrollment pace & fee collection discipline.`
+      : `Accelerate overdue fee recovery & optimize general expenses.`;
 
-    pageLines.push(`BT /F1 6.5 Tf 0.25 0.30 0.40 rg ${rightX + 14} ${noteY + noteH - 30} Td (${escapePdfText(actionText1)}) Tj ET`);
-    pageLines.push(`BT /F1 6.5 Tf 0.25 0.30 0.40 rg ${rightX + 14} ${noteY + noteH - 44} Td (${escapePdfText(actionText2)}) Tj ET`);
+    pageLines.push(`BT /F1 6 Tf 0.25 0.30 0.40 rg ${rightX + 14} ${noteY + noteH - 26} Td (${escapePdfText(actionText1)}) Tj ET`);
+    pageLines.push(`BT /F1 6 Tf 0.25 0.30 0.40 rg ${rightX + 14} ${noteY + noteH - 38} Td (${escapePdfText(actionText2)}) Tj ET`);
 
     // ── 6. Page Footer (Y: 35..50) ──
     pageLines.push(fillRoundedRect("0.82 0.82 0.85", 20, 50, 555, 1, 0));

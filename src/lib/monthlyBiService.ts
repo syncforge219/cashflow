@@ -73,6 +73,7 @@ export interface BrandMonthlyPerformance {
 
   // Profit / Loss Assessment for the Brand
   financialPnL: {
+    thisMonthCollections: number;
     totalInflowCollections: number;
     totalAdmissionValue: number;
     totalAllocatedExpenses: number;
@@ -82,6 +83,20 @@ export interface BrandMonthlyPerformance {
     isProfit: boolean;
     marginPct: number;
     statusLabel: "PROFIT" | "LOSS" | "BREAK-EVEN";
+
+    // Last Month Comparison for Collections & Profit/Loss
+    lastMonthName: string;
+    lastMonthCollections: number;
+    collectionsGrowthDiff: number;
+    collectionsGrowthPct: number;
+    lastMonthAllocatedExpenses: number;
+    lastMonthAllocatedPayroll: number;
+    lastMonthTotalOutflow: number;
+    lastMonthNetProfitOrLoss: number;
+    lastMonthIsProfit: boolean;
+    lastMonthMarginPct: number;
+    profitGrowthDiff: number;
+    profitGrowthPct: number;
   };
 }
 
@@ -497,6 +512,47 @@ export async function getMonthlyBiReportData(targetDate?: Date): Promise<Monthly
       ? Number(((netProfitOrLoss / bMtdCollections) * 100).toFixed(1))
       : (isProfit ? 0 : -100);
 
+    // Last Month Expenses & Payroll for Brand P&L Comparison
+    const lastMonthExpensesList = allExpenses.filter((e: any) => {
+      const dt = new Date(e.expenseDate || e.createdAt);
+      return !isNaN(dt.getTime()) && dt >= lastMonthStart && dt <= lastMonthEnd;
+    });
+
+    const lastMonthPayrollsList = allPayrolls.filter((p: any) => {
+      const dt = new Date(p.paymentDate || p.createdAt);
+      const prevMonthStr = String(lastMonthStart.getMonth() + 1).padStart(2, "0");
+      const monthMatch = p.month ? p.month.includes(prevMonthStr) : false;
+      return (dt >= lastMonthStart && dt <= lastMonthEnd) || monthMatch;
+    });
+
+    const lmDirectExpenses = lastMonthExpensesList
+      .filter((e: any) => isBrandMatch(e.brand))
+      .reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
+    const lmGeneralExpenses = lastMonthExpensesList
+      .filter((e: any) => !e.brand || e.brand === "All Brands" || e.brand === "All Companies")
+      .reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
+    const lmAllocatedExpenses = Math.round(lmDirectExpenses + lmGeneralExpenses / brandCount);
+
+    const lmDirectPayroll = lastMonthPayrollsList
+      .filter((p: any) => isBrandMatch(p.brand))
+      .reduce((sum: number, p: any) => sum + (Number(p.netSalary) || 0), 0);
+    const lmGeneralPayroll = lastMonthPayrollsList
+      .filter((p: any) => !p.brand || p.brand === "All Brands" || p.brand === "All Companies")
+      .reduce((sum: number, p: any) => sum + (Number(p.netSalary) || 0), 0);
+    const lmAllocatedPayroll = Math.round(lmDirectPayroll + lmGeneralPayroll / brandCount);
+
+    const lmTotalOutflow = lmAllocatedExpenses + lmAllocatedPayroll;
+    const lmNetProfitOrLoss = bLastMonthColl - lmTotalOutflow;
+    const lmIsProfit = lmNetProfitOrLoss >= 0;
+    const lmMarginPct = bLastMonthColl > 0
+      ? Number(((lmNetProfitOrLoss / bLastMonthColl) * 100).toFixed(1))
+      : (lmIsProfit ? 0 : -100);
+
+    const collectionsGrowthDiff = bMtdCollections - bLastMonthColl;
+    const collectionsGrowthPct = getPctChange(bMtdCollections, bLastMonthColl);
+    const profitGrowthDiff = netProfitOrLoss - lmNetProfitOrLoss;
+    const profitGrowthPct = getPctChange(netProfitOrLoss, lmNetProfitOrLoss);
+
     const statusLabel: "PROFIT" | "LOSS" | "BREAK-EVEN" =
       netProfitOrLoss > 0 ? "PROFIT" : netProfitOrLoss < 0 ? "LOSS" : "BREAK-EVEN";
 
@@ -525,6 +581,7 @@ export async function getMonthlyBiReportData(targetDate?: Date): Promise<Monthly
       lastMonth: lastMonthComparison,
       lastQuarter: lastQuarterComparison,
       financialPnL: {
+        thisMonthCollections: bMtdCollections,
         totalInflowCollections: bMtdCollections,
         totalAdmissionValue: bMtdRevenue,
         totalAllocatedExpenses: allocatedExpenses,
@@ -534,6 +591,18 @@ export async function getMonthlyBiReportData(targetDate?: Date): Promise<Monthly
         isProfit,
         marginPct,
         statusLabel,
+        lastMonthName,
+        lastMonthCollections: bLastMonthColl,
+        collectionsGrowthDiff,
+        collectionsGrowthPct,
+        lastMonthAllocatedExpenses: lmAllocatedExpenses,
+        lastMonthAllocatedPayroll: lmAllocatedPayroll,
+        lastMonthTotalOutflow: lmTotalOutflow,
+        lastMonthNetProfitOrLoss: lmNetProfitOrLoss,
+        lastMonthIsProfit: lmIsProfit,
+        lastMonthMarginPct: lmMarginPct,
+        profitGrowthDiff,
+        profitGrowthPct,
       },
     };
   });
