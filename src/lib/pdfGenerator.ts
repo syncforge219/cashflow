@@ -283,355 +283,43 @@ function strokeRoundedRect(col: string, x: number, y: number, w: number, h: numb
   return `${col} RG ${drawRoundedRectPath(x, y, w, h, r)} s`;
 }
 
-function buildEnhancedBiReportPdfBuffer(data: DailyBiReportData): Buffer {
-  const dateStr = escapePdfText(data.dateStr || new Date().toLocaleDateString("en-IN"));
-  const genAtStr = escapePdfText(data.generatedAtStr || "");
-
-  const ex = data.executiveSummary || {
-    totalRevenue: { value: 0, changePct: 0 },
-    totalCollections: { value: 0, changePct: 0 },
-    totalLeads: { value: 0, changePct: 0 },
-    admissions: { value: 0, changePct: 0 },
-    conversionRate: { value: 0, changePct: 0 },
-    outstandingFees: { value: 0, changePct: 0 },
-    businessLoss: { value: 0, changePct: 0 },
-    totalFollowupsDone: { value: 0, changePct: 0 },
-  };
-
-  const funnel = data.conversionFunnel || {
-    leadsReceived: 0,
-    followupsCompleted: 0,
-    demosScheduled: 0,
-    admissionsConfirmed: 0,
-    stagePercentages: { followupPct: 0, demoPct: 0, admissionPct: 0 },
-    dropOffRates: { postLeadDropOff: 0, postFollowupDropOff: 0, postDemoDropOff: 0 },
-  };
-
-  const brands = data.brandPerformance || [];
-  const counsellors = data.counsellorPerformance || [];
-  const modes = data.collectionSummaryByMode || [];
-  const pending = data.pendingFeeSummary || {
-    overdueAmount: 0,
-    overdueStudentsCount: 0,
-    upcomingInstallmentsAmount: 0,
-    studentsRequiringFollowup: [],
-  };
-  const targets = data.tomorrowTargets || {
-    revenueTarget: 0,
-    collectionsTarget: 0,
-    admissionsTarget: 0,
-    leadFollowupsTarget: 0,
-    demoSessionsTarget: 0,
-    pendingFeeRecoveryTarget: 0,
-  };
-  const ai = data.aiInsights || {
-    executiveSummary: "",
-    keyAchievements: [],
-    recommendedPriorityActions: [],
-  };
-
-  const fmt = (n: number) => Math.round(n || 0).toLocaleString("en-IN");
-  const fmtChg = (pct: number) => (pct >= 0 ? `+${pct}%` : `${pct}%`);
-
-  const renderKpiBox = (
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    accentCol: string,
-    label: string,
-    value: string,
-    badgeText: string,
-    badgeBg: string
-  ): string[] => {
-    return [
-      fillRoundedRect("0.97 0.98 1.0", x, y, w, h, 6),
-      strokeRoundedRect("0.88 0.90 0.95", x, y, w, h, 6),
-      fillRoundedRect(accentCol, x, y + h - 3, w, 3, 2),
-      `BT /F2 6.5 Tf 0.35 0.40 0.50 rg ${x + 8} ${y + h - 14} Td (${escapePdfText(label)}) Tj ET`,
-      `BT /F2 11 Tf 0.08 0.10 0.22 rg ${x + 8} ${y + h - 28} Td (${escapePdfText(value)}) Tj ET`,
-      fillRoundedRect(badgeBg, x + 8, y + 6, Math.min(85, w - 16), 11, 3),
-      `BT /F2 5.5 Tf 1 1 1 rg ${x + 12} ${y + 10} Td (${escapePdfText(badgeText)}) Tj ET`,
-    ];
-  };
-
-  const page1Lines: string[] = [];
-
-  page1Lines.push(fillRoundedRect("0.08 0.12 0.28", 20, 765, 555, 57, 8));
-  page1Lines.push(fillRoundedRect("0.12 0.18 0.38", 20, 765, 555, 28, 0));
-  page1Lines.push(`BT /F2 13 Tf 1 1 1 rg 35 800 Td (COACHFLOW ERP  \xb7  EXECUTIVE DAILY BUSINESS REPORT) Tj ET`);
-  page1Lines.push(`BT /F1 7.5 Tf 0.80 0.88 0.98 rg 35 783 Td (Date: ${dateStr}   |   Generated: ${genAtStr}   |   Daily Operational Master Snapshot) Tj ET`);
-  page1Lines.push(fillRoundedRect("0.29 0.0 0.51", 20, 762, 555, 3, 0));
-
-  page1Lines.push(`BT /F2 8.5 Tf 0.29 0.0 0.51 rg 22 748 Td (1. OVERALL COMPANY PERFORMANCE  \xb7  DAILY TOTAL) Tj ET`);
-
-  const kpiW = 178, kpiH = 50;
-  page1Lines.push(...renderKpiBox(20,  692, kpiW, kpiH, "0.48 0.22 0.93", "TOTAL LEADS (TODAY)",       `${ex.totalLeads?.value || 0} Enquiries`,      fmtChg(ex.totalLeads?.changePct || 0) + " vs yest",       "0.48 0.22 0.93"));
-  page1Lines.push(...renderKpiBox(208.5, 692, kpiW, kpiH, "0.02 0.52 0.78", "TOTAL ADMISSIONS (TODAY)",  `${ex.admissions?.value || 0} Confirmed`,     fmtChg(ex.admissions?.changePct || 0) + " vs yest",       "0.02 0.52 0.78"));
-  page1Lines.push(...renderKpiBox(397, 692, kpiW, kpiH, "0.02 0.59 0.41", "TOTAL COLLECTIONS (TODAY)", `Rs.${fmt(ex.totalCollections?.value || 0)}`,  fmtChg(ex.totalCollections?.changePct || 0) + " vs yest", "0.02 0.59 0.41"));
-
-  const totalFollowupsNum = ex.totalFollowupsDone?.value ?? funnel.followupsCompleted ?? 0;
-  page1Lines.push(...renderKpiBox(20,  636, kpiW, kpiH, "0.14 0.38 0.92", "TOTAL FOLLOW-UPS (TODAY)",  `${totalFollowupsNum} Follow-ups`,            "Active Touches",     "0.14 0.38 0.92"));
-  page1Lines.push(...renderKpiBox(208.5, 636, kpiW, kpiH, "0.85 0.45 0.05", "DAILY CONVERSION RATE",     `${ex.conversionRate?.value || 0}%`,          "Target > 15%",       "0.85 0.45 0.05"));
-  page1Lines.push(...renderKpiBox(397, 636, kpiW, kpiH, "0.88 0.17 0.24", "OUTSTANDING PENDING FEES",   `Rs.${fmt(ex.outstandingFees?.value || 0)}`,  "Pending Recovery",   "0.88 0.17 0.24"));
-
-  page1Lines.push(`BT /F2 8.5 Tf 0.29 0.0 0.51 rg 22 616 Td (2. BRAND-WISE PERFORMANCE BREAKDOWN  \xb7  DAILY OPERATIONS) Tj ET`);
-
-  const activeBrands = brands.length > 0 ? brands : [
-    { brandName: "CADD MANTRA", totalLeads: ex.totalLeads?.value || 0, admissions: ex.admissions?.value || 0, dailyCollections: ex.totalCollections?.value || 0, followupsDone: totalFollowupsNum, conversionRate: ex.conversionRate?.value || 0 },
-    { brandName: "DESIGN GATEWAY", totalLeads: 0, admissions: 0, dailyCollections: 0, followupsDone: 0, conversionRate: 0 },
-  ];
-
-  const brandCardCount = Math.min(activeBrands.length, 3);
-  const bCardW = brandCardCount === 1 ? 555 : brandCardCount === 2 ? 272 : 178;
-  const bCardH = 115;
-  const bCardY = 492;
-
-  const brandAccentColors = ["0.02 0.59 0.41", "0.48 0.22 0.93", "0.02 0.52 0.78", "0.85 0.45 0.05"];
-
-  activeBrands.slice(0, 3).forEach((b, idx) => {
-    const bx = 20 + idx * (bCardW + 10);
-    const col = brandAccentColors[idx % brandAccentColors.length];
-    const bName = escapePdfText(b.brandName || `Brand ${idx + 1}`);
-
-    page1Lines.push(fillRoundedRect("0.98 0.98 1.0", bx, bCardY, bCardW, bCardH, 6));
-    page1Lines.push(strokeRoundedRect("0.88 0.90 0.95", bx, bCardY, bCardW, bCardH, 6));
-    page1Lines.push(fillRoundedRect(col, bx, bCardY + bCardH - 22, bCardW, 22, 6));
-
-    page1Lines.push(`BT /F2 8.5 Tf 1 1 1 rg ${bx + 10} ${bCardY + bCardH - 14} Td (${bName.toUpperCase()}) Tj ET`);
-
-    let lineY = bCardY + bCardH - 36;
-    const metricsList = [
-      { label: "Total Leads (Today):", value: `${b.totalLeads || 0} Enquiries`, isBold: false },
-      { label: "Total Admissions (Today):", value: `${b.admissions || 0} Confirmed`, isBold: true },
-      { label: "Daily Collections:", value: `Rs.${fmt(b.dailyCollections || 0)}`, isBold: true, valCol: "0.02 0.59 0.41" },
-      { label: "Follow-ups Done:", value: `${b.followupsDone || 0} Done`, isBold: false },
-      { label: "Conversion Rate:", value: `${b.conversionRate || 0}%`, isBold: false },
-    ];
-
-    metricsList.forEach((m) => {
-      page1Lines.push(`BT /F1 6.5 Tf 0.35 0.38 0.45 rg ${bx + 10} ${lineY} Td (${escapePdfText(m.label)}) Tj ET`);
-      const valColor = m.valCol || (m.isBold ? "0.08 0.10 0.22" : "0.20 0.22 0.30");
-      const font = m.isBold ? "/F2" : "/F1";
-      page1Lines.push(`BT ${font} 6.5 Tf ${valColor} rg ${bx + bCardW - 75} ${lineY} Td (${escapePdfText(m.value)}) Tj ET`);
-      lineY -= 15;
-    });
-  });
-
-  page1Lines.push(`BT /F2 8.5 Tf 0.29 0.0 0.51 rg 22 472 Td (3. COUNSELLOR & CENTRE HEAD PERFORMANCE SCORECARD  \xb7  DAILY METRICS) Tj ET`);
-
-  const tblHdrY = 450;
-  page1Lines.push(fillRoundedRect("0.12 0.18 0.38", 20, tblHdrY, 555, 17, 3));
-  const tCols = [
-    { x: 26,  label: "#" },
-    { x: 44,  label: "Counsellor / Centre Head" },
-    { x: 155, label: "Brand Scope" },
-    { x: 245, label: "Leads (Today)" },
-    { x: 308, label: "Follow-ups" },
-    { x: 368, label: "Admissions" },
-    { x: 425, label: "Collections Generated" },
-    { x: 508, label: "Conv %" },
-    { x: 542, label: "Status" },
-  ];
-  tCols.forEach((c) => {
-    page1Lines.push(`BT /F2 6.5 Tf 1 1 1 rg ${c.x} ${tblHdrY + 5} Td (${escapePdfText(c.label)}) Tj ET`);
-  });
-
-  let tRowY = 432;
-  const maxCounsellorsOnPage1 = 8;
-  const counsellorsList = counsellors.slice(0, maxCounsellorsOnPage1);
-
-  let totalCLeads = 0;
-  let totalCFollowups = 0;
-  let totalCAdmissions = 0;
-  let totalCCollections = 0;
-
-  if (counsellorsList.length === 0) {
-    page1Lines.push(fillRoundedRect("0.97 0.98 1.0", 20, tRowY - 2, 555, 18, 0));
-    page1Lines.push(`BT /F1 7 Tf 0.4 0.4 0.5 rg 180 ${tRowY + 4} Td (No active counsellors recorded for today.) Tj ET`);
-    tRowY -= 20;
-  } else {
-    counsellorsList.forEach((cs, idx) => {
-      totalCLeads += cs.leadsAssigned || 0;
-      totalCFollowups += cs.followupsDone || 0;
-      totalCAdmissions += cs.admissionsConverted || 0;
-      totalCCollections += cs.collectionsGenerated || 0;
-
-      const bg = idx % 2 === 0 ? "0.96 0.97 0.99" : "1 1 1";
-      page1Lines.push(fillRoundedRect(bg, 20, tRowY - 2, 555, 15, 0));
-
-      page1Lines.push(`BT /F1 6.5 Tf 0.3 0.3 0.4 rg 26 ${tRowY + 3} Td (${idx + 1}) Tj ET`);
-      page1Lines.push(`BT /F2 6.5 Tf 0.10 0.12 0.22 rg 44 ${tRowY + 3} Td (${escapePdfText((cs.name || "Counsellor").slice(0, 18))}) Tj ET`);
-      page1Lines.push(`BT /F1 6.5 Tf 0.25 0.28 0.35 rg 155 ${tRowY + 3} Td (${escapePdfText((cs.brandScope || "All").slice(0, 14))}) Tj ET`);
-      page1Lines.push(`BT /F1 6.5 Tf 0.10 0.12 0.22 rg 255 ${tRowY + 3} Td (${cs.leadsAssigned || 0}) Tj ET`);
-      page1Lines.push(`BT /F1 6.5 Tf 0.10 0.12 0.22 rg 318 ${tRowY + 3} Td (${cs.followupsDone || 0}) Tj ET`);
-      page1Lines.push(`BT /F2 6.5 Tf 0.08 0.10 0.22 rg 378 ${tRowY + 3} Td (${cs.admissionsConverted || 0}) Tj ET`);
-      page1Lines.push(`BT /F2 6.5 Tf 0.02 0.59 0.41 rg 425 ${tRowY + 3} Td (Rs.${fmt(cs.collectionsGenerated || 0)}) Tj ET`);
-      page1Lines.push(`BT /F1 6.5 Tf 0.10 0.12 0.22 rg 508 ${tRowY + 3} Td (${cs.conversionPct || 0}%) Tj ET`);
-
-      const status = cs.isTopPerformer || cs.followupPerformance === "Top Performer"
-        ? "Top"
-        : (cs.admissionsConverted || 0) > 0
-        ? "Active"
-        : "Pending";
-      const statusCol = status === "Top" ? "0.02 0.59 0.41" : status === "Active" ? "0.14 0.38 0.92" : "0.85 0.45 0.05";
-      page1Lines.push(fillRoundedRect(statusCol, 540, tRowY - 1, 30, 12, 2));
-      page1Lines.push(`BT /F2 5.5 Tf 1 1 1 rg 543 ${tRowY + 3} Td (${status}) Tj ET`);
-
-      tRowY -= 17;
-    });
-
-    page1Lines.push(fillRoundedRect("0.89 0.92 0.98", 20, tRowY - 2, 555, 17, 2));
-    page1Lines.push(`BT /F2 7 Tf 0.12 0.18 0.38 rg 44 ${tRowY + 4} Td (TOTAL / SUMMARY) Tj ET`);
-    page1Lines.push(`BT /F2 7 Tf 0.12 0.18 0.38 rg 155 ${tRowY + 4} Td (All Brands) Tj ET`);
-    page1Lines.push(`BT /F2 7 Tf 0.12 0.18 0.38 rg 255 ${tRowY + 4} Td (${totalCLeads}) Tj ET`);
-    page1Lines.push(`BT /F2 7 Tf 0.12 0.18 0.38 rg 318 ${tRowY + 4} Td (${totalCFollowups}) Tj ET`);
-    page1Lines.push(`BT /F2 7 Tf 0.12 0.18 0.38 rg 378 ${tRowY + 4} Td (${totalCAdmissions}) Tj ET`);
-    page1Lines.push(`BT /F2 7 Tf 0.02 0.59 0.41 rg 425 ${tRowY + 4} Td (Rs.${fmt(totalCCollections)}) Tj ET`);
-    const totConvPct = totalCLeads > 0 ? ((totalCAdmissions / totalCLeads) * 100).toFixed(1) : "0.0";
-    page1Lines.push(`BT /F2 7 Tf 0.12 0.18 0.38 rg 508 ${tRowY + 4} Td (${totConvPct}%) Tj ET`);
-  }
-
-  page1Lines.push(fillRoundedRect("0.82 0.82 0.85", 20, 50, 555, 1, 0));
-  page1Lines.push(`BT /F1 7 Tf 0.45 0.45 0.50 rg 22 38 Td (CoachFlow ERP  \xb7  Executive BI Daily Report  \xb7  Confidential) Tj ET`);
-  page1Lines.push(`BT /F1 7 Tf 0.45 0.45 0.50 rg 480 38 Td (Page 1 of 2) Tj ET`);
-
-  const page2Lines: string[] = [];
-
-  page2Lines.push(fillRoundedRect("0.08 0.12 0.28", 20, 765, 555, 57, 8));
-  page2Lines.push(fillRoundedRect("0.12 0.18 0.38", 20, 765, 555, 28, 0));
-  page2Lines.push(`BT /F2 13 Tf 1 1 1 rg 35 800 Td (COACHFLOW ERP  \xb7  FINANCIAL RECEIPTS & RECOVERY REPORT) Tj ET`);
-  page2Lines.push(`BT /F1 7.5 Tf 0.80 0.88 0.98 rg 35 783 Td (Date: ${dateStr}   |   Page 2 of 2   |   Collections, Overdue Installments & Targets) Tj ET`);
-  page2Lines.push(fillRoundedRect("0.02 0.59 0.41", 20, 762, 555, 3, 0));
-
-  page2Lines.push(`BT /F2 8.5 Tf 0.29 0.0 0.51 rg 22 748 Td (4. PAYMENT MODE BREAKDOWN  \xb7  TODAY'S COLLECTIONS) Tj ET`);
-
-  const paymentModes = modes.length > 0 ? modes : [
-    { mode: "UPI", amount: ex.totalCollections?.value || 0, percentage: 100 },
-    { mode: "Bank Transfer", amount: 0, percentage: 0 },
-    { mode: "Cash", amount: 0, percentage: 0 },
-    { mode: "Credit/Debit Card", amount: 0, percentage: 0 },
-  ];
-
-  const modeW = 132, modeH = 48;
-  const modeCols = ["0.02 0.59 0.41", "0.14 0.38 0.92", "0.85 0.45 0.05", "0.48 0.22 0.93"];
-
-  paymentModes.slice(0, 4).forEach((m, idx) => {
-    const mx = 20 + idx * (modeW + 9);
-    const my = 692;
-    const col = modeCols[idx % modeCols.length];
-
-    page2Lines.push(fillRoundedRect("0.97 0.98 1.0", mx, my, modeW, modeH, 6));
-    page2Lines.push(strokeRoundedRect("0.88 0.90 0.95", mx, my, modeW, modeH, 6));
-    page2Lines.push(fillRoundedRect(col, mx, my + modeH - 3, modeW, 3, 2));
-
-    page2Lines.push(`BT /F2 6.5 Tf 0.35 0.40 0.50 rg ${mx + 8} ${my + modeH - 14} Td (${escapePdfText(m.mode.toUpperCase())}) Tj ET`);
-    page2Lines.push(`BT /F2 10.5 Tf 0.08 0.10 0.22 rg ${mx + 8} ${my + modeH - 28} Td (Rs.${fmt(m.amount)}) Tj ET`);
-    page2Lines.push(`BT /F1 6 Tf 0.45 0.48 0.55 rg ${mx + 8} ${my + 7} Td (${m.percentage}% of Daily Collections) Tj ET`);
-  });
-
-  page2Lines.push(`BT /F2 8.5 Tf 0.29 0.0 0.51 rg 22 674 Td (5. PRIORITY OVERDUE INSTALLMENTS REQUIRING IMMEDIATE RECOVERY) Tj ET`);
-
-  const oHdrY = 652;
-  page2Lines.push(fillRoundedRect("0.12 0.18 0.38", 20, oHdrY, 555, 17, 3));
-  const oCols = [
-    { x: 26,  label: "#" },
-    { x: 44,  label: "Student Name" },
-    { x: 160, label: "Enrolled Course" },
-    { x: 285, label: "Contact Phone" },
-    { x: 380, label: "Overdue Balance" },
-    { x: 470, label: "Due Date" },
-    { x: 535, label: "Status" },
-  ];
-  oCols.forEach((c) => {
-    page2Lines.push(`BT /F2 6.5 Tf 1 1 1 rg ${c.x} ${oHdrY + 5} Td (${escapePdfText(c.label)}) Tj ET`);
-  });
-
-  let oRowY = 634;
-  const overdueList = (pending.studentsRequiringFollowup || []).slice(0, 5);
-
-  if (overdueList.length === 0) {
-    page2Lines.push(fillRoundedRect("0.97 0.98 1.0", 20, oRowY - 2, 555, 18, 0));
-    page2Lines.push(`BT /F1 7 Tf 0.02 0.59 0.41 rg 190 ${oRowY + 4} Td (No overdue installments requiring immediate action today!) Tj ET`);
-    oRowY -= 20;
-  } else {
-    overdueList.forEach((st, idx) => {
-      const bg = idx % 2 === 0 ? "0.96 0.97 0.99" : "1 1 1";
-      page2Lines.push(fillRoundedRect(bg, 20, oRowY - 2, 555, 15, 0));
-
-      page2Lines.push(`BT /F1 6.5 Tf 0.3 0.3 0.4 rg 26 ${oRowY + 3} Td (${idx + 1}) Tj ET`);
-      page2Lines.push(`BT /F2 6.5 Tf 0.10 0.12 0.22 rg 44 ${oRowY + 3} Td (${escapePdfText((st.fullName || "Student").slice(0, 18))}) Tj ET`);
-      page2Lines.push(`BT /F1 6.5 Tf 0.25 0.28 0.35 rg 160 ${oRowY + 3} Td (${escapePdfText((st.course || "General").slice(0, 20))}) Tj ET`);
-      page2Lines.push(`BT /F1 6.5 Tf 0.10 0.12 0.22 rg 285 ${oRowY + 3} Td (${escapePdfText(st.mobileNumber || "-")}) Tj ET`);
-      page2Lines.push(`BT /F2 6.5 Tf 0.88 0.17 0.24 rg 380 ${oRowY + 3} Td (Rs.${fmt(st.remainingBalance || 0)}) Tj ET`);
-      page2Lines.push(`BT /F1 6.5 Tf 0.25 0.28 0.35 rg 470 ${oRowY + 3} Td (${escapePdfText(st.nextDueDate || "Overdue")}) Tj ET`);
-
-      page2Lines.push(fillRoundedRect("0.88 0.17 0.24", 532, oRowY - 1, 38, 12, 2));
-      page2Lines.push(`BT /F2 5.5 Tf 1 1 1 rg 536 ${oRowY + 3} Td (Overdue) Tj ET`);
-
-      oRowY -= 17;
-    });
-  }
-
-  page2Lines.push(`BT /F2 8.5 Tf 0.29 0.0 0.51 rg 22 ${oRowY - 8} Td (6. TOMORROW'S BUSINESS TARGETS & EXECUTIVE ACTION PLAN) Tj ET`);
-
-  const tgtY = oRowY - 60;
-  const tgtW = 178, tgtH = 46;
-
-  page2Lines.push(...renderKpiBox(20,  tgtY, tgtW, tgtH, "0.02 0.59 0.41", "COLLECTIONS TARGET",     `Rs.${fmt(targets.collectionsTarget || Math.round((ex.totalCollections?.value || 10000) * 1.25))}`, "Daily Target", "0.02 0.59 0.41"));
-  page2Lines.push(...renderKpiBox(208.5, tgtY, tgtW, tgtH, "0.14 0.38 0.92", "ADMISSIONS GOAL",        `${targets.admissionsTarget || 3} Students`,                                                         "Enrollment Target", "0.14 0.38 0.92"));
-  page2Lines.push(...renderKpiBox(397, tgtY, tgtW, tgtH, "0.85 0.45 0.05", "FOLLOW-UP CALLS TARGET", `${targets.leadFollowupsTarget || 15} Calls`,                                                      "Outreach Target", "0.85 0.45 0.05"));
-
-  const aiY = 68;
-  const aiH = tgtY - aiY - 10;
-  page2Lines.push(fillRoundedRect("0.08 0.12 0.28", 20, aiY, 555, aiH, 6));
-  page2Lines.push(`BT /F2 8.5 Tf 0.30 0.85 0.65 rg 35 ${aiY + aiH - 16} Td (AUTOMATED EXECUTIVE OBSERVATION & DAILY SUMMARY) Tj ET`);
-
-  const execSummaryText = `Today's operations generated Rs.${fmt(ex.totalCollections?.value || 0)} in collections across ${ex.admissions?.value || 0} new admission(s) from ${ex.totalLeads?.value || 0} total leads.`;
-  page2Lines.push(`BT /F1 7 Tf 0.90 0.92 0.96 rg 35 ${aiY + aiH - 30} Td (${escapePdfText(execSummaryText.slice(0, 110))}) Tj ET`);
-
-  page2Lines.push(`BT /F2 7.5 Tf 0.25 0.80 0.95 rg 35 ${aiY + aiH - 46} Td (KEY ACHIEVEMENTS TODAY) Tj ET`);
-  const achievements = [
-    `Generated Rs.${fmt(ex.totalCollections?.value || 0)} in total daily collections today.`,
-    `Successfully processed ${ex.admissions?.value || 0} confirmed student admission(s).`,
-    `Completed ${totalFollowupsNum} active follow-up outreach touches.`,
-  ];
-  let achY = aiY + aiH - 58;
-  achievements.forEach((ach) => {
-    page2Lines.push(fillRoundedRect("0.02 0.59 0.41", 35, achY - 1, 4, 4, 1));
-    page2Lines.push(`BT /F1 6.5 Tf 0.88 0.90 0.95 rg 44 ${achY} Td (${escapePdfText(ach.slice(0, 105))}) Tj ET`);
-    achY -= 12;
-  });
-
-  page2Lines.push(`BT /F2 7.5 Tf 0.95 0.70 0.25 rg 35 ${achY - 2} Td (RECOMMENDED MANAGEMENT ACTIONS FOR TOMORROW) Tj ET`);
-  const actions = [
-    `Target Rs.${fmt(targets.collectionsTarget || Math.round((ex.totalCollections?.value || 10000) * 1.25))} in daily collections.`,
-    `Schedule at least 5 demo sessions with active prospect leads.`,
-    `Execute WhatsApp EMI recovery campaign for pending installment accounts.`,
-  ];
-  let actY = achY - 14;
-  actions.forEach((act) => {
-    page2Lines.push(fillRoundedRect("0.85 0.45 0.05", 35, actY - 1, 4, 4, 1));
-    page2Lines.push(`BT /F1 6.5 Tf 0.88 0.90 0.95 rg 44 ${actY} Td (${escapePdfText(act.slice(0, 105))}) Tj ET`);
-    actY -= 12;
-  });
-
-  page2Lines.push(fillRoundedRect("0.82 0.82 0.85", 20, 50, 555, 1, 0));
-  page2Lines.push(`BT /F1 7 Tf 0.45 0.45 0.50 rg 22 38 Td (CoachFlow ERP  \xb7  Executive BI Daily Report  \xb7  Official Report) Tj ET`);
-  page2Lines.push(`BT /F1 7 Tf 0.45 0.45 0.50 rg 480 38 Td (Page 2 of 2) Tj ET`);
-
-  const p1Text = page1Lines.join("\n");
-  const p2Text = page2Lines.join("\n");
-
+function buildMultiPagePdfBuffer(pageStreamTexts: string[]): Buffer {
+  const pageCount = Math.max(1, pageStreamTexts.length);
   const objects: string[] = [];
-  objects.push(`1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj`);
-  objects.push(`2 0 obj\n<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>\nendobj`);
-  objects.push(`3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 7 0 R >>\nendobj`);
-  objects.push(`4 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 8 0 R >>\nendobj`);
-  objects.push(`5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj`);
-  objects.push(`6 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>\nendobj`);
-  objects.push(`7 0 obj\n<< /Length ${Buffer.byteLength(p1Text)} >>\nstream\n${p1Text}\nendstream\nendobj`);
-  objects.push(`8 0 obj\n<< /Length ${Buffer.byteLength(p2Text)} >>\nstream\n${p2Text}\nendstream\nendobj`);
+
+  const catalogObjNum = 1;
+  const pagesObjNum = 2;
+  const firstPageObjNum = 3;
+  const font1ObjNum = firstPageObjNum + pageCount;
+  const font2ObjNum = font1ObjNum + 1;
+  const firstStreamObjNum = font2ObjNum + 1;
+
+  // 1. Catalog Object
+  objects.push(`${catalogObjNum} 0 obj\n<< /Type /Catalog /Pages ${pagesObjNum} 0 R >>\nendobj`);
+
+  // 2. Pages Object
+  const kidsStr = Array.from({ length: pageCount }, (_, i) => `${firstPageObjNum + i} 0 R`).join(" ");
+  objects.push(`${pagesObjNum} 0 obj\n<< /Type /Pages /Kids [${kidsStr}] /Count ${pageCount} >>\nendobj`);
+
+  // 3..2+pageCount: Individual Page Objects
+  for (let i = 0; i < pageCount; i++) {
+    const pageObjNum = firstPageObjNum + i;
+    const streamObjNum = firstStreamObjNum + i;
+    objects.push(
+      `${pageObjNum} 0 obj\n<< /Type /Page /Parent ${pagesObjNum} 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 ${font1ObjNum} 0 R /F2 ${font2ObjNum} 0 R >> >> /Contents ${streamObjNum} 0 R >>\nendobj`
+    );
+  }
+
+  // 4. Fonts
+  objects.push(`${font1ObjNum} 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj`);
+  objects.push(`${font2ObjNum} 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>\nendobj`);
+
+  // 5. Content Streams
+  for (let i = 0; i < pageCount; i++) {
+    const streamObjNum = firstStreamObjNum + i;
+    const streamText = pageStreamTexts[i] || "";
+    objects.push(`${streamObjNum} 0 obj\n<< /Length ${Buffer.byteLength(streamText)} >>\nstream\n${streamText}\nendstream\nendobj`);
+  }
 
   let header = "%PDF-1.4\n";
   let body = "";
@@ -645,7 +333,347 @@ function buildEnhancedBiReportPdfBuffer(data: DailyBiReportData): Buffer {
     offset += Buffer.byteLength(obj);
   }
 
-  return Buffer.from(header + body + xref + `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${offset}\n%%EOF\n`, "utf-8");
+  return Buffer.from(
+    header + body + xref + `trailer\n<< /Size ${objects.length + 1} /Root ${catalogObjNum} 0 R >>\nstartxref\n${offset}\n%%EOF\n`,
+    "utf-8"
+  );
+}
+
+function buildEnhancedBiReportPdfBuffer(data: DailyBiReportData): Buffer {
+  const dateStr = escapePdfText(data.dateStr || new Date().toLocaleDateString("en-IN"));
+  const genAtStr = escapePdfText(data.generatedAtStr || "");
+
+  const fmt = (n: number) => Math.round(n || 0).toLocaleString("en-IN");
+
+  const brandReports = data.brandDailyReports && data.brandDailyReports.length > 0
+    ? data.brandDailyReports
+    : (data.brandPerformance && data.brandPerformance.length > 0
+      ? data.brandPerformance.map((bp) => ({
+          brandName: bp.brandName,
+          brandCode: bp.brandName.replace(/[^A-Z0-9]/g, "_"),
+          brandInitials: bp.brandName.split(/\s+/).map((w: string) => w[0]).join("").slice(0, 3) || "BM",
+          todayLeads: bp.totalLeads,
+          todayWalkins: Math.round(bp.totalLeads * 0.4),
+          todayAdmissions: bp.admissions,
+          todayCollections: bp.dailyCollections,
+          todayAdmissionRevenue: bp.admissions * 25000,
+          todayFollowups: bp.followupsDone,
+          conversionRate: bp.conversionRate,
+          last7Days: [],
+          sevenDaysTotals: {
+            leads: bp.totalLeads,
+            walkins: Math.round(bp.totalLeads * 0.4),
+            admissions: bp.admissions,
+            collections: bp.dailyCollections,
+            revenue: bp.admissions * 25000,
+            conversionRate: bp.conversionRate,
+          },
+          todayAdmissionsList: [],
+        }))
+      : [
+          {
+            brandName: "CADD MANTRA",
+            brandCode: "CADD_MANTRA",
+            brandInitials: "CM",
+            todayLeads: data.executiveSummary?.totalLeads?.value || 0,
+            todayWalkins: 0,
+            todayAdmissions: data.executiveSummary?.admissions?.value || 0,
+            todayCollections: data.executiveSummary?.totalCollections?.value || 0,
+            todayAdmissionRevenue: data.executiveSummary?.totalRevenue?.value || 0,
+            todayFollowups: data.executiveSummary?.totalFollowupsDone?.value || 0,
+            conversionRate: data.executiveSummary?.conversionRate?.value || 0,
+            last7Days: [],
+            sevenDaysTotals: {
+              leads: 0,
+              walkins: 0,
+              admissions: 0,
+              collections: 0,
+              revenue: 0,
+              conversionRate: 0,
+            },
+            todayAdmissionsList: [],
+          },
+        ]);
+
+  const totalPages = brandReports.length;
+  const pageStreamTexts: string[] = [];
+
+  const brandColorPalettes = [
+    { dark: "0.08 0.12 0.28", topStrip: "0.29 0.00 0.51", badgeBg: "0.38 0.18 0.88", accent: "0.48 0.22 0.93" },
+    { dark: "0.04 0.18 0.20", topStrip: "0.02 0.59 0.41", badgeBg: "0.05 0.65 0.50", accent: "0.02 0.59 0.41" },
+    { dark: "0.06 0.14 0.28", topStrip: "0.02 0.45 0.75", badgeBg: "0.10 0.55 0.90", accent: "0.02 0.52 0.78" },
+    { dark: "0.14 0.08 0.25", topStrip: "0.48 0.15 0.70", badgeBg: "0.58 0.20 0.85", accent: "0.85 0.45 0.05" },
+  ];
+
+  const renderBrandKpiBox = (
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    accentCol: string,
+    label: string,
+    value: string,
+    badgeText: string
+  ): string[] => {
+    return [
+      fillRoundedRect("0.98 0.99 1.0", x, y, w, h, 6),
+      strokeRoundedRect("0.88 0.90 0.95", x, y, w, h, 6),
+      fillRoundedRect(accentCol, x, y + h - 3, w, 3, 2),
+      `BT /F2 6.5 Tf 0.35 0.40 0.50 rg ${x + 6} ${y + h - 14} Td (${escapePdfText(label)}) Tj ET`,
+      `BT /F2 10.5 Tf 0.08 0.10 0.22 rg ${x + 6} ${y + h - 28} Td (${escapePdfText(value)}) Tj ET`,
+      fillRoundedRect(accentCol, x + 6, y + 6, Math.min(94, w - 12), 11, 2),
+      `BT /F2 5.5 Tf 1 1 1 rg ${x + 10} ${y + 9.5} Td (${escapePdfText(badgeText)}) Tj ET`,
+    ];
+  };
+
+  brandReports.forEach((brand, bIdx) => {
+    const pageLines: string[] = [];
+    const pal = brandColorPalettes[bIdx % brandColorPalettes.length];
+    const bName = escapePdfText(brand.brandName || `Brand ${bIdx + 1}`);
+    const bCode = escapePdfText(brand.brandCode || `BRD_${bIdx + 1}`);
+    const bInitials = escapePdfText(brand.brandInitials || "BM");
+
+    // ── 1. Top Executive Header Banner (Y: 765..822) ──
+    pageLines.push(fillRoundedRect(pal.dark, 20, 765, 555, 57, 8));
+    pageLines.push(fillRoundedRect(pal.topStrip, 20, 816, 555, 6, 4));
+    pageLines.push(`BT /F2 13 Tf 1 1 1 rg 35 798 Td (COACHFLOW ERP  \xb7  DAILY EXECUTIVE BRAND REPORT) Tj ET`);
+    pageLines.push(
+      `BT /F1 7.5 Tf 0.80 0.88 0.98 rg 35 780 Td (Date: ${dateStr}   |   Brand ${bIdx + 1} of ${totalPages}: ${bName}   |   Generated: ${genAtStr} IST) Tj ET`
+    );
+
+    // ── 2. Brand Identity & Logo Card (Y: 708..754) ──
+    pageLines.push(fillRoundedRect("0.97 0.98 1.0", 20, 708, 555, 46, 6));
+    pageLines.push(strokeRoundedRect("0.86 0.89 0.95", 20, 708, 555, 46, 6));
+
+    // Monogram / Logo Badge
+    pageLines.push(fillRoundedRect(pal.badgeBg, 30, 714, 34, 34, 6));
+    pageLines.push(`BT /F2 13 Tf 1 1 1 rg 38 726 Td (${bInitials}) Tj ET`);
+
+    pageLines.push(`BT /F2 13 Tf 0.08 0.12 0.25 rg 74 732 Td (${bName}) Tj ET`);
+    pageLines.push(
+      `BT /F1 7 Tf 0.35 0.40 0.50 rg 74 718 Td (Operational Training Brand  \xb7  Code: ${bCode}  \xb7  Daily Status: Active) Tj ET`
+    );
+
+    pageLines.push(fillRoundedRect("0.02 0.59 0.41", 450, 720, 115, 20, 4));
+    pageLines.push(`BT /F2 7.5 Tf 1 1 1 rg 460 726 Td (DAILY PERFORMANCE SNAPSHOT) Tj ET`);
+
+    // ── 3. Today's 5 Core KPI Metric Cards (Y: 642..696) ──
+    const kpiW = 104;
+    const kpiH = 54;
+    const gap = 8.75;
+    const kpiY = 642;
+
+    // Card 1: Leads Today
+    pageLines.push(
+      ...renderBrandKpiBox(
+        20,
+        kpiY,
+        kpiW,
+        kpiH,
+        "0.48 0.22 0.93",
+        "LEADS TODAY",
+        `${brand.todayLeads} Enquiries`,
+        `${brand.conversionRate}% Conv. Rate`
+      )
+    );
+
+    // Card 2: Walk-ins Today
+    pageLines.push(
+      ...renderBrandKpiBox(
+        20 + (kpiW + gap),
+        kpiY,
+        kpiW,
+        kpiH,
+        "0.85 0.45 0.05",
+        "WALK-INS TODAY",
+        `${brand.todayWalkins} Walk-ins`,
+        "Direct Campus Visits"
+      )
+    );
+
+    // Card 3: Admissions Today
+    pageLines.push(
+      ...renderBrandKpiBox(
+        20 + (kpiW + gap) * 2,
+        kpiY,
+        kpiW,
+        kpiH,
+        "0.02 0.52 0.78",
+        "ADMISSIONS TODAY",
+        `${brand.todayAdmissions} Confirmed`,
+        "Enrolled Students"
+      )
+    );
+
+    // Card 4: Collections Today
+    pageLines.push(
+      ...renderBrandKpiBox(
+        20 + (kpiW + gap) * 3,
+        kpiY,
+        kpiW,
+        kpiH,
+        "0.02 0.59 0.41",
+        "TOTAL COLLECTIONS",
+        `Rs.${fmt(brand.todayCollections)}`,
+        "Cash / UPI / Bank"
+      )
+    );
+
+    // Card 5: Admission Revenue Today
+    pageLines.push(
+      ...renderBrandKpiBox(
+        20 + (kpiW + gap) * 4,
+        kpiY,
+        kpiW,
+        kpiH,
+        "0.88 0.17 0.24",
+        "ADMISSION REVENUE",
+        `Rs.${fmt(brand.todayAdmissionRevenue)}`,
+        "Total Package Value"
+      )
+    );
+
+    // ── 4. Section 1: 7-Day Performance Comparison Matrix (Y: 480..626) ──
+    pageLines.push(
+      `BT /F2 8.5 Tf 0.29 0.0 0.51 rg 22 626 Td (1. LAST 7 DAYS PERFORMANCE COMPARISON  \xb7  DAILY RUN-RATE & VELOCITY TREND) Tj ET`
+    );
+
+    const tblHdrY = 606;
+    pageLines.push(fillRoundedRect("0.12 0.18 0.38", 20, tblHdrY, 555, 17, 3));
+    const tCols = [
+      { x: 28, label: "Date / Day" },
+      { x: 130, label: "Total Leads" },
+      { x: 205, label: "Walk-ins" },
+      { x: 275, label: "Admissions" },
+      { x: 350, label: "Collections (Rs.)" },
+      { x: 445, label: "Admission Rev (Rs.)" },
+      { x: 535, label: "Conv. %" },
+    ];
+    tCols.forEach((c) => {
+      pageLines.push(`BT /F2 6.5 Tf 1 1 1 rg ${c.x} ${tblHdrY + 5} Td (${escapePdfText(c.label)}) Tj ET`);
+    });
+
+    let tRowY = 590;
+    const historyList = brand.last7Days && brand.last7Days.length > 0 ? brand.last7Days : [];
+
+    if (historyList.length === 0) {
+      pageLines.push(fillRoundedRect("0.97 0.98 1.0", 20, tRowY - 2, 555, 16, 0));
+      pageLines.push(`BT /F1 7 Tf 0.4 0.4 0.5 rg 180 ${tRowY + 3} Td (No historical metrics recorded for the past 7 days.) Tj ET`);
+      tRowY -= 18;
+    } else {
+      historyList.forEach((row, rIdx) => {
+        const isToday = row.date.includes("Today");
+        const rowBg = isToday ? "0.92 0.96 1.0" : rIdx % 2 === 0 ? "0.96 0.97 0.99" : "1 1 1";
+        pageLines.push(fillRoundedRect(rowBg, 20, tRowY - 2, 555, 14, 0));
+
+        const font = isToday ? "/F2" : "/F1";
+        const primaryColor = isToday ? "0.08 0.12 0.28" : "0.20 0.22 0.30";
+
+        pageLines.push(`BT ${font} 6.5 Tf ${primaryColor} rg 28 ${tRowY + 2.5} Td (${escapePdfText(row.date)}) Tj ET`);
+        pageLines.push(`BT ${font} 6.5 Tf ${primaryColor} rg 135 ${tRowY + 2.5} Td (${row.leads}) Tj ET`);
+        pageLines.push(`BT ${font} 6.5 Tf ${primaryColor} rg 210 ${tRowY + 2.5} Td (${row.walkins}) Tj ET`);
+        pageLines.push(`BT /F2 6.5 Tf ${isToday ? "0.02 0.52 0.78" : primaryColor} rg 280 ${tRowY + 2.5} Td (${row.admissions}) Tj ET`);
+        pageLines.push(`BT /F2 6.5 Tf 0.02 0.59 0.41 rg 350 ${tRowY + 2.5} Td (Rs.${fmt(row.collections)}) Tj ET`);
+        pageLines.push(`BT ${font} 6.5 Tf 0.88 0.17 0.24 rg 445 ${tRowY + 2.5} Td (Rs.${fmt(row.revenue)}) Tj ET`);
+        pageLines.push(`BT ${font} 6.5 Tf ${primaryColor} rg 535 ${tRowY + 2.5} Td (${row.conversionRate}%) Tj ET`);
+
+        tRowY -= 15;
+      });
+
+      // Summary / 7-Day Total Row
+      const sTotals = brand.sevenDaysTotals || { leads: 0, walkins: 0, admissions: 0, collections: 0, revenue: 0, conversionRate: 0 };
+      pageLines.push(fillRoundedRect("0.89 0.92 0.98", 20, tRowY - 2, 555, 16, 2));
+      pageLines.push(`BT /F2 7 Tf 0.12 0.18 0.38 rg 28 ${tRowY + 3} Td (7-DAY TOTAL / AVG) Tj ET`);
+      pageLines.push(`BT /F2 7 Tf 0.12 0.18 0.38 rg 130 ${tRowY + 3} Td (${sTotals.leads} (Avg ${(sTotals.leads / 7).toFixed(1)})) Tj ET`);
+      pageLines.push(`BT /F2 7 Tf 0.12 0.18 0.38 rg 205 ${tRowY + 3} Td (${sTotals.walkins} (Avg ${(sTotals.walkins / 7).toFixed(1)})) Tj ET`);
+      pageLines.push(`BT /F2 7 Tf 0.12 0.18 0.38 rg 275 ${tRowY + 3} Td (${sTotals.admissions} (Avg ${(sTotals.admissions / 7).toFixed(1)})) Tj ET`);
+      pageLines.push(`BT /F2 7 Tf 0.02 0.59 0.41 rg 350 ${tRowY + 3} Td (Rs.${fmt(sTotals.collections)}) Tj ET`);
+      pageLines.push(`BT /F2 7 Tf 0.88 0.17 0.24 rg 445 ${tRowY + 3} Td (Rs.${fmt(sTotals.revenue)}) Tj ET`);
+      pageLines.push(`BT /F2 7 Tf 0.12 0.18 0.38 rg 535 ${tRowY + 3} Td (${sTotals.conversionRate}%) Tj ET`);
+    }
+
+    // ── 5. Section 2: Admissions Converted Today (with Lead Registration Date) (Y: 65..468) ──
+    pageLines.push(
+      `BT /F2 8.5 Tf 0.29 0.0 0.51 rg 22 468 Td (2. ADMISSIONS CONVERTED TODAY  \xb7  1ST LEAD REGISTRATION & CONVERSION AUDIT) Tj ET`
+    );
+
+    const aHdrY = 448;
+    pageLines.push(fillRoundedRect("0.12 0.18 0.38", 20, aHdrY, 555, 17, 3));
+    const aCols = [
+      { x: 26, label: "#" },
+      { x: 42, label: "Student Name" },
+      { x: 155, label: "Enrolled Course" },
+      { x: 275, label: "1st Lead Date" },
+      { x: 365, label: "Converted Date" },
+      { x: 450, label: "Turnaround" },
+      { x: 512, label: "Course Fee / Paid" },
+    ];
+    aCols.forEach((c) => {
+      pageLines.push(`BT /F2 6.5 Tf 1 1 1 rg ${c.x} ${aHdrY + 5} Td (${escapePdfText(c.label)}) Tj ET`);
+    });
+
+    let aRowY = 430;
+    const todayAdmList = brand.todayAdmissionsList || [];
+
+    if (todayAdmList.length === 0) {
+      pageLines.push(fillRoundedRect("0.97 0.98 1.0", 20, 360, 555, 68, 6));
+      pageLines.push(strokeRoundedRect("0.88 0.90 0.95", 20, 360, 555, 68, 6));
+      pageLines.push(`BT /F2 9 Tf 0.20 0.25 0.35 rg 150 405 Td (No student admissions converted today for ${bName}.) Tj ET`);
+      pageLines.push(
+        `BT /F1 7.5 Tf 0.40 0.45 0.55 rg 125 388 Td (Active lead pipeline has ${brand.todayLeads} new enquiries today with ${brand.todayFollowups} follow-up touches logged.) Tj ET`
+      );
+      pageLines.push(
+        `BT /F2 7.5 Tf 0.02 0.59 0.41 rg 195 372 Td (Focus team outreach on high-intent leads to drive next conversion.) Tj ET`
+      );
+    } else {
+      const maxRows = 16;
+      todayAdmList.slice(0, maxRows).forEach((adm, aIdx) => {
+        const rowBg = aIdx % 2 === 0 ? "0.96 0.97 0.99" : "1 1 1";
+        pageLines.push(fillRoundedRect(rowBg, 20, aRowY - 2, 555, 18, 0));
+
+        pageLines.push(`BT /F1 6.5 Tf 0.3 0.3 0.4 rg 26 ${aRowY + 4} Td (${aIdx + 1}) Tj ET`);
+        pageLines.push(
+          `BT /F2 6.5 Tf 0.08 0.12 0.22 rg 42 ${aRowY + 4} Td (${escapePdfText((adm.studentName || "Student").slice(0, 18))}) Tj ET`
+        );
+        pageLines.push(
+          `BT /F1 6.5 Tf 0.25 0.28 0.35 rg 155 ${aRowY + 4} Td (${escapePdfText((adm.courseName || "General").slice(0, 20))}) Tj ET`
+        );
+        pageLines.push(
+          `BT /F1 6.5 Tf 0.35 0.40 0.50 rg 275 ${aRowY + 4} Td (${escapePdfText(adm.leadRegistrationDate || "Direct")}) Tj ET`
+        );
+        pageLines.push(
+          `BT /F2 6.5 Tf 0.10 0.12 0.22 rg 365 ${aRowY + 4} Td (${escapePdfText(adm.admissionDate || "Today")}) Tj ET`
+        );
+
+        // Turnaround Badge
+        const tat = adm.turnaroundDays || "Same Day";
+        const tatCol = tat.toLowerCase().includes("same")
+          ? "0.02 0.59 0.41"
+          : tat.includes("1") || tat.includes("2") || tat.includes("3") || tat.includes("4") || tat.includes("5") || tat.includes("6") || tat.includes("7")
+          ? "0.14 0.38 0.92"
+          : "0.85 0.45 0.05";
+        pageLines.push(fillRoundedRect(tatCol, 448, aRowY + 1, 55, 12, 2));
+        pageLines.push(`BT /F2 5.5 Tf 1 1 1 rg 452 ${aRowY + 4.5} Td (${escapePdfText(tat.slice(0, 13))}) Tj ET`);
+
+        pageLines.push(
+          `BT /F2 6.5 Tf 0.02 0.59 0.41 rg 512 ${aRowY + 4} Td (Rs.${fmt(adm.totalCourseFee)} / ${fmt(adm.amountReceivedToday)}) Tj ET`
+        );
+
+        aRowY -= 20;
+      });
+    }
+
+    // ── 6. Page Footer (Y: 35..50) ──
+    pageLines.push(fillRoundedRect("0.82 0.82 0.85", 20, 50, 555, 1, 0));
+    pageLines.push(
+      `BT /F1 7 Tf 0.45 0.45 0.50 rg 22 38 Td (CoachFlow ERP  \xb7  Multi-Brand Executive Daily BI Report  \xb7  Confidential) Tj ET`
+    );
+    pageLines.push(`BT /F1 7 Tf 0.45 0.45 0.50 rg 460 38 Td (Brand Page ${bIdx + 1} of ${totalPages}) Tj ET`);
+
+    pageStreamTexts.push(pageLines.join("\n"));
+  });
+
+  return buildMultiPagePdfBuffer(pageStreamTexts);
 }
 
 export interface ExpensePdfData {

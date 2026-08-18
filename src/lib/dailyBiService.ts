@@ -5,10 +5,61 @@ import Payment from "@/models/Payment";
 import User from "@/models/User";
 import Brand from "@/models/Brand";
 
+export interface BrandConvertedAdmission {
+  admissionId: string;
+  studentName: string;
+  courseName: string;
+  leadRegistrationDate: string;
+  admissionDate: string;
+  turnaroundDays: string;
+  totalCourseFee: number;
+  amountReceivedToday: number;
+  paymentMode: string;
+  counsellor: string;
+}
+
+export interface BrandDayMetric {
+  date: string;
+  dayName: string;
+  leads: number;
+  walkins: number;
+  admissions: number;
+  collections: number;
+  revenue: number;
+  conversionRate: number;
+}
+
+export interface BrandDailyPerformance {
+  brandName: string;
+  brandCode: string;
+  brandInitials: string;
+  logoUrl?: string;
+  todayLeads: number;
+  todayWalkins: number;
+  todayAdmissions: number;
+  todayCollections: number;
+  todayAdmissionRevenue: number;
+  todayFollowups: number;
+  conversionRate: number;
+  last7Days: BrandDayMetric[];
+  sevenDaysTotals: {
+    leads: number;
+    walkins: number;
+    admissions: number;
+    collections: number;
+    revenue: number;
+    conversionRate: number;
+  };
+  todayAdmissionsList: BrandConvertedAdmission[];
+}
+
 export interface DailyBiReportData {
   dateStr: string;
   generatedAtStr: string;
   
+  // Brand-Divided Daily Reports
+  brandDailyReports: BrandDailyPerformance[];
+
   // Executive Summary & Trends
   executiveSummary: {
     totalRevenue: { value: number; prevValue: number; changePct: number };
@@ -394,34 +445,151 @@ export async function getDailyBiReportData(targetDate?: Date): Promise<DailyBiRe
     lostOpportunityPct
   };
 
-  // 5. Brand Performance Breakdown (Using actual registered brands from DB & deduplicating case variations)
-  const registeredBrandMap = new Map<string, string>(); // lowercase -> canonical brand name
+  // 5. Brand Performance Breakdown & Comprehensive Brand Daily Reports
+  const registeredBrandList: Array<{ name: string; code?: string; logoUrl?: string }> = [];
+  const registeredBrandSet = new Set<string>();
+
   allBrands.forEach((b: any) => {
     const name = (b.name || "").trim();
-    if (name) {
-      registeredBrandMap.set(name.toLowerCase(), name);
+    if (name && !registeredBrandSet.has(name.toLowerCase())) {
+      registeredBrandSet.add(name.toLowerCase());
+      registeredBrandList.push({
+        name,
+        code: b.code || name.replace(/[^A-Z0-9]/g, "_"),
+        logoUrl: b.logoUrl || "",
+      });
     }
   });
 
   // If no brands registered in DB yet, gather unique active brand names from today's admissions/payments/leads
-  if (registeredBrandMap.size === 0) {
+  if (registeredBrandList.length === 0) {
     [...todayAdmissions, ...todayPayments, ...todayLeads].forEach((item: any) => {
       const bName = (item.brand || item.targetBrand || "").trim();
-      if (bName && !registeredBrandMap.has(bName.toLowerCase())) {
-        registeredBrandMap.set(bName.toLowerCase(), bName);
+      if (bName && !registeredBrandSet.has(bName.toLowerCase())) {
+        registeredBrandSet.add(bName.toLowerCase());
+        registeredBrandList.push({
+          name: bName,
+          code: bName.replace(/[^A-Z0-9]/g, "_"),
+          logoUrl: "",
+        });
       }
     });
   }
 
-  const brandPerformance = Array.from(registeredBrandMap.values()).map((bName) => {
+  // If still empty, supply default standard operational brands
+  if (registeredBrandList.length === 0) {
+    ["CADD MANTRA", "DESIGN GATEWAY", "DIGIFOOTPRINTS"].forEach((bName) => {
+      registeredBrandList.push({
+        name: bName,
+        code: bName.replace(/[^A-Z0-9]/g, "_"),
+        logoUrl: "",
+      });
+    });
+  }
+
+  // Create lookup maps for fast enquiry and admission matching
+  const enquiryByIdMap = new Map<string, any>();
+  const enquiryByPhoneMap = new Map<string, any>();
+  const enquiryByNameMap = new Map<string, any>();
+
+  const cleanPhone = (ph?: string) => {
+    if (!ph) return "";
+    const digits = String(ph).replace(/\D/g, "");
+    return digits.length >= 10 ? digits.slice(-10) : digits;
+  };
+
+  const cleanName = (nm?: string) => {
+    if (!nm) return "";
+    return String(nm).toLowerCase().replace(/[^a-z0-9]/g, "").trim();
+  };
+
+  allEnquiries.forEach((e: any) => {
+    if (e._id) enquiryByIdMap.set(e._id.toString(), e);
+    if (e.enquiryId) enquiryByIdMap.set(String(e.enquiryId).trim().toUpperCase(), e);
+
+    const ph = cleanPhone(e.primaryPhoneMobile || e.phone || e.mobileNumber || e.parentsPhoneNumber);
+    if (ph && !enquiryByPhoneMap.has(ph)) {
+      enquiryByPhoneMap.set(ph, e);
+    }
+
+    const nm = cleanName(e.studentFullName || e.fullName || e.studentName);
+    if (nm && !enquiryByNameMap.has(nm)) {
+      enquiryByNameMap.set(nm, e);
+    }
+  });
+
+  const isWalkinLead = (e: any): boolean => {
+    if (!e) return false;
+    const src = String(e.leadSource || "").toLowerCase().trim();
+    if (
+      src.includes("walkin") ||
+      src.includes("walk-in") ||
+      src.includes("walk in") ||
+      src.includes("direct") ||
+      src.includes("campus visit") ||
+      src.includes("center visit") ||
+      src.includes("centre visit")
+    ) {
+      return true;
+    }
+    if (Array.isArray(e.followUps)) {
+      for (const f of e.followUps) {
+        const contactType = String(f?.typeOfContact || "").toLowerCase();
+        if (contactType.includes("walkin") || contactType.includes("walk-in") || contactType.includes("visit")) {
+          return true;
+        }
+      }
+    }
+    return false;
+  };
+
+  // Pre-fetch all payments for 7-day trend calculation
+  const allPaymentsForTrend = await Payment.find({}).lean();
+
+  const getPaymentBrand = (p: any): string => {
+    if (p.brand && String(p.brand).trim()) return String(p.brand).trim();
+    if (p.admissionId) {
+      const adm = admissionMap.get(p.admissionId.toString());
+      if (adm && adm.brand) return String(adm.brand).trim();
+    }
+    if (p.studentName) {
+      const adm = admissionMap.get(cleanName(p.studentName));
+      if (adm && adm.brand) return String(adm.brand).trim();
+    }
+    return "";
+  };
+
+  const brandDailyReports: BrandDailyPerformance[] = registeredBrandList.map((bObj) => {
+    const bName = bObj.name.toUpperCase().trim();
     const bNameLower = bName.toLowerCase();
-    const bLeads = todayLeads.filter((e: any) => (e.targetBrand || e.brand || "").trim().toLowerCase() === bNameLower);
-    const bAdmissions = todayAdmissions.filter((a: any) => (a.brand || "").trim().toLowerCase() === bNameLower);
-    const bPayments = todayPayments.filter((p: any) => (p.brand || "").trim().toLowerCase() === bNameLower);
+    const bCode = bObj.code || bName.replace(/[^A-Z0-9]/g, "_");
+    const bInitials = bName
+      .split(/\s+/)
+      .map((w: string) => w[0])
+      .filter(Boolean)
+      .join("")
+      .toUpperCase()
+      .slice(0, 3) || bName.slice(0, 2).toUpperCase();
+
+    const isBrandMatch = (target?: string) => {
+      if (!target) return false;
+      const tLower = target.toLowerCase().trim();
+      return tLower === bNameLower || tLower.includes(bNameLower) || bNameLower.includes(tLower);
+    };
+
+    const bTodayLeads = todayLeads.filter((e: any) => isBrandMatch(e.targetBrand || e.brand));
+    const bTodayWalkins = bTodayLeads.filter(isWalkinLead).length;
+    const bTodayAdmissions = todayAdmissions.filter((a: any) => isBrandMatch(a.brand));
+    const bTodayPayments = todayPayments.filter((p: any) => isBrandMatch(getPaymentBrand(p)));
+
+    const bTodayLeadsCount = bTodayLeads.length;
+    const bTodayAdmissionsCount = bTodayAdmissions.length;
+    const bTodayCollections = sumAmount(bTodayPayments);
+    const bTodayAdmissionRevenue = bTodayAdmissions.reduce((acc, a: any) => acc + (Number(a.totalCourseFee || a.finalFee || a.courseFee) || 0), 0);
 
     let bFollowups = 0;
     allEnquiries.forEach((e: any) => {
-      if ((e.targetBrand || e.brand || "").trim().toLowerCase() === bNameLower) {
+      if (isBrandMatch(e.targetBrand || e.brand)) {
         if (Array.isArray(e.followUps)) {
           e.followUps.forEach((f: any) => {
             if (isDateToday(f.completedAt) || isDateToday(f.createdAt) || isStringDateToday(f.date)) {
@@ -432,25 +600,165 @@ export async function getDailyBiReportData(targetDate?: Date): Promise<DailyBiRe
       }
     });
     if (bFollowups === 0) {
-      bFollowups = bLeads.filter((e: any) => e.nextFollowUpDate || e.remarks || e.status === "Follow-up" || e.status === "In Progress").length;
+      bFollowups = bTodayLeads.filter((e: any) => e.nextFollowUpDate || e.remarks || e.status === "Follow-up" || e.status === "In Progress").length;
     }
 
-    const bLeadsCount = bLeads.length;
-    const bAdmCount = bAdmissions.length;
-    const bColl = sumAmount(bPayments);
-    const bConvRate = bLeadsCount > 0 ? Number(((bAdmCount / bLeadsCount) * 100).toFixed(1)) : 0;
-    const bLoss = Math.max(0, bLeadsCount - bAdmCount) * avgAdmissionVal;
+    const bConversionRate = bTodayLeadsCount > 0 ? Number(((bTodayAdmissionsCount / bTodayLeadsCount) * 100).toFixed(1)) : (bTodayAdmissionsCount > 0 ? 100 : 0);
+
+    // Build 7-Day Performance History (Day 6 ago -> Day 0 Today)
+    const last7Days: BrandDayMetric[] = [];
+    let tot7Leads = 0;
+    let tot7Walkins = 0;
+    let tot7Admissions = 0;
+    let tot7Collections = 0;
+    let tot7Revenue = 0;
+
+    for (let i = 6; i >= 0; i--) {
+      const dStart = new Date(todayStart);
+      dStart.setDate(dStart.getDate() - i);
+      const dEnd = new Date(todayEnd);
+      dEnd.setDate(dEnd.getDate() - i);
+
+      const dayName = dStart.toLocaleDateString("en-IN", { weekday: "short" });
+      const dayDateStr = i === 0
+        ? `${dStart.toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} (Today)`
+        : dStart.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+
+      const dLeads = allEnquiries.filter((e: any) => {
+        const dt = new Date(e.createdAt || e.date);
+        return !isNaN(dt.getTime()) && dt >= dStart && dt <= dEnd && isBrandMatch(e.targetBrand || e.brand);
+      });
+      const dWalkins = dLeads.filter(isWalkinLead).length;
+
+      const dAdmissions = allAdmissions.filter((a: any) => {
+        const dt = new Date(a.admissionDate || a.createdAt);
+        return !isNaN(dt.getTime()) && dt >= dStart && dt <= dEnd && isBrandMatch(a.brand);
+      });
+
+      const dPayments = allPaymentsForTrend.filter((p: any) => {
+        const dt = new Date(p.paymentDate || p.createdAt);
+        return !isNaN(dt.getTime()) && dt >= dStart && dt <= dEnd && isBrandMatch(getPaymentBrand(p));
+      });
+
+      const dLeadsCount = dLeads.length;
+      const dAdmCount = dAdmissions.length;
+      const dColl = sumAmount(dPayments);
+      const dRev = dAdmissions.reduce((acc, a: any) => acc + (Number(a.totalCourseFee || a.finalFee || a.courseFee) || 0), 0);
+      const dConv = dLeadsCount > 0 ? Number(((dAdmCount / dLeadsCount) * 100).toFixed(1)) : (dAdmCount > 0 ? 100 : 0);
+
+      tot7Leads += dLeadsCount;
+      tot7Walkins += dWalkins;
+      tot7Admissions += dAdmCount;
+      tot7Collections += dColl;
+      tot7Revenue += dRev;
+
+      last7Days.push({
+        date: dayDateStr,
+        dayName,
+        leads: dLeadsCount,
+        walkins: dWalkins,
+        admissions: dAdmCount,
+        collections: dColl,
+        revenue: dRev,
+        conversionRate: dConv,
+      });
+    }
+
+    const tot7Conv = tot7Leads > 0 ? Number(((tot7Admissions / tot7Leads) * 100).toFixed(1)) : (tot7Admissions > 0 ? 100 : 0);
+
+    // Build Converted Admissions List for Today
+    const todayAdmissionsList: BrandConvertedAdmission[] = bTodayAdmissions.map((a: any) => {
+      let matchedEnquiry: any = null;
+      if (a.enquiryId) {
+        matchedEnquiry = enquiryByIdMap.get(String(a.enquiryId).trim().toUpperCase()) || enquiryByIdMap.get(String(a.enquiryId));
+      }
+      if (!matchedEnquiry) {
+        const ph = cleanPhone(a.mobileNumber || a.primaryPhoneMobile);
+        if (ph) matchedEnquiry = enquiryByPhoneMap.get(ph);
+      }
+      if (!matchedEnquiry) {
+        const nm = cleanName(a.fullName);
+        if (nm) matchedEnquiry = enquiryByNameMap.get(nm);
+      }
+
+      const admDateObj = new Date(a.admissionDate || a.createdAt || now);
+      const admDateStr = !isNaN(admDateObj.getTime())
+        ? admDateObj.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+        : "Today";
+
+      let leadRegDateStr = "";
+      let turnaroundDays = "Same Day";
+
+      if (matchedEnquiry) {
+        const leadDateObj = new Date(matchedEnquiry.createdAt || matchedEnquiry.date || a.createdAt);
+        if (!isNaN(leadDateObj.getTime())) {
+          leadRegDateStr = leadDateObj.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+          const diffMs = Math.max(0, admDateObj.getTime() - leadDateObj.getTime());
+          const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+          if (diffDays === 0) {
+            turnaroundDays = "Same Day (0d)";
+          } else {
+            turnaroundDays = `${diffDays} Day${diffDays > 1 ? "s" : ""}`;
+          }
+        } else {
+          leadRegDateStr = "Direct Entry";
+        }
+      } else {
+        leadRegDateStr = isWalkinLead(a) ? "Direct Walkin" : "Direct On-Spot";
+      }
+
+      const courseName = a.course || (Array.isArray(a.courses) && a.courses[0]) || (Array.isArray(a.targetCourses) && a.targetCourses[0]) || "General Program";
+      const totalFee = Number(a.totalCourseFee || a.finalFee || a.courseFee || 0);
+      const amountReceivedToday = Number(a.amountReceivedToday || a.registrationAmount || a.downpaymentAmount || a.paidAmount || 0);
+
+      return {
+        admissionId: a.admissionId || "ADM-LIVE",
+        studentName: a.fullName || a.studentFullName || "Student",
+        courseName,
+        leadRegistrationDate: leadRegDateStr,
+        admissionDate: admDateStr,
+        turnaroundDays,
+        totalCourseFee: totalFee,
+        amountReceivedToday,
+        paymentMode: a.paymentMode || "Online",
+        counsellor: a.counsellor || a.assignedCrmAdvisor || a.recordedBy || "Sales Advisor",
+      };
+    });
 
     return {
       brandName: bName,
-      totalLeads: bLeadsCount,
-      admissions: bAdmCount,
-      dailyCollections: bColl,
-      followupsDone: bFollowups,
-      conversionRate: bConvRate,
-      estimatedBusinessLoss: bLoss
+      brandCode: bCode,
+      brandInitials: bInitials,
+      logoUrl: bObj.logoUrl,
+      todayLeads: bTodayLeadsCount,
+      todayWalkins: bTodayWalkins,
+      todayAdmissions: bTodayAdmissionsCount,
+      todayCollections: bTodayCollections,
+      todayAdmissionRevenue: bTodayAdmissionRevenue,
+      todayFollowups: bFollowups,
+      conversionRate: bConversionRate,
+      last7Days,
+      sevenDaysTotals: {
+        leads: tot7Leads,
+        walkins: tot7Walkins,
+        admissions: tot7Admissions,
+        collections: tot7Collections,
+        revenue: tot7Revenue,
+        conversionRate: tot7Conv,
+      },
+      todayAdmissionsList,
     };
   });
+
+  const brandPerformance = brandDailyReports.map((b) => ({
+    brandName: b.brandName,
+    totalLeads: b.todayLeads,
+    admissions: b.todayAdmissions,
+    dailyCollections: b.todayCollections,
+    followupsDone: b.todayFollowups,
+    conversionRate: b.conversionRate,
+    estimatedBusinessLoss: Math.max(0, b.todayLeads - b.todayAdmissions) * avgAdmissionVal,
+  }));
 
   // 6. Counsellor / Sales Executive / Centre Head Performance Dashboard
   const salesRoleSet = new Set([
@@ -741,6 +1049,7 @@ export async function getDailyBiReportData(targetDate?: Date): Promise<DailyBiRe
   return {
     dateStr,
     generatedAtStr,
+    brandDailyReports,
     executiveSummary,
     revenueTrend,
     revenueComparison: {
