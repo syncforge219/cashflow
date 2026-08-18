@@ -7,7 +7,8 @@ export async function GET(req: NextRequest) {
     const stats = await getMonthlyReportStats();
     const pdfBuffer = generateMonthlyReportPdfBuffer(stats);
 
-    const filename = `Monthly_MTD_Executive_Report_${stats.dateStr.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
+    const safeMonth = (stats.monthStr || stats.dateStr || "Monthly").replace(/[^a-zA-Z0-9]/g, "_");
+    const filename = `Monthly_Executive_Report_${safeMonth}.pdf`;
 
     return new NextResponse(Uint8Array.from(pdfBuffer), {
       status: 200,

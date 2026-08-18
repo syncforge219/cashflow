@@ -510,7 +510,7 @@ export async function sendWhatsAppDailyReport(params: DailyReportWhatsAppParams)
  */
 export async function sendWhatsAppMonthlyReport(params: {
   adminMobileNumber: string;
-  reportData: import("./dailyReportService").DailyReportStats;
+  reportData: import("./monthlyBiService").MonthlyBiReportData;
   brandName?: string | null;
   integratedNumber?: string | null;
 }) {
@@ -522,19 +522,21 @@ export async function sendWhatsAppMonthlyReport(params: {
       return { success: false, error: "Invalid admin mobile number." };
     }
     const reportPdfUrl = `${getPublicPdfBaseUrl()}/api/reports/monthly/pdf?v=${Date.now()}`;
-    const filename = `Monthly_Report_${params.reportData.dateStr.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+    const dateStrSafe = params.reportData.monthStr || params.reportData.dateStr || "Monthly_Report";
+    const filename = `Monthly_Report_${dateStrSafe.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
 
     const totalLeads = params.reportData.executiveSummary?.totalLeads?.value ?? 0;
-    const demoSessions = params.reportData.conversionFunnel?.demosScheduled ?? 0;
-    const admissionsToday = params.reportData.executiveSummary?.admissions?.value ?? 0;
-    const todaysCollection = params.reportData.executiveSummary?.totalCollections?.value ?? 0;
-    const monthlyCollection = params.reportData.executiveSummary?.totalRevenue?.value ?? 0;
-    const pendingFees = params.reportData.executiveSummary?.outstandingFees?.value ?? 0;
-    const overdueEmis = params.reportData.pendingFeeSummary?.overdueStudentsCount ?? 0;
+    const admissionsCount = params.reportData.executiveSummary?.admissions?.value ?? 0;
+    const monthlyCollections = params.reportData.executiveSummary?.totalCollections?.value ?? 0;
+    const monthlyRevenue = params.reportData.executiveSummary?.totalRevenue?.value ?? 0;
+    const pnlObj = params.reportData.executiveSummary?.netProfitOrLoss || { value: 0, isProfit: true, marginPct: 0 };
+    const pnlTag = pnlObj.isProfit
+      ? `PROFIT +₹${Number(pnlObj.value || 0).toLocaleString('en-IN')}`
+      : `LOSS -₹${Math.abs(Number(pnlObj.value || 0)).toLocaleString('en-IN')}`;
 
-    const body1 = params.reportData.dateStr;
-    const body2 = `MTD Leads: ${totalLeads} | MTD Demos: ${demoSessions} | MTD Admissions: ${admissionsToday}`;
-    const body3 = `Monthly Revenue: ₹${monthlyCollection.toLocaleString('en-IN')} | Today: ₹${todaysCollection.toLocaleString('en-IN')} | Pending: ₹${pendingFees.toLocaleString('en-IN')} | Overdue EMIs: ${overdueEmis}`;
+    const body1 = params.reportData.monthStr ? `Month: ${params.reportData.monthStr}` : params.reportData.dateStr;
+    const body2 = `MTD Leads: ${totalLeads} | Admissions: ${admissionsCount} | P&L: ${pnlTag}`;
+    const body3 = `Collections: ₹${monthlyCollections.toLocaleString('en-IN')} | Revenue: ₹${monthlyRevenue.toLocaleString('en-IN')} | Net Status: ${pnlObj.isProfit ? 'Operating Profit' : 'Operating Deficit'}`;
 
     const payload = {
       integrated_number: integratedNumber,
@@ -629,8 +631,8 @@ export async function sendWhatsAppMonthlyReport(params: {
                     value: reportPdfUrl,
                   },
                   body_1: { type: "text", value: "Executive Monthly MTD Report" },
-                  body_2: { type: "text", value: `Month: ${params.reportData.dateStr}` },
-                  body_3: { type: "text", value: `₹${monthlyCollection.toLocaleString('en-IN')}` },
+                  body_2: { type: "text", value: `Month: ${params.reportData.monthStr || params.reportData.dateStr}` },
+                  body_3: { type: "text", value: `₹${monthlyCollections.toLocaleString('en-IN')}` },
                   body_4: { type: "text", value: params.reportData.dateStr },
                 },
               },

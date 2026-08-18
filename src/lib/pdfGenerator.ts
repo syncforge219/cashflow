@@ -1,4 +1,5 @@
 import { DailyBiReportData } from "./dailyBiService";
+import { MonthlyBiReportData } from "./monthlyBiService";
 
 export interface ReceiptPdfData {
   receiptNo: string;
@@ -23,6 +24,7 @@ export interface ReceiptPdfData {
 }
 
 export type DailyReportPdfData = DailyBiReportData;
+export type MonthlyReportPdfData = MonthlyBiReportData;
 
 function escapePdfText(text: any): string {
   if (text === null || text === undefined) return "";
@@ -56,7 +58,6 @@ export function generateReceiptPdfBuffer(data: ReceiptPdfData): Buffer {
   const totalPaidVal = Number(data.totalPaidToDate || amountVal);
   const remainingVal = Number(data.remainingBalance || 0);
 
-  // Dynamic Brand Initials (e.g. DESIGN GATEWAY -> DG, CADD MANTRA -> CM)
   const brandInitials = brand
     .split(/\s+/)
     .map((w: string) => w[0])
@@ -65,12 +66,9 @@ export function generateReceiptPdfBuffer(data: ReceiptPdfData): Buffer {
     .toUpperCase()
     .slice(0, 3) || "CM";
 
-  // Format short date for table cells to avoid overlapping (e.g., "01 Aug 2026")
   const shortPayDate = payDate.includes(",") ? payDate.split(",")[0].trim() : payDate;
 
-  // --- PAGE 1 CONTENT STREAM ---
   const page1Lines = [
-    // Header Left Logo + Company Details
     `BT /F2 18 Tf 0.72 0.11 0.11 rg 50 765 Td (${brandInitials}) Tj ET`,
     `BT /F2 8 Tf 0.1 0.1 0.1 rg 50 750 Td (${brand.slice(0, 15)}) Tj ET`,
 
@@ -78,11 +76,9 @@ export function generateReceiptPdfBuffer(data: ReceiptPdfData): Buffer {
     `BT /F1 7.5 Tf 0.3 0.3 0.3 rg 115 766 Td (Company Addr: ${companyAddress}) Tj ET`,
     `BT /F2 8 Tf 0.1 0.5 0.2 rg 115 754 Td (Brand: ${brand} | Addr: ${brandAddress}) Tj ET`,
 
-    // Header Right
     `BT /F2 9.5 Tf 0.1 0.6 0.2 rg 360 780 Td (Receipt # ${receiptNo}) Tj ET`,
     `BT /F1 7 Tf 0.4 0.4 0.4 rg 360 768 Td (Generated: ${generatedTime}) Tj ET`,
     
-    // Barcode Vector Graphic
     `0.1 0.1 0.1 rg`,
     `360 742 180 20 re f`,
     `1 1 1 rg`,
@@ -92,10 +88,8 @@ export function generateReceiptPdfBuffer(data: ReceiptPdfData): Buffer {
     `433 742 5 20 re f`, `442 742 2 20 re f`, `450 742 4 20 re f`,
     `460 742 3 20 re f`, `470 742 2 20 re f`, `480 742 5 20 re f`,
 
-    // Top Divider Line
     fillRoundedRect("0.85 0.85 0.85", 50, 730, 495, 1, 4),
 
-    // Left Column Meta Box
     fillRoundedRect("0.96 0.96 0.96", 50, 625, 240, 95, 4),
     strokeRoundedRect("0.85 0.85 0.85", 50, 625, 240, 95, 4),
     `BT /F1 8.5 Tf 0.3 0.3 0.3 rg 55 707 Td (Receipt #) Tj ET`,
@@ -109,18 +103,15 @@ export function generateReceiptPdfBuffer(data: ReceiptPdfData): Buffer {
     `BT /F1 8.5 Tf 0.3 0.3 0.3 rg 55 631 Td (Received Fee) Tj ET`,
     `BT /F2 8.5 Tf 0.1 0.1 0.1 rg 160 631 Td (${amountStr}) Tj ET`,
 
-    // Right Column Received From & Green Pill
     fillRoundedRect("0.85 0.85 0.85", 305, 700, 240, 20, 4),
     `BT /F2 9 Tf 0.2 0.2 0.2 rg 310 706 Td (Received From :) Tj ET`,
     `BT /F2 10 Tf 0.1 0.1 0.1 rg 305 684 Td (${student}) Tj ET`,
     `BT /F1 8.5 Tf 0.3 0.3 0.3 rg 305 669 Td (Admission Batch : Lucknow) Tj ET`,
     `BT /F1 8.5 Tf 0.3 0.3 0.3 rg 305 654 Td (Lucknow) Tj ET`,
 
-    // Solid Green Amount Pill
     fillRoundedRect("0.15 0.68 0.32", 305, 625, 240, 22, 4),
     `BT /F2 12 Tf 1 1 1 rg 380 632 Td (INR ${amountStr}) Tj ET`,
 
-    // Invoice Details Section
     `BT /F2 10 Tf 0.1 0.1 0.1 rg 50 605 Td (Invoice Details) Tj ET`,
     fillRoundedRect("0.82 0.82 0.82", 50, 585, 495, 18, 4),
     `BT /F2 8 Tf 0.2 0.2 0.2 rg 55 590 Td (Received against Invoice #) Tj ET`,
@@ -137,7 +128,6 @@ export function generateReceiptPdfBuffer(data: ReceiptPdfData): Buffer {
     `BT /F1 8 Tf 0.2 0.2 0.2 rg 435 570 Td (${amountVal}) Tj ET`,
     `BT /F2 8 Tf 0.1 0.5 0.2 rg 490 570 Td (${amountVal}) Tj ET`,
 
-    // Installment Payments Section
     `BT /F2 10 Tf 0.1 0.1 0.1 rg 50 545 Td (Installment & Downpayment Payments Schedule) Tj ET`,
     fillRoundedRect("0.82 0.82 0.82", 50, 525, 495, 18, 4),
     `BT /F2 8 Tf 0.2 0.2 0.2 rg 55 530 Td (Due Date) Tj ET`,
@@ -163,13 +153,11 @@ export function generateReceiptPdfBuffer(data: ReceiptPdfData): Buffer {
       `BT /F1 7 Tf 0.4 0.4 0.4 rg 365 510 Td (${receiptNo} ${shortPayDate} ${amountVal} ${mode}) Tj ET`,
     ]),
 
-    // Totals Bar
     fillRoundedRect("0.88 0.88 0.88", 50, 490, 495, 16, 4),
     `BT /F2 8 Tf 0.1 0.1 0.1 rg 185 494 Td (${finalFeeVal}) Tj ET`,
     `BT /F2 8 Tf 0.1 0.5 0.2 rg 235 494 Td (${totalPaidVal}) Tj ET`,
     `BT /F2 8 Tf 0.7 0.1 0.1 rg 295 494 Td (${remainingVal}) Tj ET`,
 
-    // Terms & Conditions Title
     `BT /F2 9.5 Tf 0.1 0.1 0.1 rg 50 465 Td (TERMS & CONDITIONS:) Tj ET`,
     `BT /F2 7.5 Tf 0.1 0.1 0.1 rg 50 450 Td (1. Payment Clearance:) Tj ET`,
     `BT /F1 7 Tf 0.2 0.2 0.2 rg 50 440 Td (Payments made through cheque are subject to realization. If a cheque is returned or dishonoured for any reason,) Tj ET`,
@@ -208,11 +196,9 @@ export function generateReceiptPdfBuffer(data: ReceiptPdfData): Buffer {
     `BT /F2 7.5 Tf 0.1 0.1 0.1 rg 50 183 Td (11. Course Modification Policy:) Tj ET`,
     `BT /F1 7 Tf 0.2 0.2 0.2 rg 50 174 Td (Course upgrades permitted with approval and fee difference. Downgrades/lower value programs not allowed.) Tj ET`,
 
-    // Authorised Signatory Line
     fillRoundedRect("0.5 0.5 0.5", 380, 110, 150, 1, 4),
     `BT /F2 8.5 Tf 0.2 0.2 0.2 rg 405 95 Td (Authorised Signatory) Tj ET`,
 
-    // Footer Page Number
     `BT /F1 8 Tf 0.5 0.5 0.5 rg 490 30 Td (Page 1 of 1) Tj ET`,
   ];
 
@@ -248,14 +234,17 @@ export function generateReceiptPdfBuffer(data: ReceiptPdfData): Buffer {
 }
 
 /**
- * Generate 4-Page Native PDF Buffer for CoachFlow ERP - Enhanced Daily Business Intelligence Report
+ * Generate Multi-Page Native PDF Buffer for CoachFlow ERP - Daily Brand-Divided BI Report
  */
 export function generateDailyReportPdfBuffer(data: DailyBiReportData): Buffer {
   return buildEnhancedBiReportPdfBuffer(data);
 }
 
-export function generateMonthlyReportPdfBuffer(data: DailyBiReportData): Buffer {
-  return buildEnhancedBiReportPdfBuffer(data);
+/**
+ * Generate Multi-Page Native PDF Buffer for CoachFlow ERP - Monthly Brand-Divided BI Report
+ */
+export function generateMonthlyReportPdfBuffer(data: MonthlyBiReportData): Buffer {
+  return buildMonthlyBiReportPdfBuffer(data);
 }
 
 
@@ -667,6 +656,470 @@ function buildEnhancedBiReportPdfBuffer(data: DailyBiReportData): Buffer {
     pageLines.push(fillRoundedRect("0.82 0.82 0.85", 20, 50, 555, 1, 0));
     pageLines.push(
       `BT /F1 7 Tf 0.45 0.45 0.50 rg 22 38 Td (CoachFlow ERP  \xb7  Multi-Brand Executive Daily BI Report  \xb7  Confidential) Tj ET`
+    );
+    pageLines.push(`BT /F1 7 Tf 0.45 0.45 0.50 rg 460 38 Td (Brand Page ${bIdx + 1} of ${totalPages}) Tj ET`);
+
+    pageStreamTexts.push(pageLines.join("\n"));
+  });
+
+  return buildMultiPagePdfBuffer(pageStreamTexts);
+}
+
+/**
+ * Generate Multi-Page Native PDF Buffer for CoachFlow ERP - Monthly Brand-Divided BI Report
+ */
+function buildMonthlyBiReportPdfBuffer(data: MonthlyBiReportData): Buffer {
+  const monthStr = escapePdfText(data.monthStr || new Date().toLocaleDateString("en-IN", { month: "long", year: "numeric" }));
+  const dateStr = escapePdfText(data.dateStr || new Date().toLocaleDateString("en-IN"));
+  const genAtStr = escapePdfText(data.generatedAtStr || "12:00 PM");
+  const fmt = (n: number) => Math.round(n || 0).toLocaleString("en-IN");
+  const fmtChg = (pct: number) => (pct >= 0 ? `+${pct}%` : `${pct}%`);
+
+  const brandReports = data.brandMonthlyReports && data.brandMonthlyReports.length > 0
+    ? data.brandMonthlyReports
+    : [
+        {
+          brandName: "CADD MANTRA",
+          brandCode: "CADD_MANTRA",
+          brandInitials: "CM",
+          mtdLeads: 0,
+          mtdAdmissions: 0,
+          mtdCollections: 0,
+          mtdRevenue: 0,
+          mtdConversionRate: 0,
+          weeks: [],
+          monthTotals: {
+            leads: 0,
+            admissions: 0,
+            collections: 0,
+            revenue: 0,
+            conversionRate: 0,
+            weeklyAvgLeads: 0,
+            weeklyAvgAdmissions: 0,
+            weeklyAvgCollections: 0,
+            weeklyAvgRevenue: 0,
+          },
+          lastMonth: {
+            monthName: "Last Month",
+            leads: 0,
+            admissions: 0,
+            collections: 0,
+            revenue: 0,
+            conversionRate: 0,
+            leadsGrowthPct: 0,
+            admissionsGrowthPct: 0,
+            collectionsGrowthPct: 0,
+            revenueGrowthPct: 0,
+          },
+          lastQuarter: {
+            quarterName: "Last Quarter",
+            totalLeads: 0,
+            totalAdmissions: 0,
+            totalCollections: 0,
+            totalRevenue: 0,
+            monthlyAvgCollections: 0,
+            monthlyAvgRevenue: 0,
+            quarterlyGrowthPct: 0,
+          },
+          financialPnL: {
+            totalInflowCollections: 0,
+            totalAdmissionValue: 0,
+            totalAllocatedExpenses: 0,
+            totalAllocatedPayroll: 0,
+            totalOutflow: 0,
+            netProfitOrLoss: 0,
+            isProfit: true,
+            marginPct: 0,
+            statusLabel: "PROFIT" as const,
+          },
+        },
+      ];
+
+  const totalPages = Math.max(1, brandReports.length);
+  const pageStreamTexts: string[] = [];
+
+  const brandColorPalettes = [
+    { dark: "0.08 0.12 0.28", topStrip: "0.29 0.00 0.51", badgeBg: "0.38 0.18 0.88", accent: "0.48 0.22 0.93" },
+    { dark: "0.04 0.18 0.20", topStrip: "0.02 0.59 0.41", badgeBg: "0.05 0.65 0.50", accent: "0.02 0.59 0.41" },
+    { dark: "0.06 0.14 0.28", topStrip: "0.02 0.45 0.75", badgeBg: "0.10 0.55 0.90", accent: "0.02 0.52 0.78" },
+    { dark: "0.14 0.08 0.25", topStrip: "0.48 0.15 0.70", badgeBg: "0.58 0.20 0.85", accent: "0.85 0.45 0.05" },
+  ];
+
+  const renderMonthlyKpiBox = (
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    accentCol: string,
+    label: string,
+    value: string,
+    badgeText: string,
+    badgeBg?: string
+  ): string[] => {
+    return [
+      fillRoundedRect("0.98 0.99 1.0", x, y, w, h, 6),
+      strokeRoundedRect("0.88 0.90 0.95", x, y, w, h, 6),
+      fillRoundedRect(accentCol, x + 2, y + h - 3, w - 4, 3, 1),
+      `BT /F2 6.5 Tf 0.35 0.40 0.50 rg ${x + 6} ${y + h - 14} Td (${escapePdfText(label)}) Tj ET`,
+      `BT /F2 10.5 Tf 0.08 0.10 0.22 rg ${x + 6} ${y + h - 28} Td (${escapePdfText(value)}) Tj ET`,
+      fillRoundedRect(badgeBg || accentCol, x + 6, y + 6, Math.min(94, w - 12), 11, 2),
+      `BT /F2 5.5 Tf 1 1 1 rg ${x + 10} ${y + 9.5} Td (${escapePdfText(badgeText)}) Tj ET`,
+    ];
+  };
+
+  brandReports.forEach((brand, bIdx) => {
+    const pageLines: string[] = [];
+    const pal = brandColorPalettes[bIdx % brandColorPalettes.length];
+    const bName = escapePdfText(brand.brandName || `Brand ${bIdx + 1}`);
+    const bCode = escapePdfText(brand.brandCode || `BRD_${bIdx + 1}`);
+    const bInitials = escapePdfText(brand.brandInitials || "BM");
+    const pnl = brand.financialPnL || {
+      totalInflowCollections: 0,
+      totalAdmissionValue: 0,
+      totalAllocatedExpenses: 0,
+      totalAllocatedPayroll: 0,
+      totalOutflow: 0,
+      netProfitOrLoss: 0,
+      isProfit: true,
+      marginPct: 0,
+      statusLabel: "PROFIT",
+    };
+
+    // ── 1. Top Executive Header Banner (Y: 765..822) ──
+    pageLines.push(fillRoundedRect(pal.dark, 20, 765, 555, 57, 8));
+    pageLines.push(fillRoundedRect(pal.topStrip, 20, 816, 555, 6, 4));
+    pageLines.push(`BT /F2 13 Tf 1 1 1 rg 35 798 Td (COACHFLOW ERP  \xb7  MONTHLY EXECUTIVE BRAND INTELLIGENCE REPORT) Tj ET`);
+    pageLines.push(
+      `BT /F1 7.5 Tf 0.80 0.88 0.98 rg 35 780 Td (Month: ${monthStr}   |   Brand ${bIdx + 1} of ${totalPages}: ${bName}   |   Generated: ${genAtStr} IST) Tj ET`
+    );
+
+    // ── 2. Brand Hero & Status Card (Y: 708..754) ──
+    pageLines.push(fillRoundedRect("0.97 0.98 1.0", 20, 708, 555, 46, 6));
+    pageLines.push(strokeRoundedRect("0.86 0.89 0.95", 20, 708, 555, 46, 6));
+
+    // Monogram / Logo Badge
+    pageLines.push(fillRoundedRect(pal.badgeBg, 30, 714, 34, 34, 6));
+    pageLines.push(`BT /F2 13 Tf 1 1 1 rg 38 726 Td (${bInitials}) Tj ET`);
+
+    pageLines.push(`BT /F2 13 Tf 0.08 0.12 0.25 rg 74 732 Td (${bName}) Tj ET`);
+    pageLines.push(
+      `BT /F1 7 Tf 0.35 0.40 0.50 rg 74 718 Td (Monthly Operations  \xb7  Code: ${bCode}  \xb7  Status: Active  \xb7  As of ${dateStr}) Tj ET`
+    );
+
+    const pnlBadgeBg = pnl.isProfit ? "0.02 0.59 0.41" : "0.88 0.17 0.24";
+    pageLines.push(fillRoundedRect(pnlBadgeBg, 430, 720, 135, 20, 4));
+    pageLines.push(
+      `BT /F2 7.5 Tf 1 1 1 rg 438 726 Td (${pnl.isProfit ? "MTD OPERATING PROFIT" : "MTD OPERATING DEFICIT"}) Tj ET`
+    );
+
+    // ── 3. 5 Core Monthly KPI Metric Cards (Y: 642..696) ──
+    const kpiW = 104;
+    const kpiH = 54;
+    const gap = 8.75;
+    const kpiY = 642;
+
+    // Card 1: MTD Leads
+    pageLines.push(
+      ...renderMonthlyKpiBox(
+        20,
+        kpiY,
+        kpiW,
+        kpiH,
+        "0.48 0.22 0.93",
+        "MTD TOTAL LEADS",
+        `${brand.mtdLeads} Enquiries`,
+        `${fmtChg(brand.lastMonth?.leadsGrowthPct || 0)} vs Last Mo`
+      )
+    );
+
+    // Card 2: MTD Admissions
+    pageLines.push(
+      ...renderMonthlyKpiBox(
+        20 + (kpiW + gap),
+        kpiY,
+        kpiW,
+        kpiH,
+        "0.02 0.52 0.78",
+        "MTD ADMISSIONS",
+        `${brand.mtdAdmissions} Confirmed`,
+        `${fmtChg(brand.lastMonth?.admissionsGrowthPct || 0)} vs Last Mo`
+      )
+    );
+
+    // Card 3: MTD Collections
+    pageLines.push(
+      ...renderMonthlyKpiBox(
+        20 + (kpiW + gap) * 2,
+        kpiY,
+        kpiW,
+        kpiH,
+        "0.02 0.59 0.41",
+        "MTD COLLECTIONS",
+        `Rs.${fmt(brand.mtdCollections)}`,
+        `${fmtChg(brand.lastMonth?.collectionsGrowthPct || 0)} vs Last Mo`
+      )
+    );
+
+    // Card 4: MTD Admission Revenue
+    pageLines.push(
+      ...renderMonthlyKpiBox(
+        20 + (kpiW + gap) * 3,
+        kpiY,
+        kpiW,
+        kpiH,
+        "0.88 0.17 0.24",
+        "MTD ADM REVENUE",
+        `Rs.${fmt(brand.mtdRevenue)}`,
+        `${fmtChg(brand.lastMonth?.revenueGrowthPct || 0)} vs Last Mo`
+      )
+    );
+
+    // Card 5: Net Profit / Loss
+    const pnlCardAccent = pnl.isProfit ? "0.02 0.59 0.41" : "0.88 0.17 0.24";
+    const pnlCardValue = pnl.isProfit ? `+Rs.${fmt(pnl.netProfitOrLoss)}` : `-Rs.${fmt(Math.abs(pnl.netProfitOrLoss))}`;
+    const pnlCardBadge = pnl.isProfit ? `PROFIT (${pnl.marginPct}%)` : `LOSS (${pnl.marginPct}%)`;
+
+    pageLines.push(
+      ...renderMonthlyKpiBox(
+        20 + (kpiW + gap) * 4,
+        kpiY,
+        kpiW,
+        kpiH,
+        pnlCardAccent,
+        "NET P&L (MTD)",
+        pnlCardValue,
+        pnlCardBadge
+      )
+    );
+
+    // ── 4. Section 1: Week-Wise Performance Breakdown Table (Y: 496..626) ──
+    pageLines.push(
+      `BT /F2 8.5 Tf 0.29 0.0 0.51 rg 22 626 Td (1. WEEK-WISE PERFORMANCE BREAKDOWN  \xb7  LEADS, ADMISSIONS & REVENUE VELOCITY) Tj ET`
+    );
+
+    const tblHdrY = 606;
+    pageLines.push(fillRoundedRect("0.12 0.18 0.38", 20, tblHdrY, 555, 17, 3));
+    const tCols = [
+      { x: 28, label: "Week Period" },
+      { x: 145, label: "Total Leads" },
+      { x: 215, label: "Admissions" },
+      { x: 285, label: "Weekly Collections (Rs.)" },
+      { x: 395, label: "Admission Rev (Rs.)" },
+      { x: 485, label: "Conv. %" },
+      { x: 532, label: "Velocity" },
+    ];
+    tCols.forEach((c) => {
+      pageLines.push(`BT /F2 6.5 Tf 1 1 1 rg ${c.x} ${tblHdrY + 5} Td (${escapePdfText(c.label)}) Tj ET`);
+    });
+
+    let tRowY = 590;
+    const weekList = brand.weeks && brand.weeks.length > 0 ? brand.weeks : [];
+
+    weekList.forEach((w, wIdx) => {
+      const rowBg = wIdx % 2 === 0 ? "0.96 0.97 0.99" : "1 1 1";
+      pageLines.push(fillRoundedRect(rowBg, 20, tRowY - 2, 555, 14, 0));
+
+      pageLines.push(`BT /F2 6.5 Tf 0.12 0.18 0.38 rg 28 ${tRowY + 2.5} Td (${escapePdfText(w.weekLabel)}) Tj ET`);
+      pageLines.push(`BT /F1 6.5 Tf 0.20 0.22 0.30 rg 150 ${tRowY + 2.5} Td (${w.leads}) Tj ET`);
+      pageLines.push(`BT /F2 6.5 Tf 0.02 0.52 0.78 rg 220 ${tRowY + 2.5} Td (${w.admissions}) Tj ET`);
+      pageLines.push(`BT /F2 6.5 Tf 0.02 0.59 0.41 rg 285 ${tRowY + 2.5} Td (Rs.${fmt(w.collections)}) Tj ET`);
+      pageLines.push(`BT /F1 6.5 Tf 0.88 0.17 0.24 rg 395 ${tRowY + 2.5} Td (Rs.${fmt(w.revenue)}) Tj ET`);
+      pageLines.push(`BT /F1 6.5 Tf 0.20 0.22 0.30 rg 485 ${tRowY + 2.5} Td (${w.conversionRate}%) Tj ET`);
+
+      const vStatus = w.velocityStatus || "Steady";
+      const vCol = vStatus === "High Velocity"
+        ? "0.02 0.59 0.41"
+        : vStatus === "Active Pace"
+        ? "0.02 0.52 0.78"
+        : vStatus === "Pipeline Building"
+        ? "0.48 0.22 0.93"
+        : "0.85 0.45 0.05";
+      pageLines.push(fillRoundedRect(vCol, 528, tRowY - 1, 42, 11, 2));
+      pageLines.push(`BT /F2 5 Tf 1 1 1 rg 530 ${tRowY + 2.5} Td (${escapePdfText(vStatus.slice(0, 11))}) Tj ET`);
+
+      tRowY -= 15;
+    });
+
+    // MTD Total & Weekly Average Row
+    const mTotals = brand.monthTotals || {
+      leads: brand.mtdLeads,
+      admissions: brand.mtdAdmissions,
+      collections: brand.mtdCollections,
+      revenue: brand.mtdRevenue,
+      conversionRate: brand.mtdConversionRate,
+      weeklyAvgLeads: Number((brand.mtdLeads / 5).toFixed(1)),
+      weeklyAvgAdmissions: Number((brand.mtdAdmissions / 5).toFixed(1)),
+      weeklyAvgCollections: Math.round(brand.mtdCollections / 5),
+      weeklyAvgRevenue: Math.round(brand.mtdRevenue / 5),
+    };
+
+    pageLines.push(fillRoundedRect("0.89 0.92 0.98", 20, tRowY - 2, 555, 16, 2));
+    pageLines.push(`BT /F2 7 Tf 0.12 0.18 0.38 rg 28 ${tRowY + 3} Td (MTD TOTAL / WEEKLY AVG) Tj ET`);
+    pageLines.push(`BT /F2 7 Tf 0.12 0.18 0.38 rg 145 ${tRowY + 3} Td (${mTotals.leads} (Avg ${mTotals.weeklyAvgLeads})) Tj ET`);
+    pageLines.push(`BT /F2 7 Tf 0.12 0.18 0.38 rg 215 ${tRowY + 3} Td (${mTotals.admissions} (Avg ${mTotals.weeklyAvgAdmissions})) Tj ET`);
+    pageLines.push(`BT /F2 7 Tf 0.02 0.59 0.41 rg 285 ${tRowY + 3} Td (Rs.${fmt(mTotals.collections)}) Tj ET`);
+    pageLines.push(`BT /F2 7 Tf 0.88 0.17 0.24 rg 395 ${tRowY + 3} Td (Rs.${fmt(mTotals.revenue)}) Tj ET`);
+    pageLines.push(`BT /F2 7 Tf 0.12 0.18 0.38 rg 485 ${tRowY + 3} Td (${mTotals.conversionRate}%) Tj ET`);
+    pageLines.push(`BT /F2 6 Tf 0.12 0.18 0.38 rg 532 ${tRowY + 3} Td (MTD Full) Tj ET`);
+
+    // ── 5. Section 2: Comparative MoM/QoQ Growth Benchmarks & Financial P&L Assessment (Y: 65..486) ──
+    pageLines.push(
+      `BT /F2 8.5 Tf 0.29 0.0 0.51 rg 22 486 Td (2. STRATEGIC GROWTH BENCHMARKS & BRAND PROFITABILITY (P&L) AUDIT) Tj ET`
+    );
+
+    const bBoxY = 65;
+    const bBoxH = 405;
+
+    // ── LEFT BOX: MoM & QoQ Comparative Benchmarks ──
+    const leftX = 20, leftW = 272;
+    pageLines.push(fillRoundedRect("0.98 0.99 1.0", leftX, bBoxY, leftW, bBoxH, 6));
+    pageLines.push(strokeRoundedRect("0.88 0.90 0.95", leftX, bBoxY, leftW, bBoxH, 6));
+
+    pageLines.push(fillRoundedRect("0.12 0.18 0.38", leftX, bBoxY + bBoxH - 22, leftW, 22, 4));
+    pageLines.push(`BT /F2 8 Tf 1 1 1 rg ${leftX + 10} ${bBoxY + bBoxH - 14} Td (2A. MoM & QoQ GROWTH BENCHMARKS) Tj ET`);
+
+    // MoM Header
+    pageLines.push(`BT /F2 7.5 Tf 0.25 0.30 0.45 rg ${leftX + 10} ${bBoxY + bBoxH - 38} Td (MONTH-OVER-MONTH (MoM) COMPARISON) Tj ET`);
+    pageLines.push(`BT /F1 6.5 Tf 0.45 0.50 0.60 rg ${leftX + 10} ${bBoxY + bBoxH - 50} Td (Comparing with ${escapePdfText(brand.lastMonth?.monthName || "Last Month")}) Tj ET`);
+
+    const momTblHdrY = bBoxY + bBoxH - 68;
+    pageLines.push(fillRoundedRect("0.90 0.93 0.98", leftX + 8, momTblHdrY, leftW - 16, 15, 2));
+    pageLines.push(`BT /F2 6 Tf 0.15 0.20 0.35 rg ${leftX + 12} ${momTblHdrY + 4} Td (Metric) Tj ET`);
+    pageLines.push(`BT /F2 6 Tf 0.15 0.20 0.35 rg ${leftX + 88} ${momTblHdrY + 4} Td (This Mo) Tj ET`);
+    pageLines.push(`BT /F2 6 Tf 0.15 0.20 0.35 rg ${leftX + 148} ${momTblHdrY + 4} Td (Last Mo) Tj ET`);
+    pageLines.push(`BT /F2 6 Tf 0.15 0.20 0.35 rg ${leftX + 210} ${momTblHdrY + 4} Td (MoM Delta) Tj ET`);
+
+    const momRows = [
+      { label: "Total Leads", thisMo: `${brand.mtdLeads}`, lastMo: `${brand.lastMonth?.leads || 0}`, chg: fmtChg(brand.lastMonth?.leadsGrowthPct || 0) },
+      { label: "Admissions", thisMo: `${brand.mtdAdmissions}`, lastMo: `${brand.lastMonth?.admissions || 0}`, chg: fmtChg(brand.lastMonth?.admissionsGrowthPct || 0) },
+      { label: "Collections", thisMo: `Rs.${fmt(brand.mtdCollections)}`, lastMo: `Rs.${fmt(brand.lastMonth?.collections || 0)}`, chg: fmtChg(brand.lastMonth?.collectionsGrowthPct || 0) },
+      { label: "Course Revenue", thisMo: `Rs.${fmt(brand.mtdRevenue)}`, lastMo: `Rs.${fmt(brand.lastMonth?.revenue || 0)}`, chg: fmtChg(brand.lastMonth?.revenueGrowthPct || 0) },
+      { label: "Conversion Rate", thisMo: `${brand.mtdConversionRate}%`, lastMo: `${brand.lastMonth?.conversionRate || 0}%`, chg: `${(brand.mtdConversionRate - (brand.lastMonth?.conversionRate || 0)).toFixed(1)}%` },
+    ];
+
+    let momY = momTblHdrY - 15;
+    momRows.forEach((r, rIdx) => {
+      const bg = rIdx % 2 === 0 ? "0.96 0.97 0.99" : "1 1 1";
+      pageLines.push(fillRoundedRect(bg, leftX + 8, momY - 1, leftW - 16, 14, 0));
+      pageLines.push(`BT /F1 6 Tf 0.20 0.25 0.35 rg ${leftX + 12} ${momY + 3} Td (${escapePdfText(r.label)}) Tj ET`);
+      pageLines.push(`BT /F2 6 Tf 0.08 0.12 0.25 rg ${leftX + 88} ${momY + 3} Td (${escapePdfText(r.thisMo)}) Tj ET`);
+      pageLines.push(`BT /F1 6 Tf 0.35 0.40 0.50 rg ${leftX + 148} ${momY + 3} Td (${escapePdfText(r.lastMo)}) Tj ET`);
+      const chgCol = r.chg.includes("+") ? "0.02 0.59 0.41" : r.chg.includes("-") ? "0.88 0.17 0.24" : "0.35 0.40 0.50";
+      pageLines.push(`BT /F2 6 Tf ${chgCol} rg ${leftX + 210} ${momY + 3} Td (${escapePdfText(r.chg)}) Tj ET`);
+      momY -= 15;
+    });
+
+    // QoQ Section Divider
+    pageLines.push(fillRoundedRect("0.85 0.88 0.92", leftX + 8, momY - 4, leftW - 16, 1, 0));
+
+    // QoQ Header
+    const qoqTitleY = momY - 18;
+    pageLines.push(`BT /F2 7.5 Tf 0.25 0.30 0.45 rg ${leftX + 10} ${qoqTitleY} Td (LAST QUARTER (QoQ) RUN-RATE BENCHMARK) Tj ET`);
+    pageLines.push(`BT /F1 6.5 Tf 0.45 0.50 0.60 rg ${leftX + 10} ${qoqTitleY - 12} Td (Benchmark: ${escapePdfText(brand.lastQuarter?.quarterName || "Last Quarter")}) Tj ET`);
+
+    const qoqStatsY = qoqTitleY - 28;
+    const qoqMetrics = [
+      { label: "Last Qtr Total Collections:", value: `Rs.${fmt(brand.lastQuarter?.totalCollections || 0)}` },
+      { label: "Last Qtr Monthly Run-Rate:", value: `Rs.${fmt(brand.lastQuarter?.monthlyAvgCollections || 0)} / mo` },
+      { label: "Current Month Collections:", value: `Rs.${fmt(brand.mtdCollections)}` },
+      { label: "Quarterly Growth Velocity:", value: `${fmtChg(brand.lastQuarter?.quarterlyGrowthPct || 0)} vs Qtr Avg`, isBold: true, valCol: (brand.lastQuarter?.quarterlyGrowthPct || 0) >= 0 ? "0.02 0.59 0.41" : "0.88 0.17 0.24" },
+    ];
+
+    let qY = qoqStatsY;
+    qoqMetrics.forEach((qm) => {
+      pageLines.push(`BT /F1 6.5 Tf 0.35 0.40 0.50 rg ${leftX + 10} ${qY} Td (${escapePdfText(qm.label)}) Tj ET`);
+      const vFont = qm.isBold ? "/F2" : "/F1";
+      const vCol = qm.valCol || "0.08 0.12 0.25";
+      pageLines.push(`BT ${vFont} 6.5 Tf ${vCol} rg ${leftX + 155} ${qY} Td (${escapePdfText(qm.value)}) Tj ET`);
+      qY -= 15;
+    });
+
+    const isQoqPositive = (brand.lastQuarter?.quarterlyGrowthPct || 0) >= 0;
+    const qoqBadgeBg = isQoqPositive ? "0.92 0.99 0.96" : "1.0 0.95 0.96";
+    const qoqBadgeBorder = isQoqPositive ? "0.02 0.59 0.41" : "0.88 0.17 0.24";
+    const qoqBadgeText = isQoqPositive
+      ? `Outperforming Last Quarter Benchmark (+${brand.lastQuarter?.quarterlyGrowthPct || 0}%)`
+      : `Trailing Last Quarter Run-Rate (${brand.lastQuarter?.quarterlyGrowthPct || 0}%)`;
+
+    pageLines.push(fillRoundedRect(qoqBadgeBg, leftX + 8, bBoxY + 10, leftW - 16, 24, 4));
+    pageLines.push(strokeRoundedRect(qoqBadgeBorder, leftX + 8, bBoxY + 10, leftW - 16, 24, 4));
+    pageLines.push(`BT /F2 6.5 Tf ${qoqBadgeBorder} rg ${leftX + 14} ${bBoxY + 20} Td (${escapePdfText(qoqBadgeText)}) Tj ET`);
+
+    // ── RIGHT BOX: Financial Profitability (P&L) Audit ──
+    const rightX = 302, rightW = 273;
+    pageLines.push(fillRoundedRect("0.98 0.99 1.0", rightX, bBoxY, rightW, bBoxH, 6));
+    pageLines.push(strokeRoundedRect("0.88 0.90 0.95", rightX, bBoxY, rightW, bBoxH, 6));
+
+    const pnlHeaderBg = pnl.isProfit ? "0.02 0.59 0.41" : "0.88 0.17 0.24";
+    pageLines.push(fillRoundedRect(pnlHeaderBg, rightX, bBoxY + bBoxH - 22, rightW, 22, 4));
+    pageLines.push(`BT /F2 8 Tf 1 1 1 rg ${rightX + 10} ${bBoxY + bBoxH - 14} Td (2B. BRAND FINANCIAL PROFITABILITY (P&L)) Tj ET`);
+
+    // Inflow vs Outflow Rows
+    let pY = bBoxY + bBoxH - 42;
+    pageLines.push(`BT /F2 7 Tf 0.02 0.59 0.41 rg ${rightX + 10} ${pY} Td (1. CASH INFLOW & COLLECTIONS (MTD)) Tj ET`);
+    pageLines.push(`BT /F2 8 Tf 0.02 0.59 0.41 rg ${rightX + 175} ${pY} Td (Rs.${fmt(pnl.totalInflowCollections)}) Tj ET`);
+
+    pY -= 15;
+    pageLines.push(`BT /F1 6.5 Tf 0.35 0.40 0.50 rg ${rightX + 10} ${pY} Td (2. Confirmed Admission Value:) Tj ET`);
+    pageLines.push(`BT /F1 6.5 Tf 0.20 0.25 0.35 rg ${rightX + 175} ${pY} Td (Rs.${fmt(pnl.totalAdmissionValue)}) Tj ET`);
+
+    pY -= 12;
+    pageLines.push(fillRoundedRect("0.85 0.88 0.92", rightX + 8, pY, rightW - 16, 1, 0));
+
+    pY -= 14;
+    pageLines.push(`BT /F2 7 Tf 0.88 0.17 0.24 rg ${rightX + 10} ${pY} Td (3. OPERATIONAL OUTFLOW (MTD)) Tj ET`);
+    pageLines.push(`BT /F2 8 Tf 0.88 0.17 0.24 rg ${rightX + 175} ${pY} Td (Rs.${fmt(pnl.totalOutflow)}) Tj ET`);
+
+    pY -= 15;
+    pageLines.push(`BT /F1 6.5 Tf 0.35 0.40 0.50 rg ${rightX + 10} ${pY} Td (- Allocated Operating Expenses:) Tj ET`);
+    pageLines.push(`BT /F1 6.5 Tf 0.20 0.25 0.35 rg ${rightX + 175} ${pY} Td (Rs.${fmt(pnl.totalAllocatedExpenses)}) Tj ET`);
+
+    pY -= 14;
+    pageLines.push(`BT /F1 6.5 Tf 0.35 0.40 0.50 rg ${rightX + 10} ${pY} Td (- Allocated Payroll & Staff Costs:) Tj ET`);
+    pageLines.push(`BT /F1 6.5 Tf 0.20 0.25 0.35 rg ${rightX + 175} ${pY} Td (Rs.${fmt(pnl.totalAllocatedPayroll)}) Tj ET`);
+
+    // ── PROMINENT P&L BANNER ──
+    const bannerY = pY - 110;
+    const bannerH = 100;
+    const bannerBg = pnl.isProfit ? "0.92 0.99 0.96" : "1.0 0.95 0.96";
+    const bannerBorder = pnl.isProfit ? "0.02 0.59 0.41" : "0.88 0.17 0.24";
+
+    pageLines.push(fillRoundedRect(bannerBg, rightX + 8, bannerY, rightW - 16, bannerH, 6));
+    pageLines.push(strokeRoundedRect(bannerBorder, rightX + 8, bannerY, rightW - 16, bannerH, 4));
+
+    const statusTitle = pnl.isProfit ? "NET RESULT: OPERATING PROFIT" : "NET RESULT: OPERATING LOSS";
+    const netValStr = pnl.isProfit ? `+Rs.${fmt(pnl.netProfitOrLoss)}` : `-Rs.${fmt(Math.abs(pnl.netProfitOrLoss))}`;
+    const marginStr = pnl.isProfit
+      ? `Net Operating Margin: ${pnl.marginPct}% (Surplus Inflow)`
+      : `Net Deficit Margin: ${pnl.marginPct}% (Deficit Outflow)`;
+
+    pageLines.push(`BT /F2 9.5 Tf ${bannerBorder} rg ${rightX + 18} ${bannerY + bannerH - 20} Td (${statusTitle}) Tj ET`);
+    pageLines.push(`BT /F2 16 Tf ${bannerBorder} rg ${rightX + 18} ${bannerY + bannerH - 45} Td (${netValStr}) Tj ET`);
+    pageLines.push(`BT /F2 7 Tf ${bannerBorder} rg ${rightX + 18} ${bannerY + bannerH - 65} Td (${escapePdfText(marginStr)}) Tj ET`);
+    pageLines.push(`BT /F1 6.5 Tf 0.30 0.35 0.45 rg ${rightX + 18} ${bannerY + bannerH - 85} Td (Formula: Collections Inflow - Total Outflow Expenses) Tj ET`);
+
+    // Management Guidance Note
+    const noteY = bBoxY + 10;
+    const noteH = bannerY - noteY - 10;
+    const noteBg = pnl.isProfit ? "0.95 0.98 0.96" : "0.98 0.95 0.95";
+    pageLines.push(fillRoundedRect(noteBg, rightX + 8, noteY, rightW - 16, noteH, 4));
+    pageLines.push(strokeRoundedRect("0.85 0.88 0.92", rightX + 8, noteY, rightW - 16, noteH, 4));
+
+    pageLines.push(`BT /F2 7 Tf 0.15 0.20 0.35 rg ${rightX + 14} ${noteY + noteH - 16} Td (EXECUTIVE MANAGEMENT ACTION) Tj ET`);
+    const actionText1 = pnl.isProfit
+      ? `Healthy positive cashflow of Rs.${fmt(pnl.netProfitOrLoss)} achieved.`
+      : `Outflow exceeds collections by Rs.${fmt(Math.abs(pnl.netProfitOrLoss))}.`;
+    const actionText2 = pnl.isProfit
+      ? `Continue current enrollment pace & maintain fee collection discipline.`
+      : `Prioritize overdue fee recovery & scale high-intent admissions pipeline.`;
+
+    pageLines.push(`BT /F1 6.5 Tf 0.25 0.30 0.40 rg ${rightX + 14} ${noteY + noteH - 30} Td (${escapePdfText(actionText1)}) Tj ET`);
+    pageLines.push(`BT /F1 6.5 Tf 0.25 0.30 0.40 rg ${rightX + 14} ${noteY + noteH - 44} Td (${escapePdfText(actionText2)}) Tj ET`);
+
+    // ── 6. Page Footer (Y: 35..50) ──
+    pageLines.push(fillRoundedRect("0.82 0.82 0.85", 20, 50, 555, 1, 0));
+    pageLines.push(
+      `BT /F1 7 Tf 0.45 0.45 0.50 rg 22 38 Td (CoachFlow ERP  \xb7  Multi-Brand Monthly Executive Intelligence Report  \xb7  Confidential) Tj ET`
     );
     pageLines.push(`BT /F1 7 Tf 0.45 0.45 0.50 rg 460 38 Td (Brand Page ${bIdx + 1} of ${totalPages}) Tj ET`);
 
