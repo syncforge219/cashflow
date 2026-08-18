@@ -832,10 +832,18 @@ function buildMonthlyBiReportPdfBuffer(data: MonthlyBiReportData): Buffer {
       `BT /F1 7 Tf 0.35 0.40 0.50 rg 74 718 Td (Monthly Operations  \xb7  Code: ${bCode}  \xb7  Status: Active  \xb7  As of ${dateStr}) Tj ET`
     );
 
-    const pnlBadgeBg = pnl.isProfit ? "0.02 0.59 0.41" : "0.88 0.17 0.24";
-    pageLines.push(fillRoundedRect(pnlBadgeBg, 430, 720, 135, 20, 4));
+    const thisMoColl = pnl.thisMonthCollections ?? pnl.totalInflowCollections ?? brand.mtdCollections ?? 0;
+    const lastMoColl = pnl.lastMonthCollections ?? brand.lastMonth?.collections ?? 0;
+    const collGrowthDiff = pnl.collectionsGrowthDiff ?? (thisMoColl - lastMoColl);
+    const collGrowthPct = pnl.collectionsGrowthPct ?? (brand.lastMonth?.collectionsGrowthPct || 0);
+    const lmName = escapePdfText(pnl.lastMonthName || brand.lastMonth?.monthName || "Last Month");
+    const isCollectionGrowth = collGrowthDiff >= 0;
+
+    const heroPillBg = isCollectionGrowth ? "0.02 0.59 0.41" : "0.88 0.17 0.24";
+    const heroPillText = isCollectionGrowth ? "COLLECTION GROWTH (+)" : "COLLECTION DOWNFALL (-)";
+    pageLines.push(fillRoundedRect(heroPillBg, 420, 720, 145, 20, 4));
     pageLines.push(
-      `BT /F2 7.5 Tf 1 1 1 rg 438 726 Td (${pnl.isProfit ? "MTD OPERATING PROFIT" : "MTD OPERATING DEFICIT"}) Tj ET`
+      `BT /F2 7.5 Tf 1 1 1 rg 428 726 Td (${heroPillText}) Tj ET`
     );
 
     // ── 3. 5 Core Monthly KPI Metric Cards (Y: 642..696) ──
@@ -900,10 +908,10 @@ function buildMonthlyBiReportPdfBuffer(data: MonthlyBiReportData): Buffer {
       )
     );
 
-    // Card 5: Net Profit / Loss
-    const pnlCardAccent = pnl.isProfit ? "0.02 0.59 0.41" : "0.88 0.17 0.24";
-    const pnlCardValue = pnl.isProfit ? `+Rs.${fmt(pnl.netProfitOrLoss)}` : `-Rs.${fmt(Math.abs(pnl.netProfitOrLoss))}`;
-    const pnlCardBadge = pnl.isProfit ? `PROFIT (${pnl.marginPct}%)` : `LOSS (${pnl.marginPct}%)`;
+    // Card 5: Collection Growth / Downfall
+    const collCardAccent = isCollectionGrowth ? "0.02 0.59 0.41" : "0.88 0.17 0.24";
+    const collCardValue = `${isCollectionGrowth ? "+" : "-"}Rs.${fmt(Math.abs(collGrowthDiff))}`;
+    const collCardBadge = isCollectionGrowth ? `GROWTH (+${collGrowthPct}%)` : `DOWNFALL (${collGrowthPct}%)`;
 
     pageLines.push(
       ...renderMonthlyKpiBox(
@@ -911,10 +919,10 @@ function buildMonthlyBiReportPdfBuffer(data: MonthlyBiReportData): Buffer {
         kpiY,
         kpiW,
         kpiH,
-        pnlCardAccent,
-        "NET P&L (MTD)",
-        pnlCardValue,
-        pnlCardBadge
+        collCardAccent,
+        "COLLECTION MOM",
+        collCardValue,
+        collCardBadge
       )
     );
 
@@ -988,9 +996,9 @@ function buildMonthlyBiReportPdfBuffer(data: MonthlyBiReportData): Buffer {
     pageLines.push(`BT /F2 7 Tf 0.12 0.18 0.38 rg 485 ${tRowY + 3} Td (${mTotals.conversionRate}%) Tj ET`);
     pageLines.push(`BT /F2 6 Tf 0.12 0.18 0.38 rg 532 ${tRowY + 3} Td (MTD Full) Tj ET`);
 
-    // ── 5. Section 2: Comparative MoM/QoQ Growth Benchmarks & Financial P&L Assessment (Y: 65..486) ──
+    // ── 5. Section 2: Comparative MoM/QoQ Growth Benchmarks & Financial Collections Audit (Y: 65..486) ──
     pageLines.push(
-      `BT /F2 8.5 Tf 0.29 0.0 0.51 rg 22 486 Td (2. STRATEGIC GROWTH BENCHMARKS & BRAND PROFITABILITY (P&L) AUDIT) Tj ET`
+      `BT /F2 8.5 Tf 0.29 0.0 0.51 rg 22 486 Td (2. STRATEGIC GROWTH BENCHMARKS & BRAND COLLECTION AUDIT) Tj ET`
     );
 
     const bBoxY = 65;
@@ -1071,108 +1079,99 @@ function buildMonthlyBiReportPdfBuffer(data: MonthlyBiReportData): Buffer {
     pageLines.push(strokeRoundedRect(qoqBadgeBorder, leftX + 8, bBoxY + 10, leftW - 16, 24, 4));
     pageLines.push(`BT /F2 6.5 Tf ${qoqBadgeBorder} rg ${leftX + 14} ${bBoxY + 20} Td (${escapePdfText(qoqBadgeText)}) Tj ET`);
 
-    // ── RIGHT BOX: Financial Profitability (P&L) Audit ──
+    // ── RIGHT BOX: Collections Comparison & Growth/Downfall Audit ──
     const rightX = 302, rightW = 273;
     pageLines.push(fillRoundedRect("0.98 0.99 1.0", rightX, bBoxY, rightW, bBoxH, 6));
     pageLines.push(strokeRoundedRect("0.88 0.90 0.95", rightX, bBoxY, rightW, bBoxH, 6));
 
-    const pnlHeaderBg = pnl.isProfit ? "0.02 0.59 0.41" : "0.88 0.17 0.24";
+    const pnlHeaderBg = isCollectionGrowth ? "0.02 0.59 0.41" : "0.88 0.17 0.24";
+    const pnlHeaderTitle = isCollectionGrowth
+      ? "2B. COLLECTION GROWTH PERFORMANCE"
+      : "2B. COLLECTION DOWNFALL PERFORMANCE";
     pageLines.push(fillRoundedRect(pnlHeaderBg, rightX, bBoxY + bBoxH - 22, rightW, 22, 4));
-    pageLines.push(`BT /F2 8 Tf 1 1 1 rg ${rightX + 10} ${bBoxY + bBoxH - 14} Td (2B. BRAND FINANCIAL PROFITABILITY (P&L)) Tj ET`);
+    pageLines.push(`BT /F2 8 Tf 1 1 1 rg ${rightX + 10} ${bBoxY + bBoxH - 14} Td (${escapePdfText(pnlHeaderTitle)}) Tj ET`);
 
-    // Inflow & Collections Comparison Rows
-    const thisMoColl = pnl.thisMonthCollections ?? pnl.totalInflowCollections ?? 0;
-    const lastMoColl = pnl.lastMonthCollections ?? brand.lastMonth?.collections ?? 0;
-    const collGrowthDiff = pnl.collectionsGrowthDiff ?? (thisMoColl - lastMoColl);
-    const collGrowthPct = pnl.collectionsGrowthPct ?? (brand.lastMonth?.collectionsGrowthPct || 0);
-    const lmName = escapePdfText(pnl.lastMonthName || brand.lastMonth?.monthName || "Last Month");
+    // Direct Collections Comparison Rows
+    let pY = bBoxY + bBoxH - 36;
+    pageLines.push(`BT /F2 7 Tf 0.15 0.20 0.35 rg ${rightX + 10} ${pY} Td (1. TOTAL COLLECTIONS COMPARISON (MOM)) Tj ET`);
 
-    let pY = bBoxY + bBoxH - 38;
-    pageLines.push(`BT /F2 7 Tf 0.02 0.59 0.41 rg ${rightX + 10} ${pY} Td (1. COLLECTIONS COMPARISON (MTD vs LAST MO)) Tj ET`);
+    // Row A: This Month Collection
+    pY -= 30;
+    pageLines.push(fillRoundedRect("0.94 0.98 0.95", rightX + 8, pY, rightW - 16, 26, 3));
+    pageLines.push(strokeRoundedRect("0.80 0.92 0.85", rightX + 8, pY, rightW - 16, 26, 3));
+    pageLines.push(`BT /F2 6.5 Tf 0.15 0.35 0.25 rg ${rightX + 14} ${pY + 14} Td (This Month Collection (MTD):) Tj ET`);
+    pageLines.push(`BT /F1 5.5 Tf 0.35 0.50 0.40 rg ${rightX + 14} ${pY + 5} Td (Current Month Actual Fee Inflow) Tj ET`);
+    pageLines.push(`BT /F2 9.5 Tf 0.02 0.59 0.41 rg ${rightX + 168} ${pY + 9} Td (Rs.${fmt(thisMoColl)}) Tj ET`);
 
-    pY -= 13;
-    pageLines.push(`BT /F2 6.5 Tf 0.15 0.20 0.35 rg ${rightX + 10} ${pY} Td (This Month Collection (MTD):) Tj ET`);
-    pageLines.push(`BT /F2 7.5 Tf 0.02 0.59 0.41 rg ${rightX + 175} ${pY} Td (Rs.${fmt(thisMoColl)}) Tj ET`);
+    // Row B: Last Month Collection
+    pY -= 30;
+    pageLines.push(fillRoundedRect("0.96 0.97 0.99", rightX + 8, pY, rightW - 16, 26, 3));
+    pageLines.push(strokeRoundedRect("0.86 0.89 0.95", rightX + 8, pY, rightW - 16, 26, 3));
+    pageLines.push(`BT /F1 6.5 Tf 0.25 0.30 0.45 rg ${rightX + 14} ${pY + 14} Td (Last Month Collection (${lmName}):) Tj ET`);
+    pageLines.push(`BT /F1 5.5 Tf 0.45 0.50 0.60 rg ${rightX + 14} ${pY + 5} Td (Previous Full Month Benchmark) Tj ET`);
+    pageLines.push(`BT /F2 9 Tf 0.20 0.25 0.40 rg ${rightX + 168} ${pY + 9} Td (Rs.${fmt(lastMoColl)}) Tj ET`);
 
-    pY -= 13;
-    pageLines.push(`BT /F1 6.5 Tf 0.35 0.40 0.50 rg ${rightX + 10} ${pY} Td (Last Month Collection (${lmName}):) Tj ET`);
-    pageLines.push(`BT /F1 6.5 Tf 0.25 0.30 0.40 rg ${rightX + 175} ${pY} Td (Rs.${fmt(lastMoColl)}) Tj ET`);
+    // Row C: Collection Difference & Growth/Downfall Rate
+    pY -= 30;
+    const deltaCardBg = isCollectionGrowth ? "0.90 0.99 0.93" : "1.0 0.94 0.95";
+    const deltaCardBorder = isCollectionGrowth ? "0.02 0.59 0.41" : "0.88 0.17 0.24";
+    const deltaCardLabel = isCollectionGrowth ? "Collection Growth (Surplus):" : "Collection Downfall (Deficit):";
+    const deltaCardValue = `${isCollectionGrowth ? "+" : "-"}Rs.${fmt(Math.abs(collGrowthDiff))} (${fmtChg(collGrowthPct)})`;
 
-    pY -= 13;
-    const collDiffSign = collGrowthDiff >= 0 ? "+" : "-";
-    const collChgCol = collGrowthDiff >= 0 ? "0.02 0.59 0.41" : "0.88 0.17 0.24";
-    pageLines.push(`BT /F2 6.5 Tf 0.30 0.35 0.45 rg ${rightX + 10} ${pY} Td (Collection MoM Growth:) Tj ET`);
-    pageLines.push(`BT /F2 6.5 Tf ${collChgCol} rg ${rightX + 175} ${pY} Td (${collDiffSign}Rs.${fmt(Math.abs(collGrowthDiff))} (${fmtChg(collGrowthPct)})) Tj ET`);
+    pageLines.push(fillRoundedRect(deltaCardBg, rightX + 8, pY, rightW - 16, 26, 3));
+    pageLines.push(strokeRoundedRect(deltaCardBorder, rightX + 8, pY, rightW - 16, 26, 3));
+    pageLines.push(`BT /F2 6.5 Tf ${deltaCardBorder} rg ${rightX + 14} ${pY + 14} Td (${escapePdfText(deltaCardLabel)}) Tj ET`);
+    pageLines.push(`BT /F1 5.5 Tf ${deltaCardBorder} rg ${rightX + 14} ${pY + 5} Td (Net Inflow Delta vs Previous Month) Tj ET`);
+    pageLines.push(`BT /F2 8.5 Tf ${deltaCardBorder} rg ${rightX + 155} ${pY + 9} Td (${escapePdfText(deltaCardValue)}) Tj ET`);
 
-    pY -= 12;
-    pageLines.push(`BT /F1 6 Tf 0.40 0.45 0.55 rg ${rightX + 10} ${pY} Td (Confirmed Course Pipeline Value:) Tj ET`);
-    pageLines.push(`BT /F1 6 Tf 0.20 0.25 0.35 rg ${rightX + 175} ${pY} Td (Rs.${fmt(pnl.totalAdmissionValue)}) Tj ET`);
-
-    pY -= 10;
-    pageLines.push(fillRoundedRect("0.85 0.88 0.92", rightX + 8, pY, rightW - 16, 1, 0));
-
-    // Operational Outflow Rows
-    pY -= 12;
-    pageLines.push(`BT /F2 7 Tf 0.88 0.17 0.24 rg ${rightX + 10} ${pY} Td (2. OPERATIONAL OUTFLOW & COSTS) Tj ET`);
-    pageLines.push(`BT /F2 7.5 Tf 0.88 0.17 0.24 rg ${rightX + 175} ${pY} Td (Rs.${fmt(pnl.totalOutflow)}) Tj ET`);
-
-    pY -= 12;
-    pageLines.push(`BT /F1 6 Tf 0.35 0.40 0.50 rg ${rightX + 10} ${pY} Td (- Allocated Operating Expenses:) Tj ET`);
-    pageLines.push(`BT /F1 6 Tf 0.20 0.25 0.35 rg ${rightX + 175} ${pY} Td (Rs.${fmt(pnl.totalAllocatedExpenses)}) Tj ET`);
-
-    pY -= 11;
-    pageLines.push(`BT /F1 6 Tf 0.35 0.40 0.50 rg ${rightX + 10} ${pY} Td (- Allocated Payroll & Staff Costs:) Tj ET`);
-    pageLines.push(`BT /F1 6 Tf 0.20 0.25 0.35 rg ${rightX + 175} ${pY} Td (Rs.${fmt(pnl.totalAllocatedPayroll)}) Tj ET`);
-
-    if (pnl.lastMonthTotalOutflow !== undefined && pnl.lastMonthTotalOutflow > 0) {
-      pY -= 11;
-      pageLines.push(`BT /F1 6 Tf 0.45 0.50 0.60 rg ${rightX + 10} ${pY} Td (Last Month Total Outflow:) Tj ET`);
-      pageLines.push(`BT /F1 6 Tf 0.35 0.40 0.50 rg ${rightX + 175} ${pY} Td (Rs.${fmt(pnl.lastMonthTotalOutflow)}) Tj ET`);
-    }
-
-    // ── PROMINENT P&L BANNER (TOTAL PROFIT OR TOTAL LOSS) ──
-    const bannerH = 106;
+    // ── PROMINENT EXECUTIVE STATUS BANNER (GROWTH / DOWNFALL) ──
+    const bannerH = 125;
     const bannerY = pY - bannerH - 8;
-    const bannerBg = pnl.isProfit ? "0.92 0.99 0.96" : "1.0 0.95 0.96";
-    const bannerBorder = pnl.isProfit ? "0.02 0.59 0.41" : "0.88 0.17 0.24";
+    const bannerBg = isCollectionGrowth ? "0.92 0.99 0.96" : "1.0 0.95 0.96";
+    const bannerBorder = isCollectionGrowth ? "0.02 0.59 0.41" : "0.88 0.17 0.24";
 
     pageLines.push(fillRoundedRect(bannerBg, rightX + 8, bannerY, rightW - 16, bannerH, 6));
     pageLines.push(strokeRoundedRect(bannerBorder, rightX + 8, bannerY, rightW - 16, bannerH, 4));
 
-    const statusTitle = pnl.isProfit ? "NET RESULT: TOTAL OPERATING PROFIT" : "NET RESULT: TOTAL OPERATING LOSS";
-    const netValStr = pnl.isProfit ? `+Rs.${fmt(pnl.netProfitOrLoss)}` : `-Rs.${fmt(Math.abs(pnl.netProfitOrLoss))}`;
-    const marginStr = pnl.isProfit
-      ? `Net Operating Margin: ${pnl.marginPct}% (Surplus Inflow)`
-      : `Net Deficit Margin: ${pnl.marginPct}% (Deficit Outflow)`;
+    // Status Pill
+    const pillW = isCollectionGrowth ? 150 : 160;
+    pageLines.push(fillRoundedRect(bannerBorder, rightX + 14, bannerY + bannerH - 22, pillW, 16, 3));
+    const bannerStatusText = isCollectionGrowth ? "COLLECTION GROWTH STATUS" : "COLLECTION DOWNFALL STATUS";
+    pageLines.push(`BT /F2 7 Tf 1 1 1 rg ${rightX + 20} ${bannerY + bannerH - 17} Td (${bannerStatusText}) Tj ET`);
 
-    pageLines.push(`BT /F2 9.5 Tf ${bannerBorder} rg ${rightX + 16} ${bannerY + bannerH - 18} Td (${statusTitle}) Tj ET`);
-    pageLines.push(`BT /F2 16 Tf ${bannerBorder} rg ${rightX + 16} ${bannerY + bannerH - 42} Td (${netValStr}) Tj ET`);
-    pageLines.push(`BT /F2 6.5 Tf ${bannerBorder} rg ${rightX + 16} ${bannerY + bannerH - 60} Td (${escapePdfText(marginStr)}) Tj ET`);
+    // Big Highlight Number
+    const netValStr = `${isCollectionGrowth ? "+" : "-"}Rs.${fmt(Math.abs(collGrowthDiff))}`;
+    pageLines.push(`BT /F2 18 Tf ${bannerBorder} rg ${rightX + 16} ${bannerY + bannerH - 46} Td (${netValStr}) Tj ET`);
 
-    // P&L comparison with Last Month line
-    const profitGrowthDiff = pnl.profitGrowthDiff ?? 0;
-    const profitGrowthPct = pnl.profitGrowthPct ?? 0;
-    const profitCompText = pnl.isProfit
-      ? `Profit vs Last Month: ${profitGrowthDiff >= 0 ? "+" : "-"}Rs.${fmt(Math.abs(profitGrowthDiff))} (${profitGrowthPct >= 0 ? "+" : ""}${profitGrowthPct}% Growth)`
-      : `Deficit vs Last Month: -Rs.${fmt(Math.abs(pnl.netProfitOrLoss))} (Operating Loss)`;
-    pageLines.push(`BT /F2 6.5 Tf 0.20 0.30 0.45 rg ${rightX + 16} ${bannerY + bannerH - 76} Td (${escapePdfText(profitCompText)}) Tj ET`);
+    // Growth / Downfall Badge Line
+    const compBadgeText = isCollectionGrowth
+      ? `+${collGrowthPct}% Higher Collections vs ${lmName}`
+      : `${collGrowthPct}% Lower Collections vs ${lmName}`;
+    pageLines.push(`BT /F2 7.5 Tf ${bannerBorder} rg ${rightX + 16} ${bannerY + bannerH - 66} Td (${escapePdfText(compBadgeText)}) Tj ET`);
 
-    pageLines.push(`BT /F1 5.5 Tf 0.35 0.40 0.50 rg ${rightX + 16} ${bannerY + bannerH - 94} Td (Formula: Total Collections Inflow - Total Outflow Expenses) Tj ET`);
+    const compSubText = isCollectionGrowth
+      ? `Positive Cashflow Surge Generated This Month`
+      : `Collection Deficit Observed vs Previous Month`;
+    pageLines.push(`BT /F1 6.5 Tf 0.25 0.30 0.40 rg ${rightX + 16} ${bannerY + bannerH - 84} Td (${escapePdfText(compSubText)}) Tj ET`);
 
-    // Management Guidance Note
+    const formulaText = `Formula: This Month (Rs.${fmt(thisMoColl)}) - Last Month (Rs.${fmt(lastMoColl)})`;
+    pageLines.push(`BT /F1 5.5 Tf 0.40 0.45 0.55 rg ${rightX + 16} ${bannerY + bannerH - 104} Td (${escapePdfText(formulaText)}) Tj ET`);
+
+    // Executive Strategy Note
     const noteY = bBoxY + 8;
     const noteH = bannerY - noteY - 6;
-    const noteBg = pnl.isProfit ? "0.95 0.98 0.96" : "0.98 0.95 0.95";
+    const noteBg = isCollectionGrowth ? "0.95 0.98 0.96" : "0.98 0.95 0.95";
     pageLines.push(fillRoundedRect(noteBg, rightX + 8, noteY, rightW - 16, noteH, 4));
-    pageLines.push(strokeRoundedRect("0.85 0.88 0.92", rightX + 8, noteY, rightW - 16, noteH, 4));
+    pageLines.push(strokeRoundedRect(isCollectionGrowth ? "0.02 0.59 0.41" : "0.88 0.17 0.24", rightX + 8, noteY, rightW - 16, noteH, 2));
 
-    pageLines.push(`BT /F2 6.5 Tf 0.15 0.20 0.35 rg ${rightX + 14} ${noteY + noteH - 14} Td (EXECUTIVE P&L MANAGEMENT SUMMARY) Tj ET`);
-    const actionText1 = pnl.isProfit
-      ? `Healthy profit of Rs.${fmt(pnl.netProfitOrLoss)} (${collGrowthDiff >= 0 ? "+" : ""}${collGrowthPct}% Collections MoM).`
-      : `Operating loss of Rs.${fmt(Math.abs(pnl.netProfitOrLoss))} (Outflow Rs.${fmt(pnl.totalOutflow)} > Collections Rs.${fmt(thisMoColl)}).`;
-    const actionText2 = pnl.isProfit
-      ? `Maintain current enrollment pace & fee collection discipline.`
-      : `Accelerate overdue fee recovery & optimize general expenses.`;
+    pageLines.push(`BT /F2 6.5 Tf ${isCollectionGrowth ? "0.02 0.59 0.41" : "0.88 0.17 0.24"} rg ${rightX + 14} ${noteY + noteH - 14} Td (EXECUTIVE ACTION & PERFORMANCE NOTE) Tj ET`);
+
+    const actionText1 = isCollectionGrowth
+      ? `Collections increased by +Rs.${fmt(collGrowthDiff)} (+${collGrowthPct}%) over ${lmName}.`
+      : `Collections dropped by -Rs.${fmt(Math.abs(collGrowthDiff))} (${collGrowthPct}%) compared to ${lmName}.`;
+    const actionText2 = isCollectionGrowth
+      ? `Strong collection momentum. Maintain current counseling & follow-up pace.`
+      : `Prioritize overdue fee recovery & convert active demo pipeline to close gap.`;
 
     pageLines.push(`BT /F1 6 Tf 0.25 0.30 0.40 rg ${rightX + 14} ${noteY + noteH - 26} Td (${escapePdfText(actionText1)}) Tj ET`);
     pageLines.push(`BT /F1 6 Tf 0.25 0.30 0.40 rg ${rightX + 14} ${noteY + noteH - 38} Td (${escapePdfText(actionText2)}) Tj ET`);
