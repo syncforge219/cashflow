@@ -821,6 +821,7 @@ export default function EnquiriesDisplay() {
         onClose={() => setIsJustdialModalOpen(false)}
         counsellorsList={counsellorsList}
         dbLeadSources={dbLeadSources}
+        brandsList={brandsList}
         onConfigSaved={fetchEnquiries}
       />
 
