@@ -69,22 +69,22 @@ export default function LoginPage() {
   };
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrors({});
-    setSuccessMsg("");
+    // e.preventDefault();
+    // setErrors({});
+    // setSuccessMsg("");
 
-    if (!email) {
-      setErrors({ email: "Email is required" });
-      return;
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
-      setErrors({ email: "Please enter a valid email address" });
-      return;
-    }
+    // if (!email) {
+    //   setErrors({ email: "Email is required" });
+    //   return;
+    // } else if (!/\S+@\S+\.\S+/.test(email)) {
+    //   setErrors({ email: "Please enter a valid email address" });
+    //   return;
+    // }
 
-    if (!password) {
-      setErrors({ password: "Password is required" });
-      return;
-    }
+    // if (!password) {
+    //   setErrors({ password: "Password is required" });
+    //   return;
+    // }
 
     setIsLoading(true);
 
@@ -153,36 +153,36 @@ export default function LoginPage() {
   };
 
   const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrors({});
-    setSuccessMsg("");
+    // e.preventDefault();
+    // setErrors({});
+    // setSuccessMsg("");
 
-    if (!otp || otp.trim().length !== 6) {
-      setErrors({ otp: "Please enter the 6-digit OTP code" });
-      return;
-    }
+    // if (!otp || otp.trim().length !== 6) {
+    //   setErrors({ otp: "Please enter the 6-digit OTP code" });
+    //   return;
+    // }
 
-    setIsLoading(true);
+    // setIsLoading(true);
 
-    try {
-      const res = await fetch("/api/auth/verify-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, otp: otp.trim() }),
-      });
+    // try {
+    //   const res = await fetch("/api/auth/verify-otp", {
+    //     method: "POST",
+    //     headers: { "Content-Type": "application/json" },
+    //     body: JSON.stringify({ email, otp: otp.trim() }),
+    //   });
 
-      const data = await res.json();
+    //   const data = await res.json();
 
-      if (!res.ok) {
-        setErrors({ otp: data.error || "Invalid or expired OTP code." });
-        setIsLoading(false);
-      } else {
-        handleRoleRedirect(data.user?.role);
-      }
-    } catch (err) {
-      setErrors({ general: "Verification failed. Please try again." });
-      setIsLoading(false);
-    }
+    //   if (!res.ok) {
+    //     setErrors({ otp: data.error || "Invalid or expired OTP code." });
+    //     setIsLoading(false);
+    //   } else {
+    //     handleRoleRedirect(data.user?.role);
+    //   }
+    // } catch (err) {
+    //   setErrors({ general: "Verification failed. Please try again." });
+    //   setIsLoading(false);
+    // }
   };
 
   return (
