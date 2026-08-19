@@ -69,22 +69,22 @@ export default function LoginPage() {
   };
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
-    // e.preventDefault();
-    // setErrors({});
-    // setSuccessMsg("");
+    e.preventDefault();
+    setErrors({});
+    setSuccessMsg("");
 
-    // if (!email) {
-    //   setErrors({ email: "Email is required" });
-    //   return;
-    // } else if (!/\S+@\S+\.\S+/.test(email)) {
-    //   setErrors({ email: "Please enter a valid email address" });
-    //   return;
-    // }
+    if (!email) {
+      setErrors({ email: "Email is required" });
+      return;
+    } else if (!/\S+@\S+\.\S+/.test(email)) {
+      setErrors({ email: "Please enter a valid email address" });
+      return;
+    }
 
-    // if (!password) {
-    //   setErrors({ password: "Password is required" });
-    //   return;
-    // }
+    if (!password) {
+      setErrors({ password: "Password is required" });
+      return;
+    }
 
     setIsLoading(true);
 
