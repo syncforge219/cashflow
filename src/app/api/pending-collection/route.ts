@@ -4,6 +4,10 @@ import Admission from "@/models/Admission";
 import Payment from "@/models/Payment";
 import Enquiry from "@/models/Enquiry";
 import Task from "@/models/Task";
+import Course from "@/models/Course";
+import Batch from "@/models/Batch";
+import User from "@/models/User";
+import Brand from "@/models/Brand";
 import { getUserFromCookies } from "@/lib/helper";
 
 export async function GET(req: Request) {
@@ -23,41 +27,69 @@ export async function GET(req: Request) {
     const bucketFilter = searchParams.get("bucket");
     const searchQuery = searchParams.get("search")?.toLowerCase().trim();
 
+    const escapeRegExp = (str: string) => str.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+
     // Query all admissions with remaining balance > 0
     const query: any = { remainingBalance: { $gt: 0 } };
 
-    // Brand Scoping for Brand Manager / Centre Head / Counsellor
+    // Brand Scoping for Logged-In User
     const userRole = (user.role || (user as any).crmRole || (user as any).designation || "").toLowerCase().trim();
-    const userBrandScope = (user.brandScope || "").toLowerCase().trim();
-    const isCrmRole = userRole === "crm" || userRole === "crm executive" || userRole === "crm_executive" || userRole.includes("crm");
+    const rawUserBrand = (user.brandScope || (user as any)?.brand || (user as any)?.targetBrand || "").trim();
 
-    if (
-      userBrandScope &&
-      userBrandScope !== "all" &&
-      userBrandScope !== "all brands" &&
-      userBrandScope !== "*" &&
-      userRole !== "admin" &&
-      userRole !== "super admin" &&
-      userRole !== "super_admin" &&
-      !isCrmRole
-    ) {
-      query.brand = { $regex: new RegExp(`^${userBrandScope.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") };
+    const isSuperOrAdmin =
+      userRole === "admin" ||
+      userRole === "super admin" ||
+      userRole === "super_admin" ||
+      userRole === "director" ||
+      (userRole.includes("admin") && !userRole.includes("centre") && !userRole.includes("center")) ||
+      userRole.includes("director");
+
+    const isBrandRestricted = Boolean(
+      rawUserBrand &&
+      !["all", "all brands", "all_brands", "global", "*"].includes(rawUserBrand.toLowerCase()) &&
+      !isSuperOrAdmin
+    );
+
+    let activeBrandRegex: RegExp | null = null;
+    let allowedBrandsList: string[] = [];
+
+    if (isBrandRestricted) {
+      const userBrands = rawUserBrand.split(/[,/|]/).map((b: string) => b.trim()).filter(Boolean);
+      allowedBrandsList = userBrands;
+
+      if (brandFilter && brandFilter !== "All Brands" && brandFilter !== "all") {
+        const matched = userBrands.find((b: string) => b.toLowerCase() === brandFilter.toLowerCase());
+        if (matched) {
+          activeBrandRegex = new RegExp(`^${escapeRegExp(matched)}$`, "i");
+        } else {
+          activeBrandRegex = userBrands.length > 1
+            ? new RegExp(`^(${userBrands.map(escapeRegExp).join("|")})$`, "i")
+            : new RegExp(`^${escapeRegExp(userBrands[0] || rawUserBrand)}$`, "i");
+        }
+      } else {
+        activeBrandRegex = userBrands.length > 1
+          ? new RegExp(`^(${userBrands.map(escapeRegExp).join("|")})$`, "i")
+          : new RegExp(`^${escapeRegExp(userBrands[0] || rawUserBrand)}$`, "i");
+      }
+      query.brand = { $regex: activeBrandRegex };
+    } else {
+      if (brandFilter && brandFilter !== "All Brands" && brandFilter !== "all") {
+        activeBrandRegex = new RegExp(`^${escapeRegExp(brandFilter.trim())}$`, "i");
+        query.brand = { $regex: activeBrandRegex };
+      }
     }
 
-    if (brandFilter && brandFilter !== "All Brands" && brandFilter !== "all") {
-      query.brand = { $regex: new RegExp(`^${brandFilter.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") };
-    }
     if (courseFilter && courseFilter !== "All Courses" && courseFilter !== "all") {
-      query.course = { $regex: new RegExp(courseFilter.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "i") };
+      query.course = { $regex: new RegExp(`^${escapeRegExp(courseFilter.trim())}$`, "i") };
     }
     if (batchFilter && batchFilter !== "All Batches" && batchFilter !== "all") {
-      query.batch = batchFilter;
+      query.batch = batchFilter.trim();
     }
     if (counsellorFilter && counsellorFilter !== "All Counsellors" && counsellorFilter !== "all") {
-      query.counsellor = counsellorFilter;
+      query.counsellor = { $regex: new RegExp(`^${escapeRegExp(counsellorFilter.trim())}$`, "i") };
     }
     if (companyFilter && companyFilter !== "All Companies" && companyFilter !== "all") {
-      query.companyAssigned = companyFilter;
+      query.companyAssigned = companyFilter.trim();
     }
 
     const admissions = await Admission.find(query).lean();
@@ -260,13 +292,90 @@ export async function GET(req: Request) {
       records.push(rec);
     });
 
-    // Available filter lists
-    const allAdmissionsUnfiltered = await Admission.find({ remainingBalance: { $gt: 0 } }).lean();
-    const availableBrands = Array.from(new Set(allAdmissionsUnfiltered.map((a: any) => a.brand).filter(Boolean)));
-    const availableCourses = Array.from(new Set(allAdmissionsUnfiltered.map((a: any) => a.course).filter(Boolean)));
-    const availableBatches = Array.from(new Set(allAdmissionsUnfiltered.map((a: any) => a.batch).filter(Boolean)));
-    const availableCounsellors = Array.from(new Set(allAdmissionsUnfiltered.map((a: any) => a.counsellor).filter(Boolean)));
-    const availableCompanies = Array.from(new Set(allAdmissionsUnfiltered.map((a: any) => a.companyAssigned || a.company).filter(Boolean)));
+    // Available filter lists scoped according to logged-in person's brand / active brand
+    let availableBrands: string[] = [];
+    if (isBrandRestricted) {
+      availableBrands = allowedBrandsList.length > 0 ? allowedBrandsList : [rawUserBrand];
+    } else {
+      const brandDocs = await Brand.find({ status: { $ne: "INACTIVE" } }).select("name").lean();
+      const admBrands = await Admission.distinct("brand");
+      availableBrands = Array.from(new Set([...brandDocs.map((b: any) => b.name), ...admBrands].filter(Boolean))).sort();
+    }
+
+    // Determine query filter for courses, batches, counsellors, companies
+    const brandFilterCondition = activeBrandRegex ? { brand: { $regex: activeBrandRegex } } : {};
+    const admBrandCondition = activeBrandRegex
+      ? { brand: { $regex: activeBrandRegex }, remainingBalance: { $gt: 0 } }
+      : { remainingBalance: { $gt: 0 } };
+
+    // 1. Available Courses
+    const courseDocs = await Course.find({
+      ...(activeBrandRegex ? { brand: { $regex: activeBrandRegex } } : {}),
+      status: { $ne: "INACTIVE" }
+    }).select("name").lean();
+    const admCourses = await Admission.find(admBrandCondition).distinct("course");
+    const admTargetCourses = await Admission.find(admBrandCondition).distinct("courses");
+    const allCoursesList: string[] = [
+      ...courseDocs.map((c: any) => c.name),
+      ...admCourses,
+      ...(Array.isArray(admTargetCourses) ? admTargetCourses.flat() : [])
+    ]
+      .filter(Boolean)
+      .map((s: any) => String(s).trim())
+      .filter((s: string) => s.length > 0);
+    const availableCourses = Array.from(new Set(allCoursesList)).sort();
+
+    // 2. Available Batches
+    const batchDocs = await Batch.find(brandFilterCondition).select("batchName").lean();
+    const admBatches = await Admission.find(admBrandCondition).distinct("batch");
+    const allBatchesList: string[] = [
+      ...batchDocs.map((b: any) => b.batchName),
+      ...admBatches
+    ]
+      .filter(Boolean)
+      .map((s: any) => String(s).trim())
+      .filter((s: string) => s.length > 0);
+    const availableBatches = Array.from(new Set(allBatchesList)).sort();
+
+    // 3. Available Counsellors
+    const counsellorRoles = [
+      "counsellor",
+      "counselor",
+      "sales executive",
+      "sales-executive",
+      "crm",
+      "crm-executive",
+      "crm-advisor",
+      "crm advisor",
+      "crm executive"
+    ];
+    const counsellorUserQuery: any = { role: { $in: counsellorRoles } };
+    if (activeBrandRegex) {
+      counsellorUserQuery.$or = [
+        { brandScope: { $regex: activeBrandRegex } },
+        { brandScope: { $in: ["All", "All Brands", "ALL BRANDS", "global", "*", null, ""] } },
+        { brandScope: { $exists: false } }
+      ];
+    }
+    const counsellorDocs = await User.find(counsellorUserQuery).select("name").lean();
+    const admCounsellors = await Admission.find(admBrandCondition).distinct("counsellor");
+    const allCounsellorList: string[] = [
+      ...counsellorDocs.map((u: any) => u.name),
+      ...admCounsellors
+    ]
+      .filter(Boolean)
+      .map((s: any) => String(s).trim())
+      .filter((s: string) => s.length > 0);
+    const availableCounsellors = Array.from(new Set(allCounsellorList)).sort();
+
+    // 4. Available Companies
+    const admCompanies1 = await Admission.find(admBrandCondition).distinct("companyAssigned");
+    const admCompanies2 = await Admission.find(admBrandCondition).distinct("company");
+    const allCompaniesList: string[] = [...admCompanies1, ...admCompanies2]
+      .filter(Boolean)
+      .map((s: any) => String(s).trim())
+      .filter((s: string) => s.length > 0);
+    const availableCompanies = Array.from(new Set(allCompaniesList)).sort();
 
     return NextResponse.json({
       success: true,

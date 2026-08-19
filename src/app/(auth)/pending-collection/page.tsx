@@ -50,9 +50,45 @@ export default function PendingCollectionPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // User role and brand resolution
+  const userRole = (user?.role || (user as any)?.crmRole || (user as any)?.designation || "").toLowerCase().trim();
+  const rawUserBrand = (user?.brandScope || (user as any)?.brand || (user as any)?.targetBrand || "").trim();
+
+  const isSuperOrAdmin =
+    userRole === "admin" ||
+    userRole === "super admin" ||
+    userRole === "super_admin" ||
+    userRole === "director" ||
+    (userRole.includes("admin") && !userRole.includes("centre") && !userRole.includes("center")) ||
+    userRole.includes("director");
+
+  const isBrandRestricted = Boolean(
+    rawUserBrand &&
+    !["all", "all brands", "all_brands", "global", "*"].includes(rawUserBrand.toLowerCase()) &&
+    !isSuperOrAdmin
+  );
+
+  const isCounsellor =
+    userRole.includes("counsellor") ||
+    userRole.includes("counselor") ||
+    userRole.includes("sales executive");
+
+  const isTeacher =
+    userRole.includes("teacher") ||
+    userRole.includes("faculty");
+
+  const isManager =
+    userRole.includes("manager") ||
+    userRole.includes("centre") ||
+    userRole.includes("center") ||
+    userRole.includes("branch") ||
+    userRole.includes("head");
+
   // Filters & State
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedBrand, setSelectedBrand] = useState("All Brands");
+  const [selectedBrand, setSelectedBrand] = useState(
+    isBrandRestricted ? rawUserBrand : rawUserBrand && !["all", "all brands", "all_brands", "global", "*"].includes(rawUserBrand.toLowerCase()) ? rawUserBrand : "All Brands"
+  );
   const [selectedCourse, setSelectedCourse] = useState("All Courses");
   const [selectedBatch, setSelectedBatch] = useState("All Batches");
   const [selectedCounsellor, setSelectedCounsellor] = useState("All Counsellors");
@@ -69,13 +105,33 @@ export default function PendingCollectionPage() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Sync brand on user load
+  useEffect(() => {
+    if (user) {
+      const uBrand = (user?.brandScope || (user as any)?.brand || "").trim();
+      const restricted = Boolean(
+        uBrand &&
+        !["all", "all brands", "all_brands", "global", "*"].includes(uBrand.toLowerCase()) &&
+        !isSuperOrAdmin
+      );
+      if (restricted) {
+        setSelectedBrand(uBrand);
+      } else if (uBrand && !["all", "all brands", "all_brands", "global", "*"].includes(uBrand.toLowerCase()) && selectedBrand === "All Brands") {
+        setSelectedBrand(uBrand);
+      }
+    }
+  }, [user, userRole, isSuperOrAdmin]);
+
   const fetchPendingData = async () => {
     try {
       setLoading(true);
       setError(null);
 
       const params = new URLSearchParams();
-      if (selectedBrand !== "All Brands") params.append("brand", selectedBrand);
+      const activeBrand = isBrandRestricted ? rawUserBrand : selectedBrand;
+      if (activeBrand && activeBrand !== "All Brands") {
+        params.append("brand", activeBrand);
+      }
       if (selectedCourse !== "All Courses") params.append("course", selectedCourse);
       if (selectedBatch !== "All Batches") params.append("batch", selectedBatch);
       if (selectedCounsellor !== "All Counsellors") params.append("counsellor", selectedCounsellor);
@@ -103,31 +159,32 @@ export default function PendingCollectionPage() {
     fetchPendingData();
   }, [user, selectedBrand, selectedCourse, selectedBatch, selectedCounsellor, selectedCompany, activeBucket]);
 
-  const userRole = (user?.role || (user as any)?.crmRole || (user as any)?.designation || "").toLowerCase().trim();
-
-  const isSuperOrAdmin =
-    userRole === "admin" ||
-    userRole === "super admin" ||
-    userRole === "super_admin" ||
-    userRole === "director" ||
-    (userRole.includes("admin") && !userRole.includes("centre") && !userRole.includes("center")) ||
-    userRole.includes("director");
-
-  const isCounsellor =
-    userRole.includes("counsellor") ||
-    userRole.includes("counselor") ||
-    userRole.includes("sales executive");
-
-  const isTeacher =
-    userRole.includes("teacher") ||
-    userRole.includes("faculty");
-
-  const isManager =
-    userRole.includes("manager") ||
-    userRole.includes("centre") ||
-    userRole.includes("center") ||
-    userRole.includes("branch") ||
-    userRole.includes("head");
+  // Ensure dependent filters reset if options change
+  useEffect(() => {
+    if (data?.filters) {
+      if (
+        selectedCourse !== "All Courses" &&
+        data.filters.availableCourses &&
+        !data.filters.availableCourses.includes(selectedCourse)
+      ) {
+        setSelectedCourse("All Courses");
+      }
+      if (
+        selectedBatch !== "All Batches" &&
+        data.filters.availableBatches &&
+        !data.filters.availableBatches.includes(selectedBatch)
+      ) {
+        setSelectedBatch("All Batches");
+      }
+      if (
+        selectedCounsellor !== "All Counsellors" &&
+        data.filters.availableCounsellors &&
+        !data.filters.availableCounsellors.includes(selectedCounsellor)
+      ) {
+        setSelectedCounsellor("All Counsellors");
+      }
+    }
+  }, [data?.filters]);
 
   const renderSidebar = () => {
     if (isSuperOrAdmin) {
@@ -521,14 +578,24 @@ export default function PendingCollectionPage() {
             
             {/* Brand Filter */}
             <select
-              value={selectedBrand}
-              onChange={(e) => setSelectedBrand(e.target.value)}
-              className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
+              value={isBrandRestricted ? (selectedBrand || rawUserBrand) : selectedBrand}
+              onChange={(e) => {
+                setSelectedBrand(e.target.value);
+                setSelectedCourse("All Courses");
+                setSelectedBatch("All Batches");
+                setSelectedCounsellor("All Counsellors");
+              }}
+              disabled={isBrandRestricted && (data?.filters?.availableBrands?.length || 1) <= 1}
+              className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer disabled:opacity-75 disabled:cursor-not-allowed"
+              title={isBrandRestricted ? `Restricted to assigned brand (${rawUserBrand})` : "Filter by Brand"}
             >
-              <option value="All Brands">All Brands</option>
+              {!isBrandRestricted && <option value="All Brands">All Brands</option>}
               {data?.filters?.availableBrands?.map((b: string) => (
                 <option key={b} value={b}>{b}</option>
               ))}
+              {isBrandRestricted && (!data?.filters?.availableBrands || data.filters.availableBrands.length === 0) && (
+                <option value={rawUserBrand}>{rawUserBrand}</option>
+              )}
             </select>
 
             {/* Course Filter */}
