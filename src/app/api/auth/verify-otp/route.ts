@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
-import { signJWT } from "@/lib/jwt";
+import { createSession, SESSION_COOKIE_NAME, SESSION_DURATION_SECONDS } from "@/lib/auth";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 
 export async function POST(request: Request) {
@@ -72,18 +72,12 @@ export async function POST(request: Request) {
     user.otpExpiresAt = undefined;
     await user.save();
 
-    const tokenPayload = {
-      id: user._id.toString(),
-      email: user.email,
-      name: user.name,
-      role: user.role,
-    };
-
-    const token = await signJWT(tokenPayload);
+    // Create server-side session in MongoDB
+    const { sessionToken } = await createSession(user._id.toString());
 
     const responseBody = {
       success: true,
-      token: token,
+      token: sessionToken,
       user: {
         id: user._id.toString(),
         email: user.email,
@@ -98,11 +92,19 @@ export async function POST(request: Request) {
       headers: { "Content-Type": "application/json" },
     });
 
-    response.cookies.set("token", token, {
+    response.cookies.set(SESSION_COOKIE_NAME, sessionToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 3600 * 24, // 24 hours
+      maxAge: SESSION_DURATION_SECONDS,
+      path: "/",
+    });
+
+    response.cookies.set("session_token", sessionToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: SESSION_DURATION_SECONDS,
       path: "/",
     });
 

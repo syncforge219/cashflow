@@ -1,35 +1,6 @@
-import { cookies, headers } from "next/headers";
-import { verifyJWT } from "@/lib/jwt";
-import dbConnect from "@/lib/db";
-import User from "@/models/User";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 export async function getUserFromCookies() {
-  try {
-    const cookieStore = await cookies();
-    let token = cookieStore.get("token")?.value;
-
-    if (!token) {
-      const headersList = await headers();
-      const authHeader = headersList.get("authorization");
-      if (authHeader && authHeader.startsWith("Bearer ")) {
-        token = authHeader.substring(7);
-      }
-    }
-
-    if (!token) return null;
-
-    const decoded = await verifyJWT(token);
-    if (!decoded || !decoded.id) return null;
-
-    await dbConnect();
-    // Retrieve the user from the database, omitting the password field
-    const userDoc = await User.findById(decoded.id).select("-password").lean();
-    return userDoc;
-  } catch (error: any) {
-    if (error?.digest === 'DYNAMIC_SERVER_USAGE' || error?.message?.includes("Dynamic server usage")) {
-      throw error;
-    }
-    console.error("Error in getUserFromCookies:", error);
-    return null;
-  }
+  return await getAuthenticatedUser();
 }
+

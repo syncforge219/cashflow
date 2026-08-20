@@ -8,14 +8,59 @@ import Course from "@/models/Course";
 import Batch from "@/models/Batch";
 import User from "@/models/User";
 import Brand from "@/models/Brand";
-import { getUserFromCookies } from "@/lib/helper";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 export async function GET(req: Request) {
   try {
     await dbConnect();
-    const user = await getUserFromCookies();
+
+    // 1. Authentication check
+    const user = await getAuthenticatedUser();
     if (!user) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { ok: false, message: "Unauthenticated." },
+        { status: 401 }
+      );
+    }
+
+    // 2. Authorization & Role Validation
+    const userRole = (user.role || (user as any).crmRole || (user as any).designation || "").toLowerCase().trim();
+
+    // Block decommissioned or unauthorized roles
+    if (userRole.includes("marketing")) {
+      return NextResponse.json(
+        { ok: false, message: "Forbidden." },
+        { status: 403 }
+      );
+    }
+
+    const allowedRoleKeywords = [
+      "admin",
+      "super admin",
+      "super_admin",
+      "director",
+      "manager",
+      "centre",
+      "center",
+      "head",
+      "branch",
+      "counsellor",
+      "counselor",
+      "sales",
+      "crm",
+      "cfo",
+      "finance",
+      "teacher",
+      "faculty",
+      "developer"
+    ];
+
+    const isAuthorizedRole = allowedRoleKeywords.some((keyword) => userRole.includes(keyword));
+    if (!isAuthorizedRole) {
+      return NextResponse.json(
+        { ok: false, message: "Forbidden." },
+        { status: 403 }
+      );
     }
 
     const { searchParams } = new URL(req.url);
@@ -33,7 +78,6 @@ export async function GET(req: Request) {
     const query: any = { remainingBalance: { $gt: 0 } };
 
     // Brand Scoping for Logged-In User
-    const userRole = (user.role || (user as any).crmRole || (user as any).designation || "").toLowerCase().trim();
     const rawUserBrand = (user.brandScope || (user as any)?.brand || (user as any)?.targetBrand || "").trim();
 
     const isSuperOrAdmin =
@@ -41,6 +85,8 @@ export async function GET(req: Request) {
       userRole === "super admin" ||
       userRole === "super_admin" ||
       userRole === "director" ||
+      userRole.includes("cfo") ||
+      userRole.includes("finance") ||
       (userRole.includes("admin") && !userRole.includes("centre") && !userRole.includes("center")) ||
       userRole.includes("director");
 
@@ -378,6 +424,7 @@ export async function GET(req: Request) {
     const availableCompanies = Array.from(new Set(allCompaniesList)).sort();
 
     return NextResponse.json({
+      ok: true,
       success: true,
       data: {
         buckets,

@@ -1,38 +1,14 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyJWT } from "@/lib/jwt";
-import dbConnect from "@/lib/db";
-import User from "@/models/User";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 export async function GET() {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("token")?.value;
-
-    if (!token) {
-      return NextResponse.json(
-        { authenticated: false, error: "No session token found" },
-        { status: 401 }
-      );
-    }
-
-    // Verify token using default environment secret
-    const decoded = await verifyJWT(token);
-
-    if (!decoded) {
-      return NextResponse.json(
-        { authenticated: false, error: "Session token is invalid or expired" },
-        { status: 401 }
-      );
-    }
-
-    await dbConnect();
-    const dbUser = await User.findById(decoded.id).lean();
+    const dbUser = await getAuthenticatedUser();
 
     if (!dbUser) {
       return NextResponse.json(
-        { authenticated: false, error: "User not found in database" },
-        { status: 404 }
+        { authenticated: false, error: "Unauthenticated or session expired" },
+        { status: 401 }
       );
     }
 
@@ -57,3 +33,4 @@ export async function GET() {
     );
   }
 }
+
