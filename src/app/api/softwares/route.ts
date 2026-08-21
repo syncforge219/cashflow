@@ -73,6 +73,75 @@ export async function POST(req: Request) {
   }
 }
 
+export async function PUT(req: Request) {
+  try {
+    await dbConnect();
+    const body = await req.json();
+    const { id, _id, name, domain, techUsed, developerNames, description, status } = body;
+    const targetId = id || _id;
+
+    if (!targetId) {
+      return NextResponse.json(
+        { success: false, error: "Software ID is required for update" },
+        { status: 400 }
+      );
+    }
+
+    if (!name || !name.trim()) {
+      return NextResponse.json(
+        { success: false, error: "Software name is required" },
+        { status: 400 }
+      );
+    }
+
+    let parsedTech: string[] = [];
+    if (Array.isArray(techUsed)) {
+      parsedTech = techUsed.map((t: any) => String(t).trim()).filter(Boolean);
+    } else if (typeof techUsed === "string") {
+      parsedTech = techUsed.split(",").map((t) => t.trim()).filter(Boolean);
+    }
+
+    let parsedDevs: string[] = [];
+    if (Array.isArray(developerNames)) {
+      parsedDevs = developerNames.map((d: any) => String(d).trim()).filter(Boolean);
+    } else if (typeof developerNames === "string") {
+      parsedDevs = developerNames.split(",").map((d) => d.trim()).filter(Boolean);
+    }
+
+    const updatedSoftware = await Software.findByIdAndUpdate(
+      targetId,
+      {
+        name: name.trim(),
+        domain: domain ? domain.trim() : "",
+        techUsed: parsedTech,
+        developerNames: parsedDevs,
+        description: description ? description.trim() : "",
+        status: status || "Active",
+      },
+      { new: true }
+    );
+
+    if (!updatedSoftware) {
+      return NextResponse.json(
+        { success: false, error: "Software entry not found" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Software updated successfully",
+      data: updatedSoftware,
+    });
+  } catch (error: any) {
+    console.error("Error updating software:", error);
+    return NextResponse.json(
+      { success: false, error: error.message || "Failed to update software" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function DELETE(req: Request) {
   try {
     await dbConnect();

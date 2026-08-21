@@ -18,7 +18,10 @@ export default function SoftwaresDisplay() {
   const [registeredDevs, setRegisteredDevs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Modal & Form State
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingSoftwareId, setEditingSoftwareId] = useState<string | null>(null);
 
   // Form State with Array fields
   const [name, setName] = useState("");
@@ -65,6 +68,34 @@ export default function SoftwaresDisplay() {
     fetchDevRoster();
   }, []);
 
+  const handleOpenAddModal = () => {
+    setEditingSoftwareId(null);
+    setName("");
+    setDomain("");
+    setTechInput("");
+    setTechUsedList([]);
+    setDevInput("");
+    setDeveloperNamesList([]);
+    setDescription("");
+    setStatus("Active");
+    setErrorMsg("");
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEditModal = (software: SoftwareItem) => {
+    setEditingSoftwareId(software._id);
+    setName(software.name || "");
+    setDomain(software.domain || "");
+    setTechInput("");
+    setTechUsedList(software.techUsed || []);
+    setDevInput("");
+    setDeveloperNamesList(software.developerNames || []);
+    setDescription(software.description || "");
+    setStatus(software.status || "Active");
+    setErrorMsg("");
+    setIsModalOpen(true);
+  };
+
   // Tech Array handlers
   const handleAddTechTag = () => {
     if (!techInput.trim()) return;
@@ -92,7 +123,7 @@ export default function SoftwaresDisplay() {
     setDeveloperNamesList(developerNamesList.filter((_, idx) => idx !== indexToRemove));
   };
 
-  const handleCreateSoftware = async (e: React.FormEvent) => {
+  const handleCreateOrUpdateSoftware = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
 
@@ -116,34 +147,31 @@ export default function SoftwaresDisplay() {
 
     setSubmitting(true);
     try {
-      const res = await fetch("/api/softwares", {
-        method: "POST",
+      const isEditing = Boolean(editingSoftwareId);
+      const url = "/api/softwares";
+      const method = isEditing ? "PUT" : "POST";
+      const payload = {
+        id: editingSoftwareId,
+        name: name.trim(),
+        domain: domain.trim(),
+        techUsed: finalTech,
+        developerNames: finalDevs,
+        description: description.trim(),
+        status,
+      };
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: name.trim(),
-          domain: domain.trim(),
-          techUsed: finalTech,
-          developerNames: finalDevs,
-          description: description.trim(),
-          status,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
       if (res.ok && data.success) {
         setIsModalOpen(false);
-        // Reset form
-        setName("");
-        setDomain("");
-        setTechInput("");
-        setTechUsedList([]);
-        setDevInput("");
-        setDeveloperNamesList([]);
-        setDescription("");
-        setStatus("Active");
         fetchSoftwares();
       } else {
-        setErrorMsg(data.error || "Failed to register software");
+        setErrorMsg(data.error || "Failed to save software entry");
       }
     } catch (err: any) {
       setErrorMsg(err.message || "Something went wrong");
@@ -178,7 +206,6 @@ export default function SoftwaresDisplay() {
     );
   });
 
-  // Calculate unique tech stacks and unique developers across all software
   const allTechs = Array.from(new Set(softwares.flatMap((s) => s.techUsed || [])));
   const allDevs = Array.from(new Set(softwares.flatMap((s) => s.developerNames || [])));
 
@@ -196,7 +223,7 @@ export default function SoftwaresDisplay() {
             // SOFTWARE_PROJECTS_REGISTRY
           </h1>
           <p className="text-xs text-slate-400 mt-1 max-w-xl font-medium">
-            Register and manage software products, tech stacks, domains, and assigned developer teams.
+            Register, edit, and manage software products, tech stack arrays, domains, and assigned developer teams.
           </p>
         </div>
 
@@ -216,7 +243,7 @@ export default function SoftwaresDisplay() {
           </div>
 
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={handleOpenAddModal}
             className="flex items-center gap-1.5 text-xs font-black bg-gradient-to-r from-emerald-500 to-cyan-600 hover:from-emerald-400 hover:to-cyan-500 text-slate-950 rounded-xl px-4 py-2 shadow-[0_0_20px_rgba(16,185,129,0.25)] transition-all cursor-pointer"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-4 w-4">
@@ -376,12 +403,23 @@ export default function SoftwaresDisplay() {
                   <span>
                     LOGGED: {soft.createdAt ? new Date(soft.createdAt).toLocaleDateString() : "Recent"}
                   </span>
-                  <button
-                    onClick={() => handleDeleteSoftware(soft._id, soft.name)}
-                    className="text-rose-400 hover:text-rose-300 font-bold transition-colors cursor-pointer"
-                  >
-                    [DELETE_RECORD]
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => handleOpenEditModal(soft)}
+                      className="text-cyan-400 hover:text-cyan-300 font-bold transition-colors cursor-pointer flex items-center gap-1"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                      </svg>
+                      [EDIT_RECORD]
+                    </button>
+                    <button
+                      onClick={() => handleDeleteSoftware(soft._id, soft.name)}
+                      className="text-rose-400 hover:text-rose-300 font-bold transition-colors cursor-pointer"
+                    >
+                      [DELETE_RECORD]
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -389,12 +427,14 @@ export default function SoftwaresDisplay() {
         )}
       </div>
 
-      {/* Cyber Add Software Modal */}
+      {/* Cyber Add / Edit Software Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
           <div className="bg-[#0B0F19] border border-emerald-500/30 rounded-2xl max-w-lg w-full p-6 shadow-[0_0_50px_rgba(0,0,0,0.9)] space-y-4 max-h-[90vh] overflow-y-auto custom-scrollbar">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <h3 className="text-base font-black text-white">// REGISTER_NEW_SOFTWARE</h3>
+              <h3 className="text-base font-black text-white">
+                {editingSoftwareId ? "// EDIT_SOFTWARE_ENTRY" : "// REGISTER_NEW_SOFTWARE"}
+              </h3>
               <button onClick={() => setIsModalOpen(false)} className="text-slate-500 hover:text-slate-300 p-1 rounded-lg">
                 ✕
               </button>
@@ -406,7 +446,7 @@ export default function SoftwaresDisplay() {
               </div>
             )}
 
-            <form onSubmit={handleCreateSoftware} className="space-y-4">
+            <form onSubmit={handleCreateOrUpdateSoftware} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-300 mb-1">Software Name *</label>
                 <input
@@ -549,6 +589,20 @@ export default function SoftwaresDisplay() {
               </div>
 
               <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Status</label>
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                  className="w-full text-xs px-3 py-2 border border-slate-800 rounded-xl bg-slate-950 text-white focus:outline-none focus:border-emerald-500/50"
+                >
+                  <option value="Active">Active</option>
+                  <option value="In Development">In Development</option>
+                  <option value="Maintenance">Maintenance</option>
+                  <option value="Deprecated">Deprecated</option>
+                </select>
+              </div>
+
+              <div>
                 <label className="block text-xs font-bold text-slate-300 mb-1">Description / Notes</label>
                 <textarea
                   rows={2}
@@ -572,7 +626,7 @@ export default function SoftwaresDisplay() {
                   disabled={submitting}
                   className="px-4 py-2 text-xs font-black text-slate-950 bg-gradient-to-r from-emerald-500 to-cyan-600 hover:from-emerald-400 hover:to-cyan-500 rounded-xl disabled:opacity-50 cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.2)]"
                 >
-                  {submitting ? "Saving..." : "Register Software"}
+                  {submitting ? "Saving..." : editingSoftwareId ? "Update Software" : "Register Software"}
                 </button>
               </div>
             </form>
