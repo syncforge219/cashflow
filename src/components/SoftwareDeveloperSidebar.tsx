@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useUser } from "@/app/component/context/user-context";
@@ -26,6 +26,24 @@ export default function SoftwareDeveloperSidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
+
+  // Dynamic registered softwares list
+  const [registeredSoftwares, setRegisteredSoftwares] = useState<any[]>([]);
+
+  useEffect(() => {
+    async function loadSoftwares() {
+      try {
+        const res = await fetch("/api/softwares");
+        const data = await res.json();
+        if (data.success && Array.isArray(data.data)) {
+          setRegisteredSoftwares(data.data);
+        }
+      } catch (err) {
+        console.error("Failed to load sidebar softwares:", err);
+      }
+    }
+    loadSoftwares();
+  }, []);
 
   const effectiveCollapsed = isPinned ? false : isCollapsed && !isHovered;
 
@@ -158,35 +176,62 @@ export default function SoftwareDeveloperSidebar() {
                 }
 
                 return (
-                  <Link
-                    key={itemIdx}
-                    href={item.href}
-                    className={`group flex items-center justify-between ${
-                      effectiveCollapsed ? "justify-center px-0" : "px-3"
-                    } py-2.5 text-xs font-bold rounded-xl transition-all duration-200 ${
-                      isActive
-                        ? "bg-gradient-to-r from-emerald-500/20 to-cyan-500/10 text-emerald-300 border border-emerald-500/40 shadow-[0_0_18px_rgba(16,185,129,0.2)]"
-                        : "text-slate-400 hover:bg-slate-800/70 hover:text-cyan-300 border border-transparent hover:border-slate-700/60"
-                    }`}
-                    title={effectiveCollapsed ? item.name : undefined}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <span
-                        className={`shrink-0 transition-transform group-hover:scale-110 ${
-                          isActive ? "text-emerald-400" : "text-slate-400 group-hover:text-cyan-300"
-                        }`}
-                      >
-                        {item.icon}
-                      </span>
-                      {!effectiveCollapsed && <span className="truncate">{item.name}</span>}
-                    </div>
+                  <React.Fragment key={itemIdx}>
+                    <Link
+                      href={item.href}
+                      className={`group flex items-center justify-between ${
+                        effectiveCollapsed ? "justify-center px-0" : "px-3"
+                      } py-2.5 text-xs font-bold rounded-xl transition-all duration-200 ${
+                        isActive
+                          ? "bg-gradient-to-r from-emerald-500/20 to-cyan-500/10 text-emerald-300 border border-emerald-500/40 shadow-[0_0_18px_rgba(16,185,129,0.2)]"
+                          : "text-slate-400 hover:bg-slate-800/70 hover:text-cyan-300 border border-transparent hover:border-slate-700/60"
+                      }`}
+                      title={effectiveCollapsed ? item.name : undefined}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span
+                          className={`shrink-0 transition-transform group-hover:scale-110 ${
+                            isActive ? "text-emerald-400" : "text-slate-400 group-hover:text-cyan-300"
+                          }`}
+                        >
+                          {item.icon}
+                        </span>
+                        {!effectiveCollapsed && <span className="truncate">{item.name}</span>}
+                      </div>
 
-                    {!effectiveCollapsed && item.badge && (
-                      <span className="text-[9px] font-black bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-md uppercase tracking-wider">
-                        {item.badge}
-                      </span>
+                      {!effectiveCollapsed && item.badge && (
+                        <span className="text-[9px] font-black bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-md uppercase tracking-wider">
+                          {item.badge}
+                        </span>
+                      )}
+                    </Link>
+
+                    {/* Dynamically List Registered Softwares under Add Software */}
+                    {item.href === "/softwares" && !effectiveCollapsed && registeredSoftwares.length > 0 && (
+                      <div className="ml-7 mt-1 space-y-1 border-l-2 border-emerald-500/30 pl-2.5 py-1">
+                        <div className="text-[8px] font-black text-slate-500 uppercase tracking-widest px-2 mb-1">
+                          REGISTERED_SOFTWARES ({registeredSoftwares.length})
+                        </div>
+                        {registeredSoftwares.map((soft) => (
+                          <Link
+                            key={soft._id}
+                            href={`/softwares?search=${encodeURIComponent(soft.name)}`}
+                            className="flex items-center justify-between px-2 py-1 text-[11px] font-bold text-slate-400 hover:text-emerald-300 hover:bg-slate-900/80 rounded-md transition-all group/soft"
+                          >
+                            <span className="flex items-center gap-1.5 min-w-0">
+                              <span className="text-emerald-500 font-mono text-[10px] group-hover/soft:translate-x-0.5 transition-transform">&gt;</span>
+                              <span className="truncate">{soft.name}</span>
+                            </span>
+                            {soft.techUsed && soft.techUsed.length > 0 && (
+                              <span className="text-[8px] font-mono text-cyan-400 bg-cyan-950/80 border border-cyan-500/20 px-1 py-0.2 rounded shrink-0">
+                                {soft.techUsed[0]}
+                              </span>
+                            )}
+                          </Link>
+                        ))}
+                      </div>
                     )}
-                  </Link>
+                  </React.Fragment>
                 );
               })}
             </div>
