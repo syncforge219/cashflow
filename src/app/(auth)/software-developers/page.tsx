@@ -6,7 +6,7 @@ import SoftwareDevelopersDisplay from "@/components/SoftwareDevelopersDisplay";
 
 export default function SoftwareDevelopersPage() {
   return (
-    <div className="flex h-screen bg-[#f8faff] text-slate-800 overflow-hidden font-sans">
+    <div className="flex h-screen bg-[#050811] text-slate-100 overflow-hidden font-mono">
       {/* Sidebar navigation */}
       <SoftwareDeveloperSidebar />
 
