@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import Sidebar from "@/components/Sidebar";
+import SoftwareDeveloperSidebar from "@/components/SoftwareDeveloperSidebar";
 import ProfileDisplay from "@/components/ProfileDisplay";
 import { useUser } from "@/app/component/context/user-context";
 import Link from "next/link";
@@ -32,8 +32,8 @@ export default function SoftwareDeveloperPage() {
 
   return (
     <div className="flex h-screen bg-[#f8faff] text-slate-800 overflow-hidden font-sans">
-      {/* Sidebar Navigation */}
-      <Sidebar />
+      {/* Software Developer Sidebar Navigation */}
+      <SoftwareDeveloperSidebar />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto px-6 py-6 space-y-6">
