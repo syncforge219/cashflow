@@ -14,8 +14,11 @@ export default function SoftwareDeveloperPage() {
 
   const roleLower = (user.role || "").toLowerCase().trim();
 
-  // Role validation: check if logged-in user is a Software Developer
+  // Role validation: check if logged-in user is a Software Developer or Super Admin
   const allowedDevRoles = [
+    "super admin",
+    "admin",
+    "director",
     "software developer",
     "software_developer",
     "developer",
@@ -87,11 +90,11 @@ export default function SoftwareDeveloperPage() {
                   Access Restricted
                 </span>
                 <h2 className="text-xl font-extrabold text-slate-900">
-                  Software Developer Access Only
+                  Super Admin & Software Developer Access Only
                 </h2>
                 <p className="text-xs text-slate-500 font-medium leading-relaxed max-w-md mx-auto">
                   This page contains restricted developer configurations and personal profile details reserved strictly for team members with the{" "}
-                  <strong className="text-slate-700 font-bold">Software Developer</strong> role.
+                  <strong className="text-slate-700 font-bold">Super Admin</strong> or <strong className="text-slate-700 font-bold">Software Developer</strong> role.
                 </p>
               </div>
 

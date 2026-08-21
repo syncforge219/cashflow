@@ -55,6 +55,13 @@ export default function LoginPage() {
     } else if (userRole.includes("crm")) {
       window.location.href = "/crm-dashboard";
     } else if (
+      userRole.includes("software") ||
+      userRole.includes("developer") ||
+      userRole.includes("engineer") ||
+      userRole.includes("tech lead")
+    ) {
+      window.location.href = "/software-developer";
+    } else if (
       userRole === "admin" ||
       userRole === "super admin" ||
       userRole === "director" ||

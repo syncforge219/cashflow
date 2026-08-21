@@ -124,6 +124,8 @@ export default function Sidebar() {
       ? "/cfo-dashboard"
       : roleLower.includes("crm")
       ? "/crm-dashboard"
+      : roleLower.includes("software") || roleLower.includes("developer") || roleLower.includes("engineer") || roleLower.includes("tech lead")
+      ? "/software-developer"
       : "/admin-dashboard";
 
   const groups: SidebarGroup[] = [
