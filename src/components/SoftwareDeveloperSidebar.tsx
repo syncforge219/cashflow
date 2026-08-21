@@ -215,7 +215,7 @@ export default function SoftwareDeveloperSidebar() {
                         {registeredSoftwares.map((soft) => (
                           <Link
                             key={soft._id}
-                            href={`/softwares?search=${encodeURIComponent(soft.name)}`}
+                            href={`/softwares/${soft._id}`}
                             className="flex items-center justify-between px-2 py-1 text-[11px] font-bold text-slate-400 hover:text-emerald-300 hover:bg-slate-900/80 rounded-md transition-all group/soft"
                           >
                             <span className="flex items-center gap-1.5 min-w-0">

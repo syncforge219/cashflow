@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 
 interface SoftwareItem {
   _id: string;
@@ -404,6 +405,15 @@ export default function SoftwaresDisplay() {
                     LOGGED: {soft.createdAt ? new Date(soft.createdAt).toLocaleDateString() : "Recent"}
                   </span>
                   <div className="flex items-center gap-3">
+                    <Link
+                      href={`/softwares/${soft._id}`}
+                      className="text-emerald-400 hover:text-emerald-300 font-bold transition-colors cursor-pointer flex items-center gap-1"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" />
+                      </svg>
+                      [API_DOCS]
+                    </Link>
                     <button
                       onClick={() => handleOpenEditModal(soft)}
                       className="text-cyan-400 hover:text-cyan-300 font-bold transition-colors cursor-pointer flex items-center gap-1"
