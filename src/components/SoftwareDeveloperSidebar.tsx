@@ -72,6 +72,16 @@ export default function SoftwareDeveloperSidebar() {
           ),
         },
         {
+          name: "System Users",
+          href: "/users",
+          badge: "ALL",
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-emerald-400">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a5.97 5.97 0 0 0-.943 3.197m12 0A11.955 11.955 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584M12 12.75a3.75 3.75 0 1 0 0-7.5 3.75 3.75 0 0 0 0 7.5Z" />
+            </svg>
+          ),
+        },
+        {
           name: "Add Software",
           href: "/softwares",
           badge: "NEW",
