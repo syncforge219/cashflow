@@ -296,7 +296,14 @@ export default function Student360Modal({
   const fetchStudentDetails = async (id: string) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/admissions/${id}`);
+      let token = "";
+      try {
+        token = localStorage.getItem("token") || localStorage.getItem("sessionToken") || "";
+      } catch (_) {}
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch(`/api/admissions/${id}`, { headers });
       const json = await res.json();
       if (json.success && json.data) {
         const adm = json.data.admission;

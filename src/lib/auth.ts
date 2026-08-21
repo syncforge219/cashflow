@@ -32,10 +32,19 @@ export async function getRawSessionToken(): Promise<string | null> {
     if (!token) {
       token = cookieStore.get("session_token")?.value;
     }
+    if (!token) {
+      token = cookieStore.get("token")?.value;
+    }
+    if (!token) {
+      token = cookieStore.get("auth_token")?.value;
+    }
+    if (!token) {
+      token = cookieStore.get("session")?.value;
+    }
 
     if (!token) {
       const headersList = await headers();
-      const authHeader = headersList.get("authorization");
+      const authHeader = headersList.get("authorization") || headersList.get("Authorization");
       if (authHeader && authHeader.startsWith("Bearer ")) {
         token = authHeader.substring(7);
       }

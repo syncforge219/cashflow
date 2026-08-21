@@ -387,6 +387,10 @@ export async function POST(req: NextRequest) {
 
     // Trigger MSG91 WhatsApp Outbound Alert ONLY to Super Admin for New Admission (template: admission_msg)
     try {
+      const nowIST = new Date();
+      const istDate = nowIST.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
+      const istTime = nowIST.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" });
+
       sendWhatsAppSuperAdminAdmissionAlert({
         studentName: admission.fullName,
         admissionNumber: admission.admissionId || admission._id?.toString(),
@@ -398,6 +402,8 @@ export async function POST(req: NextRequest) {
         registrationAmount: Number(data.registrationAmount || 0),
         downpaymentAmount: Number(data.downpaymentAmount || 0),
         paymentMode: data.paymentMode || "Cash",
+        date: istDate,
+        time: istTime,
       }).catch((err) => console.error("Async Super Admin Admission Alert WhatsApp Error:", err));
     } catch (waErr) {
       console.error("Failed to trigger Super Admin WhatsApp admission alert:", waErr);

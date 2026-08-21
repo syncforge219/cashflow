@@ -216,11 +216,6 @@ export default function ManagerDashboard() {
         <header className="h-20 px-8 flex items-center justify-between bg-white/50 backdrop-blur-md sticky top-0 z-10 border-b border-slate-100 shrink-0">
           <div className="flex items-center gap-4">
             <h2 className="text-xl font-extrabold text-slate-800 tracking-tight">Dashboard</h2>
-            {selectedBrand && selectedBrand !== "all" && (
-              <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-lg border border-indigo-100">
-                🎯 {selectedBrand}
-              </span>
-            )}
           </div>
 
           <div className="flex items-center gap-4">
@@ -277,6 +272,7 @@ export default function ManagerDashboard() {
         <main className="p-8 pb-32 space-y-6">
 
           {/* Dashboard Filter & Brand Controls */}
+          {/* Dashboard Filter & Date Controls */}
           <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
             <DashboardFilter
               currentLabel={filterLabel}
@@ -286,24 +282,6 @@ export default function ManagerDashboard() {
                 setFilterLabel(label);
               }}
             />
-
-            {stats?.availableBrands && stats.availableBrands.length > 1 && (
-              <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200/80 shadow-xs shrink-0">
-                <span className="text-xs font-bold text-slate-500">Brand Filter:</span>
-                <select
-                  value={selectedBrand}
-                  onChange={(e) => setSelectedBrand(e.target.value)}
-                  className="text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-                >
-                  <option value="all">All Brands ({stats.availableBrands.length})</option>
-                  {stats.availableBrands.map((b) => (
-                    <option key={b} value={b}>
-                      {b}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
           </div>
 
           {/* KPI Row */}

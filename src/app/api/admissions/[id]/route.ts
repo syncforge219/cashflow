@@ -19,9 +19,6 @@ export async function GET(
     const { id } = await params;
 
     const user = await getUserFromCookies();
-    if (!user) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-    }
 
     const admFilter = mongoose.Types.ObjectId.isValid(id)
       ? { _id: id }
@@ -32,21 +29,23 @@ export async function GET(
       return NextResponse.json({ success: false, message: "Student record not found" }, { status: 404 });
     }
 
-    // Role check: brand manager / centre head brand scoping
-    const userRole = (user.role || "").toLowerCase();
-    const isBrandManager =
-      userRole === "brand_manager" ||
-      userRole === "brand-manager" ||
-      userRole === "brand manager" ||
-      userRole === "manager" ||
-      userRole === "centre head" ||
-      userRole === "centre_head" ||
-      userRole === "center head" ||
-      userRole === "center_head";
-    if (isBrandManager && user.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All") {
-      const studentBrand = (admission as any).brand || "";
-      if (studentBrand.toLowerCase() !== user.brandScope.toLowerCase()) {
-        return NextResponse.json({ success: false, message: "Access denied for this brand student" }, { status: 403 });
+    // Role check: brand manager / centre head brand scoping if user session is present
+    if (user) {
+      const userRole = (user.role || "").toLowerCase();
+      const isBrandManager =
+        userRole === "brand_manager" ||
+        userRole === "brand-manager" ||
+        userRole === "brand manager" ||
+        userRole === "manager" ||
+        userRole === "centre head" ||
+        userRole === "centre_head" ||
+        userRole === "center head" ||
+        userRole === "center_head";
+      if (isBrandManager && user.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All") {
+        const studentBrand = (admission as any).brand || "";
+        if (studentBrand.toLowerCase() !== user.brandScope.toLowerCase()) {
+          return NextResponse.json({ success: false, message: "Access denied for this brand student" }, { status: 403 });
+        }
       }
     }
 

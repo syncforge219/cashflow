@@ -23,6 +23,7 @@ export function formatDateOnly(dateInput?: string | null): string {
       day: "2-digit",
       month: "short",
       year: "numeric",
+      timeZone: "Asia/Kolkata",
     });
   }
 
@@ -38,6 +39,7 @@ export function formatDateOnly(dateInput?: string | null): string {
         day: "2-digit",
         month: "short",
         year: "numeric",
+        timeZone: "Asia/Kolkata",
       });
     }
   } catch (_) {
@@ -2035,10 +2037,10 @@ export async function sendWhatsAppSuperAdminAdmissionAlert(params: SuperAdminAdm
     const now = new Date();
     const currentDateStr = params.date
       ? formatDateOnly(params.date)
-      : now.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+      : now.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
     const currentTimeStr = params.time
       ? params.time.trim()
-      : now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+      : now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" });
 
     const studentName = (params.studentName || "Student").trim();
     const admissionNumber = (params.admissionNumber || "N/A").trim();
@@ -2053,7 +2055,7 @@ export async function sendWhatsAppSuperAdminAdmissionAlert(params: SuperAdminAdm
       ? Number(params.amountPaid)
       : (regAmt + dpAmt);
 
-    const formattedAmountPaid = `₹${rawAmtPaid.toLocaleString("en-IN")}`;
+    const formattedAmountPaid = rawAmtPaid.toLocaleString("en-IN");
 
     const payload = {
       integrated_number: integratedNumber,
