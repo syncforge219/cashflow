@@ -124,6 +124,8 @@ export default function EnquiriesDisplay() {
     }
   };
 
+  const [devNamesList, setDevNamesList] = useState<string[]>([]);
+
   useEffect(() => {
     fetchEnquiries();
 
@@ -131,6 +133,16 @@ export default function EnquiriesDisplay() {
       .then((res) => res.json())
       .then((data) => {
         if (data.success) setCounsellorsList(data.counsellors || []);
+      })
+      .catch(console.error);
+
+    fetch("/api/software-developers")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.data)) {
+          const names = data.data.map((d: any) => (d.name || "").toLowerCase().trim()).filter(Boolean);
+          setDevNamesList(names);
+        }
       })
       .catch(console.error);
 
@@ -167,8 +179,12 @@ export default function EnquiriesDisplay() {
       .filter(e => !brandFilter || (e.targetBrand && e.targetBrand.toLowerCase().trim() === brandFilter.toLowerCase().trim()))
       .reduce((map, e) => {
         if (e.assignedCrmAdvisor && e.assignedCrmAdvisor.trim()) {
-          const key = e.assignedCrmAdvisor.trim().toLowerCase();
-          if (!map.has(key)) map.set(key, e.assignedCrmAdvisor.trim());
+          const nameVal = e.assignedCrmAdvisor.trim();
+          const key = nameVal.toLowerCase();
+          const isDev = devNamesList.some((dev) => dev === key || key.includes(dev) || dev.includes(key));
+          if (!map.has(key) && !isDev) {
+            map.set(key, nameVal);
+          }
         }
         return map;
       }, new Map<string, string>()).values()

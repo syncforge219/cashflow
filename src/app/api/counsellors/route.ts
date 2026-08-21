@@ -182,7 +182,20 @@ export async function GET(request: Request) {
       };
     });
 
-    return NextResponse.json({ success: true, counsellors: counsellorsWithLiveStats });
+    const devRoles = [
+      "software developer",
+      "software_developer",
+      "developer",
+      "software engineer",
+      "tech lead",
+    ];
+
+    const filteredCounsellors = counsellorsWithLiveStats.filter((c: any) => {
+      const r = (c.role || "").toLowerCase().trim();
+      return !devRoles.some((devRole) => r === devRole || r.includes("developer") || r.includes("engineer"));
+    });
+
+    return NextResponse.json({ success: true, counsellors: filteredCounsellors });
   } catch (error: any) {
     console.error("Counsellor Fetch API Error:", error);
     return NextResponse.json(
