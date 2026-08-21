@@ -53,6 +53,16 @@ export default function SoftwareDeveloperSidebar() {
             </svg>
           ),
         },
+        {
+          name: "Add Software",
+          href: "/softwares",
+          badge: "NEW",
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-emerald-400">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M14.25 7.756a3.375 3.375 0 0 1 0 8.488M16.5 5.5a6 6 0 0 1 0 13m-11.25-13A6 6 0 0 0 2.25 12a6 6 0 0 0 3 5.25m3.75-10.5a3.375 3.375 0 0 0 0 8.488M8.25 12h7.5" />
+            </svg>
+          ),
+        },
       ],
     },
     {
