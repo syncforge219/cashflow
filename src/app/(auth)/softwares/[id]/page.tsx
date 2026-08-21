@@ -365,8 +365,9 @@ const LEAD2LEADURE_APIS: ApiEndpoint[] = [
 export default function SoftwareDocsPage() {
   const params = useParams();
   const router = useRouter();
-  const softwareId = (params?.id as string) || "lead2leadure";
+  const rawId = (params?.id as string) || "lead2leadure";
 
+  const [softwareDetails, setSoftwareDetails] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [activeEndpointId, setActiveEndpointId] = useState<string>("auth-login");
@@ -374,6 +375,29 @@ export default function SoftwareDocsPage() {
   // Interactive Live Testing State
   const [testResponse, setTestResponse] = useState<Record<string, any>>({});
   const [testLoading, setTestLoading] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    async function loadSoftware() {
+      try {
+        const res = await fetch("/api/softwares");
+        const data = await res.json();
+        if (data.success && Array.isArray(data.data)) {
+          const match = data.data.find(
+            (s: any) =>
+              s._id === rawId ||
+              s.name.toLowerCase().includes(rawId.toLowerCase()) ||
+              rawId.toLowerCase().includes("lead")
+          );
+          if (match) {
+            setSoftwareDetails(match);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching software details:", err);
+      }
+    }
+    loadSoftware();
+  }, [rawId]);
 
   const categories = ["All", "Authentication", "Lead Engine", "Admissions", "Payments & Finance", "Developer APIs"];
 
@@ -433,6 +457,9 @@ export default function SoftwareDocsPage() {
     }
   };
 
+  const softwareName = softwareDetails?.name || "lead2leadure.in";
+  const softwareDomain = softwareDetails?.domain || "https://lead2leadure.in/";
+
   return (
     <div className="flex h-screen bg-[#050811] text-slate-100 overflow-hidden font-mono selection:bg-emerald-500 selection:text-slate-950">
       {/* Techky Developer Sidebar */}
@@ -461,22 +488,22 @@ export default function SoftwareDocsPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" />
                 </svg>
               </span>
-              lead2leadure.in API Specification
+              {softwareName} API Specification
             </h1>
           </div>
 
           {/* Quick Specs Metadata Pill */}
-          <div className="flex items-center gap-3 bg-[#090E1A] border border-slate-800 p-2.5 rounded-xl text-xs">
+          <div className="flex items-center gap-3 bg-[#090E1A] border border-slate-800 p-2.5 rounded-xl text-xs shrink-0">
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
               <span className="text-slate-400 font-bold">Base URL:</span>
-              <code className="text-emerald-400 font-bold">https://lead2leadure.in/api</code>
+              <code className="text-emerald-400 font-bold">{softwareDomain}api</code>
             </div>
           </div>
         </header>
 
         {/* API System Overview Banner */}
-        <div className="bg-[#090E1A] border border-emerald-500/30 rounded-2xl p-6 shadow-[0_0_30px_rgba(0,0,0,0.6)] flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
+        <div className="bg-[#090E1A] border border-emerald-500/30 rounded-2xl p-6 shadow-[0_0_30px_rgba(0,0,0,0.6)] flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden shrink-0">
           <div className="space-y-2 z-10">
             <div className="flex items-center gap-2">
               <span className="px-2.5 py-0.5 bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 text-[10px] font-black rounded uppercase tracking-widest">
@@ -486,13 +513,13 @@ export default function SoftwareDocsPage() {
                 REST / JSON API
               </span>
             </div>
-            <h2 className="text-xl font-black text-white">Lead2Ledger Enterprise Core APIs</h2>
+            <h2 className="text-xl font-black text-white">{softwareName} Enterprise Core APIs</h2>
             <p className="text-xs text-slate-400 max-w-2xl font-medium leading-relaxed">
               Complete working API endpoints for authentication, enquiry pipelines, student admissions, fee collection receipts, and developer system resources.
             </p>
           </div>
 
-          <div className="z-10 flex flex-wrap md:flex-col items-start md:items-end justify-between gap-2 border-t md:border-t-0 md:border-l border-slate-800 pt-4 md:pt-0 md:pl-6 text-xs">
+          <div className="z-10 flex flex-wrap md:flex-col items-start md:items-end justify-between gap-2 border-t md:border-t-0 md:border-l border-slate-800 pt-4 md:pt-0 md:pl-6 text-xs shrink-0">
             <div>
               <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest block">Endpoints Count</span>
               <span className="text-sm font-black text-emerald-400">{LEAD2LEADURE_APIS.length} Active Endpoints</span>
@@ -505,7 +532,7 @@ export default function SoftwareDocsPage() {
         </div>
 
         {/* Search & Category Filter Controls */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#090E1A] border border-slate-800 p-4 rounded-2xl">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#090E1A] border border-slate-800 p-4 rounded-2xl shrink-0">
           {/* Category Tabs */}
           <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1 md:pb-0">
             {categories.map((cat) => (
@@ -539,9 +566,9 @@ export default function SoftwareDocsPage() {
         </div>
 
         {/* Main API Documentation Grid (Sidebar List + Detail Cards) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-0">
           {/* Quick Endpoint Index List (Left Column) */}
-          <div className="lg:col-span-4 bg-[#090E1A] border border-slate-800 rounded-2xl p-4 space-y-2 h-fit max-h-[80vh] overflow-y-auto custom-scrollbar">
+          <div className="lg:col-span-4 bg-[#090E1A] border border-slate-800 rounded-2xl p-4 space-y-2 overflow-y-auto custom-scrollbar max-h-[70vh] lg:max-h-none">
             <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2 mb-3">
               // ENDPOINTS_DIRECTORY ({filteredEndpoints.length})
             </div>
@@ -584,7 +611,7 @@ export default function SoftwareDocsPage() {
           </div>
 
           {/* Detailed API Endpoints Cards (Right Column) */}
-          <div className="lg:col-span-8 space-y-6">
+          <div className="lg:col-span-8 space-y-6 overflow-y-auto custom-scrollbar pr-1 max-h-[80vh] lg:max-h-none">
             {filteredEndpoints.map((endpoint) => {
               const methodColor =
                 endpoint.method === "GET"
