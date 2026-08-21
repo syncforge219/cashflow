@@ -133,6 +133,14 @@ export default function AddFollowupModal({
     };
 
     if (isOpen) {
+      // Always reset sensitive form fields on modal open or record change to prevent leaking remarks across students
+      setFollowupRemark("");
+      setNextAction("");
+      setCallStart("");
+      setCallEnd("");
+      setNextDate(todayYYYYMMDD);
+      setNextTime("03:47 PM");
+
       fetchRealData();
       if (record) {
         setLeadType(record.leadType || "walkin");
@@ -231,6 +239,8 @@ export default function AddFollowupModal({
           if (phone) window.open(`https://wa.me/${phone}?text=${text}`, "_blank");
         }
         alert("Follow-up saved successfully!");
+        setFollowupRemark("");
+        setNextAction("");
         onSuccess();
         onClose();
       } else {

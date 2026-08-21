@@ -38,6 +38,9 @@ export default function FeeFollowupModal({
 
   useEffect(() => {
     if (isOpen && record) {
+      setRemarks("");
+      setPtpDate(todayYYYYMMDD);
+      setFollowupStatus("PTP (Promised to Pay)");
       setPtpAmount(record.pendingDueAmount || record.remainingBalance || "");
       setAssignedTo(record.counsellor || record.assignedCrmAdvisor || "");
       fetchFollowupHistory();
@@ -137,6 +140,7 @@ export default function FeeFollowupModal({
       });
 
       alert("Fee follow-up recorded successfully!");
+      setRemarks("");
       onSuccess();
       onClose();
     } catch (err) {

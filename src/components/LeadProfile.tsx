@@ -73,6 +73,15 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
 
   useEffect(() => {
     setLocalLead(lead);
+
+    // Reset sensitive input states on lead switch to prevent remark bleeding across profiles
+    setTaskRemarks("");
+    setCompleteRemarks("");
+    setDemoNotes("");
+    setDemoAttendanceRemarks("");
+    setLostNotes("");
+    setLostReason("");
+
     if (defaultOpenTaskModal) {
       setIsAddTaskModalOpen(true);
       setActiveTab("Follow-ups Tasker");
