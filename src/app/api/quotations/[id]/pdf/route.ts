@@ -357,10 +357,6 @@ function generateQuotationHtml(quotation: any, profile: any): string {
       </div>
     </div>
 
-    <div class="mfr-banner">
-      ${description}
-    </div>
-
     <div class="address-line">
       <b>Admin. Office :</b> ${address} | <b>Tel. :</b> ${phone} | <b>Telefax :</b> ${telefax}<br/>
       <b>Visit us :</b> ${website} | <b>E-mail :</b> ${email}<br/>
