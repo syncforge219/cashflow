@@ -72,7 +72,7 @@ export default function CompanyModal({
     }
   }, [company, isOpen]);
 
-  const handleQrImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleQrImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
