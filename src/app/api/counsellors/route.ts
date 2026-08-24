@@ -79,19 +79,47 @@ export async function POST(request: Request) {
   }
 }
 
+import { getUserFromCookies } from "@/lib/helper";
+
 // GET: Fetch users by role with live admission metrics calculation
 export async function GET(request: Request) {
   try {
     await dbConnect();
+    const user = await getUserFromCookies();
     const { searchParams } = new URL(request.url);
     const roleParam = searchParams.get("role");
-    const brandParam = searchParams.get("brand") || searchParams.get("brandScope");
+    let brandParam = searchParams.get("brand") || searchParams.get("brandScope");
+
+    // Default brandParam to logged in user's brandScope if not explicitly provided
+    if (!brandParam && user && user.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All" && user.brandScope !== "*") {
+      brandParam = user.brandScope;
+    }
+
+    const allStaffRoles = [
+      "counsellor",
+      "sales executive",
+      "sales-executive",
+      "sales advisor",
+      "crm",
+      "crm-executive",
+      "crm-advisor",
+      "crm advisor",
+      "crm executive",
+      "centre head",
+      "center head",
+      "centre-head",
+      "center-head",
+      "branch manager",
+      "manager",
+      "brand manager",
+      "brand-manager"
+    ];
 
     const roleQuery = roleParam === "crm"
       ? { $in: ["crm", "crm-executive", "crm-advisor", "crm advisor", "crm executive"] }
-      : roleParam === "counsellor"
-      ? { $in: ["counsellor", "sales executive", "sales-executive"] }
-      : { $in: ["counsellor", "sales executive", "sales-executive", "crm", "crm-executive", "crm-advisor", "crm advisor", "crm executive"] };
+      : roleParam === "counsellor_only"
+      ? { $in: ["counsellor"] }
+      : { $in: allStaffRoles };
 
     const query: any = { role: roleQuery };
 

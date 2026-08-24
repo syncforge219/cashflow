@@ -174,21 +174,47 @@ export default function EnquiriesDisplay() {
     }, new Map<string, string>()).values()
   );
 
-  const uniqueAdvisors = Array.from<string>(
-    enquiries
-      .filter(e => !brandFilter || (e.targetBrand && e.targetBrand.toLowerCase().trim() === brandFilter.toLowerCase().trim()))
-      .reduce((map, e) => {
-        if (e.assignedCrmAdvisor && e.assignedCrmAdvisor.trim()) {
-          const nameVal = e.assignedCrmAdvisor.trim();
-          const key = nameVal.toLowerCase();
-          const isDev = devNamesList.some((dev) => dev === key || key.includes(dev) || dev.includes(key));
-          if (!map.has(key) && !isDev) {
-            map.set(key, nameVal);
-          }
+  // Helper to dynamically resolve all Centre Heads, Counsellors, Sales Executives, & Managers for a specific brand
+  const getAdvisorsForBrand = (targetBrand?: string) => {
+    const filterBrandStr = (targetBrand || brandFilter || "").toLowerCase().trim();
+
+    // 1. Staff users from DB matching brand
+    const brandCounsellors = counsellorsList.filter((c: any) => {
+      const scope = (c.brandScope || "").toLowerCase().trim();
+      if (!filterBrandStr || filterBrandStr === "all" || filterBrandStr === "all brands") return true;
+      if (!scope || scope === "all" || scope === "all brands" || scope === "global" || scope === "*") return true;
+      const parts = scope.split(/[,/|]/).map((p: string) => p.trim());
+      return parts.some((p: string) => p === filterBrandStr || p.includes(filterBrandStr) || filterBrandStr.includes(p));
+    });
+
+    const staffNames = brandCounsellors.map((c: any) => (c.name || "").trim()).filter(Boolean);
+
+    // 2. Assigned advisors on existing enquiries matching brand
+    const enquiryAdvisors = enquiries
+      .filter((e: any) => {
+        if (!filterBrandStr || filterBrandStr === "all" || filterBrandStr === "all brands") return true;
+        const eBrand = (e.targetBrand || "").toLowerCase().trim();
+        return !eBrand || eBrand === filterBrandStr || eBrand.includes(filterBrandStr) || filterBrandStr.includes(eBrand);
+      })
+      .map((e: any) => (e.assignedCrmAdvisor || "").trim())
+      .filter(Boolean);
+
+    // 3. Deduplicate & filter out unassigned & software devs
+    const map = new Map<string, string>();
+    [...staffNames, ...enquiryAdvisors].forEach((nameVal) => {
+      const key = nameVal.toLowerCase();
+      if (key && key !== "unassigned" && key !== "n/a") {
+        const isDev = devNamesList.some((dev) => dev === key || key.includes(dev) || dev.includes(key));
+        if (!map.has(key) && !isDev) {
+          map.set(key, nameVal);
         }
-        return map;
-      }, new Map<string, string>()).values()
-  );
+      }
+    });
+
+    return Array.from(map.values());
+  };
+
+  const uniqueAdvisors = getAdvisorsForBrand(brandFilter);
 
   const uniqueSources = Array.from<string>(
     [
@@ -706,7 +732,7 @@ export default function EnquiriesDisplay() {
                         className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-slate-600 focus:outline-none hover:border-indigo-300 transition-colors"
                       >
                         <option value="">Unassigned</option>
-                        {uniqueAdvisors.map((adv: any) => (
+                        {getAdvisorsForBrand(lead.targetBrand).map((adv: any) => (
                           <option key={adv} value={adv}>
                             {adv}
                           </option>

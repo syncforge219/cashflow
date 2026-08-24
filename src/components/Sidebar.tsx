@@ -7,6 +7,8 @@ import { useUser } from "@/app/component/context/user-context";
 import { extractDominantColor, applyBrandTheme } from "@/lib/theme";
 import SidebarBrandHeader from "@/components/SidebarBrandHeader";
 import SidebarAiButton from "@/components/SidebarAiButton";
+import CounsellorSidebar from "@/components/CounsellorSidebar";
+import ManagerSidebar from "@/components/ManagerSidebar";
 
 interface SidebarItem {
   name: string;
@@ -402,6 +404,23 @@ export default function Sidebar() {
     roleLowerStr.includes("cfo") ||
     roleLowerStr.includes("finance manager") ||
     roleLowerStr.includes("finance executive");
+
+  const isCounsellorUser =
+    roleLowerStr.includes("counsellor") ||
+    roleLowerStr.includes("sales executive") ||
+    roleLowerStr.includes("sales-executive") ||
+    roleLowerStr.includes("crm");
+
+  const isManagerUser =
+    !isCfoUser && !isCounsellorUser && (roleLowerStr.includes("manager") || roleLowerStr.includes("head") || roleLowerStr.includes("brand-manager"));
+
+  if (isCounsellorUser) {
+    return <CounsellorSidebar />;
+  }
+
+  if (isManagerUser) {
+    return <ManagerSidebar />;
+  }
 
   const cfoGroups: SidebarGroup[] = [
     {
