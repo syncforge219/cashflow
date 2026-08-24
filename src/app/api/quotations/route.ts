@@ -2,41 +2,8 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Quotation from "@/models/Quotation";
 import QuotationProfile from "@/models/QuotationProfile";
-import QuotationCounter from "@/models/QuotationCounter";
 import { numberToIndianWords } from "@/lib/numberToWords";
-
-export function getFinancialYear(dateInput: Date = new Date()): string {
-  const year = dateInput.getFullYear();
-  const month = dateInput.getMonth() + 1; // 1-12
-  if (month >= 4) {
-    const nextYear = String(year + 1).slice(-2);
-    return `${year}-${nextYear}`;
-  } else {
-    const prevYear = year - 1;
-    const currYear = String(year).slice(-2);
-    return `${prevYear}-${currYear}`;
-  }
-}
-
-export async function generateQuotationNumber(companyId: string = "DEFAULT_COMPANY", customDate?: Date): Promise<string> {
-  await dbConnect();
-  let profile = await QuotationProfile.findOne({ companyId }).lean();
-  if (!profile) {
-    profile = await QuotationProfile.create({ companyId });
-  }
-
-  const prefix = (profile as any).prefix || "APPL";
-  const fy = getFinancialYear(customDate || new Date());
-
-  const counterDoc = await QuotationCounter.findOneAndUpdate(
-    { companyId, financialYear: fy },
-    { $inc: { seq: 1 } },
-    { new: true, upsert: true }
-  );
-
-  const seqFormatted = String(counterDoc.seq).padStart(4, "0");
-  return `${prefix}/${fy}/${seqFormatted}`;
-}
+import { generateQuotationNumber } from "@/lib/quotationHelper";
 
 export async function GET(req: Request) {
   try {
@@ -45,6 +12,7 @@ export async function GET(req: Request) {
     const companyId = searchParams.get("companyId") || "DEFAULT_COMPANY";
     const q = searchParams.get("q") || "";
     const status = searchParams.get("status") || "ALL";
+    const category = searchParams.get("category") || "ALL";
     const page = parseInt(searchParams.get("page") || "1", 10);
     const limit = parseInt(searchParams.get("limit") || "10", 10);
 
@@ -52,6 +20,10 @@ export async function GET(req: Request) {
 
     if (status !== "ALL") {
       query.status = status;
+    }
+
+    if (category !== "ALL") {
+      query.category = category;
     }
 
     if (q) {
@@ -166,7 +138,7 @@ export async function POST(req: Request) {
       };
     });
 
-    const gstRate = Number(body.gstRate) !== undefined ? Number(body.gstRate) : 18;
+    const gstRate = body.gstRate !== undefined && body.gstRate !== null ? Number(body.gstRate) : 18;
     const discount = Math.max(0, Number(body.discount) || 0);
     const transportCharges = Math.max(0, Number(body.transportCharges) || 0);
     const additionalCharges = Math.max(0, Number(body.additionalCharges) || 0);
@@ -179,6 +151,9 @@ export async function POST(req: Request) {
 
     const newQuotation = await Quotation.create({
       companyId,
+      category: body.category || "PRODUCT",
+      billingCycle: body.billingCycle || "ONE_TIME",
+      contractPeriod: body.contractPeriod?.trim() || "",
       quotationNumber,
       date: qDate,
       validUntil: body.validUntil ? new Date(body.validUntil) : undefined,
@@ -270,7 +245,7 @@ export async function PUT(req: Request) {
       };
     });
 
-    const gstRate = Number(body.gstRate) !== undefined ? Number(body.gstRate) : (existingQuotation.gstRate || 18);
+    const gstRate = body.gstRate !== undefined && body.gstRate !== null ? Number(body.gstRate) : (existingQuotation.gstRate !== undefined ? existingQuotation.gstRate : 18);
     const discount = body.discount !== undefined ? Math.max(0, Number(body.discount) || 0) : existingQuotation.discount;
     const transportCharges = body.transportCharges !== undefined ? Math.max(0, Number(body.transportCharges) || 0) : existingQuotation.transportCharges;
     const additionalCharges = body.additionalCharges !== undefined ? Math.max(0, Number(body.additionalCharges) || 0) : existingQuotation.additionalCharges;
@@ -282,6 +257,9 @@ export async function PUT(req: Request) {
     const amountInWords = numberToIndianWords(calculatedGrandTotal);
 
     const updatePayload: any = {
+      ...(body.category && { category: body.category }),
+      ...(body.billingCycle && { billingCycle: body.billingCycle }),
+      ...(body.contractPeriod !== undefined && { contractPeriod: body.contractPeriod.trim() }),
       ...(body.date && { date: new Date(body.date) }),
       ...(body.validUntil && { validUntil: new Date(body.validUntil) }),
       ...(body.poNumber !== undefined && { poNumber: body.poNumber.trim() }),

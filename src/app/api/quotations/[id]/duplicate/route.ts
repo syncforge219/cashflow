@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Quotation from "@/models/Quotation";
-import { generateQuotationNumber } from "../../route";
+import { generateQuotationNumber } from "@/lib/quotationHelper";
 
 export async function POST(
   req: Request,
@@ -28,10 +28,10 @@ export async function POST(
       quotationNumber: newQuotationNumber,
       date: newDate,
       validUntil: undefined,
-      status: "DRAFT",
+      status: "DRAFT" as const,
     };
 
-    const newQuotation = await Quotation.create(duplicateData);
+    const newQuotation = await Quotation.create(duplicateData as any);
 
     return NextResponse.json({
       success: true,

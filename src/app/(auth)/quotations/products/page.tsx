@@ -3,9 +3,12 @@
 import React, { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
 import QuotationNav from "@/components/QuotationNav";
+import CfoSecurityGuard from "@/components/CfoSecurityGuard";
 
 interface Product {
   _id: string;
+  category?: string;
+  billingCycle?: string;
   name: string;
   description?: string;
   sku?: string;
@@ -19,10 +22,13 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("ALL");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
+  const [category, setCategory] = useState("PRODUCT");
+  const [billingCycle, setBillingCycle] = useState("ONE_TIME");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [sku, setSku] = useState("");
@@ -34,7 +40,7 @@ export default function ProductsPage() {
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/quotations/products?q=${encodeURIComponent(search)}`);
+      const res = await fetch(`/api/quotations/products?q=${encodeURIComponent(search)}&category=${categoryFilter}`);
       const data = await res.json();
       if (res.ok && data.success) {
         setProducts(data.data || []);
@@ -48,10 +54,12 @@ export default function ProductsPage() {
 
   useEffect(() => {
     fetchProducts();
-  }, [search]);
+  }, [search, categoryFilter]);
 
   const openAddModal = () => {
     setEditingId(null);
+    setCategory("PRODUCT");
+    setBillingCycle("ONE_TIME");
     setName("");
     setDescription("");
     setSku("");
@@ -64,13 +72,15 @@ export default function ProductsPage() {
 
   const openEditModal = (p: Product) => {
     setEditingId(p._id);
+    setCategory(p.category || "PRODUCT");
+    setBillingCycle(p.billingCycle || "ONE_TIME");
     setName(p.name);
     setDescription(p.description || "");
     setSku(p.sku || "");
     setHsnCode(p.hsnCode || "");
     setUnit(p.unit || "mtr");
     setDefaultRate(p.defaultRate || 0);
-    setGstRate(p.gstRate !== undefined ? p.gstRate : 18);
+    setGstRate(p.gstRate || 18);
     setIsModalOpen(true);
   };
 
@@ -83,19 +93,20 @@ export default function ProductsPage() {
 
     const payload = {
       ...(editingId && { id: editingId }),
+      category,
+      billingCycle,
       name: name.trim(),
-      description: description.trim(),
-      sku: sku.trim(),
-      hsnCode: hsnCode.trim(),
-      unit: unit.trim() || "mtr",
-      defaultRate: Number(defaultRate) || 0,
-      gstRate: Number(gstRate),
+      description,
+      sku,
+      hsnCode,
+      unit,
+      defaultRate,
+      gstRate,
     };
 
     try {
-      const method = editingId ? "PUT" : "POST";
       const res = await fetch("/api/quotations/products", {
-        method,
+        method: editingId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
@@ -105,253 +116,322 @@ export default function ProductsPage() {
         setIsModalOpen(false);
         fetchProducts();
       } else {
-        alert("Error: " + (data.error || "Failed"));
+        alert("Error: " + (data.error || "Save failed"));
       }
     } catch (err: any) {
-      alert("Error saving product: " + err.message);
+      alert("Save error: " + err.message);
     }
   };
 
-  const handleDelete = async (id: string, prodName: string) => {
-    if (!confirm(`Delete product ${prodName}?`)) return;
+  const handleDelete = async (id: string, productName: string) => {
+    if (!confirm(`Delete product ${productName}?`)) return;
     try {
       const res = await fetch(`/api/quotations/products?id=${id}`, { method: "DELETE" });
-      if (res.ok) {
+      const data = await res.json();
+      if (res.ok && data.success) {
         fetchProducts();
+      } else {
+        alert("Delete failed: " + (data.error || "Error"));
       }
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      alert("Delete error: " + err.message);
     }
   };
 
   return (
-    <div className="flex min-h-screen bg-[#050811] text-slate-100 font-sans">
-      <Sidebar />
+    <CfoSecurityGuard>
+      <div className="flex h-screen bg-[#f8faff] text-slate-800 overflow-hidden font-sans transition-colors duration-200 relative">
+        <Sidebar />
 
-      <div className="flex-1 flex flex-col min-w-0">
-        <QuotationNav />
+        <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+          <QuotationNav />
 
-        <div className="p-6 space-y-6 max-w-7xl mx-auto w-full">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
-            <div>
-              <h1 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
-                📦 Product Master Management
-              </h1>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Manage goods, HSN codes, default rates, measurement units, and GST slab rates
-              </p>
-            </div>
+          <div className="p-6 space-y-6 max-w-7xl mx-auto w-full">
+            {/* Header */}
+            <div className="bg-white border border-slate-200/80 p-5 rounded-2xl shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-black tracking-tight text-slate-900 flex items-center gap-2 font-sans">
+                  📦 Products Master Inventory
+                </h1>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  Manage goods, HSN codes, default rates, measurement units, and GST slab rates
+                </p>
+              </div>
 
-            <button
-              onClick={openAddModal}
-              className="px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-emerald-500/20 flex items-center gap-2 cursor-pointer"
-            >
-              + Add New Product
-            </button>
-          </div>
-
-          {/* Search Bar */}
-          <div className="bg-[#0B0F19] border border-slate-800 rounded-2xl p-4">
-            <input
-              type="text"
-              placeholder="Search product by name, description, HSN code, SKU..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full md:w-96 bg-[#050811] border border-slate-800 text-white placeholder-slate-500 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:border-indigo-500/50"
-            />
-          </div>
-
-          {/* Products Table */}
-          <div className="bg-[#0B0F19] border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-300">
-                <thead className="bg-[#050811] text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-800">
-                  <tr>
-                    <th className="px-4 py-3.5">Product Name</th>
-                    <th className="px-4 py-3.5">HSN Code / SKU</th>
-                    <th className="px-4 py-3.5 text-center">Unit</th>
-                    <th className="px-4 py-3.5 text-right">Default Rate</th>
-                    <th className="px-4 py-3.5 text-center">GST Slab</th>
-                    <th className="px-4 py-3.5 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/80">
-                  {loading ? (
-                    <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
-                        Loading products...
-                      </td>
-                    </tr>
-                  ) : products.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
-                        No products found. Click <b>+ Add New Product</b> to create one.
-                      </td>
-                    </tr>
-                  ) : (
-                    products.map((p) => (
-                      <tr key={p._id} className="hover:bg-slate-900/50 transition-colors">
-                        <td className="px-4 py-3.5 font-bold text-white">
-                          {p.name}
-                          {p.description && <div className="text-[10px] text-slate-500 font-normal">{p.description}</div>}
-                        </td>
-                        <td className="px-4 py-3.5 font-mono text-cyan-400">
-                          {p.hsnCode || "-"}
-                          {p.sku && <span className="text-slate-500 text-[10px] block">SKU: {p.sku}</span>}
-                        </td>
-                        <td className="px-4 py-3.5 text-center text-slate-300 font-bold uppercase">{p.unit}</td>
-                        <td className="px-4 py-3.5 text-right font-black text-emerald-400">
-                          ₹{Number(p.defaultRate || 0).toLocaleString("en-IN")}
-                        </td>
-                        <td className="px-4 py-3.5 text-center font-bold text-blue-400">{p.gstRate}%</td>
-                        <td className="px-4 py-3.5 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => openEditModal(p)}
-                              className="px-2.5 py-1 text-[11px] font-bold text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 rounded-lg transition-colors cursor-pointer"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleDelete(p._id, p.name)}
-                              className="px-2 py-1 text-[11px] font-bold text-rose-400 hover:text-rose-300 cursor-pointer"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Add / Edit Product Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-[#0B0F19] border border-slate-800 rounded-3xl w-full max-w-lg p-6 space-y-4 shadow-2xl">
-            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-              <h3 className="text-sm font-black text-white uppercase tracking-wider">
-                {editingId ? "Edit Product" : "Add New Product"}
-              </h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-500 hover:text-slate-300 cursor-pointer">
-                ✕
+              <button
+                onClick={openAddModal}
+                className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md shadow-indigo-500/20 flex items-center gap-2 cursor-pointer transition-all"
+              >
+                + Add New Product
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="space-y-3 text-xs">
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                  Product Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="HDPE PIPE 160MM, PE100, PN6"
-                  className="w-full bg-[#050811] border border-slate-800 text-white font-bold rounded-xl px-3 py-2 focus:outline-none"
-                />
-              </div>
+            {/* Search & Category Filter Bar */}
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 flex flex-col md:flex-row justify-between items-center gap-4 shadow-sm">
+              <input
+                type="text"
+                placeholder="Search product by name, description, HSN code, SKU..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full md:w-80 bg-slate-50 border border-slate-200 text-slate-800 placeholder-slate-400 text-xs rounded-xl px-3.5 py-2.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all shadow-sm"
+              />
 
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Description</label>
-                <input
-                  type="text"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="6 Mtr Length High Density Polyethylene Pipe"
-                  className="w-full bg-[#050811] border border-slate-800 text-white rounded-xl px-3 py-2 focus:outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">HSN Code</label>
-                  <input
-                    type="text"
-                    value={hsnCode}
-                    onChange={(e) => setHsnCode(e.target.value)}
-                    placeholder="39172110"
-                    className="w-full bg-[#050811] border border-slate-800 text-white rounded-xl px-3 py-2 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">SKU</label>
-                  <input
-                    type="text"
-                    value={sku}
-                    onChange={(e) => setSku(e.target.value)}
-                    placeholder="HDP-160-PN6"
-                    className="w-full bg-[#050811] border border-slate-800 text-white rounded-xl px-3 py-2 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Unit</label>
-                  <input
-                    type="text"
-                    value={unit}
-                    onChange={(e) => setUnit(e.target.value)}
-                    placeholder="mtr"
-                    className="w-full bg-[#050811] border border-slate-800 text-white rounded-xl px-3 py-2 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Default Rate (₹)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={defaultRate}
-                    onChange={(e) => setDefaultRate(Number(e.target.value))}
-                    placeholder="390"
-                    className="w-full bg-[#050811] border border-slate-800 text-white font-bold rounded-xl px-3 py-2 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">GST Rate (%)</label>
-                  <select
-                    value={gstRate}
-                    onChange={(e) => setGstRate(Number(e.target.value))}
-                    className="w-full bg-[#050811] border border-slate-800 text-white font-bold rounded-xl px-3 py-2 focus:outline-none cursor-pointer"
+              <div className="flex flex-wrap gap-1.5 w-full md:w-auto">
+                {[
+                  { key: "ALL", label: "All Items" },
+                  { key: "SOFTWARE", label: "💻 Software" },
+                  { key: "DIGITAL_MARKETING", label: "📢 Marketing" },
+                  { key: "PRODUCT", label: "📦 Products" },
+                  { key: "SERVICE", label: "🛠️ Services" },
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setCategoryFilter(tab.key)}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                      categoryFilter === tab.key
+                        ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200/60"
+                    }`}
                   >
-                    <option value={18}>18%</option>
-                    <option value={12}>12%</option>
-                    <option value={5}>5%</option>
-                    <option value={28}>28%</option>
-                    <option value={0}>0%</option>
-                  </select>
-                </div>
+                    {tab.label}
+                  </button>
+                ))}
               </div>
+            </div>
 
-              <div className="pt-3 flex justify-end gap-3 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 bg-slate-800 text-slate-400 rounded-xl cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl cursor-pointer"
-                >
-                  {editingId ? "Save Changes" : "Create Product"}
-                </button>
+            {/* Products Table */}
+            <div className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs text-slate-700 font-sans">
+                  <thead className="bg-slate-50/80 text-slate-500 font-extrabold uppercase tracking-wider text-[10px] border-b border-slate-200">
+                    <tr>
+                      <th className="px-4 py-3.5">Category</th>
+                      <th className="px-4 py-3.5">Item Name & Details</th>
+                      <th className="px-4 py-3.5">HSN Code / SKU</th>
+                      <th className="px-4 py-3.5 text-center">Unit</th>
+                      <th className="px-4 py-3.5 text-right">Default Rate</th>
+                      <th className="px-4 py-3.5 text-center">GST Slab</th>
+                      <th className="px-4 py-3.5 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {loading ? (
+                      <tr>
+                        <td colSpan={7} className="px-4 py-8 text-center text-slate-400 font-medium">
+                          Loading items master...
+                        </td>
+                      </tr>
+                    ) : products.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-4 py-8 text-center text-slate-400 font-medium">
+                          No items found. Click <b>+ Add New Product</b> to create one.
+                        </td>
+                      </tr>
+                    ) : (
+                      products.map((p) => (
+                        <tr key={p._id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="px-4 py-3.5">
+                            <span className="text-[10px] font-black uppercase px-2 py-1 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200">
+                              {(p.category || "PRODUCT").replace("_", " ")}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3.5 font-bold text-slate-900">
+                            {p.name}
+                            {p.description && <div className="text-[10px] text-slate-400 font-normal">{p.description}</div>}
+                          </td>
+                          <td className="px-4 py-3.5 font-mono font-bold text-cyan-600">
+                            {p.hsnCode || "-"}
+                            {p.sku && <span className="text-slate-400 text-[10px] font-normal block">SKU: {p.sku}</span>}
+                          </td>
+                          <td className="px-4 py-3.5 text-center text-slate-700 font-bold uppercase">{p.unit}</td>
+                          <td className="px-4 py-3.5 text-right font-black text-emerald-600">
+                            ₹{Number(p.defaultRate || 0).toLocaleString("en-IN")}
+                          </td>
+                          <td className="px-4 py-3.5 text-center font-bold text-blue-600">{p.gstRate}%</td>
+                          <td className="px-4 py-3.5 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => openEditModal(p)}
+                                className="px-2.5 py-1 text-[11px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors cursor-pointer"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDelete(p._id, p.name)}
+                                className="px-2 py-1 text-[11px] font-bold text-rose-500 hover:bg-rose-50 rounded-lg cursor-pointer transition-colors"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
-            </form>
+            </div>
           </div>
         </div>
-      )}
-    </div>
+
+        {/* Add / Edit Product Modal */}
+        {isModalOpen && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+            <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-lg p-6 space-y-4 shadow-2xl">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider font-sans">
+                  {editingId ? "Edit Item Master" : "Add New Item Master"}
+                </h3>
+                <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                  ✕
+                </button>
+              </div>
+
+              <form onSubmit={handleSave} className="space-y-3 text-xs font-sans">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                      Category *
+                    </label>
+                    <select
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                      className="w-full bg-slate-50 border border-indigo-200 text-indigo-700 font-bold rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
+                    >
+                      <option value="SOFTWARE">💻 Software / SaaS</option>
+                      <option value="DIGITAL_MARKETING">📢 Digital Marketing</option>
+                      <option value="PRODUCT">📦 Physical Product</option>
+                      <option value="SERVICE">🛠️ Services & AMC</option>
+                      <option value="CUSTOM">⚡ Custom Offering</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                      Billing Cycle
+                    </label>
+                    <select
+                      value={billingCycle}
+                      onChange={(e) => setBillingCycle(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 font-bold rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
+                    >
+                      <option value="ONE_TIME">One-Time / Sale</option>
+                      <option value="MONTHLY">Monthly</option>
+                      <option value="QUARTERLY">Quarterly</option>
+                      <option value="HALF_YEARLY">Half-Yearly</option>
+                      <option value="YEARLY">Yearly</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                    Item Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="e.g. Enterprise ERP SaaS Subscription"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 font-bold rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">Description</label>
+                  <input
+                    type="text"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Specifications / Service scope details"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">HSN Code</label>
+                    <input
+                      type="text"
+                      value={hsnCode}
+                      onChange={(e) => setHsnCode(e.target.value)}
+                      placeholder="39172110"
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">SKU</label>
+                    <input
+                      type="text"
+                      value={sku}
+                      onChange={(e) => setSku(e.target.value)}
+                      placeholder="HDP-160-PN6"
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">Unit</label>
+                    <input
+                      type="text"
+                      value={unit}
+                      onChange={(e) => setUnit(e.target.value)}
+                      placeholder="mtr"
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">Default Rate (₹)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={defaultRate}
+                      onChange={(e) => setDefaultRate(Number(e.target.value))}
+                      placeholder="390"
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 font-bold rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">GST Rate (%)</label>
+                    <select
+                      value={gstRate}
+                      onChange={(e) => setGstRate(Number(e.target.value))}
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 font-bold rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
+                    >
+                      <option value={18}>18%</option>
+                      <option value={12}>12%</option>
+                      <option value={5}>5%</option>
+                      <option value={28}>28%</option>
+                      <option value={0}>0%</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="pt-3 flex justify-end gap-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl cursor-pointer font-bold"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl cursor-pointer shadow-md shadow-indigo-500/20"
+                  >
+                    {editingId ? "Save Changes" : "Create Product"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
+    </CfoSecurityGuard>
   );
 }

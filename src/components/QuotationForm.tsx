@@ -50,6 +50,9 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
   const [profile, setProfile] = useState<any>(null);
 
   // Form State
+  const [category, setCategory] = useState<string>(initialData?.category || "PRODUCT");
+  const [billingCycle, setBillingCycle] = useState<string>(initialData?.billingCycle || "ONE_TIME");
+  const [contractPeriod, setContractPeriod] = useState<string>(initialData?.contractPeriod || "");
   const [quotationNumber, setQuotationNumber] = useState(initialData?.quotationNumber || "");
   const [date, setDate] = useState(
     initialData?.date
@@ -67,27 +70,66 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
   const [customerGstin, setCustomerGstin] = useState(initialData?.customerGstin || "");
   const [deliveryLocation, setDeliveryLocation] = useState(initialData?.deliveryLocation || "");
 
+  const categoryPresets: Record<string, { label: string; icon: string; defaultUnit: string; descHeader: string }> = {
+    SOFTWARE: { label: "Software / SaaS", icon: "💻", defaultUnit: "seat/mo", descHeader: "Description of Software / SaaS Modules" },
+    DIGITAL_MARKETING: { label: "Digital Marketing", icon: "📢", defaultUnit: "month", descHeader: "Description of Marketing Deliverables" },
+    PRODUCT: { label: "Physical Goods", icon: "📦", defaultUnit: "mtr", descHeader: "Description of Goods" },
+    SERVICE: { label: "Services & Maintenance", icon: "🛠️", defaultUnit: "hour", descHeader: "Description of Services" },
+    CUSTOM: { label: "Custom Offering", icon: "⚡", defaultUnit: "unit", descHeader: "Description of Items" },
+  };
+
+  const categoryTermsPresets: Record<string, string[]> = {
+    SOFTWARE: [
+      "BILLING IN ADVANCE EVERY MONTH / CYCLE",
+      "12 MONTHS MINIMUM CONTRACT PERIOD",
+      "99.9% UPTIME SLA GUARANTEED",
+      "INCLUDES 24/7 EMAIL & PHONE SUPPORT",
+      "GST 18% APPLICABLE EXTRA AS PER GOVT NORMS",
+    ],
+    DIGITAL_MARKETING: [
+      "PAYMENT 100% IN ADVANCE AT THE START OF EACH BILLING CYCLE",
+      "AD SPEND BUDGET TO BE PAID DIRECTLY BY CLIENT TO GOOGLE/META",
+      "MONTHLY STRATEGY & ROI REPORTING CALL INCLUDED",
+      "MINIMUM 3 MONTHS ENGAGEMENT PERIOD",
+    ],
+    PRODUCT: [
+      "GST CHARGE EXTRA",
+      "TRANSPORTATION INCLUDED",
+      "PAYMENT ADVANCE",
+      "ALL PIPE 6MTR LENGTH",
+      "MATERIAL DELIVERED WITHIN 7DAYS",
+    ],
+    SERVICE: [
+      "50% ADVANCE UPON SIGNING, 50% ON COMPLETION",
+      "INCLUDES PREVENTIVE MAINTENANCE VISITS",
+      "PARTS & HARDWARE BILLED SEPARATELY AT ACTUALS",
+    ],
+    CUSTOM: [
+      "PAYMENT AS PER AGREED MILESTONES",
+      "TAXES APPLICABLE AS PER GOVERNMENT LAWS",
+    ],
+  };
+
+  const unitPresetsPerCategory: Record<string, string[]> = {
+    SOFTWARE: ["seat/mo", "user", "license", "month", "year", "project", "hour"],
+    DIGITAL_MARKETING: ["month", "quarter", "campaign", "package", "post", "lead", "hour"],
+    PRODUCT: ["mtr", "pc", "kg", "box", "set", "sq.ft", "ton"],
+    SERVICE: ["hour", "day", "month", "year", "project", "visit"],
+    CUSTOM: ["unit", "month", "project", "pc"],
+  };
+
   const [items, setItems] = useState<ItemRow[]>(
     initialData?.items && initialData.items.length > 0
       ? initialData.items
       : [
           {
-            name: "HDPE PIPE 160MM, PE100, PN6",
-            description: "6 Mtr Length",
-            quantity: 1100,
-            unit: "mtr",
-            rate: 390,
+            name: "Enterprise ERP SaaS Subscription",
+            description: "25 Active User Seats with Cloud Backups & Premium Support",
+            quantity: 25,
+            unit: "seat/mo",
+            rate: 1500,
             gstRate: 18,
-            amount: 429000,
-          },
-          {
-            name: "HDPE PIPE 110MM, PE100, PN6",
-            description: "6 Mtr Length",
-            quantity: 1300,
-            unit: "mtr",
-            rate: 230,
-            gstRate: 18,
-            amount: 299000,
+            amount: 37500,
           },
         ]
   );
@@ -98,12 +140,9 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
   const [transportText, setTransportText] = useState(initialData?.transportText || "included");
   const [additionalCharges, setAdditionalCharges] = useState(initialData?.additionalCharges || 0);
   const [terms, setTerms] = useState<string[]>(
-    initialData?.termsAndConditions || [
+    initialData?.termsAndConditions || categoryTermsPresets[category] || [
       "GST CHARGE EXTRA",
-      "TRANSPORTATION INCLUDED",
       "PAYMENT ADVANCE",
-      "ALL PIPE 6MTR LENGTH",
-      "MATERIAL DELIVERD WITHIN 7DAYS",
     ]
   );
 
@@ -211,7 +250,8 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
   // Calculations
   const calculatedSubtotal = items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
   const taxableBase = Math.max(0, calculatedSubtotal - Number(discount || 0));
-  const calculatedGstAmount = (taxableBase * Number(gstRate || 18)) / 100;
+  const safeGstRate = gstRate !== "" && gstRate !== undefined && gstRate !== null ? Number(gstRate) : 0;
+  const calculatedGstAmount = (taxableBase * safeGstRate) / 100;
   const calculatedGrandTotal = Math.round(
     taxableBase + calculatedGstAmount + Number(transportCharges || 0) + Number(additionalCharges || 0)
   );
@@ -245,6 +285,9 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
 
     const payload = {
       ...(isEdit && { id: initialData._id }),
+      category,
+      billingCycle,
+      contractPeriod: contractPeriod.trim(),
       quotationNumber: quotationNumber.trim(),
       date,
       validUntil: validUntil || undefined,
@@ -258,7 +301,7 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
       items,
       subtotal: calculatedSubtotal,
       discount: Number(discount || 0),
-      gstRate: Number(gstRate || 18),
+      gstRate: safeGstRate,
       gstAmount: calculatedGstAmount,
       transportCharges: Number(transportCharges || 0),
       transportText: transportText.trim(),
@@ -298,13 +341,13 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
     <div className="space-y-8 max-w-7xl mx-auto pb-12">
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Header Title Bar */}
-        <div className="bg-[#0B0F19] border border-slate-800 rounded-2xl p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-sm">
           <div>
-            <h2 className="text-xl font-black text-white flex items-center gap-2">
+            <h2 className="text-xl font-black text-slate-900 flex items-center gap-2 font-sans">
               {isEdit ? `✏️ Edit Quotation (${initialData?.quotationNumber})` : "📝 Create New Quotation"}
             </h2>
-            <p className="text-xs text-slate-400 mt-1">
-              Fill in customer details, add products, GST rate, transport charges, and preview live PDF layout
+            <p className="text-xs text-slate-500 font-medium mt-1">
+              Customizable for Software, Digital Marketing, Physical Goods & Services across Monthly, Quarterly, and Annual billing
             </p>
           </div>
 
@@ -312,14 +355,14 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
             <button
               type="button"
               onClick={() => router.push("/quotations")}
-              className="px-4 py-2 text-xs font-bold text-slate-400 bg-slate-800 hover:text-white rounded-xl transition-all cursor-pointer"
+              className="px-4 py-2 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl transition-all cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-emerald-500/20 transition-all cursor-pointer"
+              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md shadow-indigo-500/20 transition-all cursor-pointer"
             >
               {loading ? "Saving..." : isEdit ? "Save Changes" : "Create Quotation"}
             </button>
@@ -327,59 +370,130 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
         </div>
 
         {saveSuccess && (
-          <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-bold rounded-xl animate-pulse">
+          <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold rounded-xl animate-pulse shadow-sm">
             {saveSuccess}
           </div>
         )}
 
-        {/* Section 1: Basic Information */}
-        <div className="bg-[#0B0F19] border border-slate-800 rounded-2xl p-6 space-y-4">
-          <h3 className="text-xs font-black uppercase tracking-wider text-indigo-400 border-b border-slate-800 pb-2">
-            1. Basic Information
+        {/* Section 0: Quotation Category Selector */}
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-6 space-y-4 shadow-sm font-sans">
+          <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+            <h3 className="text-xs font-black uppercase tracking-wider text-indigo-600 font-sans">
+              1. Offering Category & Industry Type
+            </h3>
+            <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg">
+              Selected: {categoryPresets[category]?.label}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs">
+            {Object.entries(categoryPresets).map(([catKey, info]) => {
+              const isActive = category === catKey;
+              return (
+                <button
+                  key={catKey}
+                  type="button"
+                  onClick={() => {
+                    setCategory(catKey);
+                    // Load category terms preset if user hasn't heavily modified terms
+                    if (!isEdit && categoryTermsPresets[catKey]) {
+                      setTerms(categoryTermsPresets[catKey]);
+                    }
+                  }}
+                  className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between space-y-2 ${
+                    isActive
+                      ? "bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-500/20 ring-2 ring-indigo-600/30"
+                      : "bg-slate-50 hover:bg-slate-100/80 border-slate-200 text-slate-800"
+                  }`}
+                >
+                  <div className="text-2xl">{info.icon}</div>
+                  <div>
+                    <div className="font-extrabold text-xs">{info.label}</div>
+                    <div className={`text-[10px] mt-0.5 font-medium ${isActive ? "text-indigo-100" : "text-slate-500"}`}>
+                      Preset units & terms
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Section 2: Basic Information & Billing Cycle */}
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-6 space-y-4 shadow-sm font-sans">
+          <h3 className="text-xs font-black uppercase tracking-wider text-indigo-600 border-b border-slate-100 pb-2 font-sans">
+            2. Basic Information & Billing Schedule
           </h3>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 text-xs">
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                Quotation # (Auto generated if blank)
+              <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                Quotation #
               </label>
               <input
                 type="text"
                 value={quotationNumber}
                 onChange={(e) => setQuotationNumber(e.target.value)}
-                placeholder="Auto (e.g. APPL/2026-27/0001)"
-                className="w-full bg-[#050811] border border-slate-800 text-white rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500/50"
+                placeholder="Auto generated"
+                className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
               />
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Date *</label>
+              <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">Billing Frequency</label>
+              <select
+                value={billingCycle}
+                onChange={(e) => setBillingCycle(e.target.value)}
+                className="w-full bg-slate-50 border border-indigo-200 text-indigo-700 font-extrabold rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
+              >
+                <option value="ONE_TIME">One-Time / Fixed Price</option>
+                <option value="MONTHLY">Monthly Recurring</option>
+                <option value="QUARTERLY">Quarterly Billing</option>
+                <option value="HALF_YEARLY">Half-Yearly (6 Months)</option>
+                <option value="YEARLY">Yearly / Annual Contract</option>
+                <option value="CUSTOM">Custom Schedule</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">Contract / Commitment</label>
+              <input
+                type="text"
+                value={contractPeriod}
+                onChange={(e) => setContractPeriod(e.target.value)}
+                placeholder="e.g. 12 Months Contract"
+                className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">Date *</label>
               <input
                 type="date"
                 required
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full bg-[#050811] border border-slate-800 text-white rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500/50"
+                className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
               />
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">P.O. Number</label>
+              <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">P.O. / Ref Number</label>
               <input
                 type="text"
                 value={poNumber}
                 onChange={(e) => setPoNumber(e.target.value)}
-                placeholder="e.g. APPL/2026-27"
-                className="w-full bg-[#050811] border border-slate-800 text-white rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500/50"
+                placeholder="e.g. SW-2026-01"
+                className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
               />
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Status</label>
+              <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">Status</label>
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
-                className="w-full bg-[#050811] border border-slate-800 text-white rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500/50 cursor-pointer font-bold"
+                className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer font-bold"
               >
                 <option value="DRAFT">DRAFT</option>
                 <option value="SENT">SENT</option>
@@ -392,19 +506,19 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
         </div>
 
         {/* Section 2: Consignee & Customer Details */}
-        <div className="bg-[#0B0F19] border border-slate-800 rounded-2xl p-6 space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-800 pb-2">
-            <h3 className="text-xs font-black uppercase tracking-wider text-indigo-400">
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-6 space-y-4 shadow-sm font-sans">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-2">
+            <h3 className="text-xs font-black uppercase tracking-wider text-indigo-600 font-sans">
               2. Consignee & Customer Details
             </h3>
 
             {customers.length > 0 && (
               <div className="flex items-center gap-2 text-xs">
-                <span className="text-slate-400 font-bold">Select Saved Customer:</span>
+                <span className="text-slate-500 font-bold">Select Saved Customer:</span>
                 <select
                   value={selectedCustomerId}
                   onChange={(e) => handleSelectCustomer(e.target.value)}
-                  className="bg-[#050811] border border-indigo-500/30 text-indigo-300 rounded-xl px-3 py-1 text-xs focus:outline-none cursor-pointer"
+                  className="bg-slate-50 border border-indigo-200 text-indigo-700 font-bold rounded-xl px-3 py-1 text-xs focus:outline-none cursor-pointer"
                 >
                   <option value="">-- Choose Customer --</option>
                   {customers.map((c) => (
@@ -419,7 +533,7 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+              <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
                 Customer Name / Consignee *
               </label>
               <input
@@ -428,49 +542,49 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
                 placeholder="M/S ARVA ASSOCIATES"
-                className="w-full bg-[#050811] border border-slate-800 text-white font-bold rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500/50"
+                className="w-full bg-slate-50 border border-slate-200 text-slate-800 font-bold rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
               />
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Customer GSTIN</label>
+              <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">Customer GSTIN</label>
               <input
                 type="text"
                 value={customerGstin}
                 onChange={(e) => setCustomerGstin(e.target.value.toUpperCase())}
                 placeholder="09AFIPA8247C1ZM"
-                className="w-full bg-[#050811] border border-slate-800 text-white rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500/50 uppercase"
+                className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 uppercase"
               />
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Delivery At (Location)</label>
+              <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">Delivery At (Location)</label>
               <input
                 type="text"
                 value={deliveryLocation}
                 onChange={(e) => setDeliveryLocation(e.target.value)}
                 placeholder="CHITRAKOOT"
-                className="w-full bg-[#050811] border border-slate-800 text-white rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500/50"
+                className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
               />
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Full Customer Address</label>
+              <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">Full Customer Address</label>
               <input
                 type="text"
                 value={customerAddress}
                 onChange={(e) => setCustomerAddress(e.target.value)}
                 placeholder="BUNGALOW NO 55 CANTT, SADAR BAZAR, JHANSI"
-                className="w-full bg-[#050811] border border-slate-800 text-white rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500/50"
+                className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
               />
             </div>
           </div>
         </div>
 
         {/* Section 3: Product Items Table */}
-        <div className="bg-[#0B0F19] border border-slate-800 rounded-2xl p-6 space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-800 pb-2">
-            <h3 className="text-xs font-black uppercase tracking-wider text-indigo-400">
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-6 space-y-4 shadow-sm font-sans">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-2">
+            <h3 className="text-xs font-black uppercase tracking-wider text-indigo-600 font-sans">
               3. Items Table
             </h3>
 
@@ -481,7 +595,7 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
                     handleAddProductRow(e.target.value);
                     e.target.value = "";
                   }}
-                  className="bg-[#050811] border border-emerald-500/30 text-emerald-300 rounded-xl px-3 py-1 text-xs focus:outline-none cursor-pointer"
+                  className="bg-slate-50 border border-emerald-200 text-emerald-700 font-bold rounded-xl px-3 py-1 text-xs focus:outline-none cursor-pointer"
                 >
                   <option value="">+ Select Product Master</option>
                   {products.map((p) => (
@@ -495,7 +609,7 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
               <button
                 type="button"
                 onClick={handleAddBlankRow}
-                className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl cursor-pointer"
+                className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 font-bold text-xs rounded-xl cursor-pointer"
               >
                 + Add Custom Row
               </button>
@@ -503,74 +617,88 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-300">
-              <thead className="bg-[#050811] text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-800">
+            <table className="w-full text-left text-xs text-slate-700 font-sans">
+              <thead className="bg-slate-50/80 text-slate-500 font-extrabold uppercase tracking-wider text-[10px] border-b border-slate-200">
                 <tr>
                   <th className="px-3 py-3 w-12 text-center">S.No</th>
-                  <th className="px-3 py-3">Description of Goods</th>
-                  <th className="px-3 py-3 w-28 text-center">Qty</th>
-                  <th className="px-3 py-3 w-20 text-center">Unit</th>
+                  <th className="px-3 py-3">{categoryPresets[category]?.descHeader || "Description of Items"}</th>
+                  <th className="px-3 py-3 w-28 text-center">Qty / Duration</th>
+                  <th className="px-3 py-3 w-36 text-center">Unit</th>
                   <th className="px-3 py-3 w-28 text-center">Rate per unit</th>
                   <th className="px-3 py-3 w-32 text-right">Amount</th>
                   <th className="px-3 py-3 w-12 text-center">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800">
+              <tbody className="divide-y divide-slate-100">
                 {items.map((row, idx) => (
-                  <tr key={idx} className="hover:bg-slate-900/50">
-                    <td className="px-3 py-2 text-center font-bold text-slate-500">{idx + 1}</td>
+                  <tr key={idx} className="hover:bg-slate-50/80">
+                    <td className="px-3 py-2 text-center font-bold text-slate-400">{idx + 1}</td>
                     <td className="px-3 py-2 space-y-1">
                       <input
                         type="text"
                         required
                         value={row.name}
                         onChange={(e) => handleUpdateRow(idx, "name", e.target.value)}
-                        placeholder="Product Name"
-                        className="w-full bg-[#050811] border border-slate-800 text-white font-bold rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-indigo-500/50"
+                        placeholder="Item / Module Name"
+                        className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-bold rounded-lg px-2.5 py-1.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                       />
                       <input
                         type="text"
                         value={row.description}
                         onChange={(e) => handleUpdateRow(idx, "description", e.target.value)}
-                        placeholder="Sub description (e.g. 6 Mtr Length)"
-                        className="w-full bg-[#050811] border border-slate-850 text-slate-400 text-[11px] rounded-lg px-2.5 py-1 focus:outline-none"
+                        placeholder="Sub description / Specifications"
+                        className="w-full bg-slate-50 border border-slate-200 text-slate-500 text-[11px] rounded-lg px-2.5 py-1 focus:bg-white focus:outline-none"
                       />
                     </td>
                     <td className="px-3 py-2 text-center">
                       <input
                         type="number"
                         min="0"
+                        step="any"
                         value={row.quantity}
                         onChange={(e) => handleUpdateRow(idx, "quantity", e.target.value)}
-                        className="w-full bg-[#050811] border border-slate-800 text-white font-bold text-center rounded-lg px-2 py-1.5 focus:outline-none"
+                        className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-bold text-center rounded-lg px-2 py-1.5 focus:bg-white focus:outline-none"
                       />
                     </td>
-                    <td className="px-3 py-2 text-center">
+                    <td className="px-3 py-2 text-center space-y-1">
                       <input
                         type="text"
                         value={row.unit}
                         onChange={(e) => handleUpdateRow(idx, "unit", e.target.value)}
-                        placeholder="mtr"
-                        className="w-full bg-[#050811] border border-slate-800 text-white text-center rounded-lg px-1.5 py-1.5 focus:outline-none"
+                        placeholder="e.g. seat/mo"
+                        className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-center rounded-lg px-1.5 py-1.5 focus:bg-white focus:outline-none text-xs font-bold"
                       />
+                      <div className="flex flex-wrap gap-1 justify-center">
+                        {(unitPresetsPerCategory[category] || unitPresetsPerCategory.PRODUCT).slice(0, 4).map((uPreset) => (
+                          <button
+                            key={uPreset}
+                            type="button"
+                            onClick={() => handleUpdateRow(idx, "unit", uPreset)}
+                            className="px-1.5 py-0.5 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 border border-slate-200 text-[9px] font-bold rounded-md cursor-pointer transition-colors"
+                          >
+                            {uPreset}
+                          </button>
+                        ))}
+                      </div>
                     </td>
                     <td className="px-3 py-2 text-center">
                       <input
                         type="number"
                         min="0"
+                        step="any"
                         value={row.rate}
                         onChange={(e) => handleUpdateRow(idx, "rate", e.target.value)}
-                        className="w-full bg-[#050811] border border-slate-800 text-white font-bold text-center rounded-lg px-2 py-1.5 focus:outline-none"
+                        className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-bold text-center rounded-lg px-2 py-1.5 focus:bg-white focus:outline-none"
                       />
                     </td>
-                    <td className="px-3 py-2 text-right font-extrabold text-white text-sm">
-                      ₹{row.amount.toLocaleString("en-IN")}
+                    <td className="px-3 py-2 text-right font-black text-emerald-600 text-sm">
+                      ₹{row.amount.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                     </td>
                     <td className="px-3 py-2 text-center">
                       <button
                         type="button"
                         onClick={() => handleRemoveRow(idx)}
-                        className="text-rose-400 hover:text-rose-300 font-bold p-1 cursor-pointer"
+                        className="text-rose-500 hover:text-rose-700 font-bold p-1 cursor-pointer"
                         title="Remove Item"
                       >
                         ✕
@@ -584,23 +712,34 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
         </div>
 
         {/* Section 4: Totals, GST & Transport Calculations */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 font-sans">
           {/* Left Column: Terms & Conditions */}
-          <div className="bg-[#0B0F19] border border-slate-800 rounded-2xl p-6 space-y-4">
-            <h3 className="text-xs font-black uppercase tracking-wider text-indigo-400 border-b border-slate-800 pb-2">
-              4. Terms & Conditions
-            </h3>
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-6 space-y-4 shadow-sm">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+              <h3 className="text-xs font-black uppercase tracking-wider text-indigo-600">
+                4. Terms & Conditions
+              </h3>
+              {categoryTermsPresets[category] && (
+                <button
+                  type="button"
+                  onClick={() => setTerms(categoryTermsPresets[category])}
+                  className="px-2.5 py-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg cursor-pointer transition-colors"
+                >
+                  ⚡ Reset to {categoryPresets[category]?.label} Terms
+                </button>
+              )}
+            </div>
 
             <ul className="space-y-2 text-xs">
               {terms.map((t, i) => (
-                <li key={i} className="flex items-center justify-between bg-[#050811] border border-slate-800 rounded-xl px-3 py-2">
-                  <span className="font-semibold text-slate-200">
+                <li key={i} className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2">
+                  <span className="font-semibold text-slate-800">
                     {i + 1}. {t}
                   </span>
                   <button
                     type="button"
                     onClick={() => handleRemoveTerm(i)}
-                    className="text-rose-400 hover:text-rose-300 font-bold cursor-pointer text-xs"
+                    className="text-rose-500 hover:text-rose-700 font-bold cursor-pointer text-xs"
                   >
                     ✕
                   </button>
@@ -614,12 +753,12 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
                 value={newTermInput}
                 onChange={(e) => setNewTermInput(e.target.value)}
                 placeholder="Add custom term (e.g. PAYMENT ADVANCE)"
-                className="flex-1 bg-[#050811] border border-slate-800 text-white text-xs rounded-xl px-3 py-2 focus:outline-none"
+                className="flex-1 bg-slate-50 border border-slate-200 text-slate-800 text-xs rounded-xl px-3.5 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
               />
               <button
                 type="button"
                 onClick={handleAddTerm}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl cursor-pointer"
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl cursor-pointer shadow-sm"
               >
                 + Add
               </button>
@@ -627,44 +766,46 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
           </div>
 
           {/* Right Column: Financial Totals Summary */}
-          <div className="bg-[#0B0F19] border border-slate-800 rounded-2xl p-6 space-y-4">
-            <h3 className="text-xs font-black uppercase tracking-wider text-indigo-400 border-b border-slate-800 pb-2">
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-6 space-y-4 shadow-sm">
+            <h3 className="text-xs font-black uppercase tracking-wider text-indigo-600 border-b border-slate-100 pb-2">
               5. Financial Summary
             </h3>
 
             <div className="space-y-3 text-xs">
-              <div className="flex justify-between items-center text-slate-300">
+              <div className="flex justify-between items-center text-slate-700">
                 <span className="font-bold">Items Subtotal:</span>
-                <span className="font-extrabold text-white text-sm">₹{calculatedSubtotal.toLocaleString("en-IN")}</span>
+                <span className="font-extrabold text-slate-900 text-sm">₹{calculatedSubtotal.toLocaleString("en-IN")}</span>
               </div>
 
-              <div className="flex justify-between items-center text-slate-400">
+              <div className="flex justify-between items-center text-slate-600">
                 <span className="font-bold">Discount (₹):</span>
                 <input
                   type="number"
                   min="0"
+                  step="any"
                   value={discount}
                   onChange={(e) => setDiscount(Number(e.target.value))}
-                  className="w-32 bg-[#050811] border border-slate-800 text-white font-bold text-right rounded-lg px-2.5 py-1 focus:outline-none"
+                  className="w-32 bg-slate-50 border border-slate-200 text-slate-800 font-bold text-right rounded-lg px-2.5 py-1 focus:bg-white focus:outline-none"
                 />
               </div>
 
-              <div className="flex justify-between items-center text-slate-300">
+              <div className="flex justify-between items-center text-slate-700">
                 <div className="flex items-center gap-2">
                   <span className="font-bold">GST Rate (%):</span>
                   <input
                     type="number"
                     min="0"
                     max="100"
+                    step="any"
                     value={gstRate}
-                    onChange={(e) => setGstRate(Number(e.target.value))}
-                    className="w-16 bg-[#050811] border border-slate-800 text-white font-bold text-center rounded-lg px-2 py-1 focus:outline-none"
+                    onChange={(e) => setGstRate(e.target.value === "" ? "" : Number(e.target.value))}
+                    className="w-16 bg-slate-50 border border-slate-200 text-slate-800 font-bold text-center rounded-lg px-2 py-1 focus:bg-white focus:outline-none"
                   />
                 </div>
-                <span className="font-extrabold text-blue-400">₹{calculatedGstAmount.toLocaleString("en-IN")}</span>
+                <span className="font-extrabold text-blue-600">₹{calculatedGstAmount.toLocaleString("en-IN")}</span>
               </div>
 
-              <div className="flex justify-between items-center text-slate-300">
+              <div className="flex justify-between items-center text-slate-700">
                 <div className="flex items-center gap-2">
                   <span className="font-bold">Transport (Text/Amt):</span>
                   <input
@@ -672,27 +813,28 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
                     value={transportText}
                     onChange={(e) => setTransportText(e.target.value)}
                     placeholder="included"
-                    className="w-28 bg-[#050811] border border-slate-800 text-white text-xs rounded-lg px-2 py-1 focus:outline-none"
+                    className="w-28 bg-slate-50 border border-slate-200 text-slate-800 text-xs rounded-lg px-2 py-1 focus:bg-white focus:outline-none"
                   />
                 </div>
                 <input
                   type="number"
                   min="0"
+                  step="any"
                   value={transportCharges}
                   onChange={(e) => setTransportCharges(Number(e.target.value))}
                   placeholder="Charge (₹)"
-                  className="w-28 bg-[#050811] border border-slate-800 text-white font-bold text-right rounded-lg px-2.5 py-1 focus:outline-none"
+                  className="w-28 bg-slate-50 border border-slate-200 text-slate-800 font-bold text-right rounded-lg px-2.5 py-1 focus:bg-white focus:outline-none"
                 />
               </div>
 
-              <div className="border-t border-slate-800 pt-3 flex justify-between items-center">
-                <span className="font-black text-white text-base">Grand Total:</span>
-                <span className="font-black text-emerald-400 text-xl">₹{calculatedGrandTotal.toLocaleString("en-IN")}</span>
+              <div className="border-t border-slate-200 pt-3 flex justify-between items-center">
+                <span className="font-black text-slate-900 text-base">Grand Total:</span>
+                <span className="font-black text-emerald-600 text-xl">₹{calculatedGrandTotal.toLocaleString("en-IN")}</span>
               </div>
 
               {/* Amount in Words Display */}
-              <div className="bg-[#050811] border border-slate-800/80 rounded-xl p-3 text-[11px] text-slate-300 font-bold">
-                <span className="text-slate-500 uppercase block text-[9px] mb-0.5">Amount in words:</span>
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-[11px] text-slate-800 font-bold">
+                <span className="text-slate-400 uppercase block text-[9px] mb-0.5 font-bold">Amount in words:</span>
                 {amountInWords}
               </div>
             </div>
@@ -700,18 +842,18 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
         </div>
 
         {/* Action Bottom Bar */}
-        <div className="bg-[#0B0F19] border border-slate-800 rounded-2xl p-4 flex justify-end gap-4">
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 flex justify-end gap-4 shadow-sm">
           <button
             type="button"
             onClick={() => router.push("/quotations")}
-            className="px-6 py-2.5 text-xs font-bold text-slate-400 bg-slate-800 hover:text-white rounded-xl transition-all cursor-pointer"
+            className="px-6 py-2.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl transition-all cursor-pointer"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={loading}
-            className="px-8 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-emerald-500/20 transition-all cursor-pointer"
+            className="px-8 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md shadow-indigo-500/20 transition-all cursor-pointer"
           >
             {loading ? "Saving..." : isEdit ? "Save Changes" : "Create Quotation"}
           </button>

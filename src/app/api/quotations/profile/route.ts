@@ -42,3 +42,7 @@ export async function PUT(req: Request) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
+
+export async function POST(req: Request) {
+  return PUT(req);
+}

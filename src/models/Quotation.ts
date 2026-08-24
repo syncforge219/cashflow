@@ -21,6 +21,21 @@ const QuotationSchema = new Schema(
       default: "DEFAULT_COMPANY",
       index: true,
     },
+    category: {
+      type: String,
+      enum: ["SOFTWARE", "DIGITAL_MARKETING", "PRODUCT", "SERVICE", "CUSTOM"],
+      default: "PRODUCT",
+      index: true,
+    },
+    billingCycle: {
+      type: String,
+      enum: ["ONE_TIME", "MONTHLY", "QUARTERLY", "HALF_YEARLY", "YEARLY", "CUSTOM"],
+      default: "ONE_TIME",
+    },
+    contractPeriod: {
+      type: String,
+      default: "",
+    },
     quotationNumber: {
       type: String,
       required: true,

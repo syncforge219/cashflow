@@ -4,9 +4,12 @@ import React, { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
 import QuotationNav from "@/components/QuotationNav";
 import Link from "next/link";
+import CfoSecurityGuard from "@/components/CfoSecurityGuard";
 
 interface QuotationItem {
   _id: string;
+  category?: string;
+  billingCycle?: string;
   quotationNumber: string;
   customerName: string;
   date: string;
@@ -43,6 +46,7 @@ export default function QuotationsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
@@ -52,6 +56,7 @@ export default function QuotationsPage() {
       const query = new URLSearchParams({
         q: search,
         status: statusFilter,
+        category: categoryFilter,
         page: page.toString(),
         limit: "10",
       });
@@ -73,7 +78,7 @@ export default function QuotationsPage() {
 
   useEffect(() => {
     fetchQuotations();
-  }, [search, statusFilter, page]);
+  }, [search, statusFilter, categoryFilter, page]);
 
   const handleDuplicate = async (id: string, num: string) => {
     if (!confirm(`Duplicate quotation ${num}?`)) return;
@@ -124,244 +129,283 @@ export default function QuotationsPage() {
   const getStatusBadge = (st: string) => {
     switch (st) {
       case "DRAFT":
-        return "bg-slate-500/10 text-slate-400 border-slate-500/20";
+        return "bg-slate-100 text-slate-700 border-slate-200";
       case "SENT":
-        return "bg-blue-500/10 text-blue-400 border-blue-500/20";
+        return "bg-blue-50 text-blue-700 border-blue-200";
       case "ACCEPTED":
-        return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+        return "bg-emerald-50 text-emerald-700 border-emerald-200";
       case "REJECTED":
-        return "bg-rose-500/10 text-rose-400 border-rose-500/20";
+        return "bg-rose-50 text-rose-700 border-rose-200";
       case "EXPIRED":
-        return "bg-amber-500/10 text-amber-400 border-amber-500/20";
+        return "bg-amber-50 text-amber-700 border-amber-200";
       default:
-        return "bg-slate-500/10 text-slate-400 border-slate-500/20";
+        return "bg-slate-100 text-slate-700 border-slate-200";
     }
   };
 
   return (
-    <div className="flex min-h-screen bg-[#050811] text-slate-100 font-sans">
-      <Sidebar />
+    <CfoSecurityGuard>
+      <div className="flex h-screen bg-[#f8faff] text-slate-800 overflow-hidden font-sans transition-colors duration-200 relative">
+        <Sidebar />
 
-      <div className="flex-1 flex flex-col min-w-0">
-        <QuotationNav />
+        <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+          <QuotationNav />
 
-        <div className="p-6 space-y-6 max-w-7xl mx-auto w-full">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
-            <div>
-              <h1 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
-                📋 Quotation Suite Dashboard
-              </h1>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Manage business quotations, calculate GST, auto-generate PDFs, and track sales pipeline
-              </p>
-            </div>
+          <div className="p-6 space-y-6 max-w-7xl mx-auto w-full">
+            {/* Header */}
+            <div className="bg-white border border-slate-200/80 p-5 rounded-2xl shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-black tracking-tight text-slate-900 flex items-center gap-2 font-sans">
+                  📋 Quotation Suite Dashboard
+                </h1>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  Manage business quotations, calculate GST, auto-generate PDFs, and track sales pipeline
+                </p>
+              </div>
 
-            <Link
-              href="/quotations/new"
-              className="px-4 py-2.5 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-400 hover:to-indigo-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-indigo-500/20 flex items-center gap-2 transition-all cursor-pointer"
-            >
-              <span>+ Create Quotation</span>
-            </Link>
-          </div>
-
-          {/* Stats Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
-            <div className="bg-[#0B0F19] border border-slate-800 rounded-2xl p-3.5 space-y-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total</span>
-              <p className="text-lg font-black text-white">{stats.totalQuotations}</p>
-            </div>
-            <div className="bg-[#0B0F19] border border-slate-800 rounded-2xl p-3.5 space-y-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Draft</span>
-              <p className="text-lg font-black text-slate-300">{stats.draftQuotations}</p>
-            </div>
-            <div className="bg-[#0B0F19] border border-blue-500/20 rounded-2xl p-3.5 space-y-1">
-              <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider">Sent</span>
-              <p className="text-lg font-black text-blue-300">{stats.sentQuotations}</p>
-            </div>
-            <div className="bg-[#0B0F19] border border-emerald-500/20 rounded-2xl p-3.5 space-y-1">
-              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Accepted</span>
-              <p className="text-lg font-black text-emerald-300">{stats.acceptedQuotations}</p>
-            </div>
-            <div className="bg-[#0B0F19] border border-rose-500/20 rounded-2xl p-3.5 space-y-1">
-              <span className="text-[10px] font-bold text-rose-400 uppercase tracking-wider">Rejected</span>
-              <p className="text-lg font-black text-rose-300">{stats.rejectedQuotations}</p>
-            </div>
-            <div className="bg-[#0B0F19] border border-amber-500/20 rounded-2xl p-3.5 space-y-1">
-              <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">Expired</span>
-              <p className="text-lg font-black text-amber-300">{stats.expiredQuotations}</p>
-            </div>
-            <div className="bg-[#0B0F19] border border-slate-800 rounded-2xl p-3.5 space-y-1 col-span-2">
-              <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Total Value</span>
-              <p className="text-lg font-black text-white">₹{stats.totalValue.toLocaleString("en-IN")}</p>
-            </div>
-          </div>
-
-          {/* Controls & Filter Bar */}
-          <div className="bg-[#0B0F19] border border-slate-800 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="w-full md:w-80">
-              <input
-                type="text"
-                placeholder="Search quotation #, customer, PO..."
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-                className="w-full bg-[#050811] border border-slate-800 text-white placeholder-slate-500 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:border-indigo-500/50"
-              />
+              <Link
+                href="/quotations/new"
+                className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md shadow-indigo-500/20 flex items-center gap-2 transition-all cursor-pointer"
+              >
+                <span>+ Create Quotation</span>
+              </Link>
             </div>
 
-            {/* Filter Tabs */}
-            <div className="flex flex-wrap items-center gap-1.5 w-full md:w-auto">
-              {["ALL", "DRAFT", "SENT", "ACCEPTED", "REJECTED", "EXPIRED"].map((st) => (
-                <button
-                  key={st}
-                  onClick={() => {
-                    setStatusFilter(st);
+            {/* Stats Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+              <div className="bg-white border border-slate-200/80 rounded-2xl p-3.5 space-y-1 shadow-sm">
+                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Total</span>
+                <p className="text-lg font-black text-slate-900">{stats.totalQuotations}</p>
+              </div>
+              <div className="bg-white border border-slate-200/80 rounded-2xl p-3.5 space-y-1 shadow-sm">
+                <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Draft</span>
+                <p className="text-lg font-black text-slate-700">{stats.draftQuotations}</p>
+              </div>
+              <div className="bg-white border border-blue-200/80 rounded-2xl p-3.5 space-y-1 shadow-sm">
+                <span className="text-[10px] font-extrabold text-blue-500 uppercase tracking-wider">Sent</span>
+                <p className="text-lg font-black text-blue-700">{stats.sentQuotations}</p>
+              </div>
+              <div className="bg-white border border-emerald-200/80 rounded-2xl p-3.5 space-y-1 shadow-sm">
+                <span className="text-[10px] font-extrabold text-emerald-500 uppercase tracking-wider">Accepted</span>
+                <p className="text-lg font-black text-emerald-700">{stats.acceptedQuotations}</p>
+              </div>
+              <div className="bg-white border border-rose-200/80 rounded-2xl p-3.5 space-y-1 shadow-sm">
+                <span className="text-[10px] font-extrabold text-rose-500 uppercase tracking-wider">Rejected</span>
+                <p className="text-lg font-black text-rose-700">{stats.rejectedQuotations}</p>
+              </div>
+              <div className="bg-white border border-amber-200/80 rounded-2xl p-3.5 space-y-1 shadow-sm">
+                <span className="text-[10px] font-extrabold text-amber-500 uppercase tracking-wider">Expired</span>
+                <p className="text-lg font-black text-amber-700">{stats.expiredQuotations}</p>
+              </div>
+              <div className="bg-white border border-indigo-200/80 rounded-2xl p-3.5 space-y-1 shadow-sm col-span-2">
+                <span className="text-[10px] font-extrabold text-indigo-500 uppercase tracking-wider">Total Value</span>
+                <p className="text-lg font-black text-indigo-700">₹{stats.totalValue.toLocaleString("en-IN")}</p>
+              </div>
+            </div>
+
+            {/* Controls & Filter Bar */}
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm">
+              <div className="w-full md:w-72">
+                <input
+                  type="text"
+                  placeholder="Search quotation #, customer, PO..."
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
                     setPage(1);
                   }}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
-                    statusFilter === st
-                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
-                      : "bg-[#050811] text-slate-400 hover:text-white border border-slate-800"
-                  }`}
-                >
-                  {st}
-                </button>
-              ))}
-            </div>
-          </div>
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 placeholder-slate-400 text-xs rounded-xl px-3.5 py-2.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all shadow-sm"
+                />
+              </div>
 
-          {/* Quotations Table */}
-          <div className="bg-[#0B0F19] border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-300">
-                <thead className="bg-[#050811] text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-800">
-                  <tr>
-                    <th className="px-4 py-3.5">Quotation #</th>
-                    <th className="px-4 py-3.5">Customer</th>
-                    <th className="px-4 py-3.5">Date</th>
-                    <th className="px-4 py-3.5 text-right">Amount</th>
-                    <th className="px-4 py-3.5 text-center">Status</th>
-                    <th className="px-4 py-3.5">Created By</th>
-                    <th className="px-4 py-3.5 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/80">
-                  {loading ? (
-                    <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
-                        Loading quotations...
-                      </td>
-                    </tr>
-                  ) : quotations.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
-                        No quotations found. Click <b>+ Create Quotation</b> or <b>🌱 Seed Sample Data</b>.
-                      </td>
-                    </tr>
-                  ) : (
-                    quotations.map((q) => (
-                      <tr key={q._id} className="hover:bg-slate-900/50 transition-colors">
-                        <td className="px-4 py-3.5 font-bold text-white">
-                          <Link href={`/quotations/${q._id}`} className="hover:text-indigo-400 transition-colors">
-                            {q.quotationNumber}
-                          </Link>
-                          {q.poNumber && <div className="text-[10px] text-slate-500 font-normal">PO: {q.poNumber}</div>}
-                        </td>
-                        <td className="px-4 py-3.5 font-semibold text-slate-200">{q.customerName}</td>
-                        <td className="px-4 py-3.5 text-slate-400">
-                          {q.date ? new Date(q.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "-"}
-                        </td>
-                        <td className="px-4 py-3.5 text-right font-extrabold text-emerald-400">
-                          ₹{Number(q.grandTotal || 0).toLocaleString("en-IN")}
-                        </td>
-                        <td className="px-4 py-3.5 text-center">
-                          <select
-                            value={q.status}
-                            onChange={(e) => handleStatusChange(q._id, e.target.value)}
-                            className={`px-2 py-1 text-[10px] font-extrabold uppercase rounded-lg border bg-transparent cursor-pointer ${getStatusBadge(
-                              q.status
-                            )}`}
-                          >
-                            <option value="DRAFT" className="bg-slate-900 text-white">DRAFT</option>
-                            <option value="SENT" className="bg-slate-900 text-white">SENT</option>
-                            <option value="ACCEPTED" className="bg-slate-900 text-white">ACCEPTED</option>
-                            <option value="REJECTED" className="bg-slate-900 text-white">REJECTED</option>
-                            <option value="EXPIRED" className="bg-slate-900 text-white">EXPIRED</option>
-                          </select>
-                        </td>
-                        <td className="px-4 py-3.5 text-slate-400 text-[11px]">{q.createdBy || "Admin"}</td>
-                        <td className="px-4 py-3.5 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <Link
-                              href={`/quotations/${q._id}`}
-                              className="px-2.5 py-1 text-[11px] font-bold text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 rounded-lg transition-colors"
-                            >
-                              Edit / View
-                            </Link>
+              {/* Status & Category Filter Tabs */}
+              <div className="flex flex-wrap items-center gap-1.5 w-full md:w-auto">
+                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/60 text-xs font-bold text-slate-500">
+                  <span className="px-2 text-[10px] uppercase">Cat:</span>
+                  {[
+                    { key: "ALL", label: "All" },
+                    { key: "SOFTWARE", label: "Software" },
+                    { key: "DIGITAL_MARKETING", label: "Marketing" },
+                    { key: "PRODUCT", label: "Products" },
+                    { key: "SERVICE", label: "Services" },
+                  ].map((cTab) => (
+                    <button
+                      key={cTab.key}
+                      onClick={() => {
+                        setCategoryFilter(cTab.key);
+                        setPage(1);
+                      }}
+                      className={`px-2.5 py-1 text-[11px] font-extrabold rounded-lg transition-all cursor-pointer ${
+                        categoryFilter === cTab.key
+                          ? "bg-white text-indigo-700 shadow-xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      {cTab.label}
+                    </button>
+                  ))}
+                </div>
 
-                            <a
-                              href={`/api/quotations/${q._id}/pdf`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="px-2.5 py-1 text-[11px] font-bold text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-lg transition-colors"
-                            >
-                              PDF / Print
-                            </a>
-
-                            <button
-                              onClick={() => handleDuplicate(q._id, q.quotationNumber)}
-                              className="px-2.5 py-1 text-[11px] font-bold text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-lg transition-colors cursor-pointer"
-                              title="Duplicate Quotation"
-                            >
-                              Duplicate
-                            </button>
-
-                            <button
-                              onClick={() => handleDelete(q._id, q.quotationNumber)}
-                              className="px-2 py-1 text-[11px] font-bold text-rose-400 hover:text-rose-300 cursor-pointer"
-                              title="Delete Quotation"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination controls */}
-            {totalPages > 1 && (
-              <div className="bg-[#050811] px-4 py-3 border-t border-slate-800 flex items-center justify-between">
-                <span className="text-xs text-slate-400">
-                  Page {page} of {totalPages}
-                </span>
-                <div className="flex gap-2">
-                  <button
-                    disabled={page <= 1}
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    className="px-3 py-1 text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 rounded-lg disabled:opacity-40 cursor-pointer"
-                  >
-                    Previous
-                  </button>
-                  <button
-                    disabled={page >= totalPages}
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    className="px-3 py-1 text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 rounded-lg disabled:opacity-40 cursor-pointer"
-                  >
-                    Next
-                  </button>
+                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/60 text-xs font-bold text-slate-500">
+                  <span className="px-2 text-[10px] uppercase">Status:</span>
+                  {["ALL", "DRAFT", "SENT", "ACCEPTED", "REJECTED"].map((st) => (
+                    <button
+                      key={st}
+                      onClick={() => {
+                        setStatusFilter(st);
+                        setPage(1);
+                      }}
+                      className={`px-2 py-1 text-[11px] font-extrabold rounded-lg transition-all cursor-pointer ${
+                        statusFilter === st
+                          ? "bg-indigo-600 text-white shadow-xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      {st}
+                    </button>
+                  ))}
                 </div>
               </div>
-            )}
+            </div>
+
+            {/* Quotations Table */}
+            <div className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs text-slate-700 font-sans">
+                  <thead className="bg-slate-50/80 text-slate-500 font-extrabold uppercase tracking-wider text-[10px] border-b border-slate-200">
+                    <tr>
+                      <th className="px-4 py-3.5">Quotation # & Category</th>
+                      <th className="px-4 py-3.5">Customer</th>
+                      <th className="px-4 py-3.5">Date</th>
+                      <th className="px-4 py-3.5 text-right">Amount</th>
+                      <th className="px-4 py-3.5 text-center">Status</th>
+                      <th className="px-4 py-3.5">Created By</th>
+                      <th className="px-4 py-3.5 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {loading ? (
+                      <tr>
+                        <td colSpan={7} className="px-4 py-8 text-center text-slate-400 font-medium">
+                          Loading quotations...
+                        </td>
+                      </tr>
+                    ) : quotations.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-4 py-8 text-center text-slate-400 font-medium">
+                          No quotations found. Click <b>+ Create Quotation</b> or <b>🌱 Seed Sample Data</b>.
+                        </td>
+                      </tr>
+                    ) : (
+                      quotations.map((q) => (
+                        <tr key={q._id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="px-4 py-3.5 font-bold text-slate-900 space-y-0.5">
+                            <div className="flex items-center gap-2">
+                              <Link href={`/quotations/${q._id}`} className="hover:text-indigo-600 transition-colors">
+                                {q.quotationNumber}
+                              </Link>
+                              <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200/80">
+                                {(q.category || "PRODUCT").replace("_", " ")}
+                              </span>
+                            </div>
+                            <div className="text-[10px] text-slate-400 font-normal">
+                              {q.billingCycle && q.billingCycle !== "ONE_TIME" ? `Cycle: ${q.billingCycle}` : "One-Time"}
+                              {q.poNumber ? ` • Ref: ${q.poNumber}` : ""}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3.5 font-semibold text-slate-800">{q.customerName}</td>
+                          <td className="px-4 py-3.5 text-slate-500 font-medium">
+                            {q.date ? new Date(q.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "-"}
+                          </td>
+                          <td className="px-4 py-3.5 text-right font-black text-emerald-600">
+                            ₹{Number(q.grandTotal || 0).toLocaleString("en-IN")}
+                          </td>
+                          <td className="px-4 py-3.5 text-center">
+                            <select
+                              value={q.status}
+                              onChange={(e) => handleStatusChange(q._id, e.target.value)}
+                              className={`px-2 py-1 text-[10px] font-extrabold uppercase rounded-lg border bg-white cursor-pointer shadow-xs ${getStatusBadge(
+                                q.status
+                              )}`}
+                            >
+                              <option value="DRAFT">DRAFT</option>
+                              <option value="SENT">SENT</option>
+                              <option value="ACCEPTED">ACCEPTED</option>
+                              <option value="REJECTED">REJECTED</option>
+                              <option value="EXPIRED">EXPIRED</option>
+                            </select>
+                          </td>
+                          <td className="px-4 py-3.5 text-slate-500 text-[11px] font-medium">{q.createdBy || "Admin"}</td>
+                          <td className="px-4 py-3.5 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <Link
+                                href={`/quotations/${q._id}`}
+                                className="px-2.5 py-1 text-[11px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors"
+                              >
+                                Edit / View
+                              </Link>
+
+                              <a
+                                href={`/api/quotations/${q._id}/pdf`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="px-2.5 py-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors"
+                              >
+                                PDF / Print
+                              </a>
+
+                              <button
+                                onClick={() => handleDuplicate(q._id, q.quotationNumber)}
+                                className="px-2.5 py-1 text-[11px] font-bold text-amber-600 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-colors cursor-pointer"
+                                title="Duplicate Quotation"
+                              >
+                                Duplicate
+                              </button>
+
+                              <button
+                                onClick={() => handleDelete(q._id, q.quotationNumber)}
+                                className="px-2 py-1 text-[11px] font-bold text-rose-500 hover:bg-rose-50 rounded-lg cursor-pointer transition-colors"
+                                title="Delete Quotation"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination controls */}
+              {totalPages > 1 && (
+                <div className="bg-slate-50/80 px-4 py-3 border-t border-slate-200 flex items-center justify-between">
+                  <span className="text-xs text-slate-500 font-medium">
+                    Page {page} of {totalPages}
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      disabled={page <= 1}
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      className="px-3 py-1 text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 rounded-lg disabled:opacity-40 cursor-pointer shadow-xs"
+                    >
+                      Previous
+                    </button>
+                    <button
+                      disabled={page >= totalPages}
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      className="px-3 py-1 text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 rounded-lg disabled:opacity-40 cursor-pointer shadow-xs"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </CfoSecurityGuard>
   );
 }

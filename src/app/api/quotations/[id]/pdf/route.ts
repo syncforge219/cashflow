@@ -4,7 +4,7 @@ import Quotation from "@/models/Quotation";
 import QuotationProfile from "@/models/QuotationProfile";
 import { numberToIndianWords } from "@/lib/numberToWords";
 
-export function generateQuotationHtml(quotation: any, profile: any): string {
+function generateQuotationHtml(quotation: any, profile: any): string {
   const dateStr = quotation.date
     ? new Date(quotation.date).toLocaleDateString("en-IN", {
         day: "2-digit",
@@ -45,14 +45,50 @@ export function generateQuotationHtml(quotation: any, profile: any): string {
 
   const items = quotation.items || [];
   const subtotal = Number(quotation.subtotal) || 0;
-  const gstRate = Number(quotation.gstRate) || 18;
+  const gstRate = quotation.gstRate !== undefined && quotation.gstRate !== null ? Number(quotation.gstRate) : 18;
   const gstAmount = Number(quotation.gstAmount) || 0;
   const transportText = quotation.transportText || (quotation.transportCharges ? `₹${quotation.transportCharges}` : "included");
   const grandTotal = Number(quotation.grandTotal) || 0;
   const amountWords = quotation.amountInWords || numberToIndianWords(grandTotal);
 
+  const category = quotation.category || "PRODUCT";
+  const billingCycle = quotation.billingCycle || "ONE_TIME";
+  const contractPeriod = quotation.contractPeriod || "";
+
+  let categoryTitle = "QUOTATION";
+  let descColHeader = "Description of Goods";
+  let qtyColHeader = "Qty / Units";
+  let rateColHeader = "Rate per Unit";
+
+  if (category === "SOFTWARE") {
+    categoryTitle = "SOFTWARE & SAAS QUOTATION";
+    descColHeader = "Description of Software / License";
+    qtyColHeader = "Qty / Seats / Duration";
+    rateColHeader = "Rate per Unit/Mo";
+  } else if (category === "DIGITAL_MARKETING") {
+    categoryTitle = "DIGITAL MARKETING PROPOSAL & QUOTATION";
+    descColHeader = "Description of Marketing Deliverables";
+    qtyColHeader = "Duration / Units";
+    rateColHeader = "Rate per Period";
+  } else if (category === "SERVICE") {
+    categoryTitle = "SERVICE & MAINTENANCE QUOTATION";
+    descColHeader = "Description of Services / Scope of Work";
+    qtyColHeader = "Qty / Duration / Hours";
+    rateColHeader = "Rate per Unit";
+  }
+
+  const cycleDisplayMap: Record<string, string> = {
+    ONE_TIME: "One-Time",
+    MONTHLY: "Monthly Recurring",
+    QUARTERLY: "Quarterly Billing",
+    HALF_YEARLY: "Half-Yearly Billing",
+    YEARLY: "Yearly / Annual Contract",
+    CUSTOM: "Custom Billing",
+  };
+  const cycleLabel = cycleDisplayMap[billingCycle] || billingCycle;
+
   // Minimum rows for clean A4 printing layout
-  const minRows = 14;
+  const minRows = 12;
   const emptyRowsCount = Math.max(0, minRows - items.length);
   const emptyRows = Array.from({ length: emptyRowsCount });
 
@@ -60,7 +96,7 @@ export function generateQuotationHtml(quotation: any, profile: any): string {
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>QUOTATION - ${quotation.quotationNumber}</title>
+  <title>${categoryTitle} - ${quotation.quotationNumber}</title>
   <style>
     @page {
       size: A4 portrait;
@@ -138,13 +174,24 @@ export function generateQuotationHtml(quotation: any, profile: any): string {
 
     .doc-title {
       text-align: center;
-      font-size: 20px;
+      font-size: 18px;
       font-weight: 900;
-      letter-spacing: 2px;
+      letter-spacing: 1.5px;
       text-transform: uppercase;
-      margin: 6px 0 10px 0;
+      margin: 6px 0 6px 0;
       border-bottom: 1px solid #000;
       padding-bottom: 4px;
+    }
+
+    .category-badge-bar {
+      display: flex;
+      justify-content: space-between;
+      background: #f0f4ff;
+      border: 1px solid #1a237e;
+      padding: 4px 8px;
+      font-size: 9.5px;
+      font-weight: bold;
+      margin-bottom: 6px;
     }
 
     /* Meta Table (PO, Consignee, Delivery) */
@@ -201,7 +248,7 @@ export function generateQuotationHtml(quotation: any, profile: any): string {
       justify-content: space-between;
       border: 1px solid #000;
       margin-top: -1px;
-      min-h: 120px;
+      min-height: 120px;
     }
     .terms-col {
       width: 60%;
@@ -319,20 +366,27 @@ export function generateQuotationHtml(quotation: any, profile: any): string {
       <b>CIN :</b> ${cin}
     </div>
 
-    <div class="doc-title">QUOTATION</div>
+    <div class="doc-title">${categoryTitle}</div>
+
+    <div class="category-badge-bar">
+      <div><span>CATEGORY:</span> ${category.replace("_", " ")}</div>
+      <div><span>BILLING FREQUENCY:</span> ${cycleLabel.toUpperCase()}</div>
+      ${contractPeriod ? `<div><span>CONTRACT PERIOD:</span> ${contractPeriod}</div>` : ""}
+    </div>
 
     <!-- Meta Details Box -->
     <table class="meta-table">
       <tr>
         <td style="width: 50%;">
-          <div><span class="meta-label">P.O. NO. :-</span> ${quotation.poNumber || "-"}</div>
-          <div style="margin-top: 15px;"><span class="meta-label">DATED :-</span> ${dateStr}</div>
+          <div><span class="meta-label">QUOTATION NO. :-</span> <b>${quotation.quotationNumber}</b></div>
+          <div style="margin-top: 5px;"><span class="meta-label">P.O. / REF NO. :-</span> ${quotation.poNumber || "-"}</div>
+          <div style="margin-top: 5px;"><span class="meta-label">DATED :-</span> ${dateStr}</div>
         </td>
         <td style="width: 50%;">
-          <div><span class="meta-label">Consignee :-</span> <b>${quotation.customerName}</b></div>
+          <div><span class="meta-label">Client / Consignee :-</span> <b>${quotation.customerName}</b></div>
           <div style="padding-left: 70px; white-space: pre-line;">${quotation.customerAddress || quotation.consigneeInfo || "-"}</div>
-          <div style="margin-top: 8px;"><span class="meta-label">Delivery at :</span> ${quotation.deliveryLocation || "-"}</div>
-          <div><span class="meta-label">GSTin No.</span> ${quotation.customerGstin || "-"}</div>
+          <div style="margin-top: 6px;"><span class="meta-label">Location / Site :</span> ${quotation.deliveryLocation || "-"}</div>
+          <div><span class="meta-label">GSTIN No.</span> ${quotation.customerGstin || "-"}</div>
         </td>
       </tr>
     </table>
@@ -342,10 +396,10 @@ export function generateQuotationHtml(quotation: any, profile: any): string {
       <thead>
         <tr>
           <th style="width: 8%;">S.No.</th>
-          <th style="width: 44%;">Description of Goods</th>
-          <th style="width: 16%;">Qty. in mtr.</th>
-          <th style="width: 16%;">Rate per mtr.</th>
-          <th style="width: 16%;">Amount</th>
+          <th style="width: 44%;">${descColHeader}</th>
+          <th style="width: 16%;">${qtyColHeader}</th>
+          <th style="width: 16%;">${rateColHeader}</th>
+          <th style="width: 16%;">Amount (₹)</th>
         </tr>
       </thead>
       <tbody>
@@ -356,9 +410,9 @@ export function generateQuotationHtml(quotation: any, profile: any): string {
               ${item.name}
               ${item.description ? `<div style="font-weight: normal; font-size: 9.5px; color: #444;">${item.description}</div>` : ""}
             </td>
-            <td class="text-center">${item.quantity}</td>
-            <td class="text-center">${item.rate}</td>
-            <td class="text-right">${item.amount}</td>
+            <td class="text-center">${item.quantity} ${item.unit ? `(${item.unit})` : ""}</td>
+            <td class="text-center">₹${Number(item.rate).toLocaleString("en-IN")}</td>
+            <td class="text-right">₹${Number(item.amount).toLocaleString("en-IN")}</td>
           </tr>
         `).join("")}
 
@@ -374,20 +428,21 @@ export function generateQuotationHtml(quotation: any, profile: any): string {
 
         <!-- Summary Totals Rows -->
         <tr class="summary-row">
-          <td colspan="4" class="text-right">Total</td>
-          <td class="text-right">${subtotal}</td>
+          <td colspan="4" class="text-right">Subtotal</td>
+          <td class="text-right">₹${subtotal.toLocaleString("en-IN")}</td>
         </tr>
         <tr class="summary-row">
-          <td colspan="4" class="text-right">GST${gstRate}%</td>
-          <td class="text-right">${gstAmount}</td>
+          <td colspan="4" class="text-right">GST (${gstRate}%)</td>
+          <td class="text-right">₹${gstAmount.toLocaleString("en-IN")}</td>
         </tr>
+        ${quotation.transportCharges || quotation.transportText ? `
         <tr class="summary-row">
-          <td colspan="4" class="text-right">Transport</td>
+          <td colspan="4" class="text-right">Transport / Misc Charges</td>
           <td class="text-right">${transportText}</td>
-        </tr>
+        </tr>` : ""}
         <tr class="summary-row" style="font-size: 11.5px; background-color: #fafafa;">
-          <td colspan="4" class="text-right">G.Total</td>
-          <td class="text-right">${grandTotal}</td>
+          <td colspan="4" class="text-right">Grand Total (${cycleLabel})</td>
+          <td class="text-right">₹${grandTotal.toLocaleString("en-IN")}</td>
         </tr>
       </tbody>
     </table>
@@ -470,7 +525,7 @@ export async function GET(
         args: ["--no-sandbox", "--disable-setuid-sandbox"],
       });
       const page = await browser.newPage();
-      await page.setContent(htmlContent, { waitUntil: "networkidle0" });
+      await page.setContent(htmlContent, { waitUntil: "networkidle0" as any });
       const pdfBuffer = await page.pdf({
         format: "A4",
         printBackground: true,

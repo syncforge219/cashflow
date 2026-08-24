@@ -8,8 +8,12 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const companyId = searchParams.get("companyId") || "DEFAULT_COMPANY";
     const q = searchParams.get("q") || "";
+    const category = searchParams.get("category") || "ALL";
 
     const query: any = { companyId };
+    if (category !== "ALL") {
+      query.category = category;
+    }
     if (q) {
       query.$or = [
         { name: { $regex: q, $options: "i" } },
@@ -31,7 +35,18 @@ export async function POST(req: Request) {
   try {
     await dbConnect();
     const body = await req.json();
-    const { companyId = "DEFAULT_COMPANY", name, description, sku, hsnCode, unit, defaultRate, gstRate } = body;
+    const {
+      companyId = "DEFAULT_COMPANY",
+      name,
+      description,
+      sku,
+      hsnCode,
+      unit,
+      defaultRate,
+      gstRate,
+      category = "PRODUCT",
+      billingCycle = "ONE_TIME",
+    } = body;
 
     if (!name || !name.trim()) {
       return NextResponse.json({ success: false, error: "Product Name is required" }, { status: 400 });
@@ -39,6 +54,8 @@ export async function POST(req: Request) {
 
     const newProduct = await QuotationProduct.create({
       companyId,
+      category,
+      billingCycle,
       name: name.trim(),
       description: description?.trim() || "",
       sku: sku?.trim() || "",
@@ -59,7 +76,7 @@ export async function PUT(req: Request) {
   try {
     await dbConnect();
     const body = await req.json();
-    const { id, _id, name, description, sku, hsnCode, unit, defaultRate, gstRate } = body;
+    const { id, _id, name, description, sku, hsnCode, unit, defaultRate, gstRate, category, billingCycle } = body;
     const targetId = id || _id;
 
     if (!targetId) {
@@ -70,6 +87,8 @@ export async function PUT(req: Request) {
       targetId,
       {
         $set: {
+          ...(category && { category }),
+          ...(billingCycle && { billingCycle }),
           name: name?.trim(),
           description: description?.trim(),
           sku: sku?.trim(),
