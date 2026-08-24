@@ -118,13 +118,19 @@ export async function GET(request: Request) {
       const matchesCounsellor = (val: string) => {
         if (!val) return false;
         const low = val.toLowerCase().trim();
-        return (
-          low === cName ||
-          low === cEmail ||
-          low === cId ||
-          (cName && low.includes(cName)) ||
-          (cName && cName.includes(low))
-        );
+        if (low === "unassigned" || low === "n/a" || low === "counsellor" || low === "staff" || low === "cadd mantra" || low === "design gateway") return false;
+        if (low === cName || low === cEmail || low === cId) return true;
+
+        if (cName) {
+          const dbTokens = low.split(/\s+/).filter((t: string) => t.length > 1);
+          const cTokens = cName.split(/\s+/).filter((t: string) => t.length > 1);
+          if (cTokens.length > 0 && dbTokens.length > 0) {
+            if (cTokens.every((ct: string) => dbTokens.includes(ct)) || dbTokens.every((dt: string) => cTokens.includes(dt))) {
+              return true;
+            }
+          }
+        }
+        return false;
       };
 
       // 1. Find matching Admissions

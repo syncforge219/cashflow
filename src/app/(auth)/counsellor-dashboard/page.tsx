@@ -119,34 +119,29 @@ export default function CounsellorDashboardPage() {
         const allAdmissions = rawAdmissions;
 
         const uName = ((user as any)?.name || (user as any)?.fullName || (user as any)?.username || "").trim().toLowerCase();
-        const uBrand = (user?.brandScope || "").trim().toLowerCase();
+        const uEmail = (user?.email || "").trim().toLowerCase();
+        const uId = (user?.id || user?._id || "").toString().trim().toLowerCase();
 
-        const isMatch = (dbVal: string, bVal?: string) => {
+        const isMatch = (dbVal: string) => {
           const val = (dbVal || "").trim().toLowerCase();
-          const brand = (bVal || "").trim().toLowerCase();
-
           if (!val || val === "staff" || val === "counsellor" || val === "unassigned" || val === "n/a") return true;
-          if (!uName) return true;
-          if (val === uName || val.includes(uName) || uName.includes(val)) return true;
+          if (!uName && !uEmail) return false;
 
-          const dbTokens = val.split(/\s+/);
-          const uTokens = uName.split(/\s+/);
-          if (dbTokens.some((dt: string) => dt.length > 2 && uTokens.some((ut: string) => ut.length > 2 && (dt.includes(ut) || ut.includes(dt))))) {
-            return true;
-          }
+          if (val === uName || val === uEmail || val === uId) return true;
 
-          if (uBrand && uBrand !== "all" && uBrand !== "all brands" && brand && (brand === uBrand || brand.includes(uBrand) || uBrand.includes(brand))) {
-            return true;
+          const dbTokens = val.split(/\s+/).filter((t: string) => t.length > 1);
+          const uTokens = uName.split(/\s+/).filter((t: string) => t.length > 1);
+          if (uTokens.length > 0 && dbTokens.length > 0) {
+            if (uTokens.every((ut: string) => dbTokens.includes(ut)) || dbTokens.every((dt: string) => uTokens.includes(dt))) {
+              return true;
+            }
           }
 
           return false;
         };
 
-        const filteredEnquiries = allEnquiries.filter((e: any) => isMatch(e.assignedCrmAdvisor, e.targetBrand));
-        const myEnquiries = filteredEnquiries.length > 0 ? filteredEnquiries : allEnquiries;
-
-        const filteredAdmissions = allAdmissions.filter((a: any) => isMatch(a.counsellor || a.assignedCrmAdvisor, a.brand));
-        const counsellorAdmissions = filteredAdmissions.length > 0 ? filteredAdmissions : allAdmissions;
+        const myEnquiries = allEnquiries.filter((e: any) => isMatch(e.assignedCrmAdvisor));
+        const counsellorAdmissions = allAdmissions.filter((a: any) => isMatch(a.counsellor || a.assignedCrmAdvisor));
 
         const todayStr = new Date().toISOString().split("T")[0];
 

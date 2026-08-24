@@ -401,6 +401,18 @@ export default function FollowupPage() {
         if (!statusLower.includes("lost") && !statusLower.includes("do not")) return false;
       }
 
+      // Counsellor Role Isolation: Counsellors only see their own assigned follow-ups (or unassigned)
+      const uName = (user?.name || "").trim().toLowerCase();
+      const uRole = (user?.role || "").trim().toLowerCase();
+      const isStaffOrAdmin = uRole.includes("admin") || uRole.includes("manager") || uRole.includes("head") || uRole.includes("cfo");
+
+      if (!isStaffOrAdmin && uName) {
+        const adv = (rec.assignedCrmAdvisor || "").trim().toLowerCase();
+        if (adv && adv !== "unassigned" && adv !== "n/a" && adv !== uName && !adv.includes(uName) && !uName.includes(adv)) {
+          return false;
+        }
+      }
+
       // Advanced Modal Filters
       if (filterBrand !== "All" && (rec.targetBrand || "").toLowerCase() !== filterBrand.toLowerCase()) return false;
       if (filterAdvisor !== "All" && (rec.assignedCrmAdvisor || "").toLowerCase() !== filterAdvisor.toLowerCase()) return false;
