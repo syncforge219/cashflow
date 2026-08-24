@@ -293,7 +293,7 @@ export default function QuotationsPage() {
                     ) : quotations.length === 0 ? (
                       <tr>
                         <td colSpan={7} className="px-4 py-8 text-center text-slate-400 font-medium">
-                          No quotations found. Click <b>+ Create Quotation</b> or <b>🌱 Seed Sample Data</b>.
+                          No quotations found. Click <b>+ Create Quotation</b>.
                         </td>
                       </tr>
                     ) : (

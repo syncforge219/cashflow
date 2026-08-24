@@ -1,37 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 export default function QuotationNav() {
   const pathname = usePathname();
-  const [seeding, setSeeding] = useState(false);
-  const [seedMsg, setSeedMsg] = useState("");
-
-  const handleSeedData = async () => {
-    if (!confirm("This will initialize/reset sample company profile, customers, products, and 5 sample quotations. Continue?")) {
-      return;
-    }
-    setSeeding(true);
-    setSeedMsg("");
-    try {
-      const res = await fetch("/api/quotations/seed", { method: "POST" });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setSeedMsg("✓ Seeded sample data!");
-        setTimeout(() => {
-          window.location.reload();
-        }, 1000);
-      } else {
-        alert("Seed error: " + (data.error || "Failed"));
-      }
-    } catch (err: any) {
-      alert("Error seeding: " + err.message);
-    } finally {
-      setSeeding(false);
-    }
-  };
 
   const links = [
     { name: "Dashboard & Quotations", href: "/quotations" },
@@ -60,17 +34,6 @@ export default function QuotationNav() {
             </Link>
           );
         })}
-      </div>
-
-      <div className="flex items-center gap-3">
-        {seedMsg && <span className="text-xs font-bold text-emerald-600 animate-pulse">{seedMsg}</span>}
-        <button
-          onClick={handleSeedData}
-          disabled={seeding}
-          className="px-3.5 py-1.5 text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 rounded-xl transition-colors cursor-pointer shadow-sm"
-        >
-          {seeding ? "Seeding..." : "🌱 Seed Sample Data"}
-        </button>
       </div>
     </div>
   );
