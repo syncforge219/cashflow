@@ -5,10 +5,25 @@ import Sidebar from "@/components/Sidebar";
 import QuotationNav from "@/components/QuotationNav";
 import CfoSecurityGuard from "@/components/CfoSecurityGuard";
 
+interface CompanyEntity {
+  _id: string;
+  name: string;
+  legalName?: string;
+  gst?: string;
+  pan?: string;
+  bank?: string;
+  address?: string;
+  brands?: string[];
+  qrCodeUrl?: string;
+}
+
 export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+
+  const [companies, setCompanies] = useState<CompanyEntity[]>([]);
+  const [selectedCompanyId, setSelectedCompanyId] = useState("");
 
   const [name, setName] = useState("AARAM PLASTICS PVT. LTD.");
   const [logo, setLogo] = useState("");
@@ -46,6 +61,21 @@ export default function SettingsPage() {
   const [newTerm, setNewTerm] = useState("");
   const logoInputRef = useRef<HTMLInputElement>(null);
   const sigInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    async function fetchCompanies() {
+      try {
+        const res = await fetch("/api/companies");
+        const data = await res.json();
+        if (res.ok && data.success && Array.isArray(data.companies)) {
+          setCompanies(data.companies);
+        }
+      } catch (err) {
+        console.error("Error loading companies list:", err);
+      }
+    }
+    fetchCompanies();
+  }, []);
 
   useEffect(() => {
     async function loadSettings() {
@@ -95,6 +125,35 @@ export default function SettingsPage() {
 
     loadSettings();
   }, []);
+
+  const handleSelectCompany = (compId: string) => {
+    setSelectedCompanyId(compId);
+    if (!compId) return;
+
+    const target = companies.find((c) => c._id === compId);
+    if (target) {
+      if (target.legalName || target.name) {
+        setName(target.legalName || target.name);
+      }
+      if (target.gst && target.gst !== "Not Provided") {
+        setGstin(target.gst.toUpperCase());
+      }
+      if (target.address && target.address !== "No listed street, No City, No State, PIN") {
+        setAddress(target.address);
+      }
+      if (target.bank) {
+        setBankName(target.bank);
+      }
+      if (Array.isArray(target.brands) && target.brands.length > 0) {
+        setDescription(`Manufacturers / Providers for: ${target.brands.join(", ")}`);
+      }
+      if (target.qrCodeUrl) {
+        // Option to sync QR if available
+      }
+      setMsg(`✓ Loaded details from company entity "${target.name}"`);
+      setTimeout(() => setMsg(""), 4000);
+    }
+  };
 
   const handleFileUpload = (ref: React.RefObject<HTMLInputElement | null>, setter: (val: string) => void) => {
     const file = ref.current?.files?.[0];
@@ -211,9 +270,30 @@ export default function SettingsPage() {
               <form onSubmit={handleSave} className="space-y-6">
                 {/* Section 1: Company Info */}
                 <div className="bg-white border border-slate-200/80 rounded-2xl p-6 space-y-4 shadow-sm">
-                  <h3 className="text-xs font-black uppercase tracking-wider text-indigo-600 border-b border-slate-100 pb-2 font-sans">
-                    1. Company & Header Details
-                  </h3>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                    <h3 className="text-xs font-black uppercase tracking-wider text-indigo-600 font-sans">
+                      1. Company & Header Details
+                    </h3>
+
+                    {/* Company Dropdown Selection */}
+                    <div className="flex items-center gap-2">
+                      <label className="text-[10px] font-extrabold uppercase text-slate-500 whitespace-nowrap">
+                        🏢 Select Company:
+                      </label>
+                      <select
+                        value={selectedCompanyId}
+                        onChange={(e) => handleSelectCompany(e.target.value)}
+                        className="bg-indigo-50/60 border border-indigo-200 text-indigo-900 text-xs font-bold rounded-xl px-3 py-1.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer shadow-2xs"
+                      >
+                        <option value="">-- Auto-Fill from Companies Model --</option>
+                        {companies.map((comp) => (
+                          <option key={comp._id} value={comp._id}>
+                            {comp.name} {comp.legalName && comp.legalName !== comp.name ? `(${comp.legalName})` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-sans">
                     <div>

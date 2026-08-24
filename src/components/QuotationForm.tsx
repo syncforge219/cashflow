@@ -35,6 +35,18 @@ interface ProductOption {
   gstRate: number;
 }
 
+interface CompanyOption {
+  _id: string;
+  name: string;
+  legalName?: string;
+  gst?: string;
+  pan?: string;
+  bank?: string;
+  address?: string;
+  brands?: string[];
+  qrCodeUrl?: string;
+}
+
 interface QuotationFormProps {
   initialData?: any;
   isEdit?: boolean;
@@ -48,6 +60,28 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
   const [products, setProducts] = useState<ProductOption[]>([]);
   const [profile, setProfile] = useState<any>(null);
+  const [companiesList, setCompaniesList] = useState<CompanyOption[]>([]);
+  const [selectedCompanyEntityId, setSelectedCompanyEntityId] = useState("");
+
+  const [issuingCompanyInfo, setIssuingCompanyInfo] = useState<{
+    name: string;
+    gstin: string;
+    cin: string;
+    address: string;
+    description: string;
+    bankName: string;
+    prefix: string;
+    logo: string;
+  }>({
+    name: initialData?.companyName || "AARAM PLASTICS PVT. LTD.",
+    gstin: initialData?.companyGstin || "08AABCA5691D1ZS",
+    cin: initialData?.companyCin || "U25209RJ1996PTC011513",
+    address: initialData?.companyAddress || "101, Vinayak Complex, Station Road, Jaipur",
+    description: initialData?.companyDescription || "Manufacturers of : ISI MARKED HDPE PIPES, SPRINKLER SYSTEM",
+    bankName: initialData?.bankDetails?.bankName || "STATE BANK OF INDIA",
+    prefix: "APPL",
+    logo: initialData?.companyLogo || "",
+  });
 
   // Form State
   const [category, setCategory] = useState<string>(initialData?.category || "PRODUCT");
@@ -149,34 +183,92 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
   const [status, setStatus] = useState(initialData?.status || "DRAFT");
   const [newTermInput, setNewTermInput] = useState("");
 
-  // Load masters (customers, products, profile)
+  // Load masters (customers, products, profile, companies)
   useEffect(() => {
     async function loadMasters() {
       try {
-        const [profRes, custRes, prodRes] = await Promise.all([
+        const [profRes, custRes, prodRes, compRes] = await Promise.all([
           fetch("/api/quotations/profile"),
           fetch("/api/quotations/customers"),
           fetch("/api/quotations/products"),
+          fetch("/api/companies"),
         ]);
 
         const profData = await profRes.json();
         const custData = await custRes.json();
         const prodData = await prodRes.json();
+        const compData = await compRes.json();
 
-        if (profData.success) {
-          setProfile(profData.data);
+        if (profData.success && profData.data) {
+          const p = profData.data;
+          setProfile(p);
+          if (!isEdit) {
+            setIssuingCompanyInfo({
+              name: p.name || "AARAM PLASTICS PVT. LTD.",
+              gstin: p.gstin || "08AABCA5691D1ZS",
+              cin: p.cin || "U25209RJ1996PTC011513",
+              address: p.address || "101, Vinayak Complex, Station Road",
+              description: p.description || "",
+              bankName: p.bankDetails?.bankName || "STATE BANK OF INDIA",
+              prefix: p.prefix || "APPL",
+              logo: p.logo || "",
+            });
+            if (!initialData?.poNumber && p.prefix) {
+              setPoNumber(`${p.prefix}/2026-27`);
+            }
+          }
           if (!isEdit && !initialData?.termsAndConditions) {
-            setTerms(profData.data.defaultTerms || []);
+            setTerms(p.defaultTerms || []);
           }
         }
         if (custData.success) setCustomers(custData.data || []);
         if (prodData.success) setProducts(prodData.data || []);
+        if (compData.success && Array.isArray(compData.companies)) {
+          setCompaniesList(compData.companies);
+        }
       } catch (err) {
         console.error("Error loading master data:", err);
       }
     }
     loadMasters();
   }, [isEdit]);
+
+  const handleSelectCompanyEntity = (compId: string) => {
+    setSelectedCompanyEntityId(compId);
+    if (!compId) {
+      if (profile) {
+        setIssuingCompanyInfo({
+          name: profile.name || "AARAM PLASTICS PVT. LTD.",
+          gstin: profile.gstin || "08AABCA5691D1ZS",
+          cin: profile.cin || "U25209RJ1996PTC011513",
+          address: profile.address || "101, Vinayak Complex, Station Road",
+          description: profile.description || "",
+          bankName: profile.bankDetails?.bankName || "STATE BANK OF INDIA",
+          prefix: profile.prefix || "APPL",
+          logo: profile.logo || "",
+        });
+      }
+      return;
+    }
+
+    const found = companiesList.find((c) => c._id === compId);
+    if (found) {
+      setIssuingCompanyInfo({
+        name: found.legalName || found.name || "",
+        gstin: (found.gst && found.gst !== "Not Provided") ? found.gst : "",
+        cin: "",
+        address: (found.address && found.address !== "No listed street, No City, No State, PIN") ? found.address : "",
+        description: Array.isArray(found.brands) && found.brands.length > 0 ? `Providers for: ${found.brands.join(", ")}` : "",
+        bankName: found.bank || "STATE BANK OF INDIA",
+        prefix: found.name ? found.name.substring(0, 4).toUpperCase() : "APPL",
+        logo: found.qrCodeUrl || profile?.logo || "",
+      });
+      if (found.name) {
+        const generatedPrefix = found.name.substring(0, 4).toUpperCase();
+        setPoNumber(`${generatedPrefix}/2026-27`);
+      }
+    }
+  };
 
   // Handle Customer Selection
   const handleSelectCustomer = (custDocId: string) => {
@@ -310,6 +402,12 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
       amountInWords,
       termsAndConditions: terms,
       status,
+      companyName: issuingCompanyInfo.name,
+      companyGstin: issuingCompanyInfo.gstin,
+      companyCin: issuingCompanyInfo.cin,
+      companyAddress: issuingCompanyInfo.address,
+      companyDescription: issuingCompanyInfo.description,
+      companyLogo: issuingCompanyInfo.logo,
     };
 
     try {
@@ -419,10 +517,80 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
           </div>
         </div>
 
-        {/* Section 2: Basic Information & Billing Cycle */}
+        {/* Section 2: Issuing Company (Seller Profile) */}
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-6 space-y-4 shadow-sm font-sans">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl font-bold text-base">🏢</div>
+              <div>
+                <h3 className="text-xs font-black uppercase tracking-wider text-indigo-600 font-sans">
+                  2. Issuing Company (Seller / Brand Profile)
+                </h3>
+                <p className="text-[11px] text-slate-500 font-medium">
+                  This quotation will be created and branded under the seller company entity below
+                </p>
+              </div>
+            </div>
+
+            {companiesList.length > 0 && (
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-slate-500 font-bold">Select Issuing Company:</span>
+                <select
+                  value={selectedCompanyEntityId}
+                  onChange={(e) => handleSelectCompanyEntity(e.target.value)}
+                  className="bg-indigo-50/70 border border-indigo-200 text-indigo-900 font-extrabold rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer shadow-2xs"
+                >
+                  <option value="">-- Default Company Profile --</option>
+                  {companiesList.map((comp) => (
+                    <option key={comp._id} value={comp._id}>
+                      {comp.name} {comp.legalName && comp.legalName !== comp.name ? `(${comp.legalName})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          {/* Seller Summary Card */}
+          <div className="bg-gradient-to-r from-slate-50 via-indigo-50/20 to-slate-50 border border-slate-200/80 rounded-2xl p-4 grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+            <div>
+              <span className="text-[10px] font-extrabold uppercase text-slate-400 block tracking-wider mb-0.5">Issuing Seller Name</span>
+              <p className="font-black text-slate-900 text-sm">{issuingCompanyInfo.name || "AARAM PLASTICS PVT. LTD."}</p>
+              {issuingCompanyInfo.description && (
+                <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-1">{issuingCompanyInfo.description}</p>
+              )}
+            </div>
+
+            <div>
+              <span className="text-[10px] font-extrabold uppercase text-slate-400 block tracking-wider mb-0.5">Seller GSTIN & CIN</span>
+              <p className="font-mono font-extrabold text-cyan-700">{issuingCompanyInfo.gstin || "Not Provided"}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">{issuingCompanyInfo.cin ? `CIN: ${issuingCompanyInfo.cin}` : "CIN: -"}</p>
+            </div>
+
+            <div>
+              <span className="text-[10px] font-extrabold uppercase text-slate-400 block tracking-wider mb-0.5">Registered Office Address</span>
+              <p className="font-semibold text-slate-700 leading-snug">{issuingCompanyInfo.address || "101, Vinayak Complex, Station Road, Jaipur"}</p>
+            </div>
+
+            <div>
+              <span className="text-[10px] font-extrabold uppercase text-slate-400 block tracking-wider mb-0.5">Settlement Bank</span>
+              <p className="font-bold text-emerald-700">{issuingCompanyInfo.bankName || "STATE BANK OF INDIA"}</p>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-[10px] font-extrabold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-md">
+                  Prefix: {issuingCompanyInfo.prefix || "APPL"}
+                </span>
+                {issuingCompanyInfo.logo && (
+                  <img src={issuingCompanyInfo.logo} alt="Logo" className="h-5 object-contain" />
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Section 3: Basic Information & Billing Cycle */}
         <div className="bg-white border border-slate-200/80 rounded-2xl p-6 space-y-4 shadow-sm font-sans">
           <h3 className="text-xs font-black uppercase tracking-wider text-indigo-600 border-b border-slate-100 pb-2 font-sans">
-            2. Basic Information & Billing Schedule
+            3. Basic Information & Billing Schedule
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 text-xs">
@@ -505,11 +673,11 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
           </div>
         </div>
 
-        {/* Section 2: Consignee & Customer Details */}
+        {/* Section 4: Consignee & Customer Details */}
         <div className="bg-white border border-slate-200/80 rounded-2xl p-6 space-y-4 shadow-sm font-sans">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-2">
             <h3 className="text-xs font-black uppercase tracking-wider text-indigo-600 font-sans">
-              2. Consignee & Customer Details
+              4. Consignee & Customer Details
             </h3>
 
             {customers.length > 0 && (
@@ -581,11 +749,11 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
           </div>
         </div>
 
-        {/* Section 3: Product Items Table */}
+        {/* Section 5: Product Items Table */}
         <div className="bg-white border border-slate-200/80 rounded-2xl p-6 space-y-4 shadow-sm font-sans">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-2">
             <h3 className="text-xs font-black uppercase tracking-wider text-indigo-600 font-sans">
-              3. Items Table
+              5. Items Table
             </h3>
 
             <div className="flex items-center gap-2 text-xs">
@@ -717,7 +885,7 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
           <div className="bg-white border border-slate-200/80 rounded-2xl p-6 space-y-4 shadow-sm">
             <div className="flex justify-between items-center border-b border-slate-100 pb-2">
               <h3 className="text-xs font-black uppercase tracking-wider text-indigo-600">
-                4. Terms & Conditions
+                6. Terms & Conditions
               </h3>
               {categoryTermsPresets[category] && (
                 <button
@@ -768,7 +936,7 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
           {/* Right Column: Financial Totals Summary */}
           <div className="bg-white border border-slate-200/80 rounded-2xl p-6 space-y-4 shadow-sm">
             <h3 className="text-xs font-black uppercase tracking-wider text-indigo-600 border-b border-slate-100 pb-2">
-              5. Financial Summary
+              7. Financial Summary
             </h3>
 
             <div className="space-y-3 text-xs">
