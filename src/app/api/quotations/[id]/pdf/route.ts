@@ -52,6 +52,7 @@ function generateQuotationHtml(quotation: any, profile: any): string {
   const amountWords = quotation.amountInWords || numberToIndianWords(grandTotal);
 
   const category = quotation.category || "PRODUCT";
+  const isPhysicalGoods = category === "PRODUCT";
   const billingCycle = quotation.billingCycle || "ONE_TIME";
   const contractPeriod = quotation.contractPeriod || "";
 
@@ -435,10 +436,10 @@ function generateQuotationHtml(quotation: any, profile: any): string {
           <td colspan="4" class="text-right">GST (${gstRate}%)</td>
           <td class="text-right">₹${gstAmount.toLocaleString("en-IN")}</td>
         </tr>
-        ${quotation.transportCharges || quotation.transportText ? `
+        ${isPhysicalGoods && (Number(quotation.transportCharges) > 0 || (quotation.transportText && quotation.transportText.trim() !== "")) ? `
         <tr class="summary-row">
           <td colspan="4" class="text-right">Transport / Misc Charges</td>
-          <td class="text-right">${transportText}</td>
+          <td class="text-right">${quotation.transportText || `₹${Number(quotation.transportCharges || 0).toLocaleString("en-IN")}`}</td>
         </tr>` : ""}
         <tr class="summary-row" style="font-size: 11.5px; background-color: #fafafa;">
           <td colspan="4" class="text-right">Grand Total (${cycleLabel})</td>

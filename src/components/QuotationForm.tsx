@@ -340,12 +340,14 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
   };
 
   // Calculations
+  const isPhysicalGoods = category === "PRODUCT";
   const calculatedSubtotal = items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
   const taxableBase = Math.max(0, calculatedSubtotal - Number(discount || 0));
   const safeGstRate = gstRate !== "" && gstRate !== undefined && gstRate !== null ? Number(gstRate) : 0;
   const calculatedGstAmount = (taxableBase * safeGstRate) / 100;
+  const effectiveTransportCharges = isPhysicalGoods ? Number(transportCharges || 0) : 0;
   const calculatedGrandTotal = Math.round(
-    taxableBase + calculatedGstAmount + Number(transportCharges || 0) + Number(additionalCharges || 0)
+    taxableBase + calculatedGstAmount + effectiveTransportCharges + Number(additionalCharges || 0)
   );
 
   const amountInWords = numberToIndianWords(calculatedGrandTotal);
@@ -395,8 +397,8 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
       discount: Number(discount || 0),
       gstRate: safeGstRate,
       gstAmount: calculatedGstAmount,
-      transportCharges: Number(transportCharges || 0),
-      transportText: transportText.trim(),
+      transportCharges: isPhysicalGoods ? Number(transportCharges || 0) : 0,
+      transportText: isPhysicalGoods ? transportText.trim() : "",
       additionalCharges: Number(additionalCharges || 0),
       grandTotal: calculatedGrandTotal,
       amountInWords,
@@ -973,27 +975,29 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
                 <span className="font-extrabold text-blue-600">₹{calculatedGstAmount.toLocaleString("en-IN")}</span>
               </div>
 
-              <div className="flex justify-between items-center text-slate-700">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold">Transport (Text/Amt):</span>
+              {isPhysicalGoods && (
+                <div className="flex justify-between items-center text-slate-700">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold">Transport (Text/Amt):</span>
+                    <input
+                      type="text"
+                      value={transportText}
+                      onChange={(e) => setTransportText(e.target.value)}
+                      placeholder="included"
+                      className="w-28 bg-slate-50 border border-slate-200 text-slate-800 text-xs rounded-lg px-2 py-1 focus:bg-white focus:outline-none"
+                    />
+                  </div>
                   <input
-                    type="text"
-                    value={transportText}
-                    onChange={(e) => setTransportText(e.target.value)}
-                    placeholder="included"
-                    className="w-28 bg-slate-50 border border-slate-200 text-slate-800 text-xs rounded-lg px-2 py-1 focus:bg-white focus:outline-none"
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={transportCharges}
+                    onChange={(e) => setTransportCharges(Number(e.target.value))}
+                    placeholder="Charge (₹)"
+                    className="w-28 bg-slate-50 border border-slate-200 text-slate-800 font-bold text-right rounded-lg px-2.5 py-1 focus:bg-white focus:outline-none"
                   />
                 </div>
-                <input
-                  type="number"
-                  min="0"
-                  step="any"
-                  value={transportCharges}
-                  onChange={(e) => setTransportCharges(Number(e.target.value))}
-                  placeholder="Charge (₹)"
-                  className="w-28 bg-slate-50 border border-slate-200 text-slate-800 font-bold text-right rounded-lg px-2.5 py-1 focus:bg-white focus:outline-none"
-                />
-              </div>
+              )}
 
               <div className="border-t border-slate-200 pt-3 flex justify-between items-center">
                 <span className="font-black text-slate-900 text-base">Grand Total:</span>
