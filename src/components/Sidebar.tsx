@@ -7,6 +7,7 @@ import { useUser } from "@/app/component/context/user-context";
 import { extractDominantColor, applyBrandTheme } from "@/lib/theme";
 import SidebarBrandHeader from "@/components/SidebarBrandHeader";
 import SidebarAiButton from "@/components/SidebarAiButton";
+import { compressImageFile } from "@/lib/imageCompressor";
 import CounsellorSidebar from "@/components/CounsellorSidebar";
 import ManagerSidebar from "@/components/ManagerSidebar";
 
@@ -53,37 +54,34 @@ export default function Sidebar() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const result = event.target?.result as string;
-      if (result) {
-        setLocalLogo(result);
-        setImgError(false);
+    try {
+      const result = await compressImageFile(file, 800, 0.85);
+      setLocalLogo(result);
+      setImgError(false);
 
-        // Dynamically extract logo color and update theme across all dashboards
-        const themeColor = await extractDominantColor(result);
-        applyBrandTheme(themeColor);
+      const themeColor = await extractDominantColor(result);
+      applyBrandTheme(themeColor);
 
-        try {
-          localStorage.setItem("app_brand_logo", result);
-        } catch (err) { }
+      try {
+        localStorage.setItem("app_brand_logo", result);
+      } catch (err) { }
 
-        try {
-          const res = await fetch("/api/auth/update-profile", {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ brandLogo: result }),
-          });
-          const data = await res.json();
-          if (res.ok && data.user) {
-            login(data.user);
-          }
-        } catch (err) {
-          console.error("Failed to save brand logo to MongoDB", err);
+      try {
+        const res = await fetch("/api/auth/update-profile", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ brandLogo: result }),
+        });
+        const data = await res.json();
+        if (res.ok && data.user) {
+          login(data.user);
         }
+      } catch (err) {
+        console.error("Failed to save brand logo to MongoDB", err);
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error("Sidebar logo compression error:", err);
+    }
   };
 
   const handleResetLogo = async (e: React.MouseEvent) => {

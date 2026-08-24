@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { compressImageFile } from "@/lib/imageCompressor";
 
 interface CompanyModalProps {
   isOpen: boolean;
@@ -80,14 +81,20 @@ export default function CompanyModal({
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const result = event.target?.result as string;
-      if (result) {
-        setFormData((prev) => ({ ...prev, qrCodeUrl: result }));
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      const compressedDataUrl = await compressImageFile(file, 800, 0.85);
+      setFormData((prev) => ({ ...prev, qrCodeUrl: compressedDataUrl }));
+    } catch (err) {
+      console.error("QR image compression error:", err);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const result = event.target?.result as string;
+        if (result) {
+          setFormData((prev) => ({ ...prev, qrCodeUrl: result }));
+        }
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   if (!isOpen) return null;

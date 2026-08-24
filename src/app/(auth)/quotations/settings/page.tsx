@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Sidebar from "@/components/Sidebar";
 import QuotationNav from "@/components/QuotationNav";
 import CfoSecurityGuard from "@/components/CfoSecurityGuard";
+import { compressImageFile } from "@/lib/imageCompressor";
 
 interface CompanyEntity {
   _id: string;
@@ -155,17 +156,23 @@ export default function SettingsPage() {
     }
   };
 
-  const handleFileUpload = (ref: React.RefObject<HTMLInputElement | null>, setter: (val: string) => void) => {
+  const handleFileUpload = async (ref: React.RefObject<HTMLInputElement | null>, setter: (val: string) => void) => {
     const file = ref.current?.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      if (e.target?.result) {
-        setter(e.target.result as string);
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      const compressedDataUrl = await compressImageFile(file, 800, 0.85);
+      setter(compressedDataUrl);
+    } catch (err) {
+      console.error("Image compression error:", err);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (e.target?.result) {
+          setter(e.target.result as string);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleAddTerm = () => {
