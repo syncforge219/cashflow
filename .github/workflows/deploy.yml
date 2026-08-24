@@ -15,7 +15,9 @@ jobs:
         run: |
           TARGET_HOST="${{ secrets.HOST }}"
           TARGET_PORT="${{ secrets.PORT || '22' }}"
+
           echo "🔍 Testing TCP connectivity to Host: $TARGET_HOST on Port: $TARGET_PORT..."
+
           if nc -z -w 10 "$TARGET_HOST" "$TARGET_PORT"; then
             echo "✅ Server $TARGET_HOST is reachable on port $TARGET_PORT."
           else
@@ -23,7 +25,7 @@ jobs:
             echo "👉 Please check the following in Hostinger Control Panel & VPS:"
             echo "   1. Ensure VPS is running and server is online."
             echo "   2. Check Firewall / UFW allows inbound TCP on port $TARGET_PORT."
-            echo "   3. Verify repository secret HOST is public IP (not 127.0.0.1 or internal IP)."
+            echo "   3. Verify repository secret HOST is public IP."
             exit 1
           fi
 
@@ -35,7 +37,6 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.PORT || '22' }}
 
-          # Connection Settings
           timeout: 120s
           command_timeout: 30m
           debug: true
@@ -75,7 +76,7 @@ jobs:
             npm -v
 
             echo "📦 Installing dependencies..."
-            npm ci
+            npm install
 
             echo "🏗️ Building application..."
             npm run build
