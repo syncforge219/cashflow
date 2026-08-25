@@ -105,6 +105,10 @@ const QuotationProfileSchema = new Schema(
         "MATERIAL DELIVERD WITHIN 7DAYS",
       ],
     },
+    categoryDefaultTerms: {
+      type: Schema.Types.Mixed,
+      default: {},
+    },
     prefix: {
       type: String,
       default: "APPL",

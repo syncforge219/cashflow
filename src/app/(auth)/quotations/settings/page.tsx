@@ -54,13 +54,53 @@ export default function SettingsPage() {
   const [bankQrImage, setBankQrImage] = useState("");
   const [brandLogo, setBrandLogo] = useState("");
   const [prefix, setPrefix] = useState("APPL");
-  const [defaultTerms, setDefaultTerms] = useState<string[]>([
-    "GST CHARGE EXTRA",
-    "TRANSPORTATION INCLUDED",
-    "PAYMENT ADVANCE",
-    "ALL PIPE 6MTR LENGTH",
-    "MATERIAL DELIVERD WITHIN 7DAYS",
-  ]);
+
+  const categoryTabLabels: Record<string, { label: string; icon: string }> = {
+    PRODUCT: { label: "Physical Goods", icon: "📦" },
+    SOFTWARE: { label: "Software / SaaS", icon: "💻" },
+    DIGITAL_MARKETING: { label: "Digital Marketing", icon: "📢" },
+    SERVICE: { label: "Services & Maintenance", icon: "🛠️" },
+    CUSTOM: { label: "Custom Offering", icon: "⚡" },
+  };
+
+  const defaultCategoryTermsPresets: Record<string, string[]> = {
+    PRODUCT: [
+      "GST CHARGE EXTRA",
+      "TRANSPORTATION INCLUDED",
+      "PAYMENT ADVANCE",
+      "ALL PIPE 6MTR LENGTH",
+      "MATERIAL DELIVERED WITHIN 7DAYS",
+    ],
+    SOFTWARE: [
+      "BILLING IN ADVANCE EVERY MONTH / CYCLE",
+      "12 MONTHS MINIMUM CONTRACT PERIOD",
+      "99.9% UPTIME SLA GUARANTEED",
+      "INCLUDES 24/7 EMAIL & PHONE SUPPORT",
+      "GST 18% APPLICABLE EXTRA AS PER GOVT NORMS",
+    ],
+    DIGITAL_MARKETING: [
+      "PAYMENT 100% IN ADVANCE AT THE START OF EACH BILLING CYCLE",
+      "AD SPEND BUDGET TO BE PAID DIRECTLY BY CLIENT TO GOOGLE/META",
+      "MONTHLY STRATEGY & ROI REPORTING CALL INCLUDED",
+      "MINIMUM 3 MONTHS ENGAGEMENT PERIOD",
+      "CREATIVES PROOF READING WILL BE DONE BY THE CLIENT",
+    ],
+    SERVICE: [
+      "50% ADVANCE UPON SIGNING, 50% ON COMPLETION",
+      "INCLUDES PREVENTIVE MAINTENANCE VISITS",
+      "PARTS & HARDWARE BILLED SEPARATELY AT ACTUALS",
+      "TAXES APPLICABLE AS PER GOVERNMENT LAWS",
+    ],
+    CUSTOM: [
+      "PAYMENT AS PER AGREED MILESTONES",
+      "TAXES APPLICABLE AS PER GOVERNMENT LAWS",
+      "ONCE THE ORDER PLACED CANNOT BE CANCELLED",
+      "ALL DISPUTE TO LUCKNOW JURISDICTION ONLY",
+    ],
+  };
+
+  const [activeCategoryTab, setActiveCategoryTab] = useState("PRODUCT");
+  const [categoryDefaultTerms, setCategoryDefaultTerms] = useState<Record<string, string[]>>(defaultCategoryTermsPresets);
 
   const [newTerm, setNewTerm] = useState("");
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -122,8 +162,16 @@ export default function SettingsPage() {
           setBankQrImage(p.bankQrImage || "");
           setBrandLogo(p.brandLogo || "");
 
-          if (Array.isArray(p.defaultTerms) && p.defaultTerms.length > 0) {
-            setDefaultTerms(p.defaultTerms);
+          if (p.categoryDefaultTerms && typeof p.categoryDefaultTerms === "object") {
+            setCategoryDefaultTerms((prev) => ({
+              ...prev,
+              ...p.categoryDefaultTerms,
+            }));
+          } else if (Array.isArray(p.defaultTerms) && p.defaultTerms.length > 0) {
+            setCategoryDefaultTerms((prev) => ({
+              ...prev,
+              PRODUCT: p.defaultTerms,
+            }));
           }
         }
       } catch (err) {
@@ -186,12 +234,20 @@ export default function SettingsPage() {
 
   const handleAddTerm = () => {
     if (!newTerm.trim()) return;
-    setDefaultTerms([...defaultTerms, newTerm.trim().toUpperCase()]);
+    const termToAdd = newTerm.trim().toUpperCase();
+    setCategoryDefaultTerms((prev) => {
+      const list = prev[activeCategoryTab] || [];
+      return { ...prev, [activeCategoryTab]: [...list, termToAdd] };
+    });
     setNewTerm("");
   };
 
   const handleRemoveTerm = (index: number) => {
-    setDefaultTerms(defaultTerms.filter((_, i) => i !== index));
+    setCategoryDefaultTerms((prev) => {
+      const list = prev[activeCategoryTab] || [];
+      const updated = list.filter((_, i) => i !== index);
+      return { ...prev, [activeCategoryTab]: updated };
+    });
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -228,7 +284,8 @@ export default function SettingsPage() {
       stampImage,
       bankQrImage,
       brandLogo,
-      defaultTerms,
+      defaultTerms: categoryDefaultTerms[activeCategoryTab] || categoryDefaultTerms.PRODUCT || [],
+      categoryDefaultTerms,
     };
 
     try {
@@ -706,44 +763,83 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                {/* Section 4: Default Terms & Conditions */}
-                <div className="bg-white border border-slate-200/80 rounded-2xl p-6 space-y-4 shadow-sm">
-                  <h3 className="text-xs font-black uppercase tracking-wider text-indigo-600 border-b border-slate-100 pb-2 font-sans">
-                    4. Default Terms & Conditions
-                  </h3>
+                {/* Section 4: Category-Wise Default Terms & Conditions */}
+                <div className="bg-white border border-slate-200/80 rounded-2xl p-6 space-y-4 shadow-sm font-sans">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-3">
+                    <div>
+                      <h3 className="text-xs font-black uppercase tracking-wider text-indigo-600 font-sans">
+                        4. Default Terms & Conditions (Category-Wise)
+                      </h3>
+                      <p className="text-[11px] text-slate-500 font-medium">
+                        Configure separate default terms & conditions for each category type below.
+                      </p>
+                    </div>
+                  </div>
 
-                  <ul className="space-y-2 text-xs font-sans">
-                    {defaultTerms.map((t, i) => (
-                      <li key={i} className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2">
-                        <span className="font-semibold text-slate-800">
-                          {i + 1}. {t}
-                        </span>
+                  {/* Category Tabs */}
+                  <div className="flex flex-wrap gap-2 pt-1 border-b border-slate-100 pb-3">
+                    {Object.entries(categoryTabLabels).map(([catKey, info]) => {
+                      const isActive = activeCategoryTab === catKey;
+                      return (
                         <button
+                          key={catKey}
                           type="button"
-                          onClick={() => handleRemoveTerm(i)}
-                          className="text-rose-500 hover:text-rose-700 font-bold cursor-pointer text-xs"
+                          onClick={() => setActiveCategoryTab(catKey)}
+                          className={`px-3 py-2 rounded-xl text-xs font-extrabold cursor-pointer transition-all flex items-center gap-1.5 ${
+                            isActive
+                              ? "bg-indigo-600 text-white shadow-sm"
+                              : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+                          }`}
                         >
-                          ✕
+                          <span>{info.icon}</span>
+                          <span>{info.label}</span>
                         </button>
-                      </li>
-                    ))}
-                  </ul>
+                      );
+                    })}
+                  </div>
 
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={newTerm}
-                      onChange={(e) => setNewTerm(e.target.value)}
-                      placeholder="Add default term (e.g. MATERIAL DELIVERD WITHIN 7DAYS)"
-                      className="flex-1 bg-slate-50 border border-slate-200 text-slate-800 text-xs rounded-xl px-3.5 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAddTerm}
-                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl cursor-pointer shadow-sm"
-                    >
-                      + Add Term
-                    </button>
+                  {/* Terms List for Active Category Tab */}
+                  <div className="space-y-3">
+                    <div className="text-[11px] font-bold text-slate-600">
+                      Default Terms for <span className="text-indigo-600 font-extrabold">{categoryTabLabels[activeCategoryTab]?.label}</span>:
+                    </div>
+
+                    <ul className="space-y-2 text-xs font-sans">
+                      {(categoryDefaultTerms[activeCategoryTab] || []).map((t, i) => (
+                        <li key={i} className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2">
+                          <span className="font-semibold text-slate-800">
+                            {i + 1}. {t}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveTerm(i)}
+                            className="text-rose-500 hover:text-rose-700 font-bold cursor-pointer text-xs"
+                          >
+                            ✕
+                          </button>
+                        </li>
+                      ))}
+                      {(categoryDefaultTerms[activeCategoryTab] || []).length === 0 && (
+                        <li className="text-slate-400 text-xs italic py-2">No terms added for this category yet. Add one below.</li>
+                      )}
+                    </ul>
+
+                    <div className="flex gap-2 pt-2">
+                      <input
+                        type="text"
+                        value={newTerm}
+                        onChange={(e) => setNewTerm(e.target.value)}
+                        placeholder={`Add term for ${categoryTabLabels[activeCategoryTab]?.label}...`}
+                        className="flex-1 bg-slate-50 border border-slate-200 text-slate-800 text-xs rounded-xl px-3.5 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-bold"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddTerm}
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl cursor-pointer shadow-sm"
+                      >
+                        + Add Term
+                      </button>
+                    </div>
                   </div>
                 </div>
 

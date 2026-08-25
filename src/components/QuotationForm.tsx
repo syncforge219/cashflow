@@ -524,7 +524,10 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
                   onClick={() => {
                     setCategory(catKey);
                     setCustomCategoryName(info.label);
-                    if (categoryTermsPresets[catKey]) {
+                    const profileTerms = profile?.categoryDefaultTerms?.[catKey];
+                    if (Array.isArray(profileTerms) && profileTerms.length > 0) {
+                      setTerms([...profileTerms]);
+                    } else if (categoryTermsPresets[catKey]) {
                       setTerms([...categoryTermsPresets[catKey]]);
                     }
                   }}
