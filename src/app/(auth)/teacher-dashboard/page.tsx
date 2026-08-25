@@ -16,6 +16,7 @@ export default function TeacherDashboard() {
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
   const [isAttendanceRoutingModalOpen, setIsAttendanceRoutingModalOpen] = useState(false);
+  const [isAttendanceAutoPopupOpen, setIsAttendanceAutoPopupOpen] = useState(true);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<"courses" | "demos" | "students">("courses");
@@ -746,6 +747,42 @@ export default function TeacherDashboard() {
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Auto-Triggered Student Attendance Prompt Modal on Dashboard Load */}
+      {isAttendanceAutoPopupOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-5 text-center font-sans animate-in fade-in zoom-in-95 duration-150">
+            <div className="h-14 w-14 rounded-2xl bg-emerald-100 text-emerald-700 mx-auto flex items-center justify-center font-bold text-3xl shadow-xs">
+              📋
+            </div>
+            <div>
+              <h3 className="text-lg font-extrabold text-slate-800">Student Attendance</h3>
+              <p className="text-xs text-slate-500 font-medium mt-1 leading-relaxed">
+                Would you like to go to the Student Attendance page to mark or view attendance?
+              </p>
+            </div>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsAttendanceAutoPopupOpen(false)}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer transition-colors border border-slate-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAttendanceAutoPopupOpen(false);
+                  router.push("/attendance");
+                }}
+                className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl cursor-pointer shadow-md shadow-emerald-600/20 transition-colors"
+              >
+                OK
               </button>
             </div>
           </div>
