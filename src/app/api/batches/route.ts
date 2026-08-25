@@ -129,6 +129,44 @@ export async function GET(request: Request) {
       batches = batches.filter((b) => b.status === status);
     }
 
+    // Attach enrolled student counts to each batch
+    try {
+      const Enquiry = (await import("@/models/Enquiry")).default;
+      const AttendanceLog = (await import("@/models/AttendanceLog")).default;
+
+      for (let i = 0; i < batches.length; i++) {
+        const b = batches[i];
+        const bIdStr = b._id ? b._id.toString() : "";
+        const bCustomId = b.batchId || "";
+        const bName = b.batchName || "";
+
+        const enrolledInDb = await Enquiry.countDocuments({
+          $or: [
+            { batchId: bIdStr },
+            { batchId: bCustomId },
+            { batch: bName },
+            { assignedBatch: bName }
+          ]
+        });
+
+        const latestAttendanceLog = await AttendanceLog.findOne({
+          $or: [{ batchId: bIdStr }, { batchId: bCustomId }, { batchName: bName }]
+        }).sort({ date: -1 }).lean();
+
+        const logStudentCount = latestAttendanceLog?.totalStudents || 0;
+        const arrayCount = Array.isArray(b.students) ? b.students.length : 0;
+
+        (batches[i] as any).enrolledStudentsCount = Math.max(
+          enrolledInDb,
+          logStudentCount,
+          arrayCount,
+          Number(b.enrolledStudentsCount || b.studentsCount || 0)
+        );
+      }
+    } catch (e) {
+      console.error("Error calculating batch student counts:", e);
+    }
+
     return NextResponse.json({
       success: true,
       count: batches.length,

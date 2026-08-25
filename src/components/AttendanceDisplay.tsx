@@ -204,15 +204,16 @@ export default function AttendanceDisplay() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {batches.map((batch) => {
-                const enrolledCount = Array.isArray(batch.students)
-                  ? batch.students.length
-                  : Number(batch.enrolledStudentsCount || batch.studentsCount || 0);
-
                 // Find latest attendance log for this batch
                 const batchLogs = logs.filter(
-                  (l) => l.batchId === batch._id || l.batchName === batch.batchName
+                  (l) => l.batchId === batch._id || l.batchName === batch.batchName || l.batchId === batch.batchId
                 );
                 const latestLog = batchLogs[0];
+
+                const arrayCount = Array.isArray(batch.students) ? batch.students.length : 0;
+                const dbCount = Number(batch.enrolledStudentsCount || batch.studentsCount || 0);
+                const logCount = latestLog ? Number(latestLog.totalStudents || 0) : 0;
+                const enrolledCount = Math.max(arrayCount, dbCount, logCount);
 
                 const lastDateStr = latestLog
                   ? latestLog.dateStr || new Date(latestLog.date).toLocaleDateString("en-GB")
