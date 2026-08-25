@@ -43,39 +43,78 @@ function generateQuotationHtml(quotation: any, profile: any): string {
         "MATERIAL DELIVERD WITHIN 7DAYS",
       ];
 
-  const parseQtyNum = (val: any): number => {
-    if (typeof val === "number") return val;
-    if (!val) return 0;
-    const str = String(val).trim().toLowerCase();
-    const match = str.match(/[\d.]+/);
-    if (match) return parseFloat(match[0]);
-    const wordsMap: Record<string, number> = {
-      one: 1, a: 1, single: 1,
-      two: 2, double: 2,
-      three: 3, triple: 3,
-      four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
-    };
-    for (const [w, n] of Object.entries(wordsMap)) {
-      if (str.includes(w)) return n;
+  const parseItemQty = (item: any): { qtyNum: number; displayQty: string } => {
+    const q = item.quantity;
+    const r = Number(item.rate) || 0;
+    const storedAmt = Number(item.amount) || 0;
+
+    // 1. Valid number > 0 in quantity field
+    if (typeof q === "number" && q > 0) {
+      return { qtyNum: q, displayQty: String(q) };
     }
-    return 0;
+
+    // 2. Digits in quantity field string (e.g. "2 days", "2")
+    if (q && String(q).trim() !== "0" && String(q).trim() !== "") {
+      const str = String(q).trim().toLowerCase();
+      const match = str.match(/[\d.]+/);
+      if (match && parseFloat(match[0]) > 0) {
+        return { qtyNum: parseFloat(match[0]), displayQty: String(q) };
+      }
+    }
+
+    // 3. If storedAmt > 0 and rate > 0, calculate qty = amount / rate
+    if (storedAmt > 0 && r > 0) {
+      const derived = Math.round(storedAmt / r);
+      return { qtyNum: derived, displayQty: String(derived) };
+    }
+
+    // 4. Fallback: Parse quantity from description or name (e.g. "Two days...", "2 days...")
+    const combinedText = `${item.name || ""} ${item.description || ""}`.toLowerCase();
+    
+    const digitPattern = combinedText.match(/(\d+)\s*(day|days|hour|hours|month|months|year|years|seat|seats|unit|units|pc|pcs|kg|mtr)/);
+    if (digitPattern && parseFloat(digitPattern[1]) > 0) {
+      const num = parseFloat(digitPattern[1]);
+      const unitW = digitPattern[2];
+      return { qtyNum: num, displayQty: `${num} ${unitW}` };
+    }
+
+    const wordMap: Record<string, number> = {
+      "ten": 10, "nine": 9, "eight": 8, "seven": 7, "six": 6, "five": 5,
+      "four": 4, "three": 3, "two": 2, "one": 1, "double": 2, "single": 1
+    };
+    for (const [w, n] of Object.entries(wordMap)) {
+      const regex = new RegExp(`\\b${w}\\b`, "i");
+      if (regex.test(combinedText)) {
+        const u = item.unit ? item.unit : "units";
+        return { qtyNum: n, displayQty: `${n} ${u}` };
+      }
+    }
+
+    // 5. Default fallback if rate > 0
+    if (r > 0) {
+      return { qtyNum: 1, displayQty: "1" };
+    }
+
+    return { qtyNum: 0, displayQty: "0" };
   };
 
   const items = quotation.items || [];
   const gstRate = quotation.gstRate !== undefined && quotation.gstRate !== null ? Number(quotation.gstRate) : 18;
 
   const calculatedSubtotal = items.reduce((sum: number, it: any) => {
-    const q = parseQtyNum(it.quantity);
+    const { qtyNum } = parseItemQty(it);
     const r = Number(it.rate) || 0;
-    const a = Number(it.amount) > 0 ? Number(it.amount) : q * r;
+    const a = Number(it.amount) > 0 ? Number(it.amount) : qtyNum * r;
     return sum + a;
   }, 0);
 
-  const subtotal = Number(quotation.subtotal) > 0 ? Number(quotation.subtotal) : calculatedSubtotal;
-  const gstAmount = Number(quotation.gstAmount) > 0 ? Number(quotation.gstAmount) : Math.round((subtotal * gstRate) / 100);
+  const subtotal = (Number(quotation.subtotal) > 0 && calculatedSubtotal === 0)
+    ? Number(quotation.subtotal)
+    : calculatedSubtotal;
+  const gstAmount = Math.round((subtotal * gstRate) / 100);
   const transportText = quotation.transportText || (quotation.transportCharges ? `₹${quotation.transportCharges}` : "included");
-  const grandTotal = Number(quotation.grandTotal) > 0 ? Number(quotation.grandTotal) : Math.round(subtotal + gstAmount + Number(quotation.transportCharges || 0));
-  const amountWords = quotation.amountInWords || numberToIndianWords(grandTotal);
+  const grandTotal = Math.round(subtotal + gstAmount + Number(quotation.transportCharges || 0));
+  const amountWords = numberToIndianWords(grandTotal);
 
   const category = quotation.category || "PRODUCT";
   const isPhysicalGoods = category === "PRODUCT";
@@ -477,9 +516,9 @@ function generateQuotationHtml(quotation: any, profile: any): string {
       </thead>
       <tbody>
         ${items.map((item: any, index: number) => {
-          const qN = parseQtyNum(item.quantity);
+          const { qtyNum, displayQty } = parseItemQty(item);
           const rN = Number(item.rate) || 0;
-          const amtN = Number(item.amount) > 0 ? Number(item.amount) : qN * rN;
+          const amtN = (Number(item.amount) > 0) ? Number(item.amount) : qtyNum * rN;
           return `
           <tr>
             <td class="text-center">${index + 1}</td>
@@ -487,7 +526,7 @@ function generateQuotationHtml(quotation: any, profile: any): string {
               ${item.name}
               ${item.description ? `<div style="font-weight: normal; font-size: 9.5px; color: #444;">${item.description}</div>` : ""}
             </td>
-            <td class="text-center">${item.quantity} ${item.unit && !String(item.quantity).toLowerCase().includes(item.unit.toLowerCase()) ? `(${item.unit})` : ""}</td>
+            <td class="text-center">${displayQty} ${item.unit && !displayQty.toLowerCase().includes(item.unit.toLowerCase()) ? `(${item.unit})` : ""}</td>
             <td class="text-center">₹${rN.toLocaleString("en-IN")}</td>
             <td class="text-center">₹${amtN.toLocaleString("en-IN")}</td>
           </tr>
