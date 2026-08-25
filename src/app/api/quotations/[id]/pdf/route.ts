@@ -201,30 +201,36 @@ function generateQuotationHtml(quotation: any, profile: any): string {
     /* Header Section */
     .top-bar {
       display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
+      flex-direction: column;
       margin-bottom: 4px;
-    }
-    .logo-container {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .logo-img {
-      height: 45px;
-      object-fit: contain;
-    }
-    .company-title {
-      font-size: 24px;
-      font-weight: 900;
-      text-transform: uppercase;
-      letter-spacing: -0.5px;
-      color: #1a237e;
+      position: relative;
     }
     .gstin-box {
       font-weight: bold;
       font-size: 11px;
       text-align: right;
+      width: 100%;
+    }
+    .logo-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      margin: 4px 0 6px 0;
+      text-align: center;
+    }
+    .logo-img {
+      height: 75px;
+      max-height: 85px;
+      object-fit: contain;
+    }
+    .company-title {
+      font-size: 26px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: -0.5px;
+      color: #1a237e;
+      text-align: center;
     }
 
     .mfr-banner {
@@ -457,17 +463,17 @@ function generateQuotationHtml(quotation: any, profile: any): string {
   <div class="page-container">
     <!-- Top Header -->
     <div class="top-bar">
+      <div class="gstin-box">
+        GSTIN : ${gstin}
+      </div>
       <div class="logo-container">
         ${profile?.logo ? `<img src="${profile.logo}" alt="Logo" class="logo-img" />` : `
-          <svg width="40" height="40" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg width="60" height="60" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
             <polygon points="50,10 90,90 10,90" fill="#1a237e" stroke="#000" stroke-width="3"/>
             <text x="50" y="70" font-size="28" font-weight="bold" fill="#fff" text-anchor="middle">A</text>
           </svg>
         `}
         <div class="company-title">${companyName}</div>
-      </div>
-      <div class="gstin-box">
-        GSTIN : ${gstin}
       </div>
     </div>
 
