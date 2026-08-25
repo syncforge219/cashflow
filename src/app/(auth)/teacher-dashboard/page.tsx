@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useUser } from "@/app/component/context/user-context";
 import TeacherSidebar from "@/components/TeacherSidebar";
 import ProfileDisplay from "@/components/ProfileDisplay";
@@ -9,10 +10,12 @@ import TakeAttendanceModal from "@/components/TakeAttendanceModal";
 import NotificationPanel from "@/components/NotificationPanel";
 
 export default function TeacherDashboard() {
+  const router = useRouter();
   const { user, logout } = useUser();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
+  const [isAttendanceRoutingModalOpen, setIsAttendanceRoutingModalOpen] = useState(false);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<"courses" | "demos" | "students">("courses");
@@ -232,6 +235,18 @@ export default function TeacherDashboard() {
               </span>
             </button>
 
+            {/* Quick Student Attendance Popup Button */}
+            <button
+              onClick={() => setIsAttendanceRoutingModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer shrink-0"
+              title="Open Student Attendance Direct Route Modal"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+              </svg>
+              <span>Student Attendance</span>
+            </button>
+
             {/* Notification Bell Button in Top Header */}
             <button
               onClick={() => setIsNotificationPanelOpen(true)}
@@ -270,7 +285,17 @@ export default function TeacherDashboard() {
         {/* 8 KPI Metric Cards Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-3 mb-6">
           {metrics.map((metric, idx) => (
-            <div key={idx} className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs hover:border-slate-300 transition-all">
+            <div
+              key={idx}
+              onClick={() => {
+                if (metric.name === "Student Attendance" || metric.name === "Demos Completed") {
+                  setIsAttendanceRoutingModalOpen(true);
+                }
+              }}
+              className={`bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs hover:border-slate-300 transition-all ${
+                metric.name === "Student Attendance" ? "cursor-pointer hover:border-emerald-400 hover:shadow-sm" : ""
+              }`}
+            >
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{metric.name}</span>
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${metric.color}`}>
@@ -652,6 +677,80 @@ export default function TeacherDashboard() {
           fetchTeacherDashboardData();
         }}
       />
+
+      {/* Student Attendance Direct Route Popup Modal */}
+      {isAttendanceRoutingModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 font-sans">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xl shadow-xs">
+                  📋
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-800">Student Attendance Access</h3>
+                  <p className="text-xs text-slate-500 font-medium">Quick route without searching sidebar</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsAttendanceRoutingModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition-colors font-bold text-sm cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 font-sans">
+              <button
+                onClick={() => {
+                  setIsAttendanceRoutingModalOpen(false);
+                  router.push("/attendance");
+                }}
+                className="w-full flex items-center justify-between p-4 bg-emerald-50 hover:bg-emerald-100/90 border border-emerald-200 text-emerald-950 rounded-2xl transition-all cursor-pointer text-left group shadow-xs"
+              >
+                <div>
+                  <div className="font-extrabold text-sm flex items-center gap-2 text-emerald-900">
+                    <span>🚀 Go to Student Attendance Page</span>
+                    <span className="text-[10px] bg-emerald-600 text-white font-black px-2 py-0.5 rounded-full">Direct Route</span>
+                  </div>
+                  <div className="text-xs text-emerald-700 font-semibold mt-1">
+                    View student rosters, filter by batch, and check full attendance logs (/attendance)
+                  </div>
+                </div>
+                <span className="text-xl group-hover:translate-x-1 transition-transform text-emerald-700">→</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setIsAttendanceRoutingModalOpen(false);
+                  setIsAttendanceModalOpen(true);
+                }}
+                className="w-full flex items-center justify-between p-4 bg-indigo-50 hover:bg-indigo-100/90 border border-indigo-200 text-indigo-950 rounded-2xl transition-all cursor-pointer text-left group shadow-xs"
+              >
+                <div>
+                  <div className="font-extrabold text-sm flex items-center gap-2 text-indigo-900">
+                    <span>⚡ Mark Batch Attendance Popup</span>
+                    <span className="text-[10px] bg-indigo-600 text-white font-black px-2 py-0.5 rounded-full">Quick Marker</span>
+                  </div>
+                  <div className="text-xs text-indigo-700 font-semibold mt-1">
+                    Instantly log present/absent for today's batch right here
+                  </div>
+                </div>
+                <span className="text-xl group-hover:translate-x-1 transition-transform text-indigo-700">→</span>
+              </button>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => setIsAttendanceRoutingModalOpen(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Notification Panel */}
       <NotificationPanel
