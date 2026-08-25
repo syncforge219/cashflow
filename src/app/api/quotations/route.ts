@@ -209,6 +209,7 @@ export async function POST(req: Request) {
     const newQuotation = await Quotation.create({
       companyId,
       category: body.category || "PRODUCT",
+      customCategoryName: body.customCategoryName?.trim() || "",
       billingCycle: body.billingCycle || "ONE_TIME",
       contractPeriod: body.contractPeriod?.trim() || "",
       quotationNumber,
@@ -315,6 +316,7 @@ export async function PUT(req: Request) {
 
     const updatePayload: any = {
       ...(body.category && { category: body.category }),
+      ...(body.customCategoryName !== undefined && { customCategoryName: body.customCategoryName.trim() }),
       ...(body.billingCycle && { billingCycle: body.billingCycle }),
       ...(body.contractPeriod !== undefined && { contractPeriod: body.contractPeriod.trim() }),
       ...(body.date && { date: new Date(body.date) }),

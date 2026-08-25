@@ -372,13 +372,15 @@ function generateQuotationHtml(quotation: any, profile: any): string {
       text-transform: uppercase;
     }
     .stamp-container {
-      height: 60px;
+      height: 90px;
       display: flex;
       align-items: center;
       justify-content: center;
+      margin: 4px 0;
     }
     .stamp-img {
-      max-height: 55px;
+      height: 85px;
+      max-height: 95px;
       object-fit: contain;
     }
     .sig-title {
@@ -514,7 +516,7 @@ function generateQuotationHtml(quotation: any, profile: any): string {
     <div class="doc-title">${categoryTitle}</div>
 
     <div class="category-badge-bar">
-      <div><span>CATEGORY:</span> ${(quotation.customCategoryName || category).replace("_", " ").toUpperCase()}</div>
+      <div><span>CATEGORY:</span> ${(quotation.customCategoryName && quotation.customCategoryName.trim() !== "" ? quotation.customCategoryName : (quotation.category || category)).replace("_", " ").toUpperCase()}</div>
       <div><span>BILLING FREQUENCY:</span> ${cycleLabel.toUpperCase()}</div>
       ${contractPeriod ? `<div><span>CONTRACT PERIOD:</span> ${contractPeriod}</div>` : ""}
     </div>
