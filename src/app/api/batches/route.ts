@@ -132,10 +132,10 @@ export async function GET(request: Request) {
     // Attach enrolled student counts to each batch
     try {
       const Enquiry = (await import("@/models/Enquiry")).default;
-      const AttendanceLog = (await import("@/models/AttendanceLog")).default;
+      const Attendance = (await import("@/models/Attendance")).default;
 
       for (let i = 0; i < batches.length; i++) {
-        const b = batches[i];
+        const b = batches[i] as any;
         const bIdStr = b._id ? b._id.toString() : "";
         const bCustomId = b.batchId || "";
         const bName = b.batchName || "";
@@ -149,11 +149,11 @@ export async function GET(request: Request) {
           ]
         });
 
-        const latestAttendanceLog = await AttendanceLog.findOne({
+        const latestAttendanceLog = await Attendance.findOne({
           $or: [{ batchId: bIdStr }, { batchId: bCustomId }, { batchName: bName }]
         }).sort({ date: -1 }).lean();
 
-        const logStudentCount = latestAttendanceLog?.totalStudents || 0;
+        const logStudentCount = (latestAttendanceLog as any)?.totalStudents || 0;
         const arrayCount = Array.isArray(b.students) ? b.students.length : 0;
 
         (batches[i] as any).enrolledStudentsCount = Math.max(
