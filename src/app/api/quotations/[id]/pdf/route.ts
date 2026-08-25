@@ -123,23 +123,23 @@ function generateQuotationHtml(quotation: any, profile: any): string {
 
   let categoryTitle = "QUOTATION";
   let descColHeader = "Description of Goods";
-  let qtyColHeader = "Qty / Units";
+  let qtyColHeader = "Qty / Duration";
   let rateColHeader = "Rate per Unit";
 
   if (category === "SOFTWARE") {
     categoryTitle = "SOFTWARE & SAAS QUOTATION";
     descColHeader = "Description of Software / License";
-    qtyColHeader = "Qty / Seats / Duration";
+    qtyColHeader = "Qty / Duration";
     rateColHeader = "Rate per Unit/Mo";
   } else if (category === "DIGITAL_MARKETING") {
     categoryTitle = "DIGITAL MARKETING PROPOSAL & QUOTATION";
     descColHeader = "Description of Marketing Deliverables";
-    qtyColHeader = "Duration / Units";
+    qtyColHeader = "Qty / Duration";
     rateColHeader = "Rate per Period";
   } else if (category === "SERVICE") {
     categoryTitle = "SERVICE & MAINTENANCE QUOTATION";
     descColHeader = "Description of Services / Scope of Work";
-    qtyColHeader = "Qty / Duration / Hours";
+    qtyColHeader = "Qty / Duration";
     rateColHeader = "Rate per Unit";
   }
 
@@ -519,6 +519,9 @@ function generateQuotationHtml(quotation: any, profile: any): string {
           const { qtyNum, displayQty } = parseItemQty(item);
           const rN = Number(item.rate) || 0;
           const amtN = (Number(item.amount) > 0) ? Number(item.amount) : qtyNum * rN;
+          const cellDisplayQty = (item.quantity !== undefined && item.quantity !== null && String(item.quantity).trim() !== "" && String(item.quantity).trim() !== "0")
+            ? String(item.quantity)
+            : displayQty;
           return `
           <tr>
             <td class="text-center">${index + 1}</td>
@@ -526,7 +529,7 @@ function generateQuotationHtml(quotation: any, profile: any): string {
               ${item.name}
               ${item.description ? `<div style="font-weight: normal; font-size: 9.5px; color: #444;">${item.description}</div>` : ""}
             </td>
-            <td class="text-center">${displayQty} ${item.unit && !displayQty.toLowerCase().includes(item.unit.toLowerCase()) ? `(${item.unit})` : ""}</td>
+            <td class="text-center">${cellDisplayQty}</td>
             <td class="text-center">₹${rN.toLocaleString("en-IN")}</td>
             <td class="text-center">₹${amtN.toLocaleString("en-IN")}</td>
           </tr>
