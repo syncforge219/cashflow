@@ -418,17 +418,22 @@ function generateQuotationHtml(quotation: any, profile: any): string {
       border-left: 1px dashed #000;
     }
     .bank-qr-img {
-      max-height: 70px;
-      max-width: 70px;
+      width: 120px;
+      height: 120px;
+      max-height: 125px;
+      max-width: 125px;
       object-fit: contain;
       border: 1px solid #000;
-      padding: 2px;
+      padding: 3px;
       background: #fff;
+      image-rendering: -webkit-optimize-contrast;
+      image-rendering: crisp-edges;
+      image-rendering: pixelated;
     }
     .bank-qr-label {
-      font-size: 7.5px;
+      font-size: 8.5px;
       font-weight: bold;
-      margin-top: 2px;
+      margin-top: 4px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
