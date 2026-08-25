@@ -160,8 +160,8 @@ function generateQuotationHtml(quotation: any, profile: any): string {
   };
   const cycleLabel = cycleDisplayMap[billingCycle] || billingCycle;
 
-  // Minimum rows for clean A4 printing layout
-  const minRows = 12;
+  // Minimum rows for clean 1-page A4 printing layout
+  const minRows = 4;
   const emptyRowsCount = Math.max(0, minRows - items.length);
   const emptyRows = Array.from({ length: emptyRowsCount });
 
@@ -169,11 +169,11 @@ function generateQuotationHtml(quotation: any, profile: any): string {
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>${categoryTitle} - ${quotation.quotationNumber}</title>
+  <title></title>
   <style>
     @page {
       size: A4 portrait;
-      margin: 10mm;
+      margin: 0;
     }
     * {
       box-sizing: border-box;
@@ -470,8 +470,27 @@ function generateQuotationHtml(quotation: any, profile: any): string {
     }
 
     @media print {
-      body { padding: 0; }
-      .page-container { border: none; padding: 0; }
+      @page {
+        size: A4 portrait;
+        margin: 0;
+      }
+      html, body {
+        background: #ffffff !important;
+        padding: 4mm 6mm !important;
+        margin: 0 !important;
+        height: auto !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      .page-container {
+        border: 2px solid #000 !important;
+        padding: 6px 8px !important;
+        margin: 0 auto !important;
+        max-width: 100% !important;
+        box-shadow: none !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
       .no-print { display: none !important; }
     }
   </style>
