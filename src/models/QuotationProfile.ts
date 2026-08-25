@@ -91,6 +91,10 @@ const QuotationProfileSchema = new Schema(
       type: String,
       default: "",
     },
+    brandLogo: {
+      type: String,
+      default: "",
+    },
     defaultTerms: {
       type: [String],
       default: [

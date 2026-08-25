@@ -467,13 +467,14 @@ function generateQuotationHtml(quotation: any, profile: any): string {
         GSTIN : ${gstin}
       </div>
       <div class="logo-container">
-        ${profile?.logo ? `<img src="${profile.logo}" alt="Logo" class="logo-img" />` : `
+        ${profile?.logo ? `<img src="${profile.logo}" alt="Company Logo" class="logo-img" />` : `
           <svg width="60" height="60" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
             <polygon points="50,10 90,90 10,90" fill="#1a237e" stroke="#000" stroke-width="3"/>
             <text x="50" y="70" font-size="28" font-weight="bold" fill="#fff" text-anchor="middle">A</text>
           </svg>
         `}
         <div class="company-title">${companyName}</div>
+        ${profile?.brandLogo ? `<img src="${profile.brandLogo}" alt="Brand Logo" class="logo-img" />` : ""}
       </div>
     </div>
 

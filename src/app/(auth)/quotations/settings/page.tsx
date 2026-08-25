@@ -51,6 +51,7 @@ export default function SettingsPage() {
   const [authorizedSignatory, setAuthorizedSignatory] = useState("AUTHORISED SIGNATORY");
   const [signatureImage, setSignatureImage] = useState("");
   const [bankQrImage, setBankQrImage] = useState("");
+  const [brandLogo, setBrandLogo] = useState("");
   const [prefix, setPrefix] = useState("APPL");
   const [defaultTerms, setDefaultTerms] = useState<string[]>([
     "GST CHARGE EXTRA",
@@ -64,6 +65,7 @@ export default function SettingsPage() {
   const logoInputRef = useRef<HTMLInputElement>(null);
   const sigInputRef = useRef<HTMLInputElement>(null);
   const qrInputRef = useRef<HTMLInputElement>(null);
+  const brandLogoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     async function fetchCompanies() {
@@ -115,6 +117,7 @@ export default function SettingsPage() {
           setAuthorizedSignatory(p.authorizedSignatory || "AUTHORISED SIGNATORY");
           setSignatureImage(p.signatureImage || "");
           setBankQrImage(p.bankQrImage || "");
+          setBrandLogo(p.brandLogo || "");
 
           if (Array.isArray(p.defaultTerms) && p.defaultTerms.length > 0) {
             setDefaultTerms(p.defaultTerms);
@@ -220,6 +223,7 @@ export default function SettingsPage() {
       authorizedSignatory,
       signatureImage,
       bankQrImage,
+      brandLogo,
       defaultTerms,
     };
 
@@ -511,13 +515,13 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                {/* Section 3: Logos & Signature Image */}
+                {/* Section 3: Logos, Stamps & QR Code */}
                 <div className="bg-white border border-slate-200/80 rounded-2xl p-6 space-y-4 shadow-sm">
                   <h3 className="text-xs font-black uppercase tracking-wider text-indigo-600 border-b border-slate-100 pb-2 font-sans">
-                    3. Company Logo, Signature Stamp & Bank Payment QR Code Upload
+                    3. Company Logo, Brand Logo, Signature Stamp & Bank Payment QR Code Upload
                   </h3>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs font-sans">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs font-sans">
                     {/* Logo Upload */}
                     <div className="space-y-2 bg-slate-50 border border-slate-200 rounded-2xl p-4">
                       <span className="font-bold text-slate-700 block">Company Header Logo</span>
@@ -528,18 +532,56 @@ export default function SettingsPage() {
                         onChange={() => handleFileUpload(logoInputRef, setLogo)}
                         className="hidden"
                       />
-                      <div className="flex items-center gap-3">
+                      <div className="flex flex-col gap-2">
                         {logo ? (
-                          <img src={logo} alt="Company Logo" className="h-12 object-contain border border-slate-200 p-1 rounded-lg bg-white shadow-xs" />
+                          <img src={logo} alt="Company Logo" className="h-10 object-contain border border-slate-200 p-1 rounded-lg bg-white shadow-xs self-start" />
                         ) : (
                           <span className="text-slate-400 font-medium">No logo uploaded</span>
                         )}
                         <button
                           type="button"
                           onClick={() => logoInputRef.current?.click()}
-                          className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl cursor-pointer shadow-sm"
+                          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl cursor-pointer shadow-sm text-xs"
                         >
                           Upload Logo Image
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Brand Logo Upload */}
+                    <div className="space-y-2 bg-slate-50 border border-slate-200 rounded-2xl p-4">
+                      <span className="font-bold text-slate-700 block">Brand / Product Logo</span>
+                      <input
+                        type="file"
+                        ref={brandLogoInputRef}
+                        accept="image/*"
+                        onChange={() => handleFileUpload(brandLogoInputRef, setBrandLogo)}
+                        className="hidden"
+                      />
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                          {brandLogo ? (
+                            <img src={brandLogo} alt="Brand Logo" className="h-10 object-contain border border-slate-200 p-1 rounded-lg bg-white shadow-xs" />
+                          ) : (
+                            <span className="text-slate-400 font-medium">No brand logo</span>
+                          )}
+                          {brandLogo && (
+                            <button
+                              type="button"
+                              onClick={() => setBrandLogo("")}
+                              className="px-1.5 py-0.5 text-rose-500 hover:text-rose-700 font-bold cursor-pointer text-xs"
+                              title="Remove Brand Logo"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => brandLogoInputRef.current?.click()}
+                          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl cursor-pointer shadow-sm text-xs"
+                        >
+                          Upload Brand Logo
                         </button>
                       </div>
                     </div>
@@ -554,16 +596,16 @@ export default function SettingsPage() {
                         onChange={() => handleFileUpload(sigInputRef, setSignatureImage)}
                         className="hidden"
                       />
-                      <div className="flex items-center gap-3">
+                      <div className="flex flex-col gap-2">
                         {signatureImage ? (
-                          <img src={signatureImage} alt="Stamp" className="h-12 object-contain border border-slate-200 p-1 rounded-lg bg-white shadow-xs" />
+                          <img src={signatureImage} alt="Stamp" className="h-10 object-contain border border-slate-200 p-1 rounded-lg bg-white shadow-xs self-start" />
                         ) : (
                           <span className="text-slate-400 font-medium">No stamp uploaded</span>
                         )}
                         <button
                           type="button"
                           onClick={() => sigInputRef.current?.click()}
-                          className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl cursor-pointer shadow-sm"
+                          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl cursor-pointer shadow-sm text-xs"
                         >
                           Upload Signature Image
                         </button>
@@ -580,29 +622,31 @@ export default function SettingsPage() {
                         onChange={() => handleFileUpload(qrInputRef, setBankQrImage)}
                         className="hidden"
                       />
-                      <div className="flex items-center gap-3">
-                        {bankQrImage ? (
-                          <img src={bankQrImage} alt="Bank QR" className="h-12 object-contain border border-slate-200 p-1 rounded-lg bg-white shadow-xs" />
-                        ) : (
-                          <span className="text-slate-400 font-medium">No QR uploaded</span>
-                        )}
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                          {bankQrImage ? (
+                            <img src={bankQrImage} alt="Bank QR" className="h-10 object-contain border border-slate-200 p-1 rounded-lg bg-white shadow-xs" />
+                          ) : (
+                            <span className="text-slate-400 font-medium">No QR uploaded</span>
+                          )}
+                          {bankQrImage && (
+                            <button
+                              type="button"
+                              onClick={() => setBankQrImage("")}
+                              className="px-1.5 py-0.5 text-rose-500 hover:text-rose-700 font-bold cursor-pointer text-xs"
+                              title="Remove QR Code"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
                         <button
                           type="button"
                           onClick={() => qrInputRef.current?.click()}
-                          className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl cursor-pointer shadow-sm"
+                          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl cursor-pointer shadow-sm text-xs"
                         >
                           Upload Bank QR
                         </button>
-                        {bankQrImage && (
-                          <button
-                            type="button"
-                            onClick={() => setBankQrImage("")}
-                            className="px-2 py-1 text-rose-500 hover:text-rose-700 font-bold cursor-pointer text-xs"
-                            title="Remove QR Code"
-                          >
-                            ✕
-                          </button>
-                        )}
                       </div>
                     </div>
                   </div>
