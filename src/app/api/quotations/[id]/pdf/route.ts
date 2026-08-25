@@ -119,13 +119,13 @@ function generateQuotationHtml(quotation: any, profile: any): string {
   const billingCycle = quotation.billingCycle || "ONE_TIME";
   const contractPeriod = quotation.contractPeriod || "";
 
-  let categoryTitle = "QUOTATION";
+  let categoryTitle = "QUOTATION / PROPOSAL";
   let descColHeader = "Description of Goods";
   let qtyColHeader = "Qty / Duration";
   let rateColHeader = "Rate per Unit";
 
   if (category === "SOFTWARE") {
-    categoryTitle = "SOFTWARE & SAAS QUOTATION";
+    categoryTitle = "SOFTWARE & SAAS QUOTATION / PROPOSAL";
     descColHeader = "Description of Software / License";
     qtyColHeader = "Qty / Duration";
     rateColHeader = "Rate per Unit/Mo";
@@ -135,7 +135,7 @@ function generateQuotationHtml(quotation: any, profile: any): string {
     qtyColHeader = "Qty / Duration";
     rateColHeader = "Rate per Period";
   } else if (category === "SERVICE") {
-    categoryTitle = "SERVICE & MAINTENANCE QUOTATION";
+    categoryTitle = "SERVICE & MAINTENANCE QUOTATION / PROPOSAL";
     descColHeader = "Description of Services / Scope of Work";
     qtyColHeader = "Qty / Duration";
     rateColHeader = "Rate per Unit";
@@ -508,7 +508,7 @@ function generateQuotationHtml(quotation: any, profile: any): string {
     </div>
 
     <div class="address-line">
-      <b>Admin. Office :</b> ${address} | <b>Tel. :</b> ${phone} | <b>Telefax :</b> ${telefax}<br/>
+      <b>Admin. Office :</b> ${address} | <b>Tel. :</b> ${phone}<br/>
       <b>Visit us :</b> ${website} | <b>E-mail :</b> ${email}<br/>
       <b>CIN :</b> ${cin}
     </div>
@@ -612,8 +612,10 @@ function generateQuotationHtml(quotation: any, profile: any): string {
       </div>
       <div class="sig-col">
         <div class="sig-company">FOR ${companyName}</div>
-        <div class="stamp-container">
-          ${profile?.signatureImage ? `<img src="${profile.signatureImage}" class="stamp-img" alt="Signature" />` : `<span style="color: #999; font-size: 9px;">[ OFFICIAL STAMP & SIGN ]</span>`}
+        <div class="stamp-container" style="position: relative; width: 140px; height: 95px; margin: 0 auto; display: flex; align-items: center; justify-content: center;">
+          ${profile?.stampImage ? `<img src="${profile.stampImage}" alt="Stamp Seal" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0.95;" />` : ''}
+          ${profile?.signatureImage ? `<img src="${profile.signatureImage}" alt="Signature" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; z-index: 2; mix-blend-mode: multiply;" />` : ''}
+          ${(!profile?.stampImage && !profile?.signatureImage) ? `<span style="color: #999; font-size: 9px;">[ OFFICIAL STAMP & SIGN ]</span>` : ''}
         </div>
         <div class="sig-title">${profile?.authorizedSignatory || "AUTHORISED SIGNATORY"}</div>
       </div>
