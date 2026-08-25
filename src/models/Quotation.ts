@@ -7,7 +7,7 @@ const QuotationItemSchema = new Schema({
   },
   name: { type: String, required: true },
   description: { type: String, default: "" },
-  quantity: { type: Number, required: true, min: 0 },
+  quantity: { type: Schema.Types.Mixed, required: true },
   unit: { type: String, default: "mtr" },
   rate: { type: Number, required: true, min: 0 },
   gstRate: { type: Number, default: 18 },

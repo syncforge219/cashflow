@@ -30,7 +30,7 @@ export async function POST() {
       email: "appl_jaipur@rediffmail.com",
       website: "www.aaramplastics.com",
       worksAddress: "G-232, Sitapura Ind. Area, Tonk Road, JAIPUR - 302 022 (Raj.) Tel. : 0141-2771862",
-      isoTag: "ISO 9001",
+      isoTag: "",
       bankDetails: {
         bankName: "STATE BANK OF INDIA",
         branch: "SITAPURA IND. AREA JAIPUR",

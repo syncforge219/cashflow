@@ -40,7 +40,7 @@ export default function SettingsPage() {
   const [email, setEmail] = useState("appl_jaipur@rediffmail.com");
   const [website, setWebsite] = useState("www.aaramplastics.com");
   const [worksAddress, setWorksAddress] = useState("G-232, Sitapura Ind. Area, Tonk Road, JAIPUR - 302 022 (Raj.) Tel. : 0141-2771862");
-  const [isoTag, setIsoTag] = useState("ISO 9001");
+  const [isoTag, setIsoTag] = useState("");
 
   const [bankName, setBankName] = useState("STATE BANK OF INDIA");
   const [branch, setBranch] = useState("SITAPURA IND. AREA JAIPUR");
@@ -50,6 +50,7 @@ export default function SettingsPage() {
 
   const [authorizedSignatory, setAuthorizedSignatory] = useState("AUTHORISED SIGNATORY");
   const [signatureImage, setSignatureImage] = useState("");
+  const [bankQrImage, setBankQrImage] = useState("");
   const [prefix, setPrefix] = useState("APPL");
   const [defaultTerms, setDefaultTerms] = useState<string[]>([
     "GST CHARGE EXTRA",
@@ -62,6 +63,7 @@ export default function SettingsPage() {
   const [newTerm, setNewTerm] = useState("");
   const logoInputRef = useRef<HTMLInputElement>(null);
   const sigInputRef = useRef<HTMLInputElement>(null);
+  const qrInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     async function fetchCompanies() {
@@ -112,6 +114,7 @@ export default function SettingsPage() {
 
           setAuthorizedSignatory(p.authorizedSignatory || "AUTHORISED SIGNATORY");
           setSignatureImage(p.signatureImage || "");
+          setBankQrImage(p.bankQrImage || "");
 
           if (Array.isArray(p.defaultTerms) && p.defaultTerms.length > 0) {
             setDefaultTerms(p.defaultTerms);
@@ -216,6 +219,7 @@ export default function SettingsPage() {
       },
       authorizedSignatory,
       signatureImage,
+      bankQrImage,
       defaultTerms,
     };
 
@@ -510,10 +514,10 @@ export default function SettingsPage() {
                 {/* Section 3: Logos & Signature Image */}
                 <div className="bg-white border border-slate-200/80 rounded-2xl p-6 space-y-4 shadow-sm">
                   <h3 className="text-xs font-black uppercase tracking-wider text-indigo-600 border-b border-slate-100 pb-2 font-sans">
-                    3. Company Logo & Signature Stamp Upload
+                    3. Company Logo, Signature Stamp & Bank Payment QR Code Upload
                   </h3>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs font-sans">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs font-sans">
                     {/* Logo Upload */}
                     <div className="space-y-2 bg-slate-50 border border-slate-200 rounded-2xl p-4">
                       <span className="font-bold text-slate-700 block">Company Header Logo</span>
@@ -563,6 +567,42 @@ export default function SettingsPage() {
                         >
                           Upload Signature Image
                         </button>
+                      </div>
+                    </div>
+
+                    {/* Bank QR Code Upload */}
+                    <div className="space-y-2 bg-slate-50 border border-slate-200 rounded-2xl p-4">
+                      <span className="font-bold text-slate-700 block">Bank Payment QR Code</span>
+                      <input
+                        type="file"
+                        ref={qrInputRef}
+                        accept="image/*"
+                        onChange={() => handleFileUpload(qrInputRef, setBankQrImage)}
+                        className="hidden"
+                      />
+                      <div className="flex items-center gap-3">
+                        {bankQrImage ? (
+                          <img src={bankQrImage} alt="Bank QR" className="h-12 object-contain border border-slate-200 p-1 rounded-lg bg-white shadow-xs" />
+                        ) : (
+                          <span className="text-slate-400 font-medium">No QR uploaded</span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => qrInputRef.current?.click()}
+                          className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl cursor-pointer shadow-sm"
+                        >
+                          Upload Bank QR
+                        </button>
+                        {bankQrImage && (
+                          <button
+                            type="button"
+                            onClick={() => setBankQrImage("")}
+                            className="px-2 py-1 text-rose-500 hover:text-rose-700 font-bold cursor-pointer text-xs"
+                            title="Remove QR Code"
+                          >
+                            ✕
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

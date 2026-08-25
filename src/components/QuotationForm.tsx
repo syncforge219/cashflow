@@ -8,7 +8,7 @@ interface ItemRow {
   productId?: string;
   name: string;
   description: string;
-  quantity: number;
+  quantity: number | string;
   unit: string;
   rate: number;
   gstRate: number;
@@ -321,12 +321,20 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
     ]);
   };
 
+  const parseQtyNum = (val: any): number => {
+    if (typeof val === "number") return val;
+    if (!val) return 0;
+    const match = String(val).match(/[\d.]+/);
+    return match ? parseFloat(match[0]) : 0;
+  };
+
   const handleUpdateRow = (index: number, field: keyof ItemRow, value: any) => {
     setItems((prev) => {
       const next = [...prev];
       const row = { ...next[index], [field]: value };
       if (field === "quantity" || field === "rate") {
-        const qty = Math.max(0, Number(field === "quantity" ? value : row.quantity) || 0);
+        const qtyVal = field === "quantity" ? value : row.quantity;
+        const qty = parseQtyNum(qtyVal);
         const rt = Math.max(0, Number(field === "rate" ? value : row.rate) || 0);
         row.amount = qty * rt;
       }
@@ -341,7 +349,12 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
 
   // Calculations
   const isPhysicalGoods = category === "PRODUCT";
-  const calculatedSubtotal = items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+  const calculatedSubtotal = items.reduce((sum, item) => {
+    const qty = parseQtyNum(item.quantity);
+    const rt = Number(item.rate) || 0;
+    const amt = typeof item.amount === "number" ? item.amount : qty * rt;
+    return sum + (amt || 0);
+  }, 0);
   const taxableBase = Math.max(0, calculatedSubtotal - Number(discount || 0));
   const safeGstRate = gstRate !== "" && gstRate !== undefined && gstRate !== null ? Number(gstRate) : 0;
   const calculatedGstAmount = (taxableBase * safeGstRate) / 100;
@@ -794,7 +807,16 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
                   <th className="px-3 py-3">{categoryPresets[category]?.descHeader || "Description of Items"}</th>
                   <th className="px-3 py-3 w-28 text-center">Qty / Duration</th>
                   <th className="px-3 py-3 w-36 text-center">Unit</th>
-                  <th className="px-3 py-3 w-28 text-center">Rate per unit</th>
+                  <th className="px-3 py-3 w-32 text-center">
+                    {(() => {
+                      const firstUnit = items.find((i) => i.unit && i.unit.trim())?.unit?.trim();
+                      if (!firstUnit) return "Rate per unit";
+                      if (firstUnit.toLowerCase().startsWith("per ")) {
+                        return `Rate ${firstUnit}`;
+                      }
+                      return `Rate per ${firstUnit}`;
+                    })()}
+                  </th>
                   <th className="px-3 py-3 w-32 text-right">Amount</th>
                   <th className="px-3 py-3 w-12 text-center">Action</th>
                 </tr>
@@ -822,12 +844,11 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
                     </td>
                     <td className="px-3 py-2 text-center">
                       <input
-                        type="number"
-                        min="0"
-                        step="any"
+                        type="text"
                         value={row.quantity}
                         onChange={(e) => handleUpdateRow(idx, "quantity", e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-bold text-center rounded-lg px-2 py-1.5 focus:bg-white focus:outline-none"
+                        placeholder="e.g. 2 days or 5"
+                        className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-bold text-center rounded-lg px-2 py-1.5 focus:bg-white focus:outline-none text-xs"
                       />
                     </td>
                     <td className="px-3 py-2 text-center space-y-1">

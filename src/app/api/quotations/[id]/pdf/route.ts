@@ -23,7 +23,7 @@ function generateQuotationHtml(quotation: any, profile: any): string {
   const email = quotation.companyEmail || profile?.email || "appl_jaipur@rediffmail.com";
   const website = quotation.companyWebsite || profile?.website || "www.aaramplastics.com";
   const worksAddress = quotation.companyWorksAddress || profile?.worksAddress || "G-232, Sitapura Ind. Area, Tonk Road, JAIPUR - 302 022 (Raj.) Tel. : 0141-2771862";
-  const isoTag = profile?.isoTag || "ISO 9001";
+  const isoTag = profile?.isoTag || "";
 
   const bankDetails = quotation.bankDetails || profile?.bankDetails || {
     bankName: "STATE BANK OF INDIA",
@@ -76,6 +76,15 @@ function generateQuotationHtml(quotation: any, profile: any): string {
     descColHeader = "Description of Services / Scope of Work";
     qtyColHeader = "Qty / Duration / Hours";
     rateColHeader = "Rate per Unit";
+  }
+
+  const firstUnit = items.find((i: any) => i.unit && i.unit.trim())?.unit?.trim();
+  if (firstUnit) {
+    if (firstUnit.toLowerCase().startsWith("per ")) {
+      rateColHeader = `Rate ${firstUnit}`;
+    } else {
+      rateColHeader = `Rate per ${firstUnit}`;
+    }
   }
 
   const cycleDisplayMap: Record<string, string> = {
@@ -302,12 +311,53 @@ function generateQuotationHtml(quotation: any, profile: any): string {
       padding: 6px 8px;
       font-size: 10px;
     }
+    .bank-flex {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
     .bank-grid {
       display: grid;
-      grid-template-columns: 100px 1fr;
+      grid-template-columns: 110px 1fr;
       row-gap: 2px;
+      flex: 1;
     }
     .bank-label { font-weight: bold; }
+    .bank-qr-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin-left: 12px;
+      padding-left: 12px;
+      border-left: 1px dashed #000;
+    }
+    .bank-qr-img {
+      max-height: 70px;
+      max-width: 70px;
+      object-fit: contain;
+      border: 1px solid #000;
+      padding: 2px;
+      background: #fff;
+    }
+    .bank-qr-label {
+      font-size: 7.5px;
+      font-weight: bold;
+      margin-top: 2px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Computer Generated Note */
+    .computer-note {
+      text-align: center;
+      font-size: 9.5px;
+      font-weight: bold;
+      font-style: italic;
+      color: #333;
+      margin-top: 8px;
+      margin-bottom: 4px;
+    }
 
     /* Footer Logo & ISO */
     .footer-bar {
@@ -467,28 +517,46 @@ function generateQuotationHtml(quotation: any, profile: any): string {
 
     <!-- Bank Details Footer Box -->
     <div class="bank-box">
-      <div style="font-weight: bold; margin-bottom: 3px;">Bank Detail :</div>
-      <div class="bank-grid">
-        <div class="bank-label">Name of Bank :</div>
-        <div>${bankDetails.bankName || "STATE BANK OF INDIA"}</div>
-        <div class="bank-label">Branch Address :</div>
-        <div>${bankDetails.branch || "SITAPURA IND. AREA JAIPUR"}</div>
-        <div class="bank-label">Account No. :</div>
-        <div>"${bankDetails.accountNumber || "61330464677"}"</div>
-        <div class="bank-label">RTGS Code :</div>
-        <div>${bankDetails.rtgsCode || bankDetails.ifsc || "SBIN0031792"}</div>
+      <div class="bank-flex">
+        <div style="flex: 1;">
+          <div style="font-weight: bold; margin-bottom: 3px;">Bank Detail :</div>
+          <div class="bank-grid">
+            <div class="bank-label">Company Name :</div>
+            <div style="font-weight: bold;">${companyName}</div>
+            <div class="bank-label">Name of Bank :</div>
+            <div>${bankDetails.bankName || "STATE BANK OF INDIA"}</div>
+            <div class="bank-label">Branch Address :</div>
+            <div>${bankDetails.branch || "SITAPURA IND. AREA JAIPUR"}</div>
+            <div class="bank-label">Account No. :</div>
+            <div>"${bankDetails.accountNumber || "61330464677"}"</div>
+            <div class="bank-label">RTGS Code :</div>
+            <div>${bankDetails.rtgsCode || bankDetails.ifsc || "SBIN0031792"}</div>
+          </div>
+        </div>
+        ${profile?.bankQrImage ? `
+        <div class="bank-qr-container">
+          <img src="${profile.bankQrImage}" class="bank-qr-img" alt="Bank Payment QR Code" />
+          <div class="bank-qr-label">Bank Payment QR</div>
+        </div>
+        ` : ""}
       </div>
+    </div>
+
+    <!-- Computer Generated Note -->
+    <div class="computer-note">
+      This is a computer generated quotation no signature is required
     </div>
 
     <!-- Footer Bar -->
     <div class="footer-bar">
+      ${isoTag ? `
       <div class="iso-badge">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="10"/>
           <path d="M12 8v4l3 3"/>
         </svg>
         ${isoTag}
-      </div>
+      </div>` : `<div></div>`}
       <div>Regd. Office & Works : ${worksAddress}</div>
     </div>
   </div>

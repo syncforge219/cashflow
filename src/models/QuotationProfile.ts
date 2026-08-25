@@ -66,7 +66,7 @@ const QuotationProfileSchema = new Schema(
     },
     isoTag: {
       type: String,
-      default: "ISO 9001",
+      default: "",
     },
     bankDetails: {
       bankName: { type: String, default: "STATE BANK OF INDIA" },
@@ -84,6 +84,10 @@ const QuotationProfileSchema = new Schema(
       default: "",
     },
     stampImage: {
+      type: String,
+      default: "",
+    },
+    bankQrImage: {
       type: String,
       default: "",
     },
