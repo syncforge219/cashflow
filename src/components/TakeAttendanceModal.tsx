@@ -25,6 +25,8 @@ export default function TakeAttendanceModal({
   const [studentRecords, setStudentRecords] = useState<any[]>([]);
   const [notes, setNotes] = useState("");
   const [isAlreadyLogged, setIsAlreadyLogged] = useState(false);
+  const [isEditUnlocked, setIsEditUnlocked] = useState(false);
+  const [showDisclaimerPopup, setShowDisclaimerPopup] = useState(false);
 
   const [isLoadingBatches, setIsLoadingBatches] = useState(false);
   const [isLoadingRoster, setIsLoadingRoster] = useState(false);
@@ -91,9 +93,11 @@ export default function TakeAttendanceModal({
           setStudentRecords(existingLog.records || []);
           setNotes(existingLog.notes || "");
           setIsAlreadyLogged(true);
-          setSuccessMsg("Loaded existing attendance log for this date. (Already Submitted)");
+          setIsEditUnlocked(false);
+          setSuccessMsg("Loaded existing attendance log for this date. (Click 'Edit' to unlock changes)");
         } else {
           setIsAlreadyLogged(false);
+          setIsEditUnlocked(true);
           setNotes(""); // Reset notes/topic field for unsaved date
           // If no existing log, fetch roster for batch
           const rosterRes = await fetch(
@@ -184,6 +188,7 @@ export default function TakeAttendanceModal({
       if (res.ok && json.success) {
         setNotes(""); // Empty topic/notes input field after successful save
         setIsAlreadyLogged(false);
+        setIsEditUnlocked(false);
         onSuccess();
         onClose();
       } else {
@@ -360,8 +365,11 @@ export default function TakeAttendanceModal({
                       <button
                         key={st}
                         type="button"
+                        disabled={isAlreadyLogged && !isEditUnlocked}
                         onClick={() => handleStatusChange(idx, st)}
                         className={`px-2.5 py-1 text-xs font-extrabold rounded-lg transition-all ${
+                          isAlreadyLogged && !isEditUnlocked ? "cursor-not-allowed opacity-80" : "cursor-pointer"
+                        } ${
                           record.status === st
                             ? st === "Present"
                               ? "bg-emerald-600 text-white shadow-xs"
@@ -382,8 +390,11 @@ export default function TakeAttendanceModal({
                     type="text"
                     placeholder="Remarks..."
                     value={record.remarks || ""}
+                    readOnly={isAlreadyLogged && !isEditUnlocked}
                     onChange={(e) => handleRemarkChange(idx, e.target.value)}
-                    className="w-36 px-2.5 py-1 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-500 font-medium"
+                    className={`w-36 px-2.5 py-1 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-500 font-medium ${
+                      isAlreadyLogged && !isEditUnlocked ? "bg-slate-100 cursor-not-allowed text-slate-500" : ""
+                    }`}
                   />
                 </div>
               </div>
@@ -405,24 +416,70 @@ export default function TakeAttendanceModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 text-xs font-bold"
+              className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 text-xs font-bold cursor-pointer"
             >
               Cancel
             </button>
-            <button
-              type="submit"
-              disabled={isSubmitting || studentRecords.length === 0 || isAlreadyLogged}
-              className={`px-5 py-2 font-bold text-xs rounded-xl transition-all flex items-center gap-2 ${
-                isAlreadyLogged
-                  ? "bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed shadow-none"
-                  : "bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-md shadow-emerald-600/20"
-              }`}
-              title={isAlreadyLogged ? "Attendance for this date is already saved" : "Save Attendance Log"}
-            >
-              {isSubmitting ? "Saving..." : isAlreadyLogged ? "Attendance Already Saved" : "Save Attendance Log"}
-            </button>
+
+            {isAlreadyLogged && !isEditUnlocked ? (
+              <button
+                type="button"
+                onClick={() => setShowDisclaimerPopup(true)}
+                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md shadow-indigo-600/20 transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>✏️</span> Edit Attendance
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={isSubmitting || studentRecords.length === 0}
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/20 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {isSubmitting
+                  ? "Saving..."
+                  : isAlreadyLogged
+                  ? "Update Attendance Log"
+                  : "Save Attendance Log"}
+              </button>
+            )}
           </div>
         </form>
+
+        {/* Edit Disclaimer Confirmation Popup Modal */}
+        {showDisclaimerPopup && (
+          <div className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4 text-center font-sans animate-in fade-in zoom-in-95 duration-150">
+              <div className="h-14 w-14 rounded-2xl bg-amber-100 text-amber-600 mx-auto flex items-center justify-center font-bold text-3xl shadow-xs">
+                ⚠️
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-slate-800">Edit Attendance Disclaimer</h3>
+                <p className="text-xs text-slate-500 font-medium mt-1 leading-relaxed">
+                  You are about to modify an already saved attendance log for this date. Are you sure you want to unlock and edit these records?
+                </p>
+              </div>
+              <div className="flex items-center justify-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowDisclaimerPopup(false)}
+                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer transition-colors border border-slate-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDisclaimerPopup(false);
+                    setIsEditUnlocked(true);
+                  }}
+                  className="flex-1 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-black text-xs rounded-xl cursor-pointer shadow-md shadow-amber-600/20 transition-colors"
+                >
+                  OK (Unlock & Edit)
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
