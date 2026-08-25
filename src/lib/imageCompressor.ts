@@ -5,8 +5,8 @@
  */
 export function compressImageFile(
   file: File,
-  maxDimension = 800,
-  quality = 0.85
+  maxDimension = 400,
+  quality = 0.75
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     if (!file) {
@@ -53,12 +53,12 @@ export function compressImageFile(
         // Draw image onto canvas
         ctx.drawImage(img, 0, 0, width, height);
 
-        // Preserve PNG transparency if original is PNG, otherwise use JPEG for optimal compression
-        const isPng = file.type === "image/png";
-        const mimeType = isPng ? "image/png" : "image/jpeg";
-        
         try {
-          const compressedDataUrl = canvas.toDataURL(mimeType, isPng ? undefined : quality);
+          // Convert to WebP / JPEG for tiny Base64 payload (< 30KB per image)
+          let compressedDataUrl = canvas.toDataURL("image/webp", quality);
+          if (!compressedDataUrl || !compressedDataUrl.startsWith("data:image/webp")) {
+            compressedDataUrl = canvas.toDataURL("image/jpeg", quality);
+          }
           resolve(compressedDataUrl);
         } catch {
           resolve(event.target?.result as string);
