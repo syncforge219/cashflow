@@ -24,6 +24,7 @@ export default function TakeAttendanceModal({
   );
   const [studentRecords, setStudentRecords] = useState<any[]>([]);
   const [notes, setNotes] = useState("");
+  const [isAlreadyLogged, setIsAlreadyLogged] = useState(false);
 
   const [isLoadingBatches, setIsLoadingBatches] = useState(false);
   const [isLoadingRoster, setIsLoadingRoster] = useState(false);
@@ -89,8 +90,11 @@ export default function TakeAttendanceModal({
           const existingLog = existingJson.data[0];
           setStudentRecords(existingLog.records || []);
           setNotes(existingLog.notes || "");
-          setSuccessMsg("Loaded existing attendance log for this date.");
+          setIsAlreadyLogged(true);
+          setSuccessMsg("Loaded existing attendance log for this date. (Already Submitted)");
         } else {
+          setIsAlreadyLogged(false);
+          setNotes(""); // Reset notes/topic field for unsaved date
           // If no existing log, fetch roster for batch
           const rosterRes = await fetch(
             `/api/attendance?batchId=${selectedBatchId}&rosterOnly=true`
@@ -178,6 +182,8 @@ export default function TakeAttendanceModal({
       const json = await res.json();
 
       if (res.ok && json.success) {
+        setNotes(""); // Empty topic/notes input field after successful save
+        setIsAlreadyLogged(false);
         onSuccess();
         onClose();
       } else {
@@ -405,10 +411,15 @@ export default function TakeAttendanceModal({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || studentRecords.length === 0}
-              className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/20 transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+              disabled={isSubmitting || studentRecords.length === 0 || isAlreadyLogged}
+              className={`px-5 py-2 font-bold text-xs rounded-xl transition-all flex items-center gap-2 ${
+                isAlreadyLogged
+                  ? "bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed shadow-none"
+                  : "bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-md shadow-emerald-600/20"
+              }`}
+              title={isAlreadyLogged ? "Attendance for this date is already saved" : "Save Attendance Log"}
             >
-              {isSubmitting ? "Saving..." : "Save Attendance Log"}
+              {isSubmitting ? "Saving..." : isAlreadyLogged ? "Attendance Already Saved" : "Save Attendance Log"}
             </button>
           </div>
         </form>
