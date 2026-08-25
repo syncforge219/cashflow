@@ -523,9 +523,9 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
                   type="button"
                   onClick={() => {
                     setCategory(catKey);
-                    // Load category terms preset if user hasn't heavily modified terms
-                    if (!isEdit && categoryTermsPresets[catKey]) {
-                      setTerms(categoryTermsPresets[catKey]);
+                    setCustomCategoryName(info.label);
+                    if (categoryTermsPresets[catKey]) {
+                      setTerms([...categoryTermsPresets[catKey]]);
                     }
                   }}
                   className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between space-y-2 ${

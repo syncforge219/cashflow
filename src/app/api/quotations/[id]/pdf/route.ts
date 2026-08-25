@@ -530,9 +530,9 @@ function generateQuotationHtml(quotation: any, profile: any): string {
         </td>
         <td style="width: 50%;">
           <div><span class="meta-label">Client / Consignee :-</span> <b>${quotation.customerName}</b></div>
-          <div style="padding-left: 70px; white-space: pre-line;">${quotation.customerAddress || quotation.consigneeInfo || "-"}</div>
-          <div style="margin-top: 6px;"><span class="meta-label">Location / Site :</span> ${quotation.deliveryLocation || "-"}</div>
-          <div><span class="meta-label">GSTIN No.</span> ${quotation.customerGstin || "-"}</div>
+          <div style="margin-top: 3px;"><span class="meta-label">Address :-</span> ${quotation.customerAddress || quotation.consigneeInfo || "-"}</div>
+          <div style="margin-top: 3px;"><span class="meta-label">Location / Site :</span> ${quotation.deliveryLocation || "-"}</div>
+          <div style="margin-top: 3px;"><span class="meta-label">GSTIN No.</span> ${quotation.customerGstin || "-"}</div>
         </td>
       </tr>
     </table>
