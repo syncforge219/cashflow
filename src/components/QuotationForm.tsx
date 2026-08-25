@@ -324,8 +324,19 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
   const parseQtyNum = (val: any): number => {
     if (typeof val === "number") return val;
     if (!val) return 0;
-    const match = String(val).match(/[\d.]+/);
-    return match ? parseFloat(match[0]) : 0;
+    const str = String(val).trim().toLowerCase();
+    const match = str.match(/[\d.]+/);
+    if (match) return parseFloat(match[0]);
+    const wordsMap: Record<string, number> = {
+      one: 1, a: 1, single: 1,
+      two: 2, double: 2,
+      three: 3, triple: 3,
+      four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+    };
+    for (const [w, n] of Object.entries(wordsMap)) {
+      if (str.includes(w)) return n;
+    }
+    return 0;
   };
 
   const handleUpdateRow = (index: number, field: keyof ItemRow, value: any) => {

@@ -43,12 +43,38 @@ function generateQuotationHtml(quotation: any, profile: any): string {
         "MATERIAL DELIVERD WITHIN 7DAYS",
       ];
 
+  const parseQtyNum = (val: any): number => {
+    if (typeof val === "number") return val;
+    if (!val) return 0;
+    const str = String(val).trim().toLowerCase();
+    const match = str.match(/[\d.]+/);
+    if (match) return parseFloat(match[0]);
+    const wordsMap: Record<string, number> = {
+      one: 1, a: 1, single: 1,
+      two: 2, double: 2,
+      three: 3, triple: 3,
+      four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+    };
+    for (const [w, n] of Object.entries(wordsMap)) {
+      if (str.includes(w)) return n;
+    }
+    return 0;
+  };
+
   const items = quotation.items || [];
-  const subtotal = Number(quotation.subtotal) || 0;
   const gstRate = quotation.gstRate !== undefined && quotation.gstRate !== null ? Number(quotation.gstRate) : 18;
-  const gstAmount = Number(quotation.gstAmount) || 0;
+
+  const calculatedSubtotal = items.reduce((sum: number, it: any) => {
+    const q = parseQtyNum(it.quantity);
+    const r = Number(it.rate) || 0;
+    const a = Number(it.amount) > 0 ? Number(it.amount) : q * r;
+    return sum + a;
+  }, 0);
+
+  const subtotal = Number(quotation.subtotal) > 0 ? Number(quotation.subtotal) : calculatedSubtotal;
+  const gstAmount = Number(quotation.gstAmount) > 0 ? Number(quotation.gstAmount) : Math.round((subtotal * gstRate) / 100);
   const transportText = quotation.transportText || (quotation.transportCharges ? `₹${quotation.transportCharges}` : "included");
-  const grandTotal = Number(quotation.grandTotal) || 0;
+  const grandTotal = Number(quotation.grandTotal) > 0 ? Number(quotation.grandTotal) : Math.round(subtotal + gstAmount + Number(quotation.transportCharges || 0));
   const amountWords = quotation.amountInWords || numberToIndianWords(grandTotal);
 
   const category = quotation.category || "PRODUCT";
@@ -359,12 +385,13 @@ function generateQuotationHtml(quotation: any, profile: any): string {
       margin-bottom: 4px;
     }
 
-    /* Footer Logo & ISO */
+    /* Footer Bar */
     .footer-bar {
       margin-top: 10px;
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: center;
+      text-align: center;
       font-size: 9px;
       border-top: 1px solid #000;
       padding-top: 5px;
@@ -426,7 +453,6 @@ function generateQuotationHtml(quotation: any, profile: any): string {
       <tr>
         <td style="width: 50%;">
           <div><span class="meta-label">QUOTATION NO. :-</span> <b>${quotation.quotationNumber}</b></div>
-          <div style="margin-top: 5px;"><span class="meta-label">P.O. / REF NO. :-</span> ${quotation.poNumber || "-"}</div>
           <div style="margin-top: 5px;"><span class="meta-label">DATED :-</span> ${dateStr}</div>
         </td>
         <td style="width: 50%;">
@@ -450,18 +476,23 @@ function generateQuotationHtml(quotation: any, profile: any): string {
         </tr>
       </thead>
       <tbody>
-        ${items.map((item: any, index: number) => `
+        ${items.map((item: any, index: number) => {
+          const qN = parseQtyNum(item.quantity);
+          const rN = Number(item.rate) || 0;
+          const amtN = Number(item.amount) > 0 ? Number(item.amount) : qN * rN;
+          return `
           <tr>
             <td class="text-center">${index + 1}</td>
             <td class="text-left font-bold">
               ${item.name}
               ${item.description ? `<div style="font-weight: normal; font-size: 9.5px; color: #444;">${item.description}</div>` : ""}
             </td>
-            <td class="text-center">${item.quantity} ${item.unit ? `(${item.unit})` : ""}</td>
-            <td class="text-center">₹${Number(item.rate).toLocaleString("en-IN")}</td>
-            <td class="text-right">₹${Number(item.amount).toLocaleString("en-IN")}</td>
+            <td class="text-center">${item.quantity} ${item.unit && !String(item.quantity).toLowerCase().includes(item.unit.toLowerCase()) ? `(${item.unit})` : ""}</td>
+            <td class="text-center">₹${rN.toLocaleString("en-IN")}</td>
+            <td class="text-center">₹${amtN.toLocaleString("en-IN")}</td>
           </tr>
-        `).join("")}
+        `;
+        }).join("")}
 
         ${emptyRows.map(() => `
           <tr>
@@ -476,20 +507,20 @@ function generateQuotationHtml(quotation: any, profile: any): string {
         <!-- Summary Totals Rows -->
         <tr class="summary-row">
           <td colspan="4" class="text-right">Subtotal</td>
-          <td class="text-right">₹${subtotal.toLocaleString("en-IN")}</td>
+          <td class="text-center">₹${subtotal.toLocaleString("en-IN")}</td>
         </tr>
         <tr class="summary-row">
           <td colspan="4" class="text-right">GST (${gstRate}%)</td>
-          <td class="text-right">₹${gstAmount.toLocaleString("en-IN")}</td>
+          <td class="text-center">₹${gstAmount.toLocaleString("en-IN")}</td>
         </tr>
         ${isPhysicalGoods && (Number(quotation.transportCharges) > 0 || (quotation.transportText && quotation.transportText.trim() !== "")) ? `
         <tr class="summary-row">
           <td colspan="4" class="text-right">Transport / Misc Charges</td>
-          <td class="text-right">${quotation.transportText || `₹${Number(quotation.transportCharges || 0).toLocaleString("en-IN")}`}</td>
+          <td class="text-center">${quotation.transportText || `₹${Number(quotation.transportCharges || 0).toLocaleString("en-IN")}`}</td>
         </tr>` : ""}
         <tr class="summary-row" style="font-size: 11.5px; background-color: #fafafa;">
           <td colspan="4" class="text-right">Grand Total (${cycleLabel})</td>
-          <td class="text-right">₹${grandTotal.toLocaleString("en-IN")}</td>
+          <td class="text-center">₹${grandTotal.toLocaleString("en-IN")}</td>
         </tr>
       </tbody>
     </table>
@@ -549,14 +580,6 @@ function generateQuotationHtml(quotation: any, profile: any): string {
 
     <!-- Footer Bar -->
     <div class="footer-bar">
-      ${isoTag ? `
-      <div class="iso-badge">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10"/>
-          <path d="M12 8v4l3 3"/>
-        </svg>
-        ${isoTag}
-      </div>` : `<div></div>`}
       <div>Regd. Office & Works : ${worksAddress}</div>
     </div>
   </div>
