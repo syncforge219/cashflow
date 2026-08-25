@@ -48,27 +48,20 @@ function generateQuotationHtml(quotation: any, profile: any): string {
     const r = Number(item.rate) || 0;
     const storedAmt = Number(item.amount) || 0;
 
-    // 1. Valid number > 0 in quantity field
+    // 1. If quantity field has explicit user input (e.g. "2 days", "2")
+    if (q !== undefined && q !== null && String(q).trim() !== "" && String(q).trim() !== "0") {
+      const str = String(q).trim();
+      const match = str.toLowerCase().match(/[\d.]+/);
+      const num = match ? parseFloat(match[0]) : 1;
+      return { qtyNum: num > 0 ? num : 1, displayQty: str };
+    }
+
+    // 2. If valid number > 0 in quantity
     if (typeof q === "number" && q > 0) {
       return { qtyNum: q, displayQty: String(q) };
     }
 
-    // 2. Digits in quantity field string (e.g. "2 days", "2")
-    if (q && String(q).trim() !== "0" && String(q).trim() !== "") {
-      const str = String(q).trim().toLowerCase();
-      const match = str.match(/[\d.]+/);
-      if (match && parseFloat(match[0]) > 0) {
-        return { qtyNum: parseFloat(match[0]), displayQty: String(q) };
-      }
-    }
-
-    // 3. If storedAmt > 0 and rate > 0, calculate qty = amount / rate
-    if (storedAmt > 0 && r > 0) {
-      const derived = Math.round(storedAmt / r);
-      return { qtyNum: derived, displayQty: String(derived) };
-    }
-
-    // 4. Fallback: Parse quantity from description or name (e.g. "Two days...", "2 days...")
+    // 3. Fallback: Parse quantity from description or name (e.g. "Two days...", "2 days...")
     const combinedText = `${item.name || ""} ${item.description || ""}`.toLowerCase();
     
     const digitPattern = combinedText.match(/(\d+)\s*(day|days|hour|hours|month|months|year|years|seat|seats|unit|units|pc|pcs|kg|mtr)/);
@@ -85,9 +78,14 @@ function generateQuotationHtml(quotation: any, profile: any): string {
     for (const [w, n] of Object.entries(wordMap)) {
       const regex = new RegExp(`\\b${w}\\b`, "i");
       if (regex.test(combinedText)) {
-        const u = item.unit ? item.unit : "units";
-        return { qtyNum: n, displayQty: `${n} ${u}` };
+        return { qtyNum: n, displayQty: `${n} days` };
       }
+    }
+
+    // 4. If storedAmt > 0 and rate > 0
+    if (storedAmt > 0 && r > 0) {
+      const derived = Math.round(storedAmt / r);
+      return { qtyNum: derived, displayQty: String(derived) };
     }
 
     // 5. Default fallback if rate > 0
@@ -519,9 +517,6 @@ function generateQuotationHtml(quotation: any, profile: any): string {
           const { qtyNum, displayQty } = parseItemQty(item);
           const rN = Number(item.rate) || 0;
           const amtN = (Number(item.amount) > 0) ? Number(item.amount) : qtyNum * rN;
-          const cellDisplayQty = (item.quantity !== undefined && item.quantity !== null && String(item.quantity).trim() !== "" && String(item.quantity).trim() !== "0")
-            ? String(item.quantity)
-            : displayQty;
           return `
           <tr>
             <td class="text-center">${index + 1}</td>
@@ -529,7 +524,7 @@ function generateQuotationHtml(quotation: any, profile: any): string {
               ${item.name}
               ${item.description ? `<div style="font-weight: normal; font-size: 9.5px; color: #444;">${item.description}</div>` : ""}
             </td>
-            <td class="text-center">${cellDisplayQty}</td>
+            <td class="text-center">${displayQty}</td>
             <td class="text-center">₹${rN.toLocaleString("en-IN")}</td>
             <td class="text-center">₹${amtN.toLocaleString("en-IN")}</td>
           </tr>
