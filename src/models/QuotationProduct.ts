@@ -51,6 +51,10 @@ const QuotationProductSchema = new Schema(
       type: Number,
       default: 18,
     },
+    defaultTerms: {
+      type: [String],
+      default: [],
+    },
   },
   { timestamps: true }
 );

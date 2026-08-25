@@ -63,6 +63,7 @@ export async function POST(req: Request) {
       unit: unit?.trim() || "mtr",
       defaultRate: Number(defaultRate) || 0,
       gstRate: Number(gstRate) !== undefined ? Number(gstRate) : 18,
+      defaultTerms: Array.isArray(body.defaultTerms) ? body.defaultTerms : [],
     });
 
     return NextResponse.json({ success: true, message: "Product created successfully", data: newProduct }, { status: 201 });
@@ -96,6 +97,7 @@ export async function PUT(req: Request) {
           unit: unit?.trim(),
           defaultRate: Number(defaultRate) || 0,
           gstRate: Number(gstRate),
+          ...(Array.isArray(body.defaultTerms) && { defaultTerms: body.defaultTerms }),
         },
       },
       { new: true }

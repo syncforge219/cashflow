@@ -33,6 +33,7 @@ interface ProductOption {
   unit: string;
   defaultRate: number;
   gstRate: number;
+  defaultTerms?: string[];
 }
 
 interface CompanyOption {
@@ -305,6 +306,18 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
           amount: (found.defaultRate || 0) * 1,
         },
       ]);
+      if (Array.isArray(found.defaultTerms) && found.defaultTerms.length > 0) {
+        setTerms((prevTerms) => {
+          const updated = [...prevTerms];
+          found.defaultTerms?.forEach((t: string) => {
+            const trimmed = t.trim();
+            if (trimmed && !updated.includes(trimmed)) {
+              updated.push(trimmed);
+            }
+          });
+          return updated;
+        });
+      }
     }
   };
 

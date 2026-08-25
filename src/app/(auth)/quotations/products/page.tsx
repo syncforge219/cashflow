@@ -16,6 +16,7 @@ interface Product {
   unit: string;
   defaultRate: number;
   gstRate: number;
+  defaultTerms?: string[];
 }
 
 export default function ProductsPage() {
@@ -36,6 +37,7 @@ export default function ProductsPage() {
   const [unit, setUnit] = useState("mtr");
   const [defaultRate, setDefaultRate] = useState<number>(0);
   const [gstRate, setGstRate] = useState<number>(18);
+  const [defaultTermsText, setDefaultTermsText] = useState("");
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -67,6 +69,7 @@ export default function ProductsPage() {
     setUnit("mtr");
     setDefaultRate(0);
     setGstRate(18);
+    setDefaultTermsText("");
     setIsModalOpen(true);
   };
 
@@ -81,6 +84,7 @@ export default function ProductsPage() {
     setUnit(p.unit || "mtr");
     setDefaultRate(p.defaultRate || 0);
     setGstRate(p.gstRate || 18);
+    setDefaultTermsText(Array.isArray(p.defaultTerms) ? p.defaultTerms.join("\n") : "");
     setIsModalOpen(true);
   };
 
@@ -102,6 +106,7 @@ export default function ProductsPage() {
       unit,
       defaultRate,
       gstRate,
+      defaultTerms: defaultTermsText.split("\n").map((t) => t.trim()).filter(Boolean),
     };
 
     try {
@@ -410,6 +415,22 @@ export default function ProductsPage() {
                       <option value={0}>0%</option>
                     </select>
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                    Product-Specific Terms & Conditions (One per line)
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={defaultTermsText}
+                    onChange={(e) => setDefaultTermsText(e.target.value)}
+                    placeholder="e.g. ALL PIPE 6MTR LENGTH&#10;100% ADVANCE ALONG WITH PO&#10;MATERIAL DELIVERED WITHIN 7 DAYS"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs font-bold rounded-xl p-3 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    These terms will automatically be added to Quotation Terms & Conditions when this product is selected.
+                  </p>
                 </div>
 
                 <div className="pt-3 flex justify-end gap-3 border-t border-slate-100">
