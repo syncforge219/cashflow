@@ -200,37 +200,53 @@ function generateQuotationHtml(quotation: any, profile: any): string {
     
     /* Header Section */
     .top-bar {
-      display: flex;
-      flex-direction: column;
       margin-bottom: 4px;
-      position: relative;
     }
     .gstin-box {
       font-weight: bold;
       font-size: 11px;
       text-align: right;
-      width: 100%;
+      margin-bottom: 2px;
     }
-    .logo-container {
+    .header-main-flex {
       display: flex;
       align-items: center;
-      justify-content: center;
-      gap: 14px;
-      margin: 4px 0 6px 0;
-      text-align: center;
+      justify-content: space-between;
+      width: 100%;
+      min-height: 70px;
+      margin-bottom: 6px;
     }
-    .logo-img {
-      height: 75px;
-      max-height: 85px;
+    .header-left {
+      flex: 0 0 130px;
+      display: flex;
+      justify-content: flex-start;
+      align-items: center;
+    }
+    .header-center {
+      flex: 1;
+      text-align: center;
+      padding: 0 10px;
+    }
+    .header-right {
+      flex: 0 0 130px;
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+    }
+    .header-logo-img {
+      height: 65px;
+      max-height: 75px;
+      max-width: 130px;
       object-fit: contain;
     }
     .company-title {
-      font-size: 26px;
+      font-size: 24px;
       font-weight: 900;
       text-transform: uppercase;
       letter-spacing: -0.5px;
       color: #1a237e;
       text-align: center;
+      line-height: 1.2;
     }
 
     .mfr-banner {
@@ -466,15 +482,21 @@ function generateQuotationHtml(quotation: any, profile: any): string {
       <div class="gstin-box">
         GSTIN : ${gstin}
       </div>
-      <div class="logo-container">
-        ${profile?.logo ? `<img src="${profile.logo}" alt="Company Logo" class="logo-img" />` : `
-          <svg width="60" height="60" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <polygon points="50,10 90,90 10,90" fill="#1a237e" stroke="#000" stroke-width="3"/>
-            <text x="50" y="70" font-size="28" font-weight="bold" fill="#fff" text-anchor="middle">A</text>
-          </svg>
-        `}
-        <div class="company-title">${companyName}</div>
-        ${profile?.brandLogo ? `<img src="${profile.brandLogo}" alt="Brand Logo" class="logo-img" />` : ""}
+      <div class="header-main-flex">
+        <div class="header-left">
+          ${profile?.logo ? `<img src="${profile.logo}" alt="Company Logo" class="header-logo-img" />` : `
+            <svg width="55" height="55" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <polygon points="50,10 90,90 10,90" fill="#1a237e" stroke="#000" stroke-width="3"/>
+              <text x="50" y="70" font-size="28" font-weight="bold" fill="#fff" text-anchor="middle">A</text>
+            </svg>
+          `}
+        </div>
+        <div class="header-center">
+          <div class="company-title">${companyName}</div>
+        </div>
+        <div class="header-right">
+          ${profile?.brandLogo ? `<img src="${profile.brandLogo}" alt="Brand Logo" class="header-logo-img" />` : `<div style="width: 55px;"></div>`}
+        </div>
       </div>
     </div>
 
