@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
 import { signJWT } from "@/lib/jwt";
+import { SESSION_DURATION_SECONDS } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
@@ -87,8 +88,8 @@ export async function POST(request: Request) {
     cookieStore.set("token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 3600, // 1 hour
+      sameSite: "lax",
+      maxAge: SESSION_DURATION_SECONDS,
       path: "/",
     });
 

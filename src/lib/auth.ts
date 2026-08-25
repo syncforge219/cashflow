@@ -6,7 +6,7 @@ import Session from "@/models/Session";
 import { verifyJWT } from "@/lib/jwt";
 
 export const SESSION_COOKIE_NAME = "token";
-export const SESSION_DURATION_SECONDS = 3600 * 24; // 24 hours
+export const SESSION_DURATION_SECONDS = 3600 * 24 * 365 * 10; // 10 years persistent login duration
 
 export interface AuthenticatedUser {
   _id: any;
