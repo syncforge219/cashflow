@@ -23,9 +23,12 @@ const QuotationSchema = new Schema(
     },
     category: {
       type: String,
-      enum: ["SOFTWARE", "DIGITAL_MARKETING", "PRODUCT", "SERVICE", "CUSTOM"],
       default: "PRODUCT",
       index: true,
+    },
+    customCategoryName: {
+      type: String,
+      default: "",
     },
     billingCycle: {
       type: String,

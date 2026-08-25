@@ -514,7 +514,7 @@ function generateQuotationHtml(quotation: any, profile: any): string {
     <div class="doc-title">${categoryTitle}</div>
 
     <div class="category-badge-bar">
-      <div><span>CATEGORY:</span> ${category.replace("_", " ")}</div>
+      <div><span>CATEGORY:</span> ${(quotation.customCategoryName || category).replace("_", " ").toUpperCase()}</div>
       <div><span>BILLING FREQUENCY:</span> ${cycleLabel.toUpperCase()}</div>
       ${contractPeriod ? `<div><span>CONTRACT PERIOD:</span> ${contractPeriod}</div>` : ""}
     </div>

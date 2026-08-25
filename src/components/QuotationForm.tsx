@@ -85,6 +85,9 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
 
   // Form State
   const [category, setCategory] = useState<string>(initialData?.category || "PRODUCT");
+  const [customCategoryName, setCustomCategoryName] = useState<string>(
+    initialData?.customCategoryName || (initialData?.category === "CUSTOM" ? "CUSTOM" : initialData?.category || "CUSTOM")
+  );
   const [billingCycle, setBillingCycle] = useState<string>(initialData?.billingCycle || "ONE_TIME");
   const [contractPeriod, setContractPeriod] = useState<string>(initialData?.contractPeriod || "");
   const [quotationNumber, setQuotationNumber] = useState(initialData?.quotationNumber || "");
@@ -404,6 +407,7 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
     const payload = {
       ...(isEdit && { id: initialData._id }),
       category,
+      customCategoryName: customCategoryName.trim().toUpperCase(),
       billingCycle,
       contractPeriod: contractPeriod.trim(),
       quotationNumber: quotationNumber.trim(),
@@ -540,6 +544,20 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
                 </button>
               );
             })}
+          </div>
+
+          {/* Editable Category Name field */}
+          <div className="mt-3 pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <label className="text-[11px] font-extrabold text-slate-600 uppercase tracking-wider whitespace-nowrap">
+              Category Name / Heading on Quotation PDF:
+            </label>
+            <input
+              type="text"
+              value={customCategoryName}
+              onChange={(e) => setCustomCategoryName(e.target.value)}
+              placeholder="e.g. CUSTOM, TRAINING, HARDWARE, CONSULTING..."
+              className="w-full sm:w-80 bg-slate-50 border border-slate-200 text-slate-800 font-bold rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+            />
           </div>
         </div>
 
