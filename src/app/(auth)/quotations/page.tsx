@@ -102,7 +102,16 @@ export default function QuotationsPage() {
     if (!confirm(`Convert quotation ${num} to Proforma Invoice?`)) return;
     try {
       const res = await fetch(`/api/quotations/${id}/convert-to-pi`, { method: "POST" });
-      const data = await res.json();
+      const text = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(text);
+      } catch (parseErr) {
+        console.error("Non-JSON API response:", text);
+        alert(`Conversion error (${res.status}): Server returned invalid response.`);
+        return;
+      }
+
       if (res.ok && data.success) {
         if (data.data?._id) {
           window.open(`/api/proforma-invoices/${data.data._id}/pdf`, "_blank");
