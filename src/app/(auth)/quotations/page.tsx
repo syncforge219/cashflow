@@ -98,6 +98,24 @@ export default function QuotationsPage() {
     }
   };
 
+  const handleConvertToPi = async (id: string, num: string) => {
+    if (!confirm(`Convert quotation ${num} to Proforma Invoice?`)) return;
+    try {
+      const res = await fetch(`/api/quotations/${id}/convert-to-pi`, { method: "POST" });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        if (data.data?._id) {
+          window.open(`/api/proforma-invoices/${data.data._id}/pdf`, "_blank");
+        }
+        fetchQuotations();
+      } else {
+        alert("Conversion failed: " + (data.error || "Error"));
+      }
+    } catch (err: any) {
+      alert("Error: " + err.message);
+    }
+  };
+
   const handleDelete = async (id: string, num: string) => {
     if (!confirm(`Are you sure you want to delete quotation ${num}?`)) return;
     try {
@@ -363,11 +381,11 @@ export default function QuotationsPage() {
                               </button>
 
                               <button
-                                onClick={() => handleDuplicate(q._id, q.quotationNumber)}
-                                className="px-2.5 py-1 text-[11px] font-bold text-amber-600 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-colors cursor-pointer"
-                                title="Duplicate Quotation"
+                                onClick={() => handleConvertToPi(q._id, q.quotationNumber)}
+                                className="px-2.5 py-1 text-[11px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors cursor-pointer"
+                                title="Convert Quotation to Proforma Invoice"
                               >
-                                Duplicate
+                                🧾 Convert to PI
                               </button>
 
                               <button
