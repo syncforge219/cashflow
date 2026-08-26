@@ -9,6 +9,7 @@ export default function QuotationNav() {
 
   const links = [
     { name: "Dashboard & Quotations", href: "/quotations" },
+    { name: "Proforma Invoices", href: "/proforma-invoices" },
     { name: "Purchase Orders", href: "/purchase-orders" },
     { name: "+ Create Quotation", href: "/quotations/new" },
     { name: "Customers Master", href: "/quotations/customers" },

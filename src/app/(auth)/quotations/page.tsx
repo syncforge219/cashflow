@@ -237,11 +237,10 @@ export default function QuotationsPage() {
                         setCategoryFilter(cTab.key);
                         setPage(1);
                       }}
-                      className={`px-2.5 py-1 text-[11px] font-extrabold rounded-lg transition-all cursor-pointer ${
-                        categoryFilter === cTab.key
+                      className={`px-2.5 py-1 text-[11px] font-extrabold rounded-lg transition-all cursor-pointer ${categoryFilter === cTab.key
                           ? "bg-white text-indigo-700 shadow-xs"
                           : "text-slate-600 hover:text-slate-900"
-                      }`}
+                        }`}
                     >
                       {cTab.label}
                     </button>
@@ -257,11 +256,10 @@ export default function QuotationsPage() {
                         setStatusFilter(st);
                         setPage(1);
                       }}
-                      className={`px-2 py-1 text-[11px] font-extrabold rounded-lg transition-all cursor-pointer ${
-                        statusFilter === st
+                      className={`px-2 py-1 text-[11px] font-extrabold rounded-lg transition-all cursor-pointer ${statusFilter === st
                           ? "bg-indigo-600 text-white shadow-xs"
                           : "text-slate-600 hover:text-slate-900"
-                      }`}
+                        }`}
                     >
                       {st}
                     </button>
