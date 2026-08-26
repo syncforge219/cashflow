@@ -36,8 +36,23 @@ export default function BatchStudentsModal({
           fetch(`/api/attendance?batchId=${encodeURIComponent(batchId)}&batchName=${encodeURIComponent(batchName)}&rosterOnly=true`).then((r) => r.json().catch(() => ({}))),
         ]);
 
-        const admStudents = admissionsRes.success && Array.isArray(admissionsRes.data) ? admissionsRes.data : [];
+        const admStudentsRaw = admissionsRes.success && Array.isArray(admissionsRes.data) ? admissionsRes.data : [];
         const rosterStudents = rosterRes.success && Array.isArray(rosterRes.roster) ? rosterRes.roster : [];
+
+        const bIdStr = String(batch.batchId || batch._id || "").trim();
+        const bMongoId = batch._id ? String(batch._id).trim() : "";
+        const bNameStr = String(batch.batchName || "").trim();
+
+        const admStudents = admStudentsRaw.filter((s: any) => {
+          if (s.batchId && String(s.batchId).trim()) {
+            const studentBId = String(s.batchId).trim();
+            return (bIdStr && studentBId === bIdStr) || (bMongoId && studentBId === bMongoId);
+          }
+          if (bNameStr && s.batch) {
+            return String(s.batch).trim() === bNameStr;
+          }
+          return true;
+        });
 
         // Deduplicate students by mobile or admissionId/studentName
         const studentMap = new Map<string, any>();

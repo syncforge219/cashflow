@@ -148,11 +148,17 @@ export default function TeacherBatchesPage() {
   // Helper to get students enrolled in a specific batch using batchId and exact batch match
   const getStudentsInBatch = (batchObj: any) => {
     const bId = typeof batchObj === "object" ? (batchObj?.batchId || batchObj?._id) : "";
+    const bMongoId = typeof batchObj === "object" ? (batchObj?._id ? String(batchObj._id) : "") : "";
     const bName = typeof batchObj === "object" ? batchObj?.batchName : batchObj;
+
     return students.filter((s) => {
-      if (bId && (s.batchId === bId || s.batchId === batchObj?._id || s.batchId === batchObj?.batchId)) {
-        return true;
+      // If student has a batchId assigned, strictly check against target batch's batchId or _id
+      if (s.batchId && String(s.batchId).trim()) {
+        const studentBId = String(s.batchId).trim();
+        return (bId && studentBId === String(bId).trim()) || (bMongoId && studentBId === bMongoId);
       }
+
+      // If student DOES NOT have a batchId assigned, fall back to matching batch name
       if (bName && s.batch) {
         return s.batch.trim() === String(bName).trim();
       }

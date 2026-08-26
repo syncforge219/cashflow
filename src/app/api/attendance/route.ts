@@ -56,7 +56,17 @@ export async function GET(request: Request) {
       if (customBatchId && customBatchId !== batchId) {
         batchOrQuery.push({ batchId: customBatchId });
       }
-      if (targetBatchName) {
+
+      if (batchOrQuery.length > 0) {
+        if (targetBatchName) {
+          batchOrQuery.push({
+            $and: [
+              { batch: targetBatchName.trim() },
+              { $or: [{ batchId: { $exists: false } }, { batchId: "" }, { batchId: null }] }
+            ]
+          });
+        }
+      } else if (targetBatchName) {
         batchOrQuery.push({ batch: targetBatchName.trim() });
       }
 
@@ -79,8 +89,18 @@ export async function GET(request: Request) {
       if (studentRoster.length === 0 && (batchId || targetBatchName)) {
         const enquiryBatchQuery: any[] = [];
         if (batchId) enquiryBatchQuery.push({ batchId: batchId });
-        if (customBatchId) enquiryBatchQuery.push({ batchId: customBatchId });
-        if (targetBatchName) {
+        if (customBatchId && customBatchId !== batchId) enquiryBatchQuery.push({ batchId: customBatchId });
+
+        if (enquiryBatchQuery.length > 0) {
+          if (targetBatchName) {
+            enquiryBatchQuery.push({
+              $and: [
+                { batch: targetBatchName.trim() },
+                { $or: [{ batchId: { $exists: false } }, { batchId: "" }, { batchId: null }] }
+              ]
+            });
+          }
+        } else if (targetBatchName) {
           enquiryBatchQuery.push({ batch: targetBatchName.trim() });
         }
 

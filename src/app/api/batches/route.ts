@@ -131,6 +131,7 @@ export async function GET(request: Request) {
 
     // Attach enrolled student counts to each batch
     try {
+      const Admission = (await import("@/models/Admission")).default;
       const Enquiry = (await import("@/models/Enquiry")).default;
       const Attendance = (await import("@/models/Attendance")).default;
 
@@ -140,17 +141,32 @@ export async function GET(request: Request) {
         const bCustomId = b.batchId || "";
         const bName = b.batchName || "";
 
-        const enrolledInDb = await Enquiry.countDocuments({
-          $or: [
-            { batchId: bIdStr },
-            { batchId: bCustomId },
-            { batch: bName },
-            { assignedBatch: bName }
-          ]
+        const batchIdOrConditions: any[] = [];
+        if (bIdStr) batchIdOrConditions.push({ batchId: bIdStr });
+        if (bCustomId && bCustomId !== bIdStr) batchIdOrConditions.push({ batchId: bCustomId });
+
+        const batchMatchQuery: any[] = [...batchIdOrConditions];
+        if (bName) {
+          batchMatchQuery.push({
+            $and: [
+              { $or: [{ batch: bName }, { assignedBatch: bName }] },
+              { $or: [{ batchId: { $exists: false } }, { batchId: "" }, { batchId: null }] }
+            ]
+          });
+        }
+
+        const enrolledAdmissions = await Admission.countDocuments({
+          $or: batchMatchQuery
         });
 
+        const enrolledEnquiries = await Enquiry.countDocuments({
+          $or: batchMatchQuery
+        });
+
+        const enrolledInDb = Math.max(enrolledAdmissions, enrolledEnquiries);
+
         const latestAttendanceLog = await Attendance.findOne({
-          $or: [{ batchId: bIdStr }, { batchId: bCustomId }, { batchName: bName }]
+          $or: batchIdOrConditions.length > 0 ? batchIdOrConditions : [{ batchName: bName }]
         }).sort({ date: -1 }).lean();
 
         const logStudentCount = (latestAttendanceLog as any)?.totalStudents || 0;

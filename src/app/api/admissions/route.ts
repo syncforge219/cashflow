@@ -602,6 +602,7 @@ export async function GET(req: Request) {
     if (batchIdParam || batchParam) {
       let resolvedBatchName = batchParam ? batchParam.trim() : "";
       let resolvedBatchId = batchIdParam ? batchIdParam.trim() : "";
+      let mongoBatchId = "";
 
       if (resolvedBatchId) {
         try {
@@ -613,26 +614,31 @@ export async function GET(req: Request) {
           if (batchDoc) {
             resolvedBatchName = batchDoc.batchName;
             resolvedBatchId = batchDoc.batchId || resolvedBatchId;
+            mongoBatchId = batchDoc._id ? batchDoc._id.toString() : "";
           }
         } catch (_) {}
       }
 
-      const batchConditions: any[] = [];
       if (resolvedBatchId) {
-        batchConditions.push({ batchId: resolvedBatchId });
-      }
-      if (resolvedBatchName) {
-        if (exactBatchParam === "true" || resolvedBatchId) {
-          batchConditions.push({ batch: resolvedBatchName });
-        } else {
-          batchConditions.push({ batch: { $regex: new RegExp(`^${escapeRegExp(resolvedBatchName)}$`, "i") } });
+        const idMatches: any[] = [{ batchId: resolvedBatchId }];
+        if (mongoBatchId && mongoBatchId !== resolvedBatchId) {
+          idMatches.push({ batchId: mongoBatchId });
         }
-      }
 
-      if (batchConditions.length === 1) {
-        andConditions.push(batchConditions[0]);
-      } else if (batchConditions.length > 1) {
-        andConditions.push({ $or: batchConditions });
+        const unassignedBatchIdFallback = resolvedBatchName ? [{
+          $and: [
+            { batch: resolvedBatchName },
+            { $or: [{ batchId: { $exists: false } }, { batchId: "" }, { batchId: null }] }
+          ]
+        }] : [];
+
+        andConditions.push({ $or: [...idMatches, ...unassignedBatchIdFallback] });
+      } else if (resolvedBatchName) {
+        if (exactBatchParam === "true") {
+          andConditions.push({ batch: resolvedBatchName });
+        } else {
+          andConditions.push({ batch: { $regex: new RegExp(`^${escapeRegExp(resolvedBatchName)}$`, "i") } });
+        }
       }
     }
 
