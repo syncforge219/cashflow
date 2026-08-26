@@ -216,7 +216,7 @@ export default function PurchaseOrdersPage() {
                       <th className="px-4 py-3.5">PO Number</th>
                       <th className="px-4 py-3.5">Quotation Ref</th>
                       <th className="px-4 py-3.5">Client / Consignee</th>
-                      <th className="px-4 py-3.5">Supplier Address</th>
+                      <th className="px-4 py-3.5">Supplier Name</th>
                       <th className="px-4 py-3.5">Date</th>
                       <th className="px-4 py-3.5 text-right">Grand Total</th>
                       <th className="px-4 py-3.5 text-center">Status</th>
@@ -248,8 +248,8 @@ export default function PurchaseOrdersPage() {
                           <td className="px-4 py-3.5 font-bold text-slate-800">
                             {po.customerName}
                           </td>
-                          <td className="px-4 py-3.5 max-w-[180px] truncate text-slate-600" title={po.supplierAddress}>
-                            {po.supplierName ? `${po.supplierName} - ` : ""}{po.supplierAddress || "N/A"}
+                          <td className="px-4 py-3.5 font-bold text-slate-700">
+                            {po.supplierName || "-"}
                           </td>
                           <td className="px-4 py-3.5 text-slate-500 font-medium whitespace-nowrap">
                             {po.date ? new Date(po.date).toLocaleDateString("en-IN") : "-"}

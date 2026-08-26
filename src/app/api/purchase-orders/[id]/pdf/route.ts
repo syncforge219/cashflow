@@ -466,9 +466,6 @@ function generatePurchaseOrderHtml(po: any, profile: any): string {
           <div><span class="meta-label">Client / Consignee :-</span> <b>${po.customerName}</b></div>
           <div style="margin-top: 3px;"><span class="meta-label">Client Address :-</span> ${po.customerAddress || po.consigneeInfo || "-"}</div>
           ${po.supplierName ? `<div style="margin-top: 4px;"><span class="meta-label">Supplier Name :-</span> <b>${po.supplierName}</b></div>` : ""}
-          <div style="margin-top: 4px; background: #fffde7; padding: 3px 5px; border: 1px dashed #fbc02d; rounded: 3px;">
-            <span class="meta-label" style="color: #b71c1c;">Supplier Address :-</span> <b>${po.supplierAddress || "N/A"}</b>
-          </div>
           ${po.customerGstin ? `<div style="margin-top: 4px;"><span class="meta-label">GSTIN No.</span> ${po.customerGstin}</div>` : ""}
         </td>
       </tr>
