@@ -466,7 +466,7 @@ function generateProformaInvoiceHtml(pi: any, profile: any): string {
           <div><span class="meta-label">Client / Consignee :-</span> <b>${pi.customerName}</b></div>
           <div style="margin-top: 3px;"><span class="meta-label">Consignee Info :-</span> ${pi.consigneeInfo || pi.customerName}</div>
           ${pi.customerAddress ? `<div style="margin-top: 3px;"><span class="meta-label">Delivery / Billing Address :-</span> ${pi.customerAddress}</div>` : ""}
-          ${pi.customerGstin ? `<div style="margin-top: 3px;"><span class="meta-label">GSTIN No.</span> ${pi.customerGstin}</div>` : ""}
+          <div style="margin-top: 3px;"><span class="meta-label">Client GSTIN :-</span> <b>${pi.customerGstin || ""}</b></div>
         </td>
       </tr>
     </table>
