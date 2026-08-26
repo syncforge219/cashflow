@@ -5,6 +5,7 @@ import Sidebar from "@/components/Sidebar";
 import QuotationNav from "@/components/QuotationNav";
 import Link from "next/link";
 import CfoSecurityGuard from "@/components/CfoSecurityGuard";
+import ConvertToPoModal from "@/components/ConvertToPoModal";
 
 interface QuotationItem {
   _id: string;
@@ -49,6 +50,7 @@ export default function QuotationsPage() {
   const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [selectedQuotationForPo, setSelectedQuotationForPo] = useState<QuotationItem | null>(null);
 
   const fetchQuotations = async () => {
     setLoading(true);
@@ -355,6 +357,14 @@ export default function QuotationsPage() {
                               </a>
 
                               <button
+                                onClick={() => setSelectedQuotationForPo(q)}
+                                className="px-2.5 py-1 text-[11px] font-bold text-violet-600 bg-violet-50 hover:bg-violet-100 border border-violet-200 rounded-lg transition-colors cursor-pointer"
+                                title="Convert Quotation to Purchase Order"
+                              >
+                                📦 Convert to PO
+                              </button>
+
+                              <button
                                 onClick={() => handleDuplicate(q._id, q.quotationNumber)}
                                 className="px-2.5 py-1 text-[11px] font-bold text-amber-600 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-colors cursor-pointer"
                                 title="Duplicate Quotation"
@@ -406,6 +416,16 @@ export default function QuotationsPage() {
           </div>
         </div>
       </div>
+
+      {/* Convert Quotation to Purchase Order Modal */}
+      <ConvertToPoModal
+        isOpen={!!selectedQuotationForPo}
+        onClose={() => setSelectedQuotationForPo(null)}
+        quotation={selectedQuotationForPo}
+        onSuccess={() => {
+          fetchQuotations();
+        }}
+      />
     </CfoSecurityGuard>
   );
 }
