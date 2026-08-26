@@ -55,6 +55,8 @@ export async function POST(
       additionalCharges: quotation.additionalCharges || 0,
       grandTotal: quotation.grandTotal || 0,
       amountInWords: quotation.amountInWords || numberToIndianWords(quotation.grandTotal || 0),
+      termsAndConditions: Array.isArray(body.termsAndConditions) ? body.termsAndConditions : (quotation.termsAndConditions || []),
+      bankDetails: body.bankDetails || quotation.bankDetails || {},
       status: "ISSUED" as const,
       createdBy: quotation.createdBy || "System",
 

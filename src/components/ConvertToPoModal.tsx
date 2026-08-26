@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 interface ConvertToPoModalProps {
@@ -11,6 +11,7 @@ interface ConvertToPoModalProps {
     quotationNumber: string;
     customerName: string;
     grandTotal: number;
+    termsAndConditions?: string[];
   } | null;
   onSuccess?: () => void;
 }
@@ -25,10 +26,61 @@ export default function ConvertToPoModal({
   const [supplierName, setSupplierName] = useState("");
   const [supplierAddress, setSupplierAddress] = useState("");
   const [supplierGstin, setSupplierGstin] = useState("");
+  const [terms, setTerms] = useState<string[]>([]);
+  const [newTermInput, setNewTermInput] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
+  useEffect(() => {
+    if (quotation) {
+      if (Array.isArray(quotation.termsAndConditions) && quotation.termsAndConditions.length > 0) {
+        setTerms(quotation.termsAndConditions);
+      } else {
+        // Fetch detailed quotation to get terms
+        fetch(`/api/quotations/${quotation._id}`)
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.success && data.data?.termsAndConditions) {
+              setTerms(data.data.termsAndConditions);
+            } else {
+              setTerms([
+                "GST CHARGE EXTRA",
+                "TRANSPORTATION INCLUDED",
+                "PAYMENT ADVANCE",
+                "MATERIAL DELIVERED WITHIN 7 DAYS",
+              ]);
+            }
+          })
+          .catch(() => {
+            setTerms([
+              "GST CHARGE EXTRA",
+              "TRANSPORTATION INCLUDED",
+              "PAYMENT ADVANCE",
+            ]);
+          });
+      }
+    }
+  }, [quotation]);
+
   if (!isOpen || !quotation) return null;
+
+  const handleAddTerm = () => {
+    if (!newTermInput.trim()) return;
+    setTerms((prev) => [...prev, newTermInput.trim()]);
+    setNewTermInput("");
+  };
+
+  const handleRemoveTerm = (index: number) => {
+    setTerms((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleUpdateTerm = (index: number, val: string) => {
+    setTerms((prev) => {
+      const copy = [...prev];
+      copy[index] = val;
+      return copy;
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,6 +100,7 @@ export default function ConvertToPoModal({
           supplierName: supplierName.trim(),
           supplierAddress: supplierAddress.trim(),
           supplierGstin: supplierGstin.trim().toUpperCase(),
+          termsAndConditions: terms.filter((t) => t.trim() !== ""),
         }),
       });
 
@@ -56,7 +109,6 @@ export default function ConvertToPoModal({
       if (res.ok && data.success) {
         onClose();
         if (onSuccess) onSuccess();
-        // Open generated PO PDF in a new tab
         if (data.data?._id) {
           window.open(`/api/purchase-orders/${data.data._id}/pdf`, "_blank");
         }
@@ -74,9 +126,9 @@ export default function ConvertToPoModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden flex flex-col">
+      <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="px-6 py-5 bg-gradient-to-r from-indigo-900 via-indigo-800 to-slate-900 text-white flex items-center justify-between">
+        <div className="px-6 py-4 bg-gradient-to-r from-indigo-900 via-indigo-800 to-slate-900 text-white flex items-center justify-between shrink-0">
           <div>
             <div className="text-[10px] font-black uppercase tracking-wider text-indigo-300">
               Quotation Conversion Engine
@@ -94,7 +146,7 @@ export default function ConvertToPoModal({
         </div>
 
         {/* Content Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4 flex-1">
           {/* Summary Box */}
           <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-1 text-xs font-semibold">
             <div className="flex justify-between text-slate-500">
@@ -137,7 +189,7 @@ export default function ConvertToPoModal({
               Supplier Address <span className="text-rose-500">* Required</span>
             </label>
             <textarea
-              rows={3}
+              rows={2}
               required
               value={supplierAddress}
               onChange={(e) => setSupplierAddress(e.target.value)}
@@ -160,8 +212,66 @@ export default function ConvertToPoModal({
             />
           </div>
 
+          {/* Terms and Conditions Section - EDITABLE HERE */}
+          <div className="border-t border-slate-200 pt-3">
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                📝 Terms & Conditions for Purchase Order
+              </label>
+              <span className="text-[10px] text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
+                Update or customize terms here
+              </span>
+            </div>
+
+            <div className="space-y-2 bg-slate-50/80 p-3 rounded-2xl border border-slate-200/80">
+              {terms.map((term, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <span className="text-slate-400 font-bold text-xs">{idx + 1}.</span>
+                  <input
+                    type="text"
+                    value={term}
+                    onChange={(e) => handleUpdateTerm(idx, e.target.value)}
+                    className="flex-1 px-3 py-1.5 text-xs font-semibold bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveTerm(idx)}
+                    className="h-7 w-7 text-rose-500 hover:bg-rose-50 rounded-lg font-bold text-xs transition-colors cursor-pointer flex items-center justify-center shrink-0"
+                    title="Remove term"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+
+              {/* Add New Term Input */}
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="text"
+                  value={newTermInput}
+                  onChange={(e) => setNewTermInput(e.target.value)}
+                  placeholder="Type a new term & condition..."
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddTerm();
+                    }
+                  }}
+                  className="flex-1 px-3 py-1.5 text-xs font-semibold bg-white border border-slate-200/80 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddTerm}
+                  className="px-3 py-1.5 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-xl transition-colors cursor-pointer"
+                >
+                  + Add
+                </button>
+              </div>
+            </div>
+          </div>
+
           {/* Footer Buttons */}
-          <div className="pt-3 flex items-center justify-end gap-3 border-t border-slate-100">
+          <div className="pt-3 flex items-center justify-end gap-3 border-t border-slate-100 shrink-0">
             <button
               type="button"
               onClick={onClose}

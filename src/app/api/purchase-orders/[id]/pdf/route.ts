@@ -87,7 +87,17 @@ function generatePurchaseOrderHtml(po: any, profile: any): string {
   };
   const cycleLabel = cycleDisplayMap[billingCycle] || billingCycle;
 
-  const minRows = 4;
+  const terms = Array.isArray(po.termsAndConditions) && po.termsAndConditions.length > 0
+    ? po.termsAndConditions
+    : profile?.defaultTerms || [
+        "GST CHARGE EXTRA",
+        "TRANSPORTATION INCLUDED",
+        "PAYMENT ADVANCE",
+      ];
+
+  const bankDetails = po.bankDetails || profile?.bankDetails || {};
+
+  const minRows = 3;
   const emptyRowsCount = Math.max(0, minRows - items.length);
   const emptyRows = Array.from({ length: emptyRowsCount });
 
@@ -252,17 +262,30 @@ function generatePurchaseOrderHtml(po: any, profile: any): string {
       background: #fafafa;
     }
 
-    /* Signature Section (Without Terms or Bank details as requested) */
-    .bottom-signature-section {
+    /* Terms & Signature Section */
+    .bottom-section {
       display: flex;
-      justify-content: flex-end;
+      justify-content: space-between;
       border: 1px solid #000;
       margin-top: -1px;
       min-height: 110px;
-      padding: 10px;
+    }
+    .terms-col {
+      width: 60%;
+      border-right: 1px solid #000;
+      padding: 6px 8px;
+      font-size: 9.5px;
+    }
+    .terms-col ol {
+      padding-left: 16px;
+      margin-top: 3px;
+    }
+    .terms-col li {
+      margin-bottom: 2px;
     }
     .sig-col {
-      width: 45%;
+      width: 40%;
+      padding: 6px 8px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
@@ -279,7 +302,7 @@ function generatePurchaseOrderHtml(po: any, profile: any): string {
       display: flex;
       align-items: center;
       justify-content: center;
-      margin: 4px 0;
+      margin: 2px 0;
     }
     .sig-title {
       font-weight: bold;
@@ -289,6 +312,56 @@ function generatePurchaseOrderHtml(po: any, profile: any): string {
       padding-top: 3px;
     }
 
+    /* Bank Footer Box */
+    .bank-box {
+      border: 1px solid #000;
+      margin-top: -1px;
+      padding: 6px 8px;
+      font-size: 10px;
+      background: #ffffff;
+    }
+    .bank-flex {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .bank-grid {
+      display: grid;
+      grid-template-columns: 110px 1fr;
+      row-gap: 2px;
+      flex: 1;
+    }
+    .bank-label { font-weight: bold; }
+    .bank-qr-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin-left: 12px;
+      padding-left: 12px;
+      border-left: 1px dashed #000;
+    }
+    .bank-qr-img {
+      width: 100px;
+      height: 100px;
+      max-height: 105px;
+      max-width: 105px;
+      object-fit: contain;
+      border: 1px solid #000;
+      padding: 2px;
+      background: #fff;
+      image-rendering: -webkit-optimize-contrast;
+      image-rendering: crisp-edges;
+      image-rendering: pixelated;
+    }
+    .bank-qr-label {
+      font-size: 8px;
+      font-weight: bold;
+      margin-top: 2px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
     /* Computer Generated Note */
     .computer-note {
       text-align: center;
@@ -296,19 +369,19 @@ function generatePurchaseOrderHtml(po: any, profile: any): string {
       font-weight: bold;
       font-style: italic;
       color: #333;
-      margin-top: 12px;
+      margin-top: 10px;
       margin-bottom: 4px;
     }
 
     .footer-bar {
-      margin-top: 10px;
+      margin-top: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
       text-align: center;
       font-size: 9px;
       border-top: 1px solid #000;
-      padding-top: 5px;
+      padding-top: 4px;
     }
 
     @media print {
@@ -462,8 +535,14 @@ function generatePurchaseOrderHtml(po: any, profile: any): string {
       Rupees :- ${amountWords}
     </div>
 
-    <!-- Signature Section (Terms & Bank details explicitly omitted) -->
-    <div class="bottom-signature-section">
+    <!-- Terms & Signature Section -->
+    <div class="bottom-section">
+      <div class="terms-col">
+        <div style="font-weight: bold; margin-bottom: 3px; text-transform: uppercase; text-decoration: underline;">Terms &amp; Conditions :</div>
+        <ol style="padding-left: 14px; margin: 0;">
+          ${terms.map((t: string) => `<li>${t}</li>`).join("")}
+        </ol>
+      </div>
       <div class="sig-col">
         <div class="sig-company">FOR ${companyName}</div>
         <div class="stamp-container" style="position: relative; width: 140px; height: 75px; margin: 0 auto; display: flex; align-items: center; justify-content: center;">
@@ -472,6 +551,43 @@ function generatePurchaseOrderHtml(po: any, profile: any): string {
           ${(!profile?.stampImage && !profile?.signatureImage) ? `<span style="color: #999; font-size: 9px;">[ OFFICIAL STAMP & SIGN ]</span>` : ''}
         </div>
         <div class="sig-title">${profile?.authorizedSignatory || "AUTHORISED SIGNATORY"}</div>
+      </div>
+    </div>
+
+    <!-- Bank Details Box -->
+    <div class="bank-box">
+      <div class="bank-flex">
+        <div style="flex: 1;">
+          <div style="font-weight: bold; margin-bottom: 3px;">Bank Detail :</div>
+          <div class="bank-grid">
+            <div class="bank-label">Company Name :</div>
+            <div style="font-weight: bold;">${companyName}</div>
+            <div class="bank-label">Name of Bank :</div>
+            <div>${bankDetails.bankName || "Bank of India"}</div>
+            <div class="bank-label">Branch Address :</div>
+            <div>${bankDetails.branch || "Ashok Marg"}</div>
+            <div class="bank-label">Account No. :</div>
+            <div>"${bankDetails.accountNumber || "680530110000089"}"</div>
+            <div class="bank-label">RTGS Code :</div>
+            <div>${bankDetails.rtgsCode || bankDetails.ifsc || "BKID0006805"}</div>
+          </div>
+        </div>
+        ${profile?.bankQrImage ? `
+        <div class="bank-qr-container">
+          <img src="${profile.bankQrImage}" class="bank-qr-img" alt="Bank Payment QR Code" />
+          <div class="bank-qr-label">BANK PAYMENT QR</div>
+        </div>
+        ` : `
+        <div class="bank-qr-container">
+          <svg class="bank-qr-img" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="100" fill="white"/>
+            <path d="M10 10h30v30H10zM60 10h30v30H60zM10 60h30v30H10z" fill="black"/>
+            <path d="M20 20h10v10H20zM70 20h10v10H70zM20 70h10v10H20z" fill="white"/>
+            <path d="M50 50h10v10H50zM70 50h20v10H70zM50 70h20v20H50zM80 80h10v10H80z" fill="black"/>
+          </svg>
+          <div class="bank-qr-label">BANK PAYMENT QR</div>
+        </div>
+        `}
       </div>
     </div>
 
@@ -518,7 +634,7 @@ export async function GET(
       const pdfBuffer = await page.pdf({
         format: "A4",
         printBackground: true,
-        margin: { top: "10mm", right: "10mm", bottom: "10mm", left: "10mm" },
+        margin: { top: "8mm", right: "8mm", bottom: "8mm", left: "8mm" },
       });
       await browser.close();
 

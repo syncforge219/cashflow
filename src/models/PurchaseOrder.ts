@@ -126,6 +126,17 @@ const PurchaseOrderSchema = new Schema(
       type: String,
       default: "",
     },
+    termsAndConditions: {
+      type: [String],
+      default: [],
+    },
+    bankDetails: {
+      bankName: { type: String, default: "" },
+      branch: { type: String, default: "" },
+      accountNumber: { type: String, default: "" },
+      ifsc: { type: String, default: "" },
+      rtgsCode: { type: String, default: "" },
+    },
     status: {
       type: String,
       enum: ["DRAFT", "ISSUED", "COMPLETED", "CANCELLED"],
