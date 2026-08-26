@@ -178,16 +178,19 @@ export async function POST(req: Request) {
     let calculatedSubtotal = 0;
 
     const processedItems = items.map((item: any) => {
-      const qty = Math.max(0, Number(item.quantity) || 0);
+      const rawQty = (item.quantity !== undefined && item.quantity !== null && String(item.quantity).trim() !== "")
+        ? item.quantity
+        : 1;
+      const qtyNum = parseItemQty(item);
       const rate = Math.max(0, Number(item.rate) || 0);
-      const amt = qty * rate;
+      const amt = (Number(item.amount) > 0) ? Number(item.amount) : Math.round(qtyNum * rate);
       calculatedSubtotal += amt;
 
       return {
         productId: item.productId || undefined,
         name: item.name || item.productName || "Product",
         description: item.description || "",
-        quantity: qty,
+        quantity: rawQty,
         unit: item.unit || "mtr",
         rate: rate,
         gstRate: Number(item.gstRate) !== undefined ? Number(item.gstRate) : 18,
@@ -286,16 +289,19 @@ export async function PUT(req: Request) {
     let calculatedSubtotal = 0;
 
     const processedItems = items.map((item: any) => {
-      const qty = Math.max(0, Number(item.quantity) || 0);
+      const rawQty = (item.quantity !== undefined && item.quantity !== null && String(item.quantity).trim() !== "")
+        ? item.quantity
+        : 1;
+      const qtyNum = parseItemQty(item);
       const rate = Math.max(0, Number(item.rate) || 0);
-      const amt = qty * rate;
+      const amt = (Number(item.amount) > 0) ? Number(item.amount) : Math.round(qtyNum * rate);
       calculatedSubtotal += amt;
 
       return {
         productId: item.productId || undefined,
         name: item.name || item.productName || "Product",
         description: item.description || "",
-        quantity: qty,
+        quantity: rawQty,
         unit: item.unit || "mtr",
         rate: rate,
         gstRate: Number(item.gstRate) !== undefined ? Number(item.gstRate) : 18,

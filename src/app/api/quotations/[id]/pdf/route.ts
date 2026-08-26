@@ -47,24 +47,44 @@ function generateQuotationHtml(quotation: any, profile: any): string {
     const q = item.quantity;
     const r = Number(item.rate) || 0;
     const storedAmt = Number(item.amount) || 0;
+    const unit = (item.unit || "").trim();
 
-    // 1. If quantity field has explicit user input (e.g. "2 days", "2")
+    // If storedAmt > 0 and r > 0, derived quantity from total amount / rate
+    const derivedQty = (storedAmt > 0 && r > 0) ? Math.round(storedAmt / r) : 0;
+
+    // 1. If quantity field has explicit user input (e.g. "25 mt", "25 Day", "25")
     if (q !== undefined && q !== null && String(q).trim() !== "" && String(q).trim() !== "0") {
       const str = String(q).trim();
       const match = str.toLowerCase().match(/[\d.]+/);
-      const num = match ? parseFloat(match[0]) : 1;
-      return { qtyNum: num > 0 ? num : 1, displayQty: str };
+      const parsedNum = match ? parseFloat(match[0]) : 0;
+      
+      let qtyNum = parsedNum > 0 ? parsedNum : (derivedQty > 0 ? derivedQty : 1);
+      
+      // If user typed only a number (e.g. "25") and specified a custom unit (e.g. "mt" or "seat/mo"), append unit if not already present
+      let displayQty = str;
+      if (/^\d+(\.\d+)?$/.test(str) && unit && !str.toLowerCase().includes(unit.toLowerCase())) {
+        displayQty = `${str} ${unit}`;
+      }
+
+      return { qtyNum, displayQty };
     }
 
     // 2. If valid number > 0 in quantity
     if (typeof q === "number" && q > 0) {
-      return { qtyNum: q, displayQty: String(q) };
+      const displayQty = unit ? `${q} ${unit}` : String(q);
+      return { qtyNum: q, displayQty };
     }
 
-    // 3. Fallback: Parse quantity from description or name (e.g. "Two days...", "2 days...")
+    // 3. If storedAmt > 0 and rate > 0, derive from stored amount / rate
+    if (derivedQty > 0) {
+      const displayQty = unit ? `${derivedQty} ${unit}` : String(derivedQty);
+      return { qtyNum: derivedQty, displayQty };
+    }
+
+    // 4. Fallback: Parse quantity from description or name (e.g. "Two days...", "2 days...")
     const combinedText = `${item.name || ""} ${item.description || ""}`.toLowerCase();
     
-    const digitPattern = combinedText.match(/(\d+)\s*(day|days|hour|hours|month|months|year|years|seat|seats|unit|units|pc|pcs|kg|mtr)/);
+    const digitPattern = combinedText.match(/(\d+)\s*(day|days|hour|hours|month|months|year|years|seat|seats|unit|units|pc|pcs|kg|mtr|mt)/);
     if (digitPattern && parseFloat(digitPattern[1]) > 0) {
       const num = parseFloat(digitPattern[1]);
       const unitW = digitPattern[2];
@@ -80,12 +100,6 @@ function generateQuotationHtml(quotation: any, profile: any): string {
       if (regex.test(combinedText)) {
         return { qtyNum: n, displayQty: `${n} days` };
       }
-    }
-
-    // 4. If storedAmt > 0 and rate > 0
-    if (storedAmt > 0 && r > 0) {
-      const derived = Math.round(storedAmt / r);
-      return { qtyNum: derived, displayQty: String(derived) };
     }
 
     // 5. Default fallback if rate > 0
