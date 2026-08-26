@@ -27,6 +27,21 @@ export default function SoftwareDeveloperSidebar() {
   const [isHovered, setIsHovered] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
 
+  React.useEffect(() => {
+    const handleResize = () => {
+      if (typeof window !== "undefined") {
+        if (window.innerWidth >= 768) {
+          setIsCollapsed(false);
+        } else {
+          setIsCollapsed(true);
+        }
+      }
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   // Dynamic registered softwares list
   const [registeredSoftwares, setRegisteredSoftwares] = useState<any[]>([]);
 

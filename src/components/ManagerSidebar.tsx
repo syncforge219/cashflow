@@ -23,9 +23,24 @@ interface SidebarGroup {
 export default function ManagerSidebar() {
   const pathname = usePathname();
   const { user, logout } = useUser();
-  const [isCollapsed, setIsCollapsed] = useState(true);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      if (typeof window !== "undefined") {
+        if (window.innerWidth >= 768) {
+          setIsCollapsed(false);
+        } else {
+          setIsCollapsed(true);
+        }
+      }
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const effectiveCollapsed = isPinned ? false : isCollapsed && !isHovered;
 

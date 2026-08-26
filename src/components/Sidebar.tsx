@@ -27,7 +27,7 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { user, login, logout } = useUser();
 
-  const [isCollapsed, setIsCollapsed] = useState(true);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
 
@@ -35,6 +35,21 @@ export default function Sidebar() {
   const [localLogo, setLocalLogo] = useState<string>("");
   const [imgError, setImgError] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      if (typeof window !== "undefined") {
+        if (window.innerWidth >= 768) {
+          setIsCollapsed(false);
+        } else {
+          setIsCollapsed(true);
+        }
+      }
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   React.useEffect(() => {
     const saved = localStorage.getItem("app_brand_logo");

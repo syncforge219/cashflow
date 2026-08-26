@@ -23,9 +23,24 @@ interface SidebarGroup {
 
 export default function CounsellorSidebar() {
   const pathname = usePathname();
-  const [isCollapsed, setIsCollapsed] = useState(true);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      if (typeof window !== "undefined") {
+        if (window.innerWidth >= 768) {
+          setIsCollapsed(false);
+        } else {
+          setIsCollapsed(true);
+        }
+      }
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const effectiveCollapsed = isPinned ? false : isCollapsed && !isHovered;
   const { logout } = useUser();
