@@ -232,7 +232,48 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
         if (custData.success) setCustomers(custData.data || []);
         if (prodData.success) setProducts(prodData.data || []);
         if (compData.success && Array.isArray(compData.companies)) {
-          setCompaniesList(compData.companies);
+          const comps: CompanyOption[] = compData.companies;
+          setCompaniesList(comps);
+
+          if (!isEdit) {
+            const siccesComp = comps.find(
+              (c) =>
+                c.name?.toUpperCase().includes("SICCES") ||
+                c.legalName?.toUpperCase().includes("SICCES")
+            );
+
+            if (siccesComp) {
+              setSelectedCompanyEntityId(siccesComp._id);
+              setIssuingCompanyInfo({
+                name: siccesComp.legalName || siccesComp.name || "SICCES PRIVATE LIMITED",
+                gstin: (siccesComp.gst && siccesComp.gst !== "Not Provided") ? siccesComp.gst : (profData?.data?.gstin || "09AASCS4608K1ZP"),
+                cin: profData?.data?.cin || "",
+                address: (siccesComp.address && siccesComp.address !== "No listed street, No City, No State, PIN") ? siccesComp.address : (profData?.data?.address || "101, Vinayak Complex, Station Road"),
+                description: Array.isArray(siccesComp.brands) && siccesComp.brands.length > 0 ? `Providers for: ${siccesComp.brands.join(", ")}` : (profData?.data?.description || "Providers of Software, Digital Marketing & Educational Services"),
+                bankName: siccesComp.bank || profData?.data?.bankDetails?.bankName || "STATE BANK OF INDIA",
+                prefix: "SICCES",
+                logo: siccesComp.qrCodeUrl || profData?.data?.logo || "",
+              });
+              if (!initialData?.poNumber) {
+                setPoNumber("SICCES/2026-27");
+              }
+            } else if (profData.success && profData.data) {
+              const p = profData.data;
+              setIssuingCompanyInfo({
+                name: p.name && p.name !== "AARAM PLASTICS PVT. LTD." ? p.name : "SICCES PRIVATE LIMITED",
+                gstin: p.gstin || "09AASCS4608K1ZP",
+                cin: p.cin || "",
+                address: p.address || "101, Vinayak Complex, Station Road",
+                description: p.description || "",
+                bankName: p.bankDetails?.bankName || "STATE BANK OF INDIA",
+                prefix: p.prefix && p.prefix !== "APPL" ? p.prefix : "SICCES",
+                logo: p.logo || "",
+              });
+              if (!initialData?.poNumber && p.prefix) {
+                setPoNumber(`${p.prefix && p.prefix !== "APPL" ? p.prefix : "SICCES"}/2026-27`);
+              }
+            }
+          }
         }
       } catch (err) {
         console.error("Error loading master data:", err);
@@ -261,18 +302,18 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
 
     const found = companiesList.find((c) => c._id === compId);
     if (found) {
+      const generatedPrefix = found.name.toUpperCase().includes("SICCES") ? "SICCES" : found.name.substring(0, 4).toUpperCase();
       setIssuingCompanyInfo({
         name: found.legalName || found.name || "",
-        gstin: (found.gst && found.gst !== "Not Provided") ? found.gst : "",
+        gstin: (found.gst && found.gst !== "Not Provided") ? found.gst : (profile?.gstin || "09AASCS4608K1ZP"),
         cin: "",
-        address: (found.address && found.address !== "No listed street, No City, No State, PIN") ? found.address : "",
-        description: Array.isArray(found.brands) && found.brands.length > 0 ? `Providers for: ${found.brands.join(", ")}` : "",
+        address: (found.address && found.address !== "No listed street, No City, No State, PIN") ? found.address : (profile?.address || "101, Vinayak Complex, Station Road"),
+        description: Array.isArray(found.brands) && found.brands.length > 0 ? `Providers for: ${found.brands.join(", ")}` : (profile?.description || "Providers of Software, Digital Marketing & Educational Services"),
         bankName: found.bank || "STATE BANK OF INDIA",
-        prefix: found.name ? found.name.substring(0, 4).toUpperCase() : "APPL",
+        prefix: generatedPrefix,
         logo: found.qrCodeUrl || profile?.logo || "",
       });
       if (found.name) {
-        const generatedPrefix = found.name.substring(0, 4).toUpperCase();
         setPoNumber(`${generatedPrefix}/2026-27`);
       }
     }
