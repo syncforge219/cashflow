@@ -33,9 +33,6 @@ export default function QuotationNav({ module }: QuotationNavProps) {
     links = [
       { name: "Purchase Orders", href: "/purchase-orders" },
       { name: "+ Create PO", href: "/purchase-orders/new" },
-      { name: "Customers Master", href: "/quotations/customers" },
-      { name: "Products Master", href: "/quotations/products" },
-      { name: "Company Settings", href: "/quotations/settings" },
     ];
   } else {
     links = [
