@@ -217,19 +217,20 @@ export default function ProformaInvoicesPage() {
                       <th className="px-4 py-3.5">Date</th>
                       <th className="px-4 py-3.5 text-right">Grand Total</th>
                       <th className="px-4 py-3.5 text-center">Status</th>
+                      <th className="px-4 py-3.5">Created By</th>
                       <th className="px-4 py-3.5 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-slate-700 font-semibold">
                     {loading ? (
                       <tr>
-                        <td colSpan={7} className="px-4 py-8 text-center text-slate-400 font-medium">
+                        <td colSpan={8} className="px-4 py-8 text-center text-slate-400 font-medium">
                           Loading proforma invoices...
                         </td>
                       </tr>
                     ) : proformaInvoices.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-4 py-8 text-center text-slate-400 font-medium">
+                        <td colSpan={8} className="px-4 py-8 text-center text-slate-400 font-medium">
                           No proforma invoices found. Click <b>+ Convert Quotation to PI</b> or convert from the Quotations page.
                         </td>
                       </tr>
@@ -265,6 +266,7 @@ export default function ProformaInvoicesPage() {
                               <option value="CANCELLED">CANCELLED</option>
                             </select>
                           </td>
+                          <td className="px-4 py-3.5 text-slate-500 text-[11px] font-medium">{pi.createdBy || "Admin"}</td>
                           <td className="px-4 py-3.5 text-right">
                             <div className="flex items-center justify-end gap-1.5">
                               <a

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { numberToIndianWords } from "@/lib/numberToWords";
+import { useUser } from "@/app/component/context/user-context";
 
 interface ItemRow {
   productId?: string;
@@ -56,6 +57,7 @@ interface QuotationFormProps {
 
 export default function QuotationForm({ initialData, isEdit = false, isPo = false }: QuotationFormProps) {
   const router = useRouter();
+  const { user } = useUser();
   const [loading, setLoading] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState("");
 
@@ -422,6 +424,7 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
     const payload = {
       ...(isEdit && { id: initialData._id }),
       ...(isPo && { supplierName: supplierName.trim() }),
+      createdBy: isEdit ? (initialData?.createdBy || user?.name || "Admin") : (user?.name || "Admin"),
       category,
       customCategoryName: customCategoryName.trim().toUpperCase(),
       billingCycle,

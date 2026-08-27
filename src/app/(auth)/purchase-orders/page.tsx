@@ -220,19 +220,20 @@ export default function PurchaseOrdersPage() {
                       <th className="px-4 py-3.5">Date</th>
                       <th className="px-4 py-3.5 text-right">Grand Total</th>
                       <th className="px-4 py-3.5 text-center">Status</th>
+                      <th className="px-4 py-3.5">Created By</th>
                       <th className="px-4 py-3.5 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-slate-700 font-semibold">
                     {loading ? (
                       <tr>
-                        <td colSpan={8} className="px-4 py-8 text-center text-slate-400 font-medium">
+                        <td colSpan={9} className="px-4 py-8 text-center text-slate-400 font-medium">
                           Loading purchase orders...
                         </td>
                       </tr>
                     ) : purchaseOrders.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="px-4 py-8 text-center text-slate-400 font-medium">
+                        <td colSpan={9} className="px-4 py-8 text-center text-slate-400 font-medium">
                           No purchase orders found. Click <b>+ Convert Quotation to PO</b> or convert from the Quotations page.
                         </td>
                       </tr>
@@ -271,6 +272,7 @@ export default function PurchaseOrdersPage() {
                               <option value="CANCELLED">CANCELLED</option>
                             </select>
                           </td>
+                          <td className="px-4 py-3.5 text-slate-500 text-[11px] font-medium">{po.createdBy || "Admin"}</td>
                           <td className="px-4 py-3.5 text-right">
                             <div className="flex items-center justify-end gap-1.5">
                               <a

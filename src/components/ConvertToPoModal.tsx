@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useUser } from "@/app/component/context/user-context";
 
 interface ConvertToPoModalProps {
   isOpen: boolean;
@@ -23,6 +24,7 @@ export default function ConvertToPoModal({
   onSuccess,
 }: ConvertToPoModalProps) {
   const router = useRouter();
+  const { user } = useUser();
   const [supplierName, setSupplierName] = useState("");
   const [supplierGstin, setSupplierGstin] = useState("");
   const [terms, setTerms] = useState<string[]>([]);
@@ -94,6 +96,7 @@ export default function ConvertToPoModal({
           supplierName: supplierName.trim(),
           supplierGstin: supplierGstin.trim().toUpperCase(),
           termsAndConditions: terms.filter((t) => t.trim() !== ""),
+          createdBy: user?.name || "Admin",
         }),
       });
 
