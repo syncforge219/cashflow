@@ -10,7 +10,7 @@ const QuotationProfileSchema = new Schema(
     name: {
       type: String,
       required: true,
-      default: "AARAM PLASTICS PVT. LTD.",
+      default: "SICCES PRIVATE LIMITED",
     },
     logo: {
       type: String,
@@ -18,15 +18,15 @@ const QuotationProfileSchema = new Schema(
     },
     gstin: {
       type: String,
-      default: "08AABCA5691D1ZS",
+      default: "09AASCS4608K1ZP",
     },
     cin: {
       type: String,
-      default: "U25209RJ1996PTC011513",
+      default: "",
     },
     description: {
       type: String,
-      default: "Manufacturers of : ISI MARKED 'GANGOTRI' HDPE PIPES, SPRINKLER SYSTEM AND PLB TELECOM DUCTS",
+      default: "Providers of Software, Digital Marketing & Educational Services",
     },
     address: {
       type: String,
@@ -50,19 +50,19 @@ const QuotationProfileSchema = new Schema(
     },
     telefax: {
       type: String,
-      default: "0141-2370336",
+      default: "",
     },
     email: {
       type: String,
-      default: "appl_jaipur@rediffmail.com",
+      default: "info@sicces.com",
     },
     website: {
       type: String,
-      default: "www.aaramplastics.com",
+      default: "www.sicces.com",
     },
     worksAddress: {
       type: String,
-      default: "G-232, Sitapura Ind. Area, Tonk Road, JAIPUR - 302 022 (Raj.) Tel. : 0141-2771862",
+      default: "",
     },
     isoTag: {
       type: String,
@@ -111,7 +111,7 @@ const QuotationProfileSchema = new Schema(
     },
     prefix: {
       type: String,
-      default: "APPL",
+      default: "SICCES",
     },
   },
   { timestamps: true }

@@ -77,13 +77,13 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
     prefix: string;
     logo: string;
   }>({
-    name: initialData?.companyName || "AARAM PLASTICS PVT. LTD.",
-    gstin: initialData?.companyGstin || "08AABCA5691D1ZS",
-    cin: initialData?.companyCin || "U25209RJ1996PTC011513",
+    name: initialData?.companyName || "SICCES PRIVATE LIMITED",
+    gstin: initialData?.companyGstin || "09AASCS4608K1ZP",
+    cin: initialData?.companyCin || "",
     address: initialData?.companyAddress || "101, Vinayak Complex, Station Road, Jaipur",
-    description: initialData?.companyDescription || "Manufacturers of : ISI MARKED HDPE PIPES, SPRINKLER SYSTEM",
+    description: initialData?.companyDescription || "Providers of Software, Digital Marketing & Educational Services",
     bankName: initialData?.bankDetails?.bankName || "STATE BANK OF INDIA",
-    prefix: "APPL",
+    prefix: "SICCES",
     logo: initialData?.companyLogo || "",
   });
 
@@ -212,17 +212,17 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
           setProfile(p);
           if (!isEdit) {
             setIssuingCompanyInfo({
-              name: p.name || "AARAM PLASTICS PVT. LTD.",
-              gstin: p.gstin || "08AABCA5691D1ZS",
-              cin: p.cin || "U25209RJ1996PTC011513",
+              name: p.name && p.name !== "AARAM PLASTICS PVT. LTD." ? p.name : "SICCES PRIVATE LIMITED",
+              gstin: p.gstin || "09AASCS4608K1ZP",
+              cin: p.cin || "",
               address: p.address || "101, Vinayak Complex, Station Road",
               description: p.description || "",
               bankName: p.bankDetails?.bankName || "STATE BANK OF INDIA",
-              prefix: p.prefix || "APPL",
+              prefix: p.prefix && p.prefix !== "APPL" ? p.prefix : "SICCES",
               logo: p.logo || "",
             });
             if (!initialData?.poNumber && p.prefix) {
-              setPoNumber(`${p.prefix}/2026-27`);
+              setPoNumber(`${p.prefix && p.prefix !== "APPL" ? p.prefix : "SICCES"}/2026-27`);
             }
           }
           if (!isEdit && !initialData?.termsAndConditions) {
@@ -246,13 +246,13 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
     if (!compId) {
       if (profile) {
         setIssuingCompanyInfo({
-          name: profile.name || "AARAM PLASTICS PVT. LTD.",
-          gstin: profile.gstin || "08AABCA5691D1ZS",
-          cin: profile.cin || "U25209RJ1996PTC011513",
+          name: profile.name && profile.name !== "AARAM PLASTICS PVT. LTD." ? profile.name : "SICCES PRIVATE LIMITED",
+          gstin: profile.gstin || "09AASCS4608K1ZP",
+          cin: profile.cin || "",
           address: profile.address || "101, Vinayak Complex, Station Road",
           description: profile.description || "",
           bankName: profile.bankDetails?.bankName || "STATE BANK OF INDIA",
-          prefix: profile.prefix || "APPL",
+          prefix: profile.prefix && profile.prefix !== "APPL" ? profile.prefix : "SICCES",
           logo: profile.logo || "",
         });
       }
@@ -610,7 +610,7 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
           <div className="bg-gradient-to-r from-slate-50 via-indigo-50/20 to-slate-50 border border-slate-200/80 rounded-2xl p-4 grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
             <div>
               <span className="text-[10px] font-extrabold uppercase text-slate-400 block tracking-wider mb-0.5">Issuing Seller Name</span>
-              <p className="font-black text-slate-900 text-sm">{issuingCompanyInfo.name || "AARAM PLASTICS PVT. LTD."}</p>
+              <p className="font-black text-slate-900 text-sm">{issuingCompanyInfo.name || "SICCES PRIVATE LIMITED"}</p>
               {issuingCompanyInfo.description && (
                 <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-1">{issuingCompanyInfo.description}</p>
               )}

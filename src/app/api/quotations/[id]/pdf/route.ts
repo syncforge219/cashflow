@@ -13,7 +13,7 @@ function generateQuotationHtml(quotation: any, profile: any): string {
       })
     : "";
 
-  const companyName = quotation.companyName || profile?.name || "AARAM PLASTICS PVT. LTD.";
+  const companyName = quotation.companyName || profile?.name || "SICCES PRIVATE LIMITED";
   const gstin = quotation.companyGstin || profile?.gstin || "08AABCA5691D1ZS";
   const cin = quotation.companyCin || profile?.cin || "U25209RJ1996PTC011513";
   const description = quotation.companyDescription || profile?.description || "Manufacturers of : ISI MARKED 'GANGOTRI' HDPE PIPES, SPRINKLER SYSTEM AND PLB TELECOM DUCTS";

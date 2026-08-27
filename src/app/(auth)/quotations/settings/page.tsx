@@ -26,20 +26,20 @@ export default function SettingsPage() {
   const [companies, setCompanies] = useState<CompanyEntity[]>([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState("");
 
-  const [name, setName] = useState("AARAM PLASTICS PVT. LTD.");
+  const [name, setName] = useState("SICCES PRIVATE LIMITED");
   const [logo, setLogo] = useState("");
-  const [gstin, setGstin] = useState("08AABCA5691D1ZS");
-  const [cin, setCin] = useState("U25209RJ1996PTC011513");
-  const [description, setDescription] = useState("Manufacturers of : ISI MARKED 'GANGOTRI' HDPE PIPES, SPRINKLER SYSTEM AND PLB TELECOM DUCTS");
+  const [gstin, setGstin] = useState("09AASCS4608K1ZP");
+  const [cin, setCin] = useState("");
+  const [description, setDescription] = useState("Providers of Software, Digital Marketing & Educational Services");
   const [address, setAddress] = useState("101, Vinayak Complex, Station Road");
   const [city, setCity] = useState("JAIPUR");
   const [state, setState] = useState("Rajasthan");
   const [pincode, setPincode] = useState("302 001");
   const [phone, setPhone] = useState("0141-4059826");
-  const [telefax, setTelefax] = useState("0141-2370336");
-  const [email, setEmail] = useState("appl_jaipur@rediffmail.com");
-  const [website, setWebsite] = useState("www.aaramplastics.com");
-  const [worksAddress, setWorksAddress] = useState("G-232, Sitapura Ind. Area, Tonk Road, JAIPUR - 302 022 (Raj.) Tel. : 0141-2771862");
+  const [telefax, setTelefax] = useState("");
+  const [email, setEmail] = useState("info@sicces.com");
+  const [website, setWebsite] = useState("www.sicces.com");
+  const [worksAddress, setWorksAddress] = useState("");
   const [isoTag, setIsoTag] = useState("");
 
   const [bankName, setBankName] = useState("STATE BANK OF INDIA");
@@ -53,7 +53,7 @@ export default function SettingsPage() {
   const [stampImage, setStampImage] = useState("");
   const [bankQrImage, setBankQrImage] = useState("");
   const [brandLogo, setBrandLogo] = useState("");
-  const [prefix, setPrefix] = useState("APPL");
+  const [prefix, setPrefix] = useState("SICCES");
 
   const categoryTabLabels: Record<string, { label: string; icon: string }> = {
     PRODUCT: { label: "Physical Goods", icon: "📦" },

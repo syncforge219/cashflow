@@ -10,7 +10,20 @@ export async function GET(req: Request) {
 
     let profile = await QuotationProfile.findOne({ companyId }).lean();
     if (!profile) {
-      profile = await QuotationProfile.create({ companyId });
+      profile = await QuotationProfile.create({ companyId, name: "SICCES PRIVATE LIMITED", prefix: "SICCES" });
+    } else if (!profile.name || profile.name === "AARAM PLASTICS PVT. LTD.") {
+      profile = await QuotationProfile.findOneAndUpdate(
+        { companyId },
+        {
+          $set: {
+            name: "SICCES PRIVATE LIMITED",
+            prefix: "SICCES",
+            gstin: profile.gstin === "08AABCA5691D1ZS" ? "09AASCS4608K1ZP" : profile.gstin,
+            description: "Providers of Software, Digital Marketing & Educational Services",
+          },
+        },
+        { new: true }
+      ).lean();
     }
 
     return NextResponse.json({ success: true, data: profile });

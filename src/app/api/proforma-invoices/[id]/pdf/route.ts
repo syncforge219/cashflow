@@ -21,7 +21,7 @@ function generateProformaInvoiceHtml(pi: any, profile: any): string {
       })
     : "";
 
-  const companyName = pi.companyName || profile?.name || "AARAM PLASTICS PVT. LTD.";
+  const companyName = pi.companyName || profile?.name || "SICCES PRIVATE LIMITED";
   const gstin = pi.companyGstin || profile?.gstin || "08AABCA5691D1ZS";
   const cin = pi.companyCin || profile?.cin || "U25209RJ1996PTC011513";
   const address = pi.companyAddress || profile?.address || "101, Vinayak Complex, Station Road, JAIPUR - 302 001 (Raj.)";

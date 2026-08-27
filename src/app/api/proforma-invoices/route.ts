@@ -171,7 +171,7 @@ export async function POST(req: Request) {
       createdBy: body.createdBy || "Admin",
 
       // Snapshot company profile details
-      companyName: (profile as any)?.name || "AARAM PLASTICS PVT. LTD.",
+      companyName: (profile as any)?.name || "SICCES PRIVATE LIMITED",
       companyLogo: (profile as any)?.logo || "",
       companyGstin: (profile as any)?.gstin || "",
       companyCin: (profile as any)?.cin || "",
