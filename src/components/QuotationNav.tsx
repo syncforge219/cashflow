@@ -32,7 +32,7 @@ export default function QuotationNav({ module }: QuotationNavProps) {
   } else if (currentModule === "po") {
     links = [
       { name: "Purchase Orders", href: "/purchase-orders" },
-      { name: "+ Create PO", href: "/quotations" },
+      { name: "+ Create PO", href: "/purchase-orders/new" },
       { name: "Customers Master", href: "/quotations/customers" },
       { name: "Products Master", href: "/quotations/products" },
       { name: "Company Settings", href: "/quotations/settings" },

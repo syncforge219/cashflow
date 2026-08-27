@@ -51,9 +51,10 @@ interface CompanyOption {
 interface QuotationFormProps {
   initialData?: any;
   isEdit?: boolean;
+  isPo?: boolean;
 }
 
-export default function QuotationForm({ initialData, isEdit = false }: QuotationFormProps) {
+export default function QuotationForm({ initialData, isEdit = false, isPo = false }: QuotationFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState("");
@@ -107,6 +108,7 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
   const [customerAddress, setCustomerAddress] = useState(initialData?.customerAddress || "");
   const [customerGstin, setCustomerGstin] = useState(initialData?.customerGstin || "");
   const [deliveryLocation, setDeliveryLocation] = useState(initialData?.deliveryLocation || "");
+  const [supplierName, setSupplierName] = useState(initialData?.supplierName || "");
 
   const categoryPresets: Record<string, { label: string; icon: string; defaultUnit: string; descHeader: string }> = {
     SOFTWARE: { label: "Software / SaaS", icon: "💻", defaultUnit: "seat/mo", descHeader: "Description of Software / SaaS Modules" },
@@ -419,6 +421,7 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
 
     const payload = {
       ...(isEdit && { id: initialData._id }),
+      ...(isPo && { supplierName: supplierName.trim() }),
       category,
       customCategoryName: customCategoryName.trim().toUpperCase(),
       billingCycle,
@@ -454,7 +457,7 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
     };
 
     try {
-      const endpoint = "/api/quotations";
+      const endpoint = isPo ? "/api/purchase-orders" : "/api/quotations";
       const method = isEdit ? "PUT" : "POST";
       const res = await fetch(endpoint, {
         method,
@@ -464,15 +467,15 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
 
       const data = await res.json();
       if (res.ok && data.success) {
-        setSaveSuccess(`✓ Quotation ${isEdit ? "updated" : "created"} successfully!`);
+        setSaveSuccess(`✓ ${isPo ? "Purchase Order" : "Quotation"} ${isEdit ? "updated" : "created"} successfully!`);
         setTimeout(() => {
-          router.push("/quotations");
+          router.push(isPo ? "/purchase-orders" : "/quotations");
         }, 800);
       } else {
         alert("Failed: " + (data.error || "Server error"));
       }
     } catch (err: any) {
-      alert("Error saving quotation: " + err.message);
+      alert(`Error saving ${isPo ? "purchase order" : "quotation"}: ` + err.message);
     } finally {
       setLoading(false);
     }
@@ -485,7 +488,13 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
         <div className="bg-white border border-slate-200/80 rounded-2xl p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-sm">
           <div>
             <h2 className="text-xl font-black text-slate-900 flex items-center gap-2 font-sans">
-              {isEdit ? `✏️ Edit Quotation (${initialData?.quotationNumber})` : "📝 Create New Quotation"}
+              {isPo
+                ? isEdit
+                  ? `✏️ Edit Purchase Order (${initialData?.poNumber})`
+                  : "📦 Create New Purchase Order"
+                : isEdit
+                ? `✏️ Edit Quotation (${initialData?.quotationNumber})`
+                : "📝 Create New Quotation"}
             </h2>
             <p className="text-xs text-slate-500 font-medium mt-1">
               Customizable for Software, Digital Marketing, Physical Goods & Services across Monthly, Quarterly, and Annual billing
@@ -495,7 +504,7 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => router.push("/quotations")}
+              onClick={() => router.push(isPo ? "/purchase-orders" : "/quotations")}
               className="px-4 py-2 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl transition-all cursor-pointer"
             >
               Cancel
@@ -505,7 +514,7 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
               disabled={loading}
               className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md shadow-indigo-500/20 transition-all cursor-pointer"
             >
-              {loading ? "Saving..." : isEdit ? "Save Changes" : "Create Quotation"}
+              {loading ? "Saving..." : isEdit ? "Save Changes" : isPo ? "Create Purchase Order" : "Create Quotation"}
             </button>
           </div>
         </div>
@@ -808,6 +817,31 @@ export default function QuotationForm({ initialData, isEdit = false }: Quotation
             </div>
           </div>
         </div>
+
+        {/* Section: Supplier Details (for Purchase Orders) */}
+        {isPo && (
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-6 space-y-4 shadow-sm font-sans">
+            <div className="border-b border-slate-100 pb-2">
+              <h3 className="text-xs font-black uppercase tracking-wider text-indigo-600 font-sans">
+                5. Supplier Details
+              </h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                  Supplier Name *
+                </label>
+                <input
+                  type="text"
+                  value={supplierName}
+                  onChange={(e) => setSupplierName(e.target.value)}
+                  placeholder="Enter Supplier Name..."
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 font-bold rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Section 5: Product Items Table */}
         <div className="bg-white border border-slate-200/80 rounded-2xl p-6 space-y-4 shadow-sm font-sans">
