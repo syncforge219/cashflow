@@ -4,16 +4,48 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-export default function QuotationNav() {
+interface QuotationNavProps {
+  module?: "quotations" | "proforma" | "po";
+}
+
+export default function QuotationNav({ module }: QuotationNavProps) {
   const pathname = usePathname();
 
-  const links = [
-    { name: "Proforma Invoices", href: "/proforma-invoices" },
-    { name: "+ Create Proforma Invoice", href: "/quotations/new" },
-    { name: "Customers Master", href: "/quotations/customers" },
-    { name: "Products Master", href: "/quotations/products" },
-    { name: "Company Settings", href: "/quotations/settings" },
-  ];
+  const currentModule =
+    module ||
+    (pathname.startsWith("/proforma-invoices")
+      ? "proforma"
+      : pathname.startsWith("/purchase-orders")
+      ? "po"
+      : "quotations");
+
+  let links: { name: string; href: string }[] = [];
+
+  if (currentModule === "proforma") {
+    links = [
+      { name: "Proforma Invoices", href: "/proforma-invoices" },
+      { name: "+ Create Proforma Invoice", href: "/quotations/new" },
+      { name: "Customers Master", href: "/quotations/customers" },
+      { name: "Products Master", href: "/quotations/products" },
+      { name: "Company Settings", href: "/quotations/settings" },
+    ];
+  } else if (currentModule === "po") {
+    links = [
+      { name: "Purchase Orders", href: "/purchase-orders" },
+      { name: "+ Create PO", href: "/quotations" },
+      { name: "Customers Master", href: "/quotations/customers" },
+      { name: "Products Master", href: "/quotations/products" },
+      { name: "Company Settings", href: "/quotations/settings" },
+    ];
+  } else {
+    links = [
+      { name: "Dashboard & Quotations", href: "/quotations" },
+      { name: "+ Create Quotation", href: "/quotations/new" },
+      { name: "Customers Master", href: "/quotations/customers" },
+      { name: "Products Master", href: "/quotations/products" },
+      { name: "Company Settings", href: "/quotations/settings" },
+    ];
+  }
 
   return (
     <div className="bg-white border-b border-slate-200/80 px-6 py-3 flex flex-wrap items-center justify-between gap-4 text-slate-800 shadow-sm">
@@ -22,7 +54,7 @@ export default function QuotationNav() {
           const isActive = pathname === link.href;
           return (
             <Link
-              key={link.href}
+              key={link.name}
               href={link.href}
               className={`px-4 py-2 text-xs font-bold rounded-xl transition-all whitespace-nowrap ${
                 isActive
