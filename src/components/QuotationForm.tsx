@@ -1095,7 +1095,7 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
         <div className="bg-white border border-slate-200/80 rounded-2xl p-4 flex justify-end gap-4 shadow-sm">
           <button
             type="button"
-            onClick={() => router.push("/quotations")}
+            onClick={() => router.push(isPo ? "/purchase-orders" : "/quotations")}
             className="px-6 py-2.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl transition-all cursor-pointer"
           >
             Cancel
@@ -1105,7 +1105,7 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
             disabled={loading}
             className="px-8 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md shadow-indigo-500/20 transition-all cursor-pointer"
           >
-            {loading ? "Saving..." : isEdit ? "Save Changes" : "Create Quotation"}
+            {loading ? "Saving..." : isEdit ? "Save Changes" : isPo ? "Create Purchase Order" : "Create Quotation"}
           </button>
         </div>
       </form>
