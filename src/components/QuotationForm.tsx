@@ -485,7 +485,7 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
     <div className="space-y-8 max-w-7xl mx-auto pb-12">
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Header Title Bar */}
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-sm">
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm">
           <div>
             <h2 className="text-xl font-black text-slate-900 flex items-center gap-2 font-sans">
               {isPo
@@ -499,23 +499,6 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
             <p className="text-xs text-slate-500 font-medium mt-1">
               Customizable for Software, Digital Marketing, Physical Goods & Services across Monthly, Quarterly, and Annual billing
             </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => router.push(isPo ? "/purchase-orders" : "/quotations")}
-              className="px-4 py-2 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl transition-all cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md shadow-indigo-500/20 transition-all cursor-pointer"
-            >
-              {loading ? "Saving..." : isEdit ? "Save Changes" : isPo ? "Create Purchase Order" : "Create Quotation"}
-            </button>
           </div>
         </div>
 
