@@ -244,10 +244,16 @@ export default function PaymentReceiptModal({
   const [matchedBrand, setMatchedBrand] = React.useState<any>(null);
   const [matchedCompany, setMatchedCompany] = React.useState<any>(null);
 
-  const rawCompany = matchedBrand?.companies?.[0] || (receipt.company && receipt.company !== "Cash" && receipt.company !== "Unallocated" ? receipt.company : null) || (student.companyAssigned && student.companyAssigned !== "Cash" && student.companyAssigned !== "Unallocated" ? student.companyAssigned : null);
-  const companyName = matchedCompany?.legalName || matchedCompany?.name || rawCompany || "INSTITUTE OF CREATIVE STUDIES";
-  const companyAddress = matchedCompany?.address || "No listed street, No City, No State, PIN";
-  const brandName = matchedBrand?.name || student.brand || student.brandName || receipt.brand || receipt.brandName || "CADD MANTRA";
+  // Authoritative company from student admission or receipt
+  const rawAdmissionCompany =
+    (student?.companyAssigned && student.companyAssigned !== "Cash" && student.companyAssigned !== "Unallocated" && student.companyAssigned !== "Cash (Unallocated)" && student.companyAssigned !== "Auto" ? student.companyAssigned : null) ||
+    (student?.company && student.company !== "Cash" && student.company !== "Unallocated" && student.company !== "Cash (Unallocated)" && student.company !== "Auto" ? student.company : null) ||
+    (receipt?.company && receipt.company !== "Cash" && receipt.company !== "Unallocated" && receipt.company !== "Cash (Unallocated)" && receipt.company !== "Auto" ? receipt.company : null) ||
+    (receipt?.companyAssigned && receipt.companyAssigned !== "Cash" && receipt.companyAssigned !== "Unallocated" ? receipt.companyAssigned : null);
+
+  const companyName = matchedCompany?.legalName || matchedCompany?.name || rawAdmissionCompany || matchedBrand?.companies?.[0] || "INSTITUTE OF CREATIVE STUDIES";
+  const companyAddress = matchedCompany?.address || matchedBrand?.address || "No listed street, No City, No State, PIN";
+  const brandName = matchedBrand?.name || student?.brand || student?.brandName || receipt?.brand || receipt?.brandName || "CADD MANTRA";
   const brandAddress = matchedBrand?.address || "G 11 , Murli Bhawan , 10- A, Ashok Marg , Lucknow";
   
   // Resolve brand logo: use logoUrl or receiptTemplateUrl if image
@@ -257,17 +263,17 @@ export default function PaymentReceiptModal({
 
   React.useEffect(() => {
     if (isOpen) {
-      // Fetch Brands
+      // 1. Fetch Brands
       fetch("/api/brands")
         .then((r) => r.json())
         .then((data) => {
           if (data.success && Array.isArray(data.brands) && data.brands.length > 0) {
             const rawTarget = (
-              student.brand ||
-              student.brandName ||
-              student.enquiryBrand ||
-              receipt.brand ||
-              receipt.brandName ||
+              student?.brand ||
+              student?.brandName ||
+              student?.enquiryBrand ||
+              receipt?.brand ||
+              receipt?.brandName ||
               ""
             ).toString().toLowerCase().trim();
 
@@ -275,9 +281,10 @@ export default function PaymentReceiptModal({
               const name = (b.name || "").toLowerCase().trim();
               const code = (b.code || "").toLowerCase().trim();
               return (
+                (rawTarget && name === rawTarget) ||
+                (rawTarget && code === rawTarget) ||
                 (rawTarget && name.includes(rawTarget)) ||
-                (rawTarget && rawTarget.includes(name)) ||
-                (code && code === rawTarget)
+                (rawTarget && rawTarget.includes(name))
               );
             });
 
@@ -290,32 +297,65 @@ export default function PaymentReceiptModal({
         })
         .catch(console.error);
 
-      // Fetch Companies
+      // 2. Fetch Companies
       fetch("/api/companies")
         .then((r) => r.json())
         .then((data) => {
           if (data.success && Array.isArray(data.companies) && data.companies.length > 0) {
             const targetComp = (
-              receipt.company ||
-              student.companyAssigned ||
-              student.company ||
+              student?.companyAssigned ||
+              student?.company ||
+              student?.companyName ||
+              receipt?.company ||
+              receipt?.companyAssigned ||
               ""
             ).toString().toLowerCase().trim();
 
-            const foundComp = data.companies.find((c: any) => {
-              const name = (c.name || "").toLowerCase().trim();
-              const legal = (c.legalName || "").toLowerCase().trim();
-              return (
-                (targetComp && name.includes(targetComp)) ||
-                (targetComp && targetComp.includes(name)) ||
-                (targetComp && legal.includes(targetComp))
-              );
-            });
+            const isSpecificComp = targetComp && targetComp !== "cash" && targetComp !== "unallocated" && targetComp !== "cash (unallocated)" && targetComp !== "auto";
+
+            let foundComp: any = null;
+
+            if (isSpecificComp) {
+              foundComp = data.companies.find((c: any) => {
+                const name = (c.name || "").toLowerCase().trim();
+                const legal = (c.legalName || "").toLowerCase().trim();
+                return (
+                  name === targetComp ||
+                  legal === targetComp ||
+                  (name && (name.includes(targetComp) || targetComp.includes(name))) ||
+                  (legal && (legal.includes(targetComp) || targetComp.includes(legal)))
+                );
+              });
+            }
+
+            // If not found by explicit company name, match company by student's Brand
+            if (!foundComp) {
+              const studentBrand = (
+                student?.brand ||
+                student?.brandName ||
+                student?.enquiryBrand ||
+                receipt?.brand ||
+                receipt?.brandName ||
+                ""
+              ).toString().toLowerCase().trim();
+
+              if (studentBrand) {
+                foundComp = data.companies.find((c: any) => {
+                  const brandsArr = Array.isArray(c.brands)
+                    ? c.brands.map((b: string) => (b || "").toLowerCase().trim())
+                    : [];
+                  const cBrand = (c.brand || "").toLowerCase().trim();
+                  return (
+                    brandsArr.includes(studentBrand) ||
+                    (cBrand && cBrand === studentBrand) ||
+                    brandsArr.some((b: string) => b && (b.includes(studentBrand) || studentBrand.includes(b)))
+                  );
+                });
+              }
+            }
 
             if (foundComp) {
               setMatchedCompany(foundComp);
-            } else if (data.companies.length > 0) {
-              setMatchedCompany(data.companies[0]);
             }
           }
         })

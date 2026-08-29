@@ -126,21 +126,33 @@ export async function GET(
       }
     }
 
-    const rawCompany = payment?.company || admission?.companyAssigned || brand?.companies?.[0];
+    const targetCompName =
+      (admission?.companyAssigned && admission.companyAssigned !== "Cash" && admission.companyAssigned !== "Unallocated" && admission.companyAssigned !== "Cash (Unallocated)" && admission.companyAssigned !== "Auto" ? admission.companyAssigned : null) ||
+      (payment?.company && payment.company !== "Cash" && payment.company !== "Unallocated" && payment.company !== "Cash (Unallocated)" && payment.company !== "Auto" ? payment.company : null) ||
+      (admission?.company && admission.company !== "Cash" && admission.company !== "Unallocated" ? admission.company : null);
+
     let companyObj: any = null;
-    if (rawCompany && rawCompany !== "Cash" && rawCompany !== "Unallocated" && rawCompany !== "Cash (Unallocated)") {
+    if (targetCompName) {
+      const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       companyObj = await Company.findOne({
         $or: [
-          { name: { $regex: new RegExp(`^${rawCompany.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") } },
-          { legalName: { $regex: new RegExp(`^${rawCompany.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") } },
+          { name: { $regex: new RegExp(`^${escapeRegExp(targetCompName.trim())}$`, "i") } },
+          { legalName: { $regex: new RegExp(`^${escapeRegExp(targetCompName.trim())}$`, "i") } },
         ],
       }).lean();
     }
 
-    const companyName = (rawCompany && rawCompany !== "Cash" && rawCompany !== "Unallocated" && rawCompany !== "Cash (Unallocated)")
-      ? rawCompany
-      : (companyObj?.legalName || companyObj?.name || "INSTITUTE OF CREATIVE STUDIES");
+    if (!companyObj && targetBrandName) {
+      const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      companyObj = await Company.findOne({
+        $or: [
+          { brands: { $regex: new RegExp(`^${escapeRegExp(targetBrandName.trim())}$`, "i") } },
+          { brand: { $regex: new RegExp(`^${escapeRegExp(targetBrandName.trim())}$`, "i") } },
+        ],
+      }).lean();
+    }
 
+    const companyName = companyObj?.legalName || companyObj?.name || targetCompName || brand?.companies?.[0] || targetBrandName || "INSTITUTE OF CREATIVE STUDIES";
     const companyAddress = companyObj?.address || brand?.address || "No listed street, No City, No State, PIN";
 
     const pdfBuffer = generateReceiptPdfBuffer({
