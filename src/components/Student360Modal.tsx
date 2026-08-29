@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import PaymentReceiptModal from "@/components/PaymentReceiptModal";
+import DeletePaymentConfirmModal from "@/components/DeletePaymentConfirmModal";
 
 interface Student360ModalProps {
   admissionId: string | null;
@@ -31,6 +32,8 @@ export default function Student360Modal({
   const [formData, setFormData] = useState<any>({});
   const [selectedReceiptPayment, setSelectedReceiptPayment] = useState<any>(null);
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
+  const [paymentToDelete, setPaymentToDelete] = useState<any>(null);
+  const [isDeletePaymentModalOpen, setIsDeletePaymentModalOpen] = useState(false);
   const [copyToast, setCopyToast] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isAdminUser, setIsAdminUser] = useState(false);
@@ -142,6 +145,7 @@ export default function Student360Modal({
 
       if (json && json.success) {
         setEditingPayment(null);
+        showToast("✓ Payment record updated successfully.");
         if (admissionId) fetchStudentDetails(admissionId);
         if (onRefresh) onRefresh();
       } else {
@@ -155,6 +159,25 @@ export default function Student360Modal({
     }
   };
 
+  const handleOpenDeletePayment = (payment: any) => {
+    setPaymentToDelete(payment);
+    setIsDeletePaymentModalOpen(true);
+  };
+
+  const handleConfirmDeletePayment = async (paymentId: string) => {
+    const res = await fetch(`/api/payments?id=${paymentId}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+    });
+    const json = await res.json();
+    if (json.success) {
+      showToast(json.message || "✓ Payment record deleted and reversed from company ledger.");
+      if (admissionId) fetchStudentDetails(admissionId);
+      if (onRefresh) onRefresh();
+    } else {
+      throw new Error(json.message || "Failed to delete payment.");
+    }
+  };
 
   const parseFeeNumber = (val: any): number => {
     if (val === undefined || val === null) return 0;
@@ -1614,6 +1637,14 @@ export default function Student360Modal({
                                     >
                                       View / Print Slip
                                     </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenDeletePayment(p)}
+                                      className="px-2.5 py-1 bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white font-extrabold text-[11px] rounded-lg border border-rose-200/80 transition-all cursor-pointer shadow-xs flex items-center gap-1 active:scale-95"
+                                      title="Delete payment and reverse from company collection & ledger"
+                                    >
+                                      🗑️ Delete
+                                    </button>
                                   </div>
                                 </td>
                               </tr>
@@ -2045,6 +2076,29 @@ export default function Student360Modal({
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* Delete Payment Impact Confirmation Modal */}
+      {isDeletePaymentModalOpen && paymentToDelete && (
+        <DeletePaymentConfirmModal
+          isOpen={isDeletePaymentModalOpen}
+          onClose={() => {
+            setIsDeletePaymentModalOpen(false);
+            setPaymentToDelete(null);
+          }}
+          payment={paymentToDelete}
+          student={studentData}
+          allPayments={payments}
+          onConfirmDelete={handleConfirmDeletePayment}
+        />
+      )}
+
+      {/* Floating Status Toast */}
+      {copyToast && (
+        <div className="fixed bottom-6 right-6 z-[300] bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl border border-slate-700 text-xs font-black animate-in fade-in slide-in-from-bottom-4 duration-200 flex items-center gap-2">
+          <span>✨</span>
+          <span>{copyToast}</span>
         </div>
       )}
     </div>

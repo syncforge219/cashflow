@@ -495,3 +495,128 @@ export async function PATCH(req: Request) {
     );
   }
 }
+
+export async function DELETE(req: Request) {
+  try {
+    await dbConnect();
+    const { searchParams } = new URL(req.url);
+    let id = searchParams.get("id");
+    if (!id) {
+      try {
+        const body = await req.json();
+        id = body.id || body._id;
+      } catch (_) {}
+    }
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, message: "Payment ID is required for deletion." },
+        { status: 400 }
+      );
+    }
+
+    const payment = await Payment.findById(id);
+    if (!payment) {
+      return NextResponse.json(
+        { success: false, message: "Payment record not found." },
+        { status: 404 }
+      );
+    }
+
+    const deletedAmount = Number(payment.amountReceived) || 0;
+    const paymentCompany = (payment.company || "").trim();
+    const admissionId = payment.admissionId;
+    const receiptNo = payment.receiptNo || "N/A";
+
+    // 1. Delete the Payment record
+    await Payment.findByIdAndDelete(id);
+
+    // 2. Reverse Company Collection if company is valid
+    let reversedCompany = null;
+    if (
+      paymentCompany &&
+      paymentCompany !== "Cash" &&
+      paymentCompany !== "Unallocated" &&
+      paymentCompany !== "Cash (Unallocated)"
+    ) {
+      const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const compRegex = new RegExp(`^${escapeRegExp(paymentCompany)}$`, "i");
+
+      const compDoc = await Company.findOneAndUpdate(
+        { $or: [{ name: { $regex: compRegex } }, { legalName: { $regex: compRegex } }] },
+        { $inc: { collectedRevenue: -deletedAmount } },
+        { new: true }
+      );
+      if (compDoc) reversedCompany = compDoc.name;
+    }
+
+    // 3. Recalculate and update student admission record
+    let updatedAdmission: any = null;
+    if (admissionId) {
+      const admission = await Admission.findById(admissionId);
+      if (admission) {
+        // Query all remaining payments for this student
+        const remainingPayments = await Payment.find({ admissionId: admission._id });
+        const newTotalPaid = remainingPayments.reduce(
+          (sum: number, p: any) => sum + (Number(p.amountReceived) || 0),
+          0
+        );
+
+        const totalAgreedFee = Number(admission.finalFee) > 0
+          ? Number(admission.finalFee)
+          : (Number(admission.courseFee) || 0);
+
+        admission.remainingBalance = Math.max(0, totalAgreedFee - newTotalPaid);
+
+        // If no payments remain or if deleted payment affected registrationAmount
+        if (remainingPayments.length === 0) {
+          admission.amountReceivedToday = 0;
+          admission.registrationAmount = 0;
+        } else {
+          if (Number(admission.registrationAmount) > newTotalPaid) {
+            admission.registrationAmount = newTotalPaid;
+          }
+          if (Number(admission.amountReceivedToday) > newTotalPaid) {
+            admission.amountReceivedToday = newTotalPaid;
+          }
+        }
+
+        // If student has custom EMI plan, unmark the corresponding EMI installment
+        if (Array.isArray(admission.customEmiPlan) && admission.customEmiPlan.length > 0) {
+          const paidEmis = admission.customEmiPlan.filter((emi: any) => emi.isPaid);
+          if (paidEmis.length > 0) {
+            const matchingEmi = paidEmis.reverse().find((emi: any) => Number(emi.amount) === deletedAmount) || paidEmis[0];
+            if (matchingEmi) {
+              matchingEmi.isPaid = false;
+              matchingEmi.paidDate = null;
+            }
+          }
+        }
+
+        await admission.save();
+        updatedAdmission = admission;
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: `Payment receipt ${receiptNo} (₹${deletedAmount.toLocaleString("en-IN")}) deleted successfully.`,
+      data: {
+        deletedPaymentId: id,
+        receiptNo,
+        deletedAmount,
+        reversedCompany,
+        remainingBalance: updatedAdmission?.remainingBalance,
+        totalCollected: updatedAdmission
+          ? (Number(updatedAdmission.finalFee || updatedAdmission.courseFee || 0) - Number(updatedAdmission.remainingBalance || 0))
+          : 0,
+      },
+    });
+  } catch (error: any) {
+    console.error("Error deleting payment:", error);
+    return NextResponse.json(
+      { success: false, message: error.message || "Failed to delete payment record." },
+      { status: 500 }
+    );
+  }
+}
