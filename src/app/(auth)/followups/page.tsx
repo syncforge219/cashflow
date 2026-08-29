@@ -10,6 +10,7 @@ import AdvancedSearchModal, { AdvancedSearchFilterState } from "@/components/Adv
 import AddFollowupModal from "@/components/AddFollowupModal";
 import FollowupTimelineModal from "@/components/FollowupTimelineModal";
 import FollowupPerformanceModal from "@/components/FollowupPerformanceModal";
+import TransferPendingFollowupModal, { TransferLeadItem } from "@/components/TransferPendingFollowupModal";
 
 interface EnquiryFollowupRecord {
   _id: string;
@@ -186,6 +187,173 @@ export default function FollowupPage() {
   const [quickPriority, setQuickPriority] = useState("Medium");
   const [quickAssignedTo, setQuickAssignedTo] = useState("");
   const [isSavingQuickFollowup, setIsSavingQuickFollowup] = useState(false);
+
+  // Centre Head Pending Lead Transfer & Bulk Selection State
+  const [counsellorsList, setCounsellorsList] = useState<any[]>([]);
+  const [selectedEnquiryIds, setSelectedEnquiryIds] = useState<string[]>([]);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [leadsForTransferModal, setLeadsForTransferModal] = useState<TransferLeadItem[]>([]);
+  const [quickTargetCounsellor, setQuickTargetCounsellor] = useState("");
+  const [isTransferringQuick, setIsTransferringQuick] = useState(false);
+  const [transferToastMessage, setTransferToastMessage] = useState("");
+
+  const userRole = (user?.role || "").toLowerCase().trim();
+  const isCentreHead =
+    userRole === "centre head" ||
+    userRole === "center head" ||
+    userRole === "centre-head" ||
+    userRole === "center-head" ||
+    userRole === "brand manager" ||
+    userRole === "brand-manager" ||
+    userRole === "admin" ||
+    userRole === "super admin" ||
+    userRole === "manager";
+
+  // Fetch counsellors
+  const fetchCounsellors = async () => {
+    try {
+      const res = await fetch("/api/counsellors");
+      const data = await res.json();
+      if (data.success && Array.isArray(data.counsellors)) {
+        setCounsellorsList(data.counsellors);
+      }
+    } catch (err) {
+      console.error("Failed to load counsellors for transfer:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchCounsellors();
+  }, []);
+
+  // Filter counsellors belonging strictly to Centre Head's brand scope
+  const eligibleCounsellors = useMemo(() => {
+    if (!counsellorsList || counsellorsList.length === 0) return [];
+    const userScope = (user?.brandScope || "").toLowerCase().trim();
+    if (!userScope || ["all", "all brands", "global", "*"].includes(userScope)) {
+      return counsellorsList;
+    }
+    const parseBrands = (str: string) => str.split(/[,/|]/).map((s) => s.trim().toLowerCase()).filter(Boolean);
+    const uBrands = parseBrands(userScope);
+
+    return counsellorsList.filter((c: any) => {
+      const cScope = (c.brandScope || c.scope || "").toLowerCase().trim();
+      if (!cScope || ["all", "all brands", "global", "*"].includes(cScope)) return true;
+      const cBrands = parseBrands(cScope);
+      return uBrands.some((ub) => cBrands.includes(ub) || cBrands.some((cb) => cb.includes(ub) || ub.includes(cb)));
+    });
+  }, [counsellorsList, user?.brandScope]);
+
+  // Unique list of all current advisors on enquiries
+  const allCurrentAdvisors = useMemo(() => {
+    const set = new Set<string>();
+    enquiries.forEach((e: any) => {
+      if (e.assignedCrmAdvisor && e.assignedCrmAdvisor.trim()) {
+        set.add(e.assignedCrmAdvisor.trim());
+      }
+    });
+    return Array.from(set);
+  }, [enquiries]);
+
+  // Bulk selection toggle handlers
+  const handleToggleSelectAll = (isChecked: boolean, pageRecords: EnquiryFollowupRecord[]) => {
+    if (isChecked) {
+      const pageIds = pageRecords.map((r) => r._id);
+      setSelectedEnquiryIds((prev) => Array.from(new Set([...prev, ...pageIds])));
+    } else {
+      const pageIds = new Set(pageRecords.map((r) => r._id));
+      setSelectedEnquiryIds((prev) => prev.filter((id) => !pageIds.has(id)));
+    }
+  };
+
+  const handleToggleSelectRow = (id: string, isChecked: boolean) => {
+    if (isChecked) {
+      setSelectedEnquiryIds((prev) => [...prev, id]);
+    } else {
+      setSelectedEnquiryIds((prev) => prev.filter((item) => item !== id));
+    }
+  };
+
+  const handleQuickBulkTransfer = async (targetName?: string) => {
+    const targetAdvisor = targetName || quickTargetCounsellor;
+    if (!targetAdvisor) {
+      alert("Please select a target counsellor/employee from the dropdown.");
+      return;
+    }
+    if (selectedEnquiryIds.length === 0) {
+      alert("Please select at least one pending lead to transfer.");
+      return;
+    }
+
+    setIsTransferringQuick(true);
+    try {
+      const res = await fetch("/api/enquiries/transfer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enquiryIds: selectedEnquiryIds,
+          targetAdvisor,
+          transferScope: "selected",
+          brandScope: user?.brandScope,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        playChimeSound("success");
+        setTransferToastMessage(`✓ Successfully transferred ${data.transferredCount || selectedEnquiryIds.length} lead(s) to ${targetAdvisor}!`);
+        setTimeout(() => setTransferToastMessage(""), 5000);
+        setSelectedEnquiryIds([]);
+        fetchData();
+      } else {
+        alert(data.error || "Failed to transfer leads.");
+      }
+    } catch (err) {
+      console.error("Failed to execute quick transfer:", err);
+      alert("Error transferring leads.");
+    } finally {
+      setIsTransferringQuick(false);
+    }
+  };
+
+  const handleOpenTransferModalForSingleLead = (rec: EnquiryFollowupRecord) => {
+    setLeadsForTransferModal([
+      {
+        _id: rec._id,
+        enquiryId: rec.enquiryId,
+        studentFullName: rec.studentFullName,
+        primaryPhoneMobile: rec.primaryPhoneMobile,
+        targetCourse: rec.targetCourse,
+        targetBrand: rec.targetBrand,
+        assignedCrmAdvisor: rec.assignedCrmAdvisor,
+        dueDateStr: rec.dueDateStr,
+        lastRemarkStr: rec.lastRemarkStr,
+      },
+    ]);
+    setIsTransferModalOpen(true);
+  };
+
+  const handleOpenTransferModalForBulk = () => {
+    if (selectedEnquiryIds.length > 0) {
+      const selectedRecords = processedEnquiryFollowups
+        .filter((r) => selectedEnquiryIds.includes(r._id))
+        .map((rec) => ({
+          _id: rec._id,
+          enquiryId: rec.enquiryId,
+          studentFullName: rec.studentFullName,
+          primaryPhoneMobile: rec.primaryPhoneMobile,
+          targetCourse: rec.targetCourse,
+          targetBrand: rec.targetBrand,
+          assignedCrmAdvisor: rec.assignedCrmAdvisor,
+          dueDateStr: rec.dueDateStr,
+          lastRemarkStr: rec.lastRemarkStr,
+        }));
+      setLeadsForTransferModal(selectedRecords);
+    } else {
+      setLeadsForTransferModal([]);
+    }
+    setIsTransferModalOpen(true);
+  };
 
   // Fetch Data
   const fetchData = async () => {
@@ -675,6 +843,11 @@ export default function FollowupPage() {
     return filteredEnquiryRecords.slice(startIndex, startIndex + itemsPerPage);
   }, [filteredEnquiryRecords, startIndex, itemsPerPage]);
 
+  const isAllPaginatedSelected = useMemo(() => {
+    if (paginatedEnquiryRecords.length === 0) return false;
+    return paginatedEnquiryRecords.every((r) => selectedEnquiryIds.includes(r._id));
+  }, [paginatedEnquiryRecords, selectedEnquiryIds]);
+
   const paginatedFeesRecords = useMemo(() => {
     return filteredFeesRecords.slice(startIndex, startIndex + itemsPerPage);
   }, [filteredFeesRecords, startIndex, itemsPerPage]);
@@ -955,6 +1128,22 @@ export default function FollowupPage() {
                     {enquiryCounts.donot}
                   </span>
                 </button>
+
+                {isCentreHead && (
+                  <button
+                    type="button"
+                    onClick={handleOpenTransferModalForBulk}
+                    className="px-3.5 py-1.5 ml-2 bg-gradient-to-r from-rose-600 via-indigo-600 to-violet-600 hover:from-rose-700 hover:to-violet-700 text-white font-black text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer shrink-0 active:scale-95"
+                    title="Transfer pending followups to counsellors of your branch"
+                  >
+                    <span>🔄 Transfer Pending Followups</span>
+                    {selectedEnquiryIds.length > 0 && (
+                      <span className="px-1.5 py-0.5 rounded-full bg-white text-rose-700 text-[10px] font-black">
+                        {selectedEnquiryIds.length}
+                      </span>
+                    )}
+                  </button>
+                )}
               </>
             ) : (
             <>
@@ -1054,6 +1243,83 @@ export default function FollowupPage() {
 
         {/* Table / Grid Area */}
         <div className="p-6 flex-1 flex flex-col min-h-0 overflow-hidden">
+          {/* Transfer Toast Notification */}
+          {transferToastMessage && (
+            <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-4 py-2.5 rounded-2xl shadow-md font-bold text-xs flex items-center justify-between mb-3 shrink-0 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🎉</span>
+                <span>{transferToastMessage}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTransferToastMessage("")}
+                className="p-1 hover:bg-white/20 rounded-lg transition-colors cursor-pointer text-white font-bold"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {/* Floating / Sticky Bulk Action Bar for Centre Head */}
+          {activeMode === "enquiry" && isCentreHead && selectedEnquiryIds.length > 0 && (
+            <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white px-5 py-2.5 rounded-2xl shadow-xl flex flex-wrap items-center justify-between gap-3 mb-3 shrink-0 border border-slate-700/60 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="flex items-center gap-2.5">
+                <span className="w-6 h-6 rounded-full bg-rose-500 text-white text-xs font-black flex items-center justify-center shadow-xs">
+                  {selectedEnquiryIds.length}
+                </span>
+                <span className="text-xs font-black text-white">
+                  Pending Lead{selectedEnquiryIds.length > 1 ? "s" : ""} Selected
+                </span>
+                <span className="text-[10px] text-slate-300 font-bold bg-white/10 px-2 py-0.5 rounded-md">
+                  Brand: {user?.brandScope || "Assigned"}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5 bg-white/10 px-2.5 py-1 rounded-xl border border-white/15">
+                  <span className="text-[11px] font-bold text-slate-200">Transfer to:</span>
+                  <select
+                    value={quickTargetCounsellor}
+                    onChange={(e) => setQuickTargetCounsellor(e.target.value)}
+                    className="bg-slate-800 text-white text-xs font-bold px-2.5 py-1 rounded-lg border border-slate-700 outline-none focus:border-indigo-400 cursor-pointer"
+                  >
+                    <option value="">-- Choose Counsellor --</option>
+                    {eligibleCounsellors.map((c: any) => (
+                      <option key={c._id || c.id || c.email} value={c.name}>
+                        {c.name} {c.role ? `(${c.role})` : ""} - {c.brandScope || "All"}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleQuickBulkTransfer()}
+                  disabled={isTransferringQuick || !quickTargetCounsellor}
+                  className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-black text-xs rounded-xl shadow-md transition-all active:scale-95 cursor-pointer flex items-center gap-1"
+                >
+                  {isTransferringQuick ? "Transferring..." : "⚡ Transfer Selected"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleOpenTransferModalForBulk}
+                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs rounded-xl transition-all cursor-pointer shadow-xs"
+                >
+                  ⚙️ More Options
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedEnquiryIds([])}
+                  className="px-2.5 py-1.5 bg-white/10 hover:bg-white/20 text-slate-200 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                >
+                  ✕ Clear
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="bg-white border border-slate-200/80 rounded-2xl shadow-xs overflow-hidden flex-1 flex flex-col min-h-0">
             
             {/* Records Per Page Bar */}
@@ -1198,7 +1464,16 @@ export default function FollowupPage() {
 
                             {/* Card Footer Actions */}
                             <div className="bg-slate-50 px-4 py-3 border-t border-slate-100 flex items-center justify-between gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
-                              <div className="flex items-center gap-1.5">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {isCentreHead && (
+                                  <button
+                                    onClick={() => handleOpenTransferModalForSingleLead(rec)}
+                                    className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-[11px] font-black transition-all shadow-2xs cursor-pointer active:scale-95 flex items-center gap-1"
+                                    title="Transfer lead to another counsellor"
+                                  >
+                                    🔄 Transfer
+                                  </button>
+                                )}
                                 <button
                                   onClick={() => {
                                     const text = encodeURIComponent(`Hello ${rec.studentFullName}, regarding your course inquiry for ${rec.targetCourse}...`);
@@ -1244,6 +1519,17 @@ export default function FollowupPage() {
                   <table className="w-full text-left text-xs border-collapse">
                     <thead className="sticky top-0 z-10 bg-slate-100/95 backdrop-blur-xs shadow-2xs">
                       <tr className="border-b border-slate-200 text-[10px] font-black text-slate-600 uppercase tracking-wider select-none">
+                        {isCentreHead && (
+                          <th className="py-3 px-3 w-[45px] text-center min-w-[45px]">
+                            <input
+                              type="checkbox"
+                              checked={isAllPaginatedSelected}
+                              onChange={(e) => handleToggleSelectAll(e.target.checked, paginatedEnquiryRecords)}
+                              className="w-4 h-4 text-rose-600 bg-white border-slate-300 rounded focus:ring-rose-500 cursor-pointer"
+                              title="Select all leads on this page"
+                            />
+                          </th>
+                        )}
                         <th className="py-3 px-3 w-[70px] text-center min-w-[70px]">DONE ▾</th>
                         <th className="py-3 px-4 min-w-[125px]">DUE DATE ▾</th>
                         <th className="py-3 px-4 min-w-[100px]">PRIORITY ▾</th>
@@ -1257,17 +1543,17 @@ export default function FollowupPage() {
                         <th className="py-3 px-4 min-w-[110px]">LEAD STAGE ▾</th>
                         <th className="py-3 px-4 min-w-[100px]">LEAD TYPE ▾</th>
                         <th className="py-3 px-4 min-w-[160px]">LAST REMARK ▾</th>
-                        <th className="py-3 px-4 text-right min-w-[200px]">ACTION ▾</th>
+                        <th className="py-3 px-4 text-right min-w-[240px]">ACTION ▾</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
                       {isLoading ? (
                         <tr>
-                          <td colSpan={14} className="py-12 text-center text-slate-400">Loading enquiry follow-ups...</td>
+                          <td colSpan={isCentreHead ? 15 : 14} className="py-12 text-center text-slate-400">Loading enquiry follow-ups...</td>
                         </tr>
                       ) : paginatedEnquiryRecords.length === 0 ? (
                         <tr>
-                          <td colSpan={14} className="py-12 text-center text-slate-400">No enquiry follow-up records found matching filters.</td>
+                          <td colSpan={isCentreHead ? 15 : 14} className="py-12 text-center text-slate-400">No enquiry follow-up records found matching filters.</td>
                         </tr>
                       ) : (
                         paginatedEnquiryRecords.map((rec: EnquiryFollowupRecord) => (
@@ -1275,11 +1561,23 @@ export default function FollowupPage() {
                             key={rec._id}
                             onClick={() => setSelectedLead(rec)}
                             className={`transition-colors cursor-pointer ${
-                              rec.isOverdue
+                              selectedEnquiryIds.includes(rec._id)
+                                ? "bg-rose-50/90 border-l-4 border-l-rose-500"
+                                : rec.isOverdue
                                 ? "bg-rose-50/70 hover:bg-rose-100/80 border-l-4 border-l-rose-500"
                                 : "hover:bg-slate-50/80"
                             }`}
                           >
+                            {isCentreHead && (
+                              <td className="py-3.5 px-3 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                                <input
+                                  type="checkbox"
+                                  checked={selectedEnquiryIds.includes(rec._id)}
+                                  onChange={(e) => handleToggleSelectRow(rec._id, e.target.checked)}
+                                  className="w-4 h-4 text-rose-600 bg-white border-slate-300 rounded focus:ring-rose-500 cursor-pointer"
+                                />
+                              </td>
+                            )}
                             <td className="py-3.5 px-3 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                               {(() => {
                                 const isDone = Boolean(
@@ -1316,7 +1614,7 @@ export default function FollowupPage() {
                                 {rec.isEscalated && (
                                   <span className="text-[9px] font-black text-purple-700 tracking-wider">⚡ ESCALATED TO MGR</span>
                                 )}
-                               </div>
+                              </div>
                             </td>
                             <td className="py-3.5 px-4 whitespace-nowrap">
                               {rec.priorityLevel === "Urgent" ? (
@@ -1363,7 +1661,16 @@ export default function FollowupPage() {
                             <td className="py-3.5 px-4 text-slate-500 max-w-[180px] truncate" title={rec.lastRemarkStr}>
                               {rec.lastRemarkStr || "-"}
                             </td>
-                            <td className="py-3.5 px-4 text-right whitespace-nowrap space-x-2" onClick={(e) => e.stopPropagation()}>
+                            <td className="py-3.5 px-4 text-right whitespace-nowrap space-x-1.5" onClick={(e) => e.stopPropagation()}>
+                              {isCentreHead && (
+                                <button
+                                  onClick={() => handleOpenTransferModalForSingleLead(rec)}
+                                  className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-[11px] font-black transition-all shadow-2xs cursor-pointer active:scale-95"
+                                  title="Transfer lead to another counsellor"
+                                >
+                                  🔄 Transfer
+                                </button>
+                              )}
                               <button
                                 onClick={() => {
                                   setTimelineRecord(rec);
@@ -1629,6 +1936,23 @@ export default function FollowupPage() {
           onSuccess={fetchData}
         />
       )}
+
+      {/* Transfer Pending Followup Modal for Centre Head */}
+      <TransferPendingFollowupModal
+        isOpen={isTransferModalOpen}
+        onClose={() => setIsTransferModalOpen(false)}
+        selectedLeads={leadsForTransferModal}
+        allCounsellors={eligibleCounsellors}
+        allAdvisorsOnLeads={allCurrentAdvisors}
+        userBrandScope={user?.brandScope}
+        onSuccess={(targetAdvisor, count) => {
+          playChimeSound("success");
+          setTransferToastMessage(`✓ Successfully transferred ${count} lead(s) to ${targetAdvisor}!`);
+          setTimeout(() => setTransferToastMessage(""), 5000);
+          setSelectedEnquiryIds([]);
+          fetchData();
+        }}
+      />
     </div>
   );
 }
