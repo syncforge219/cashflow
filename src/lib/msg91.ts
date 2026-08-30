@@ -359,7 +359,7 @@ export async function sendWhatsAppDailyReport(params: DailyReportWhatsAppParams)
     const demoSessions = params.reportData.conversionFunnel?.demosScheduled ?? 0;
     const admissionsToday = params.reportData.executiveSummary?.admissions?.value ?? 0;
     const todaysCollection = params.reportData.executiveSummary?.totalCollections?.value ?? 0;
-    const monthlyCollection = params.reportData.executiveSummary?.totalRevenue?.value ?? 0;
+    const monthlyCollection = params.reportData.executiveSummary?.mtdCollections?.value ?? params.reportData.executiveSummary?.mtdRevenue?.value ?? params.reportData.executiveSummary?.totalCollections?.value ?? 0;
     const pendingFees = params.reportData.executiveSummary?.outstandingFees?.value ?? 0;
     const overdueEmis = params.reportData.pendingFeeSummary?.overdueStudentsCount ?? 0;
 
