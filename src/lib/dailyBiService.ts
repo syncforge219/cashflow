@@ -64,6 +64,8 @@ export interface DailyBiReportData {
   executiveSummary: {
     totalRevenue: { value: number; prevValue: number; changePct: number };
     totalCollections: { value: number; prevValue: number; changePct: number };
+    mtdCollections?: { value: number; prevValue: number; changePct: number };
+    mtdRevenue?: { value: number; prevValue: number; changePct: number };
     totalLeads: { value: number; prevValue: number; changePct: number };
     admissions: { value: number; prevValue: number; changePct: number };
     conversionRate: { value: number; prevValue: number; changePct: number };
@@ -211,22 +213,41 @@ export async function getDailyBiReportData(targetDate?: Date): Promise<DailyBiRe
 
   const now = targetDate || new Date();
   
-  const todayStart = new Date(now);
-  todayStart.setHours(0, 0, 0, 0);
-  const todayEnd = new Date(now);
-  todayEnd.setHours(23, 59, 59, 999);
+  // IST Date Formatting helper for exact IST (UTC+5:30) boundaries
+  const istDateParts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(now);
 
-  const yesterdayStart = new Date(todayStart);
-  yesterdayStart.setDate(yesterdayStart.getDate() - 1);
-  const yesterdayEnd = new Date(todayEnd);
-  yesterdayEnd.setDate(yesterdayEnd.getDate() - 1);
+  const yearStr = istDateParts.find(p => p.type === "year")?.value || "2026";
+  const monthStr = istDateParts.find(p => p.type === "month")?.value || "08";
+  const dayStr = istDateParts.find(p => p.type === "day")?.value || "30";
 
-  const lastWeekStart = new Date(todayStart);
-  lastWeekStart.setDate(lastWeekStart.getDate() - 7);
-  const lastWeekEnd = new Date(todayEnd);
-  lastWeekEnd.setDate(lastWeekEnd.getDate() - 7);
+  const todayStart = new Date(`${yearStr}-${monthStr}-${dayStr}T00:00:00.000+05:30`);
+  const todayEnd = new Date(`${yearStr}-${monthStr}-${dayStr}T23:59:59.999+05:30`);
 
-  // 1. Fetch Today, Yesterday & Last Week Datasets
+  const yesterdayDateObj = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000);
+  const yesterdayParts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(yesterdayDateObj);
+  const yYearStr = yesterdayParts.find(p => p.type === "year")?.value || yearStr;
+  const yMonthStr = yesterdayParts.find(p => p.type === "month")?.value || monthStr;
+  const yDayStr = yesterdayParts.find(p => p.type === "day")?.value || dayStr;
+
+  const yesterdayStart = new Date(`${yYearStr}-${yMonthStr}-${yDayStr}T00:00:00.000+05:30`);
+  const yesterdayEnd = new Date(`${yYearStr}-${yMonthStr}-${yDayStr}T23:59:59.999+05:30`);
+
+  const lastWeekStart = new Date(todayStart.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const lastWeekEnd = new Date(todayEnd.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  const monthStart = new Date(`${yearStr}-${monthStr}-01T00:00:00.000+05:30`);
+
+  // 1. Fetch Today, Yesterday, Last Week & MTD Datasets
   const [
     todayLeads,
     yesterdayLeads,
@@ -235,6 +256,8 @@ export async function getDailyBiReportData(targetDate?: Date): Promise<DailyBiRe
     todayPayments,
     yesterdayPayments,
     lastWeekPayments,
+    mtdPayments,
+    mtdAdmissions,
     allAdmissions,
     allEnquiries,
     allUsers,
@@ -277,6 +300,20 @@ export async function getDailyBiReportData(targetDate?: Date): Promise<DailyBiRe
         { $and: [{ paymentDate: null }, { createdAt: { $gte: lastWeekStart, $lte: lastWeekEnd } }] }
       ]
     }).lean(),
+    Payment.find({
+      $or: [
+        { paymentDate: { $gte: monthStart, $lte: todayEnd } },
+        { $and: [{ paymentDate: { $exists: false } }, { createdAt: { $gte: monthStart, $lte: todayEnd } }] },
+        { $and: [{ paymentDate: null }, { createdAt: { $gte: monthStart, $lte: todayEnd } }] }
+      ]
+    }).lean(),
+    Admission.find({
+      $or: [
+        { admissionDate: { $gte: monthStart, $lte: todayEnd } },
+        { $and: [{ admissionDate: { $exists: false } }, { createdAt: { $gte: monthStart, $lte: todayEnd } }] },
+        { $and: [{ admissionDate: null }, { createdAt: { $gte: monthStart, $lte: todayEnd } }] }
+      ]
+    }).lean(),
     Admission.find({}).lean(),
     Enquiry.find({}).lean(),
     User.find({}).select("-password").lean(),
@@ -289,6 +326,9 @@ export async function getDailyBiReportData(targetDate?: Date): Promise<DailyBiRe
   const todayColl = sumAmount(todayPayments);
   const yesterdayColl = sumAmount(yesterdayPayments);
   const lastWeekColl = sumAmount(lastWeekPayments);
+
+  const mtdColl = sumAmount(mtdPayments);
+  const mtdRev = mtdAdmissions.reduce((acc, a: any) => acc + (Number(a.totalCourseFee || a.courseFee) || 0), 0);
 
   const todayRevenue = todayAdmissions.reduce((acc, a: any) => acc + (Number(a.totalCourseFee || a.courseFee) || 0), 0);
   const yesterdayRevenue = yesterdayAdmissions.reduce((acc, a: any) => acc + (Number(a.totalCourseFee || a.courseFee) || 0), 0);
@@ -330,20 +370,22 @@ export async function getDailyBiReportData(targetDate?: Date): Promise<DailyBiRe
     const sClean = s.trim();
     const dt = new Date(sClean);
     if (!isNaN(dt.getTime()) && dt >= todayStart && dt <= todayEnd) return true;
-    const todayLocalStr = now.toLocaleDateString("en-IN");
-    const todayIsoStr = now.toISOString().split("T")[0];
+    const todayLocalStr = now.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" });
+    const todayIsoStr = `${yearStr}-${monthStr}-${dayStr}`;
     return sClean === todayLocalStr || sClean === todayIsoStr || sClean.includes(todayIsoStr);
   };
 
-  // Find all followups done today across all enquiries
+  // Find all followups done today across all enquiries (deduplicated per lead)
   let totalFollowupsTodayCount = 0;
   allEnquiries.forEach((e: any) => {
     let leadFollowupDoneToday = false;
     if (Array.isArray(e.followUps)) {
       e.followUps.forEach((f: any) => {
         if (isDateToday(f.completedAt) || isDateToday(f.createdAt) || isStringDateToday(f.date)) {
-          totalFollowupsTodayCount++;
-          leadFollowupDoneToday = true;
+          if (!leadFollowupDoneToday) {
+            totalFollowupsTodayCount++;
+            leadFollowupDoneToday = true;
+          }
         }
       });
     }
@@ -354,13 +396,11 @@ export async function getDailyBiReportData(targetDate?: Date): Promise<DailyBiRe
     }
   });
 
-  if (totalFollowupsTodayCount === 0) {
-    totalFollowupsTodayCount = todayLeads.filter((e: any) => e.nextFollowUpDate || e.remarks || e.status === "Follow-up" || e.status === "In Progress").length;
-  }
-
   const executiveSummary = {
     totalRevenue: { value: todayRevenue, prevValue: yesterdayRevenue, changePct: getPctChange(todayRevenue, yesterdayRevenue) },
     totalCollections: { value: todayColl, prevValue: yesterdayColl, changePct: getPctChange(todayColl, yesterdayColl) },
+    mtdCollections: { value: mtdColl, prevValue: mtdColl, changePct: 0 },
+    mtdRevenue: { value: mtdRev, prevValue: mtdRev, changePct: 0 },
     totalLeads: { value: todayLeadsCount, prevValue: yesterdayLeadsCount, changePct: getPctChange(todayLeadsCount, yesterdayLeadsCount) },
     admissions: { value: todayAdmissionsCount, prevValue: yesterdayAdmissionsCount, changePct: getPctChange(todayAdmissionsCount, yesterdayAdmissionsCount) },
     conversionRate: { value: Number(todayConvRate.toFixed(1)), prevValue: Number(yesterdayConvRate.toFixed(1)), changePct: getPctChange(todayConvRate, yesterdayConvRate) },
@@ -545,6 +585,16 @@ export async function getDailyBiReportData(targetDate?: Date): Promise<DailyBiRe
 
   // Pre-fetch all payments for 7-day trend calculation
   const allPaymentsForTrend = await Payment.find({}).lean();
+
+  // Create admission mapping for attributing payments to brands & counsellors
+  const admissionMap = new Map<string, any>();
+  allAdmissions.forEach((a: any) => {
+    if (a._id) admissionMap.set(a._id.toString(), a);
+    const sName = (a.fullName || a.studentName || "").toLowerCase().trim();
+    if (sName) admissionMap.set(sName, a);
+    const cNm = cleanName(a.fullName || a.studentName);
+    if (cNm) admissionMap.set(cNm, a);
+  });
 
   const getPaymentBrand = (p: any): string => {
     if (p.brand && String(p.brand).trim()) return String(p.brand).trim();
@@ -797,13 +847,7 @@ export async function getDailyBiReportData(targetDate?: Date): Promise<DailyBiRe
     return salesRoleSet.has(roleLower) || activeAdvisorNames.has(nameLower) || activeAdvisorNames.has(emailLower);
   });
 
-  // Create admission mapping for attributing payments to counsellors / centre heads
-  const admissionMap = new Map<string, any>();
-  allAdmissions.forEach((a: any) => {
-    if (a._id) admissionMap.set(a._id.toString(), a);
-    const sName = (a.fullName || a.studentName || "").toLowerCase().trim();
-    if (sName) admissionMap.set(sName, a);
-  });
+  // Admission mapping for attributing payments to counsellors / centre heads is already initialized above
 
   const rawCounsellorStats = salesExecs.map((exec: any) => {
     const name = exec.name || "Sales Exec";
