@@ -192,6 +192,9 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                   </div>
                 </div>
               )}
+
+              {/* Staff Members Section */}
+              {filteredUsers.length > 0 && (
                 <div>
                   <h3 className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Staff Members</h3>
                   <div className="space-y-1">
