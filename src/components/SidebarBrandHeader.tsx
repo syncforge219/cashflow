@@ -243,7 +243,7 @@ export default function SidebarBrandHeader({
                   className="flex items-center gap-1.5 cursor-pointer select-none group-hover/title:text-indigo-600 transition-colors truncate"
                   title="Click to edit App Name"
                 >
-                  <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-indigo-900 via-slate-800 to-indigo-950 bg-clip-text text-transparent truncate">
+                  <span className="text-xl font-extrabold tracking-tight text-slate-800 dark:text-slate-100 group-hover/title:text-indigo-600 transition-colors truncate">
                     {currentAppName}
                   </span>
                   

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { User, useUser } from "../app/component/context/user-context";
+import { useTheme } from "../app/component/context/theme-context";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface ProfileDisplayProps {
@@ -14,6 +15,7 @@ interface ProfileDisplayProps {
 export default function ProfileDisplay({ isOpen, onClose, user, logout }: ProfileDisplayProps) {
   if (!user) return null;
   const { login } = useUser();
+  const { theme, setTheme, availableThemes } = useTheme();
 
   const roleLower = (user.role || "").toLowerCase().trim();
   const isTechky =
@@ -386,6 +388,60 @@ export default function ProfileDisplay({ isOpen, onClose, user, logout }: Profil
                     [EDIT_PROFILE]
                   </button>
                 )}
+              </div>
+            </div>
+
+            {/* Appearance & Themes Section */}
+            <div className={`space-y-3 border-t pt-4 ${isTechky ? "border-slate-800" : "border-slate-100"}`}>
+              <div className="flex items-center justify-between">
+                <h5 className={`text-xs font-black uppercase tracking-wider ${isTechky ? "text-slate-400" : "text-slate-400"}`}>
+                  {isTechky ? "// THEME_APPEARANCE" : "Appearance & Theme"}
+                </h5>
+                <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100 uppercase">
+                  {theme}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                {availableThemes.map((t) => {
+                  const isSelected = theme === t.id;
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setTheme(t.id)}
+                      className={`flex flex-col p-2.5 rounded-2xl border text-left transition-all cursor-pointer relative ${
+                        isSelected
+                          ? isTechky
+                            ? "bg-emerald-950/40 border-emerald-400/80 shadow-[0_0_15px_rgba(16,185,129,0.15)]"
+                            : "bg-indigo-50/80 border-indigo-300 shadow-xs"
+                          : isTechky
+                          ? "bg-slate-900/60 border-slate-800 hover:border-slate-700"
+                          : "bg-white border-slate-200 hover:bg-slate-50"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-base leading-none">{t.icon}</span>
+                        <div className="flex items-center gap-1">
+                          <span
+                            className="w-3 h-3 rounded-full border border-slate-300 shadow-2xs"
+                            style={{ backgroundColor: t.colors.primary }}
+                          />
+                          <span
+                            className="w-3 h-3 rounded-full border border-slate-300 shadow-2xs"
+                            style={{ backgroundColor: t.colors.bg }}
+                          />
+                        </div>
+                      </div>
+                      <span className={`text-xs font-extrabold truncate ${isSelected ? (isTechky ? "text-emerald-300" : "text-indigo-950") : (isTechky ? "text-slate-200" : "text-slate-800")}`}>
+                        {t.name}
+                      </span>
+                      <span className="text-[9px] text-slate-400 truncate mt-0.5">
+                        {t.category.toUpperCase()}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 

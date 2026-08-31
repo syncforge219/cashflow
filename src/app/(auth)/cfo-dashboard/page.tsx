@@ -7,6 +7,7 @@ import { useUser } from "../../component/context/user-context";
 import ProfileDisplay from "@/components/ProfileDisplay";
 import CommandPalette from "@/components/CommandPalette";
 import CfoSecurityGuard from "@/components/CfoSecurityGuard";
+import ThemeSwitcher from "@/components/ThemeSwitcher";
 
 interface TooltipItem {
   name: string;
@@ -683,6 +684,7 @@ export default function CfoDashboardPage() {
                 CTRL+K
               </span>
             </button>
+            <ThemeSwitcher />
             <ProfileDisplay isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} user={user} logout={logout} />
 
             <div className="flex items-center gap-2 border-l border-slate-200 pl-4">

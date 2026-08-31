@@ -11,6 +11,7 @@ import AddBatchModal from "@/components/AddBatchModal";
 import LeadProfile from "@/components/LeadProfile";
 import DashboardFilter from "@/components/DashboardFilter";
 import StudentSearchCenter from "@/components/StudentSearchCenter";
+import ThemeSwitcher from "@/components/ThemeSwitcher";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function CounsellorDashboardPage() {
@@ -246,7 +247,7 @@ export default function CounsellorDashboardPage() {
           </div>
 
           <div className="flex items-center gap-4">
-            
+            <ThemeSwitcher />
             {/* NOTIFICATION BELL ICON WITH DROPDOWN */}
             <div className="relative">
               <button

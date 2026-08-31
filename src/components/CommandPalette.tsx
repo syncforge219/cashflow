@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { useUser } from "../app/component/context/user-context"
+import { useUser } from "../app/component/context/user-context";
+import { useTheme } from "../app/component/context/theme-context";
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const { user: currentUser } = useUser();
+  const { theme, setTheme, availableThemes } = useTheme();
 
   // Fetch users on mount
   useEffect(() => {
@@ -48,22 +50,30 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
     }
   }, [isOpen]);
 
-  // Determine the correct dashboard path based on role
-  let rolePrefix = "admin";
-  if (currentUser?.role === "brand manager" || currentUser?.role === "centre head") {
-    rolePrefix = "manager";
-  } else if (currentUser?.role === "counsellor") {
-    rolePrefix = "counsellor";
-  }
-  const dashPath = `/${rolePrefix}-dashboard`;
-
-  // Static Data
+  // Filter Theme Commands
+  const themeCommands = availableThemes
+    .filter(
+      (t) =>
+        t.name.toLowerCase().includes(query.toLowerCase()) ||
+        t.id.toLowerCase().includes(query.toLowerCase()) ||
+        query.toLowerCase().includes("theme") ||
+        query.toLowerCase().includes("dark") ||
+        query.toLowerCase().includes("light") ||
+        query.toLowerCase().includes("mode") ||
+        query.toLowerCase().includes("color")
+    )
+    .map((t) => ({
+      ...t,
+      type: "theme",
+      _id: `theme-${t.id}`,
+    }));
 
   // Filtering
   const filteredUsers = users.filter(u => u.name?.toLowerCase().includes(query.toLowerCase()) || u.role?.toLowerCase().includes(query.toLowerCase()));
 
   // Flatten items for keyboard navigation
   const allItems = [
+    ...themeCommands,
     ...filteredUsers.map(u => ({ ...u, type: 'user' }))
   ];
 
@@ -98,8 +108,9 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
   }, [isOpen, allItems, activeIndex, onClose]);
 
   const handleSelect = (item: any) => {
-    if (item.type === 'user') {
-      // In a real app, maybe go to user profile
+    if (item.type === 'theme') {
+      setTheme(item.id);
+    } else if (item.type === 'user') {
       alert(`Selected user: ${item.name}`);
     }
     onClose();
@@ -108,12 +119,12 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh] px-4 sm:px-0">
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh] px-4 sm:px-0 font-sans">
       {/* Backdrop overlay */}
       <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" onClick={onClose} />
 
       {/* Modal Card */}
-      <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-slate-200">
 
         {/* Search Input Area */}
         <div className="flex items-center px-4 py-3 border-b border-slate-100">
@@ -124,7 +135,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
             ref={inputRef}
             type="text"
             className="flex-1 bg-transparent border-none text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-0 text-base"
-            placeholder="Search anything or press '>' for shortcuts..."
+            placeholder="Search commands, themes (e.g. 'dark', 'light'), or staff..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -141,10 +152,46 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
           ) : (
             <div className="space-y-4 py-2">
 
-
-
-              {/* Staff Members Section */}
-              {filteredUsers.length > 0 && (
+              {/* Themes Section */}
+              {themeCommands.length > 0 && (
+                <div>
+                  <h3 className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Theme Palette Actions</h3>
+                  <div className="space-y-1">
+                    {themeCommands.map((t) => {
+                      const itemIndex = allItems.findIndex(i => i._id === t._id);
+                      const isActive = itemIndex === activeIndex;
+                      const isCurrent = theme === t.id;
+                      return (
+                        <div
+                          key={t._id}
+                          className={`flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer select-none transition-colors ${isActive ? 'bg-indigo-50/80 text-indigo-900' : 'hover:bg-slate-50 text-slate-800'}`}
+                          onClick={() => handleSelect(allItems[itemIndex])}
+                          onMouseEnter={() => setActiveIndex(itemIndex)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-xl">{t.icon}</span>
+                            <div>
+                              <div className="text-sm font-bold flex items-center gap-2">
+                                Switch to {t.name} Theme
+                                {isCurrent && (
+                                  <span className="text-[9px] font-extrabold bg-indigo-100 text-indigo-700 px-1.5 py-0.2 rounded border border-indigo-200">
+                                    Active
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-xs text-slate-400">{t.description}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="w-3.5 h-3.5 rounded-full border border-slate-300 shadow-2xs" style={{ backgroundColor: t.colors.primary }} />
+                            <span className="w-3.5 h-3.5 rounded-full border border-slate-300 shadow-2xs" style={{ backgroundColor: t.colors.bg }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
                 <div>
                   <h3 className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Staff Members</h3>
                   <div className="space-y-1">

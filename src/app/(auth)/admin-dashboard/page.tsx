@@ -13,6 +13,7 @@ import AddBatchModal from "@/components/AddBatchModal";
 import AdmissionBreakdownModal from "@/components/AdmissionBreakdownModal";
 import PaymentBreakdownModal from "@/components/PaymentBreakdownModal";
 import TimelineComparisonGraph from "@/components/TimelineComparisonGraph";
+import ThemeSwitcher from "@/components/ThemeSwitcher";
 
 export default function AdminDashboard() {
   const { user, logout } = useUser();
@@ -470,6 +471,7 @@ export default function AdminDashboard() {
                 CTRL+K
               </span>
             </button>
+            <ThemeSwitcher />
             <ProfileDisplay isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} user={user} logout={logout} />
 
             <div className="flex items-center gap-2.5 border-l border-slate-200 pl-4">

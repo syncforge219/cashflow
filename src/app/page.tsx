@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import ThemeSwitcher from "@/components/ThemeSwitcher";
 
 export default function WelcomePage() {
   const [activeTab, setActiveTab] = useState<"student360" | "allocation" | "crm" | "financials" | "ai" | "academics">("student360");
@@ -285,6 +286,7 @@ export default function WelcomePage() {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-3">
+          <ThemeSwitcher />
           <Link
             href="/signup"
             className="px-4 py-2 text-xs font-bold text-slate-700 hover:text-indigo-600 transition-colors"

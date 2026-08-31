@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "../globals.css";
 import UserProvider from "./component/context/user-context";
+import { ThemeProvider } from "./component/context/theme-context";
+import ThemeScript from "@/components/ThemeScript";
 import ThemeInitializer from "@/components/ThemeInitializer";
 import RecaptchaProvider from "@/components/RecaptchaProvider";
 
@@ -24,6 +26,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
+        <ThemeScript />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
@@ -31,13 +34,15 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="min-h-full flex flex-col font-sans bg-slate-50 text-slate-900 selection:bg-indigo-500 selection:text-white">
-        <UserProvider>
-          <RecaptchaProvider>
-            <ThemeInitializer />
-            {children}
-          </RecaptchaProvider>
-        </UserProvider>
+      <body className="min-h-full flex flex-col font-sans bg-background text-foreground selection:bg-primary selection:text-primary-foreground">
+        <ThemeProvider>
+          <UserProvider>
+            <RecaptchaProvider>
+              <ThemeInitializer />
+              {children}
+            </RecaptchaProvider>
+          </UserProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

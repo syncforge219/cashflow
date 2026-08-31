@@ -9,8 +9,8 @@ import CommandPalette from "@/components/CommandPalette";
 import AddBatchModal from "@/components/AddBatchModal";
 import AdmissionBreakdownModal from "@/components/AdmissionBreakdownModal";
 import PaymentBreakdownModal from "@/components/PaymentBreakdownModal";
-
 import DashboardFilter from "@/components/DashboardFilter";
+import ThemeSwitcher from "@/components/ThemeSwitcher";
 
 interface DashboardStats {
   selectedBrand: string;
@@ -246,6 +246,8 @@ export default function ManagerDashboard() {
                 </span>
               </button>
             </div>
+
+            <ThemeSwitcher />
 
             {/* Profile Avatar */}
             <div

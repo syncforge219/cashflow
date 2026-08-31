@@ -1,8 +1,554 @@
 @import "tailwindcss";
 
-/* Disable system dark mode by requiring a specific class that we never add */
-@custom-variant dark (&:is(.dark));
+/* 
+ * ==============================================================================
+ * GLOBAL DESIGN TOKEN ARCHITECTURE & MULTI-THEME SYSTEM
+ * Lead2Ledger - Centralized Semantic Design Tokens
+ * ==============================================================================
+ */
 
+@custom-variant dark (&:is(.dark, [data-theme="dark"], [data-theme="modern"], [data-theme="emerald"]));
+
+/* --------------------------------------------------------------------------
+ * TAILWIND CSS v4 SEMANTIC THEME UTILITIES MAPPING
+ * -------------------------------------------------------------------------- */
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-border: var(--input-border);
+  --color-ring: var(--ring);
+
+  /* Sidebar Tokens */
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+
+  /* Semantic Feedback & Status Tokens */
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-error: var(--error);
+  --color-error-foreground: var(--error-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+
+  /* Data Visualization & Chart Tokens */
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+}
+
+/* --------------------------------------------------------------------------
+ * 1. DEFAULT THEME: Lead2Ledger Classic (Slate Clean & Indigo)
+ * Preserves the exact original visual identity
+ * -------------------------------------------------------------------------- */
+:root {
+  --background: #f8faff;
+  --foreground: #0f172a;
+
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+
+  --primary: #4f46e5;
+  --primary-foreground: #ffffff;
+
+  --secondary: #f1f5f9;
+  --secondary-foreground: #1e293b;
+
+  --muted: #f8fafc;
+  --muted-foreground: #64748b;
+
+  --accent: #eef2ff;
+  --accent-foreground: #4338ca;
+
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+
+  --border: #e2e8f0;
+  --input: #ffffff;
+  --input-border: #e2e8f0;
+  --ring: #6366f1;
+
+  --sidebar: rgba(248, 250, 255, 0.95);
+  --sidebar-foreground: #334155;
+  --sidebar-primary: #4f46e5;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f1f5f9;
+  --sidebar-accent-foreground: #0f172a;
+  --sidebar-border: #e2e8f0;
+
+  --success: #10b981;
+  --success-foreground: #ffffff;
+  --warning: #f59e0b;
+  --warning-foreground: #ffffff;
+  --error: #ef4444;
+  --error-foreground: #ffffff;
+  --info: #3b82f6;
+  --info-foreground: #ffffff;
+
+  --chart-1: #6366f1;
+  --chart-2: #06b6d4;
+  --chart-3: #10b981;
+  --chart-4: #f59e0b;
+  --chart-5: #ec4899;
+
+  --radius: 1rem;
+}
+
+/* --------------------------------------------------------------------------
+ * 2. PURE LIGHT THEME: Crisp Executive Daylight
+ * -------------------------------------------------------------------------- */
+[data-theme="light"] {
+  --background: #f1f5f9;
+  --foreground: #090d16;
+
+  --card: #ffffff;
+  --card-foreground: #090d16;
+
+  --popover: #ffffff;
+  --popover-foreground: #090d16;
+
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+
+  --secondary: #e2e8f0;
+  --secondary-foreground: #0f172a;
+
+  --muted: #f1f5f9;
+  --muted-foreground: #475569;
+
+  --accent: #eff6ff;
+  --accent-foreground: #1d4ed8;
+
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+
+  --border: #cbd5e1;
+  --input: #ffffff;
+  --input-border: #cbd5e1;
+  --ring: #3b82f6;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1e293b;
+  --sidebar-primary: #2563eb;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e2e8f0;
+  --sidebar-accent-foreground: #090d16;
+  --sidebar-border: #cbd5e1;
+
+  --success: #059669;
+  --success-foreground: #ffffff;
+  --warning: #d97706;
+  --warning-foreground: #ffffff;
+  --error: #dc2626;
+  --error-foreground: #ffffff;
+  --info: #2563eb;
+  --info-foreground: #ffffff;
+
+  --chart-1: #2563eb;
+  --chart-2: #0891b2;
+  --chart-3: #059669;
+  --chart-4: #d97706;
+  --chart-5: #e11d48;
+}
+
+/* --------------------------------------------------------------------------
+ * 3. DEEP OBSIDIAN THEME: Deep Dark Mode
+ * -------------------------------------------------------------------------- */
+[data-theme="dark"],
+.dark {
+  --background: #0b0f19;
+  --foreground: #f8fafc;
+
+  --card: #131b2e;
+  --card-foreground: #f8fafc;
+
+  --popover: #131b2e;
+  --popover-foreground: #f8fafc;
+
+  --primary: #6366f1;
+  --primary-foreground: #ffffff;
+
+  --secondary: #1e293b;
+  --secondary-foreground: #f1f5f9;
+
+  --muted: #1a233a;
+  --muted-foreground: #94a3b8;
+
+  --accent: #1e223f;
+  --accent-foreground: #a5b4fc;
+
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+
+  --border: #243048;
+  --input: #0f172a;
+  --input-border: #283548;
+  --ring: #818cf8;
+
+  --sidebar: #0d1424;
+  --sidebar-foreground: #cbd5e1;
+  --sidebar-primary: #6366f1;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #1e293b;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #1e293b;
+
+  --success: #10b981;
+  --success-foreground: #ffffff;
+  --warning: #f59e0b;
+  --warning-foreground: #ffffff;
+  --error: #f43f5e;
+  --error-foreground: #ffffff;
+  --info: #38bdf8;
+  --info-foreground: #ffffff;
+
+  --chart-1: #818cf8;
+  --chart-2: #22d3ee;
+  --chart-3: #34d399;
+  --chart-4: #fbbf24;
+  --chart-5: #f472b6;
+}
+
+/* --------------------------------------------------------------------------
+ * 4. CYBER SAPPHIRE THEME: Modern Midnight Navy
+ * -------------------------------------------------------------------------- */
+[data-theme="modern"] {
+  --background: #070d1e;
+  --foreground: #f0f6fc;
+
+  --card: #0d1833;
+  --card-foreground: #f0f6fc;
+
+  --popover: #0d1833;
+  --popover-foreground: #f0f6fc;
+
+  --primary: #0ea5e9;
+  --primary-foreground: #ffffff;
+
+  --secondary: #132448;
+  --secondary-foreground: #e0f2fe;
+
+  --muted: #0f1f3d;
+  --muted-foreground: #7dd3fc;
+
+  --accent: #0c284d;
+  --accent-foreground: #38bdf8;
+
+  --destructive: #f43f5e;
+  --destructive-foreground: #ffffff;
+
+  --border: #1e3a6a;
+  --input: #091329;
+  --input-border: #1e3a6a;
+  --ring: #38bdf8;
+
+  --sidebar: #091226;
+  --sidebar-foreground: #93c5fd;
+  --sidebar-primary: #0ea5e9;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #132448;
+  --sidebar-accent-foreground: #f0f6fc;
+  --sidebar-border: #1e3a6a;
+
+  --success: #06b6d4;
+  --success-foreground: #ffffff;
+  --warning: #fb923c;
+  --warning-foreground: #ffffff;
+  --error: #f43f5e;
+  --error-foreground: #ffffff;
+  --info: #0ea5e9;
+  --info-foreground: #ffffff;
+
+  --chart-1: #38bdf8;
+  --chart-2: #818cf8;
+  --chart-3: #2dd4bf;
+  --chart-4: #fb923c;
+  --chart-5: #f43f5e;
+}
+
+/* --------------------------------------------------------------------------
+ * 5. EMERALD WEALTH THEME: Luxury Dark Pine & Financial Green
+ * -------------------------------------------------------------------------- */
+[data-theme="emerald"] {
+  --background: #05140f;
+  --foreground: #ecfdf5;
+
+  --card: #0c241c;
+  --card-foreground: #ecfdf5;
+
+  --popover: #0c241c;
+  --popover-foreground: #ecfdf5;
+
+  --primary: #10b981;
+  --primary-foreground: #ffffff;
+
+  --secondary: #13382c;
+  --secondary-foreground: #a7f3d0;
+
+  --muted: #0e2e23;
+  --muted-foreground: #6ee7b7;
+
+  --accent: #144234;
+  --accent-foreground: #34d399;
+
+  --destructive: #f87171;
+  --destructive-foreground: #ffffff;
+
+  --border: #1c4d3d;
+  --input: #071a13;
+  --input-border: #1c4d3d;
+  --ring: #34d399;
+
+  --sidebar: #071c15;
+  --sidebar-foreground: #a7f3d0;
+  --sidebar-primary: #10b981;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #13382c;
+  --sidebar-accent-foreground: #ecfdf5;
+  --sidebar-border: #1c4d3d;
+
+  --success: #10b981;
+  --success-foreground: #ffffff;
+  --warning: #fbbf24;
+  --warning-foreground: #ffffff;
+  --error: #f87171;
+  --error-foreground: #ffffff;
+  --info: #2dd4bf;
+  --info-foreground: #ffffff;
+
+  --chart-1: #10b981;
+  --chart-2: #06b6d4;
+  --chart-3: #fbbf24;
+  --chart-4: #a855f7;
+  --chart-5: #f43f5e;
+}
+
+/* --------------------------------------------------------------------------
+ * GLOBAL BASE & THEME TRANSITION LAYER
+ * -------------------------------------------------------------------------- */
+html,
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  transition-property: background-color, border-color, color;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html,
+  body,
+  * {
+    transition: none !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+ * DARK & THEMED SURFACE HARMONY RULES
+ * Automatically maps card surfaces, tables, inputs, sidebars, borders, modals
+ * across Dark, Cyber Sapphire, and Emerald Wealth themes without breaking
+ * semantic status tags (green/red/amber/blue badges).
+ * -------------------------------------------------------------------------- */
+[data-theme="dark"] body,
+[data-theme="modern"] body,
+[data-theme="emerald"] body,
+.dark body {
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+/* Main Dashboard Containers & Workspaces */
+[data-theme="dark"] .bg-\[\#f8faff\],
+[data-theme="modern"] .bg-\[\#f8faff\],
+[data-theme="emerald"] .bg-\[\#f8faff\],
+.dark .bg-\[\#f8faff\] {
+  background-color: var(--background) !important;
+  color: var(--foreground);
+}
+
+[data-theme="dark"] .bg-slate-50,
+[data-theme="modern"] .bg-slate-50,
+[data-theme="emerald"] .bg-slate-50,
+.dark .bg-slate-50 {
+  background-color: var(--background) !important;
+}
+
+/* Cards & Modals */
+[data-theme="dark"] .bg-white,
+[data-theme="modern"] .bg-white,
+[data-theme="emerald"] .bg-white,
+.dark .bg-white {
+  background-color: var(--card) !important;
+  color: var(--card-foreground) !important;
+}
+
+[data-theme="dark"] .bg-white\/95,
+[data-theme="modern"] .bg-white\/95,
+[data-theme="emerald"] .bg-white\/95,
+.dark .bg-white\/95,
+[data-theme="dark"] .bg-white\/80,
+[data-theme="modern"] .bg-white\/80,
+[data-theme="emerald"] .bg-white\/80,
+.dark .bg-white\/80 {
+  background-color: var(--card) !important;
+}
+
+/* Text adaptations in dark themes */
+[data-theme="dark"] .text-slate-900,
+[data-theme="modern"] .text-slate-900,
+[data-theme="emerald"] .text-slate-900,
+.dark .text-slate-900,
+[data-theme="dark"] .text-slate-800,
+[data-theme="modern"] .text-slate-800,
+[data-theme="emerald"] .text-slate-800,
+.dark .text-slate-800 {
+  color: var(--foreground) !important;
+}
+
+[data-theme="dark"] .text-slate-700,
+[data-theme="modern"] .text-slate-700,
+[data-theme="emerald"] .text-slate-700,
+.dark .text-slate-700,
+[data-theme="dark"] .text-slate-600,
+[data-theme="modern"] .text-slate-600,
+[data-theme="emerald"] .text-slate-600,
+.dark .text-slate-600 {
+  color: var(--muted-foreground) !important;
+}
+
+/* Borders */
+[data-theme="dark"] .border-slate-200,
+[data-theme="modern"] .border-slate-200,
+[data-theme="emerald"] .border-slate-200,
+.dark .border-slate-200,
+[data-theme="dark"] .border-slate-200\/80,
+[data-theme="modern"] .border-slate-200\/80,
+[data-theme="emerald"] .border-slate-200\/80,
+.dark .border-slate-200\/80,
+[data-theme="dark"] .border-slate-100,
+[data-theme="modern"] .border-slate-100,
+[data-theme="emerald"] .border-slate-100,
+.dark .border-slate-100,
+[data-theme="dark"] .divide-slate-100,
+[data-theme="modern"] .divide-slate-100,
+[data-theme="emerald"] .divide-slate-100,
+.dark .divide-slate-100 {
+  border-color: var(--border) !important;
+}
+
+/* Inputs & Form Controls */
+[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]),
+[data-theme="modern"] input:not([type="checkbox"]):not([type="radio"]),
+[data-theme="emerald"] input:not([type="checkbox"]):not([type="radio"]),
+.dark input:not([type="checkbox"]):not([type="radio"]),
+[data-theme="dark"] select,
+[data-theme="modern"] select,
+[data-theme="emerald"] select,
+.dark select,
+[data-theme="dark"] textarea,
+[data-theme="modern"] textarea,
+[data-theme="emerald"] textarea,
+.dark textarea {
+  background-color: var(--input) !important;
+  color: var(--foreground) !important;
+  border-color: var(--input-border) !important;
+}
+
+/* Input Placeholders in Dark */
+[data-theme="dark"] input::placeholder,
+[data-theme="modern"] input::placeholder,
+[data-theme="emerald"] input::placeholder,
+.dark input::placeholder,
+[data-theme="dark"] textarea::placeholder,
+[data-theme="modern"] textarea::placeholder,
+[data-theme="emerald"] textarea::placeholder,
+.dark textarea::placeholder {
+  color: #64748b !important;
+}
+
+/* Tables in Dark */
+[data-theme="dark"] table th,
+[data-theme="modern"] table th,
+[data-theme="emerald"] table th,
+.dark table th {
+  background-color: var(--card) !important;
+  color: var(--muted-foreground) !important;
+  border-color: var(--border) !important;
+}
+
+[data-theme="dark"] table td,
+[data-theme="modern"] table td,
+[data-theme="emerald"] table td,
+.dark table td {
+  border-color: var(--border) !important;
+}
+
+[data-theme="dark"] .hover\:bg-slate-50\/40:hover,
+[data-theme="modern"] .hover\:bg-slate-50\/40:hover,
+[data-theme="emerald"] .hover\:bg-slate-50\/40:hover,
+.dark .hover\:bg-slate-50\/40:hover,
+[data-theme="dark"] .hover\:bg-slate-50:hover,
+[data-theme="modern"] .hover\:bg-slate-50:hover,
+[data-theme="emerald"] .hover\:bg-slate-50:hover,
+.dark .hover\:bg-slate-50:hover {
+  background-color: var(--muted) !important;
+}
+
+/* Dark Scrollbars */
+[data-theme="dark"] ::-webkit-scrollbar-track,
+[data-theme="modern"] ::-webkit-scrollbar-track,
+[data-theme="emerald"] ::-webkit-scrollbar-track,
+.dark ::-webkit-scrollbar-track {
+  background: var(--background);
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb,
+[data-theme="modern"] ::-webkit-scrollbar-thumb,
+[data-theme="emerald"] ::-webkit-scrollbar-thumb,
+.dark ::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 8px;
+}
+
+/* --------------------------------------------------------------------------
+ * KEYFRAME ANIMATIONS
+ * -------------------------------------------------------------------------- */
 @keyframes floatSlow {
   0%, 100% {
     transform: translateY(0px) rotate(0deg);

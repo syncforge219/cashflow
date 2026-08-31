@@ -8,6 +8,7 @@ import ProfileDisplay from "@/components/ProfileDisplay";
 import CommandPalette from "@/components/CommandPalette";
 import TakeAttendanceModal from "@/components/TakeAttendanceModal";
 import NotificationPanel from "@/components/NotificationPanel";
+import ThemeSwitcher from "@/components/ThemeSwitcher";
 
 export default function TeacherDashboard() {
   const router = useRouter();
@@ -249,6 +250,8 @@ export default function TeacherDashboard() {
                 🔔
               </span>
             </button>
+
+            <ThemeSwitcher />
 
             <ProfileDisplay isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} user={user} logout={logout} />
 
