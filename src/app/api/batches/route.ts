@@ -115,6 +115,13 @@ export async function GET(request: Request) {
         needsDbUpdate = true;
       }
 
+      if (b.timing && /12:00\s*AM/i.test(b.timing)) {
+        const correctedTiming = b.timing.replace(/12:00\s*AM/gi, "12:00 PM");
+        updates.timing = correctedTiming;
+        batches[i].timing = correctedTiming;
+        needsDbUpdate = true;
+      }
+
       if (needsDbUpdate) {
         updatePromises.push(Batch.findByIdAndUpdate(b._id, updates));
       }

@@ -466,20 +466,12 @@ export default function FacultyAvailabilityMatrix({
                                   onViewBatchDetails(occupyingBatch);
                                 }
                               }}
-                              className="w-full h-12 rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 hover:from-indigo-100 hover:to-purple-100 border border-indigo-200/80 text-indigo-900 flex flex-col items-center justify-center p-1 transition-all cursor-pointer shadow-2xs group/busy overflow-hidden relative"
-                              title={`BUSY: ${occupyingBatch?.batchName || "Batch"} (${occupyingBatch?.timing}) - Click to view`}
+                              className="w-full h-12 rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 hover:from-indigo-100 hover:to-purple-100 border border-indigo-200/90 text-indigo-900 flex items-center justify-center p-1.5 transition-all cursor-pointer shadow-2xs group/busy overflow-hidden relative hover:scale-102 active:scale-95"
+                              title={`Batch: ${occupyingBatch?.batchName || "Batch"}\nCourse: ${occupyingBatch?.course || ""}\nTiming: ${occupyingBatch?.timing || ""}\n(Click to view details)`}
                             >
-                              <span className="text-[8px] font-mono font-black text-indigo-700 uppercase tracking-tighter truncate w-full px-0.5 leading-none">
+                              <span className="text-[10.5px] font-black text-indigo-800 uppercase tracking-tight text-center line-clamp-2 px-0.5 leading-snug">
                                 {occupyingBatch?.batchName || "Class"}
                               </span>
-                              <span className="text-[7.5px] font-bold text-purple-700 truncate w-full mt-0.5 leading-none">
-                                {occupyingBatch?.course || "Course"}
-                              </span>
-                              {occupyingBatch?.enrolledStudentsCount > 0 && (
-                                <span className="text-[7px] font-extrabold bg-indigo-200/70 text-indigo-900 px-1 rounded-full mt-0.5">
-                                  👥 {occupyingBatch.enrolledStudentsCount}
-                                </span>
-                              )}
                             </div>
                           </td>
                         );

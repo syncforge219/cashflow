@@ -30,7 +30,7 @@ export const HOURLY_SLOTS_8_TO_7: HourlySlot[] = [
 
 /**
  * Parses any time string token into total minutes from midnight (0..1439)
- * e.g., "11:00 AM" -> 660, "2:30 PM" -> 870, "14:00" -> 840
+ * e.g., "11:00 AM" -> 660, "2:30 PM" -> 870, "12:00 PM" -> 720, "14:00" -> 840
  */
 export function parseTimeToMinutes(timeStr: string, isEnd = false): number | null {
   if (!timeStr) return null;
@@ -43,15 +43,19 @@ export function parseTimeToMinutes(timeStr: string, isEnd = false): number | nul
   const min = match[2] ? parseInt(match[2], 10) : 0;
   const meridiem = match[3];
 
-  if (meridiem === "PM" && hour < 12) {
-    hour += 12;
-  } else if (meridiem === "AM" && hour === 12) {
-    hour = 0;
+  if (meridiem === "PM") {
+    if (hour < 12) hour += 12;
+  } else if (meridiem === "AM") {
+    if (hour === 12) {
+      // In everyday Indian coaching & class scheduling, "12:00 AM" is almost universally entered
+      // when users mean 12:00 Noon (12 PM), since classes are never held at 12 midnight (00:00).
+      hour = 12;
+    }
   } else if (!meridiem) {
     // If no AM/PM provided: standard coaching center context assumption:
     // Hours 1..7 without meridiem are afternoon/evening (1 PM to 7 PM => 13 to 19)
     // Hours 8..11 are morning (8 AM to 11 AM)
-    // 12 is 12 PM
+    // 12 is 12 PM (Noon => 12)
     if (hour >= 1 && hour <= 7) {
       hour += 12;
     }
@@ -62,7 +66,7 @@ export function parseTimeToMinutes(timeStr: string, isEnd = false): number | nul
 
 /**
  * Parses batch timing range strings:
- * e.g., "11:00 AM - 12:00 PM", "2:00 PM - 3:00 PM", "10:00 AM to 1:00 PM"
+ * e.g., "11:00 AM - 12:00 PM", "12:00 AM - 1:00 PM", "2:00 PM - 3:00 PM", "10:00 AM to 1:00 PM"
  */
 export function parseBatchTimingRange(timingStr: string): { startMin: number; endMin: number } | null {
   if (!timingStr) return null;
@@ -87,18 +91,29 @@ export function parseBatchTimingRange(timingStr: string): { startMin: number; en
     const rawStartHour = parseInt(startPart, 10);
     if (rawStartHour >= 1 && rawStartHour < 12) {
       const endHour24 = Math.floor(endMin / 60);
-      // e.g. "10 - 1 PM" -> start=10 AM (600), end=1 PM (780)
-      // e.g. "2 - 4 PM" -> start=2 PM (840), end=4 PM (960)
       if (rawStartHour < 8 || rawStartHour <= (endHour24 - 12)) {
         startMin = (rawStartHour + 12) * 60 + (startMin % 60);
       }
     }
   }
 
+  // If start was calculated as 0 (midnight) but end is daytime:
+  if (startMin === 0 && endMin > 0 && endMin <= 1200) {
+    startMin = 720;
+  }
+
   // Handle wrap-around or 12-hour span ambiguity
   if (endMin <= startMin) {
     if (endMin < 12 * 60) {
       endMin += 12 * 60;
+    }
+  }
+
+  // Sanity check: If calculated duration is > 6 hours (unrealistic for a single coaching batch),
+  // check if start was 12:00 (720 min)
+  if (endMin - startMin > 360) {
+    if (startMin < 480 && endMin >= 720) {
+      startMin = 720;
     }
   }
 
