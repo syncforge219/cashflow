@@ -7,72 +7,13 @@
  * ==============================================================================
  */
 
-@custom-variant dark (&:is(.dark, [data-theme="dark"], [data-theme="modern"], [data-theme="emerald"]));
-
-/* --------------------------------------------------------------------------
- * TAILWIND CSS v4 SEMANTIC THEME UTILITIES MAPPING
- * -------------------------------------------------------------------------- */
-@theme {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-input-border: var(--input-border);
-  --color-ring: var(--ring);
-
-  /* Sidebar Tokens */
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-
-  /* Semantic Feedback & Status Tokens */
-  --color-success: var(--success);
-  --color-success-foreground: var(--success-foreground);
-  --color-warning: var(--warning);
-  --color-warning-foreground: var(--warning-foreground);
-  --color-error: var(--error);
-  --color-error-foreground: var(--error-foreground);
-  --color-info: var(--info);
-  --color-info-foreground: var(--info-foreground);
-
-  /* Data Visualization & Chart Tokens */
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-}
+@custom-variant dark (&:is(.dark, [data-theme="deep-obsidian"], [data-theme="dark"], [data-theme="cyber-sapphire"], [data-theme="modern"], [data-theme="emerald-wealth"], [data-theme="emerald"]));
 
 /* --------------------------------------------------------------------------
  * 1. DEFAULT THEME: Lead2Ledger Classic (Slate Clean & Indigo)
  * -------------------------------------------------------------------------- */
 :root,
+[data-theme="classic-slate"],
 [data-theme="default"] {
   --background: #f8faff;
   --foreground: #0f172a;
@@ -132,6 +73,7 @@
 /* --------------------------------------------------------------------------
  * 2. PURE LIGHT THEME: Crisp Executive Daylight
  * -------------------------------------------------------------------------- */
+[data-theme="pure-light"],
 [data-theme="light"] {
   --background: #f1f5f9;
   --foreground: #090d16;
@@ -187,8 +129,9 @@
 }
 
 /* --------------------------------------------------------------------------
- * 3. DEEP OBSIDIAN THEME: Deep Dark Mode
+ * 3. DEEP OBSIDIAN THEME: Deep Slate Dark Mode
  * -------------------------------------------------------------------------- */
+[data-theme="deep-obsidian"],
 [data-theme="dark"],
 .dark {
   --background: #0b0f19;
@@ -247,6 +190,7 @@
 /* --------------------------------------------------------------------------
  * 4. CYBER SAPPHIRE THEME: Modern Midnight Navy
  * -------------------------------------------------------------------------- */
+[data-theme="cyber-sapphire"],
 [data-theme="modern"] {
   --background: #060b18;
   --foreground: #f0f6fc;
@@ -304,6 +248,7 @@
 /* --------------------------------------------------------------------------
  * 5. EMERALD WEALTH THEME: Luxury Dark Pine & Financial Green
  * -------------------------------------------------------------------------- */
+[data-theme="emerald-wealth"],
 [data-theme="emerald"] {
   --background: #05140f;
   --foreground: #ecfdf5;
@@ -359,6 +304,37 @@
 }
 
 /* --------------------------------------------------------------------------
+ * DIRECT SEMANTIC TOKEN UTILITY CLASSES (Guarantees 100% Solid Surfaces)
+ * -------------------------------------------------------------------------- */
+.bg-background { background-color: var(--background) !important; color: var(--foreground) !important; }
+.text-foreground { color: var(--foreground) !important; }
+
+.bg-card { background-color: var(--card) !important; color: var(--card-foreground) !important; }
+.text-card-foreground { color: var(--card-foreground) !important; }
+
+.bg-popover { background-color: var(--popover) !important; color: var(--popover-foreground) !important; }
+.text-popover-foreground { color: var(--popover-foreground) !important; }
+
+.bg-sidebar { background-color: var(--sidebar) !important; color: var(--sidebar-foreground) !important; }
+.text-sidebar-foreground { color: var(--sidebar-foreground) !important; }
+.border-sidebar-border { border-color: var(--sidebar-border) !important; }
+.bg-sidebar-primary { background-color: var(--sidebar-primary) !important; color: var(--sidebar-primary-foreground) !important; }
+.bg-sidebar-accent { background-color: var(--sidebar-accent) !important; color: var(--sidebar-accent-foreground) !important; }
+
+.bg-muted { background-color: var(--muted) !important; color: var(--muted-foreground) !important; }
+.text-muted-foreground { color: var(--muted-foreground) !important; }
+
+.bg-secondary { background-color: var(--secondary) !important; color: var(--secondary-foreground) !important; }
+.text-secondary-foreground { color: var(--secondary-foreground) !important; }
+
+.bg-primary { background-color: var(--primary) !important; color: var(--primary-foreground) !important; }
+.text-primary-foreground { color: var(--primary-foreground) !important; }
+
+.border-border { border-color: var(--border) !important; }
+.bg-input { background-color: var(--input) !important; color: var(--foreground) !important; }
+.border-input-border { border-color: var(--input-border) !important; }
+
+/* --------------------------------------------------------------------------
  * GLOBAL BASE & THEME TRANSITION LAYER
  * -------------------------------------------------------------------------- */
 html,
@@ -380,14 +356,14 @@ body {
 }
 
 /* --------------------------------------------------------------------------
- * UNIVERSAL THEME SURFACE OVERRIDES
- * Guarantees that any legacy class variant (bg-white, bg-white/*, bg-slate-50, 
- * bg-slate-50/*, bg-[#f8faff], text-slate-*, border-slate-*) automatically
- * responds to Dark, Cyber Sapphire, and Emerald Wealth themes without breaking
- * legitimate semantic badges (green/red/amber/blue status pills).
+ * UNIVERSAL DARK / CYBER SAPPHIRE / EMERALD OVERRIDE SELECTORS
+ * Automatically transforms all surfaces, sidebars, headers, cards, text, and inputs
  * -------------------------------------------------------------------------- */
-[data-theme="dark"] aside,
+[data-theme="cyber-sapphire"] aside,
 [data-theme="modern"] aside,
+[data-theme="deep-obsidian"] aside,
+[data-theme="dark"] aside,
+[data-theme="emerald-wealth"] aside,
 [data-theme="emerald"] aside,
 .dark aside {
   background-color: var(--sidebar) !important;
@@ -395,20 +371,29 @@ body {
   border-color: var(--sidebar-border) !important;
 }
 
-[data-theme="dark"] header,
+[data-theme="cyber-sapphire"] header,
 [data-theme="modern"] header,
+[data-theme="deep-obsidian"] header,
+[data-theme="dark"] header,
+[data-theme="emerald-wealth"] header,
 [data-theme="emerald"] header,
 .dark header {
   border-color: var(--border) !important;
 }
 
 /* Main Workspace Containers */
-[data-theme="dark"] [class*="bg-[#f8faff]"],
+[data-theme="cyber-sapphire"] [class*="bg-[#f8faff]"],
 [data-theme="modern"] [class*="bg-[#f8faff]"],
+[data-theme="deep-obsidian"] [class*="bg-[#f8faff]"],
+[data-theme="dark"] [class*="bg-[#f8faff]"],
+[data-theme="emerald-wealth"] [class*="bg-[#f8faff]"],
 [data-theme="emerald"] [class*="bg-[#f8faff]"],
 .dark [class*="bg-[#f8faff]"],
-[data-theme="dark"] [class*="bg-slate-50"],
+[data-theme="cyber-sapphire"] [class*="bg-slate-50"],
 [data-theme="modern"] [class*="bg-slate-50"],
+[data-theme="deep-obsidian"] [class*="bg-slate-50"],
+[data-theme="dark"] [class*="bg-slate-50"],
+[data-theme="emerald-wealth"] [class*="bg-slate-50"],
 [data-theme="emerald"] [class*="bg-slate-50"],
 .dark [class*="bg-slate-50"] {
   background-color: var(--background) !important;
@@ -416,8 +401,11 @@ body {
 }
 
 /* Cards, Modals, Popovers, Dropdowns */
-[data-theme="dark"] [class*="bg-white"],
+[data-theme="cyber-sapphire"] [class*="bg-white"],
 [data-theme="modern"] [class*="bg-white"],
+[data-theme="deep-obsidian"] [class*="bg-white"],
+[data-theme="dark"] [class*="bg-white"],
+[data-theme="emerald-wealth"] [class*="bg-white"],
 [data-theme="emerald"] [class*="bg-white"],
 .dark [class*="bg-white"] {
   background-color: var(--card) !important;
@@ -425,12 +413,18 @@ body {
 }
 
 /* Secondary & Muted Backgrounds */
-[data-theme="dark"] [class*="bg-slate-100"],
+[data-theme="cyber-sapphire"] [class*="bg-slate-100"],
 [data-theme="modern"] [class*="bg-slate-100"],
+[data-theme="deep-obsidian"] [class*="bg-slate-100"],
+[data-theme="dark"] [class*="bg-slate-100"],
+[data-theme="emerald-wealth"] [class*="bg-slate-100"],
 [data-theme="emerald"] [class*="bg-slate-100"],
 .dark [class*="bg-slate-100"],
-[data-theme="dark"] [class*="bg-slate-200"],
+[data-theme="cyber-sapphire"] [class*="bg-slate-200"],
 [data-theme="modern"] [class*="bg-slate-200"],
+[data-theme="deep-obsidian"] [class*="bg-slate-200"],
+[data-theme="dark"] [class*="bg-slate-200"],
+[data-theme="emerald-wealth"] [class*="bg-slate-200"],
 [data-theme="emerald"] [class*="bg-slate-200"],
 .dark [class*="bg-slate-200"] {
   background-color: var(--secondary) !important;
@@ -438,67 +432,106 @@ body {
 }
 
 /* Text Colors */
-[data-theme="dark"] [class*="text-slate-900"],
+[data-theme="cyber-sapphire"] [class*="text-slate-900"],
 [data-theme="modern"] [class*="text-slate-900"],
+[data-theme="deep-obsidian"] [class*="text-slate-900"],
+[data-theme="dark"] [class*="text-slate-900"],
+[data-theme="emerald-wealth"] [class*="text-slate-900"],
 [data-theme="emerald"] [class*="text-slate-900"],
 .dark [class*="text-slate-900"],
-[data-theme="dark"] [class*="text-slate-800"],
+[data-theme="cyber-sapphire"] [class*="text-slate-800"],
 [data-theme="modern"] [class*="text-slate-800"],
+[data-theme="deep-obsidian"] [class*="text-slate-800"],
+[data-theme="dark"] [class*="text-slate-800"],
+[data-theme="emerald-wealth"] [class*="text-slate-800"],
 [data-theme="emerald"] [class*="text-slate-800"],
 .dark [class*="text-slate-800"] {
   color: var(--foreground) !important;
 }
 
-[data-theme="dark"] [class*="text-slate-700"],
+[data-theme="cyber-sapphire"] [class*="text-slate-700"],
 [data-theme="modern"] [class*="text-slate-700"],
+[data-theme="deep-obsidian"] [class*="text-slate-700"],
+[data-theme="dark"] [class*="text-slate-700"],
+[data-theme="emerald-wealth"] [class*="text-slate-700"],
 [data-theme="emerald"] [class*="text-slate-700"],
 .dark [class*="text-slate-700"],
-[data-theme="dark"] [class*="text-slate-600"],
+[data-theme="cyber-sapphire"] [class*="text-slate-600"],
 [data-theme="modern"] [class*="text-slate-600"],
+[data-theme="deep-obsidian"] [class*="text-slate-600"],
+[data-theme="dark"] [class*="text-slate-600"],
+[data-theme="emerald-wealth"] [class*="text-slate-600"],
 [data-theme="emerald"] [class*="text-slate-600"],
 .dark [class*="text-slate-600"],
-[data-theme="dark"] [class*="text-slate-500"],
+[data-theme="cyber-sapphire"] [class*="text-slate-500"],
 [data-theme="modern"] [class*="text-slate-500"],
+[data-theme="deep-obsidian"] [class*="text-slate-500"],
+[data-theme="dark"] [class*="text-slate-500"],
+[data-theme="emerald-wealth"] [class*="text-slate-500"],
 [data-theme="emerald"] [class*="text-slate-500"],
 .dark [class*="text-slate-500"],
-[data-theme="dark"] [class*="text-slate-400"],
+[data-theme="cyber-sapphire"] [class*="text-slate-400"],
 [data-theme="modern"] [class*="text-slate-400"],
+[data-theme="deep-obsidian"] [class*="text-slate-400"],
+[data-theme="dark"] [class*="text-slate-400"],
+[data-theme="emerald-wealth"] [class*="text-slate-400"],
 [data-theme="emerald"] [class*="text-slate-400"],
 .dark [class*="text-slate-400"] {
   color: var(--muted-foreground) !important;
 }
 
 /* Borders */
-[data-theme="dark"] [class*="border-slate-200"],
+[data-theme="cyber-sapphire"] [class*="border-slate-200"],
 [data-theme="modern"] [class*="border-slate-200"],
+[data-theme="deep-obsidian"] [class*="border-slate-200"],
+[data-theme="dark"] [class*="border-slate-200"],
+[data-theme="emerald-wealth"] [class*="border-slate-200"],
 [data-theme="emerald"] [class*="border-slate-200"],
 .dark [class*="border-slate-200"],
-[data-theme="dark"] [class*="border-slate-100"],
+[data-theme="cyber-sapphire"] [class*="border-slate-100"],
 [data-theme="modern"] [class*="border-slate-100"],
+[data-theme="deep-obsidian"] [class*="border-slate-100"],
+[data-theme="dark"] [class*="border-slate-100"],
+[data-theme="emerald-wealth"] [class*="border-slate-100"],
 [data-theme="emerald"] [class*="border-slate-100"],
 .dark [class*="border-slate-100"],
-[data-theme="dark"] [class*="divide-slate-100"],
+[data-theme="cyber-sapphire"] [class*="divide-slate-100"],
 [data-theme="modern"] [class*="divide-slate-100"],
+[data-theme="deep-obsidian"] [class*="divide-slate-100"],
+[data-theme="dark"] [class*="divide-slate-100"],
+[data-theme="emerald-wealth"] [class*="divide-slate-100"],
 [data-theme="emerald"] [class*="divide-slate-100"],
 .dark [class*="divide-slate-100"],
-[data-theme="dark"] [class*="divide-slate-200"],
+[data-theme="cyber-sapphire"] [class*="divide-slate-200"],
 [data-theme="modern"] [class*="divide-slate-200"],
+[data-theme="deep-obsidian"] [class*="divide-slate-200"],
+[data-theme="dark"] [class*="divide-slate-200"],
+[data-theme="emerald-wealth"] [class*="divide-slate-200"],
 [data-theme="emerald"] [class*="divide-slate-200"],
 .dark [class*="divide-slate-200"] {
   border-color: var(--border) !important;
 }
 
 /* Inputs & Form Controls */
-[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]),
+[data-theme="cyber-sapphire"] input:not([type="checkbox"]):not([type="radio"]),
 [data-theme="modern"] input:not([type="checkbox"]):not([type="radio"]),
+[data-theme="deep-obsidian"] input:not([type="checkbox"]):not([type="radio"]),
+[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]),
+[data-theme="emerald-wealth"] input:not([type="checkbox"]):not([type="radio"]),
 [data-theme="emerald"] input:not([type="checkbox"]):not([type="radio"]),
 .dark input:not([type="checkbox"]):not([type="radio"]),
-[data-theme="dark"] select,
+[data-theme="cyber-sapphire"] select,
 [data-theme="modern"] select,
+[data-theme="deep-obsidian"] select,
+[data-theme="dark"] select,
+[data-theme="emerald-wealth"] select,
 [data-theme="emerald"] select,
 .dark select,
-[data-theme="dark"] textarea,
+[data-theme="cyber-sapphire"] textarea,
 [data-theme="modern"] textarea,
+[data-theme="deep-obsidian"] textarea,
+[data-theme="dark"] textarea,
+[data-theme="emerald-wealth"] textarea,
 [data-theme="emerald"] textarea,
 .dark textarea {
   background-color: var(--input) !important;
@@ -507,20 +540,29 @@ body {
 }
 
 /* Input Placeholders in Dark */
-[data-theme="dark"] input::placeholder,
+[data-theme="cyber-sapphire"] input::placeholder,
 [data-theme="modern"] input::placeholder,
+[data-theme="deep-obsidian"] input::placeholder,
+[data-theme="dark"] input::placeholder,
+[data-theme="emerald-wealth"] input::placeholder,
 [data-theme="emerald"] input::placeholder,
 .dark input::placeholder,
-[data-theme="dark"] textarea::placeholder,
+[data-theme="cyber-sapphire"] textarea::placeholder,
 [data-theme="modern"] textarea::placeholder,
+[data-theme="deep-obsidian"] textarea::placeholder,
+[data-theme="dark"] textarea::placeholder,
+[data-theme="emerald-wealth"] textarea::placeholder,
 [data-theme="emerald"] textarea::placeholder,
 .dark textarea::placeholder {
-  color: #64748b !important;
+  color: var(--muted-foreground) !important;
 }
 
 /* Tables in Dark */
-[data-theme="dark"] table th,
+[data-theme="cyber-sapphire"] table th,
 [data-theme="modern"] table th,
+[data-theme="deep-obsidian"] table th,
+[data-theme="dark"] table th,
+[data-theme="emerald-wealth"] table th,
 [data-theme="emerald"] table th,
 .dark table th {
   background-color: var(--card) !important;
@@ -528,111 +570,52 @@ body {
   border-color: var(--border) !important;
 }
 
-[data-theme="dark"] table td,
+[data-theme="cyber-sapphire"] table td,
 [data-theme="modern"] table td,
+[data-theme="deep-obsidian"] table td,
+[data-theme="dark"] table td,
+[data-theme="emerald-wealth"] table td,
 [data-theme="emerald"] table td,
 .dark table td {
   border-color: var(--border) !important;
 }
 
 /* Hover States in Dark */
-[data-theme="dark"] [class*="hover:bg-slate-50"]:hover,
+[data-theme="cyber-sapphire"] [class*="hover:bg-slate-50"]:hover,
 [data-theme="modern"] [class*="hover:bg-slate-50"]:hover,
+[data-theme="deep-obsidian"] [class*="hover:bg-slate-50"]:hover,
+[data-theme="dark"] [class*="hover:bg-slate-50"]:hover,
+[data-theme="emerald-wealth"] [class*="hover:bg-slate-50"]:hover,
 [data-theme="emerald"] [class*="hover:bg-slate-50"]:hover,
 .dark [class*="hover:bg-slate-50"]:hover,
-[data-theme="dark"] [class*="hover:bg-slate-100"]:hover,
+[data-theme="cyber-sapphire"] [class*="hover:bg-slate-100"]:hover,
 [data-theme="modern"] [class*="hover:bg-slate-100"]:hover,
+[data-theme="deep-obsidian"] [class*="hover:bg-slate-100"]:hover,
+[data-theme="dark"] [class*="hover:bg-slate-100"]:hover,
+[data-theme="emerald-wealth"] [class*="hover:bg-slate-100"]:hover,
 [data-theme="emerald"] [class*="hover:bg-slate-100"]:hover,
 .dark [class*="hover:bg-slate-100"]:hover {
   background-color: var(--secondary) !important;
 }
 
 /* Scrollbars */
-[data-theme="dark"] ::-webkit-scrollbar-track,
+[data-theme="cyber-sapphire"] ::-webkit-scrollbar-track,
 [data-theme="modern"] ::-webkit-scrollbar-track,
+[data-theme="deep-obsidian"] ::-webkit-scrollbar-track,
+[data-theme="dark"] ::-webkit-scrollbar-track,
+[data-theme="emerald-wealth"] ::-webkit-scrollbar-track,
 [data-theme="emerald"] ::-webkit-scrollbar-track,
 .dark ::-webkit-scrollbar-track {
   background: var(--background);
 }
 
-[data-theme="dark"] ::-webkit-scrollbar-thumb,
+[data-theme="cyber-sapphire"] ::-webkit-scrollbar-thumb,
 [data-theme="modern"] ::-webkit-scrollbar-thumb,
+[data-theme="deep-obsidian"] ::-webkit-scrollbar-thumb,
+[data-theme="dark"] ::-webkit-scrollbar-thumb,
+[data-theme="emerald-wealth"] ::-webkit-scrollbar-thumb,
 [data-theme="emerald"] ::-webkit-scrollbar-thumb,
 .dark ::-webkit-scrollbar-thumb {
   background: var(--border);
   border-radius: 8px;
-}
-
-/* --------------------------------------------------------------------------
- * KEYFRAME ANIMATIONS
- * -------------------------------------------------------------------------- */
-@keyframes floatSlow {
-  0%, 100% {
-    transform: translateY(0px) rotate(0deg);
-  }
-  50% {
-    transform: translateY(-10px) rotate(1.5deg);
-  }
-}
-
-@keyframes floatReverse {
-  0%, 100% {
-    transform: translateY(0px) rotate(0deg);
-  }
-  50% {
-    transform: translateY(10px) rotate(-1.5deg);
-  }
-}
-
-@keyframes pulseGlow {
-  0%, 100% {
-    opacity: 0.4;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.75;
-    transform: scale(1.08);
-  }
-}
-
-@keyframes shimmer {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
-}
-
-@keyframes gradientShift {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-.animate-float-slow {
-  animation: floatSlow 6s ease-in-out infinite;
-}
-
-.animate-float-reverse {
-  animation: floatReverse 8s ease-in-out infinite;
-}
-
-.animate-pulse-glow {
-  animation: pulseGlow 5s ease-in-out infinite;
-}
-
-.animate-shimmer {
-  animation: shimmer 2.5s infinite;
-}
-
-.animate-gradient {
-  background-size: 200% 200%;
-  animation: gradientShift 8s ease infinite;
 }

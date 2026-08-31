@@ -241,11 +241,10 @@ export default function WelcomePage() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-indigo-500 selection:text-white flex flex-col justify-between overflow-x-hidden relative">
+    <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary selection:text-primary-foreground flex flex-col justify-between overflow-x-hidden relative">
       {/* Ambient Mesh Background Accents */}
-      <div className="fixed -top-40 -left-40 h-[650px] w-[650px] rounded-full bg-indigo-300/25 blur-[140px] pointer-events-none -z-10 animate-pulse-glow" />
-      <div className="fixed -bottom-40 -right-40 h-[650px] w-[650px] rounded-full bg-purple-300/25 blur-[140px] pointer-events-none -z-10 animate-pulse-glow" style={{ animationDelay: "2.5s" }} />
-      <div className="fixed top-1/3 right-10 h-[480px] w-[480px] rounded-full bg-emerald-200/20 blur-[130px] pointer-events-none -z-10" />
+      <div className="fixed -top-40 -left-40 h-[650px] w-[650px] rounded-full bg-primary/15 blur-[140px] pointer-events-none -z-10 animate-pulse-glow" />
+      <div className="fixed -bottom-40 -right-40 h-[650px] w-[650px] rounded-full bg-accent/25 blur-[140px] pointer-events-none -z-10 animate-pulse-glow" style={{ animationDelay: "2.5s" }} />
 
       {/* Top Banner Announcement */}
       <div className="bg-gradient-to-r from-indigo-950 via-slate-900 to-purple-950 text-white text-xs font-semibold py-2.5 px-4 text-center flex items-center justify-center gap-2 border-b border-indigo-900/40">
@@ -261,27 +260,27 @@ export default function WelcomePage() {
       </div>
 
       {/* Sticky Header Navbar */}
-      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-slate-200/80 px-6 lg:px-12 py-3.5 flex items-center justify-between shadow-xs">
+      <header className="sticky top-0 z-50 bg-card/80 backdrop-blur-xl border-b border-border px-6 lg:px-12 py-3.5 flex items-center justify-between shadow-xs">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-700 shadow-md shadow-indigo-600/25 text-white font-extrabold text-base tracking-tight font-heading">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-md shadow-primary/25 text-primary-foreground font-extrabold text-base tracking-tight font-heading">
             L2L
           </div>
           <div className="flex flex-col">
-            <span className="text-lg font-extrabold tracking-tight text-slate-900 font-heading leading-none">
-              Lead<span className="text-indigo-600">2</span>Ledger
+            <span className="text-lg font-extrabold tracking-tight text-foreground font-heading leading-none">
+              Lead<span className="text-primary">2</span>Ledger
             </span>
-            <span className="text-[10px] font-bold text-slate-500 tracking-wider uppercase mt-0.5">
+            <span className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase mt-0.5">
               CRM & Financial Intelligence
             </span>
           </div>
         </div>
 
         {/* Center Nav Links */}
-        <nav className="hidden md:flex items-center gap-8 text-xs font-bold text-slate-600">
-          <a href="#features" className="hover:text-indigo-600 transition-colors">Interactive Modules</a>
-          <a href="#deep-features" className="hover:text-indigo-600 transition-colors">Architecture</a>
-          <a href="#portals" className="hover:text-indigo-600 transition-colors">Workspaces</a>
-          <a href="#faqs" className="hover:text-indigo-600 transition-colors">FAQs</a>
+        <nav className="hidden md:flex items-center gap-8 text-xs font-bold text-muted-foreground">
+          <a href="#features" className="hover:text-primary transition-colors">Interactive Modules</a>
+          <a href="#deep-features" className="hover:text-primary transition-colors">Architecture</a>
+          <a href="#portals" className="hover:text-primary transition-colors">Workspaces</a>
+          <a href="#faqs" className="hover:text-primary transition-colors">FAQs</a>
         </nav>
 
         {/* Action Buttons */}
@@ -289,13 +288,13 @@ export default function WelcomePage() {
           <ThemeSwitcher />
           <Link
             href="/signup"
-            className="px-4 py-2 text-xs font-bold text-slate-700 hover:text-indigo-600 transition-colors"
+            className="px-4 py-2 text-xs font-bold text-foreground hover:text-primary transition-colors"
           >
             Create Account
           </Link>
           <Link
             href="/login"
-            className="px-5 py-2.5 text-xs font-extrabold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-md shadow-indigo-600/20 hover:shadow-indigo-600/35 transition-all active:scale-[0.98]"
+            className="px-5 py-2.5 text-xs font-extrabold bg-primary hover:opacity-90 text-primary-foreground rounded-xl shadow-md transition-all active:scale-[0.98]"
           >
             Access Portal &rarr;
           </Link>

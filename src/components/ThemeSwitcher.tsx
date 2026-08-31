@@ -33,7 +33,8 @@ export default function ThemeSwitcher({ compact = false, className = "" }: Theme
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border border-border bg-card text-xs font-bold text-foreground shadow-xs hover:border-primary hover:bg-muted transition-all cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-primary/20 ${
+        style={{ backgroundColor: "var(--card)", color: "var(--foreground)", borderColor: "var(--border)" }}
+        className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold shadow-xs hover:border-primary transition-all cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-primary/20 ${
           compact ? "p-2 justify-center" : ""
         }`}
         title={`Current Theme: ${activeThemeObj.name}`}
@@ -41,7 +42,7 @@ export default function ThemeSwitcher({ compact = false, className = "" }: Theme
         <span className="text-sm leading-none">{activeThemeObj.icon}</span>
         {!compact && (
           <>
-            <span className="truncate max-w-[90px]">{activeThemeObj.name}</span>
+            <span className="truncate max-w-[95px]">{activeThemeObj.name}</span>
             <svg
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
@@ -58,7 +59,7 @@ export default function ThemeSwitcher({ compact = false, className = "" }: Theme
         )}
       </button>
 
-      {/* Dropdown Menu */}
+      {/* Dropdown Menu - 100% Opaque Solid Surface */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -66,15 +67,34 @@ export default function ThemeSwitcher({ compact = false, className = "" }: Theme
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.96 }}
             transition={{ duration: 0.15, ease: "easeOut" }}
-            className="absolute right-0 mt-2 w-72 origin-top-right rounded-2xl border border-border bg-card p-2 shadow-2xl z-[100] focus:outline-none"
+            style={{
+              backgroundColor: "var(--popover)",
+              color: "var(--popover-foreground)",
+              borderColor: "var(--border)",
+            }}
+            className="absolute right-0 mt-2 w-72 origin-top-right rounded-2xl border p-2 shadow-2xl z-[9999] focus:outline-none"
           >
             {/* Header */}
-            <div className="px-3 py-2 border-b border-border mb-1.5 flex items-center justify-between">
+            <div
+              style={{ borderColor: "var(--border)" }}
+              className="px-3 py-2 border-b mb-1.5 flex items-center justify-between"
+            >
               <div>
-                <h4 className="text-xs font-extrabold text-foreground tracking-tight">Appearance & Theme</h4>
-                <p className="text-[10px] text-muted-foreground font-medium">Select global software palette</p>
+                <h4 className="text-xs font-extrabold tracking-tight" style={{ color: "var(--foreground)" }}>
+                  Appearance & Theme
+                </h4>
+                <p className="text-[10px] font-medium" style={{ color: "var(--muted-foreground)" }}>
+                  Select global software palette
+                </p>
               </div>
-              <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-primary/10 text-primary uppercase border border-primary/20">
+              <span
+                style={{
+                  backgroundColor: "var(--accent)",
+                  color: "var(--accent-foreground)",
+                  borderColor: "var(--border)",
+                }}
+                className="text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase border"
+              >
                 {resolvedTheme}
               </span>
             </div>
@@ -91,10 +111,13 @@ export default function ThemeSwitcher({ compact = false, className = "" }: Theme
                       setTheme(t.id);
                       setIsOpen(false);
                     }}
-                    className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left transition-all cursor-pointer ${
-                      isSelected
-                        ? "bg-primary/15 border border-primary/40 text-foreground font-bold shadow-2xs"
-                        : "hover:bg-muted text-foreground font-semibold border border-transparent"
+                    style={{
+                      backgroundColor: isSelected ? "var(--accent)" : "transparent",
+                      borderColor: isSelected ? "var(--border)" : "transparent",
+                      color: isSelected ? "var(--accent-foreground)" : "var(--foreground)",
+                    }}
+                    className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left transition-all cursor-pointer border ${
+                      isSelected ? "font-bold shadow-xs" : "hover:bg-muted font-semibold"
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0 pr-2">
@@ -103,27 +126,36 @@ export default function ThemeSwitcher({ compact = false, className = "" }: Theme
                         <div className="flex items-center gap-1.5">
                           <span className="text-xs font-bold truncate">{t.name}</span>
                           {isSelected && (
-                            <span className="text-[9px] font-extrabold text-primary-foreground bg-primary px-1.5 py-0.2 rounded">
+                            <span
+                              style={{
+                                backgroundColor: "var(--primary)",
+                                color: "var(--primary-foreground)",
+                              }}
+                              className="text-[9px] font-extrabold px-1.5 py-0.2 rounded"
+                            >
                               Active
                             </span>
                           )}
                         </div>
-                        <p className="text-[10px] text-muted-foreground font-normal truncate mt-0.5">
+                        <p className="text-[10px] font-normal truncate mt-0.5" style={{ color: "var(--muted-foreground)" }}>
                           {t.description}
                         </p>
                       </div>
                     </div>
 
                     {/* Color Swatch Preview */}
-                    <div className="flex items-center gap-1 shrink-0 p-1 rounded-lg bg-muted border border-border">
+                    <div
+                      style={{ backgroundColor: "var(--card)", borderColor: "var(--border)" }}
+                      className="flex items-center gap-1 shrink-0 p-1 rounded-lg border"
+                    >
                       <span
-                        className="w-3.5 h-3.5 rounded-full border border-border shadow-2xs"
-                        style={{ backgroundColor: t.colors.primary }}
+                        className="w-3.5 h-3.5 rounded-full border shadow-2xs"
+                        style={{ backgroundColor: t.colors.primary, borderColor: "var(--border)" }}
                         title="Primary color"
                       />
                       <span
-                        className="w-3.5 h-3.5 rounded-full border border-border shadow-2xs"
-                        style={{ backgroundColor: t.colors.bg }}
+                        className="w-3.5 h-3.5 rounded-full border shadow-2xs"
+                        style={{ backgroundColor: t.colors.bg, borderColor: "var(--border)" }}
                         title="Background color"
                       />
                     </div>

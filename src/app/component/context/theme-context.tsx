@@ -2,11 +2,28 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
 
-export type ThemeType = "default" | "light" | "dark" | "modern" | "emerald" | "system";
-export type ResolvedThemeType = "default" | "light" | "dark" | "modern" | "emerald";
+export type ThemeType =
+  | "classic-slate"
+  | "pure-light"
+  | "deep-obsidian"
+  | "cyber-sapphire"
+  | "emerald-wealth"
+  | "system"
+  | "default"
+  | "light"
+  | "dark"
+  | "modern"
+  | "emerald";
+
+export type ResolvedThemeType =
+  | "classic-slate"
+  | "pure-light"
+  | "deep-obsidian"
+  | "cyber-sapphire"
+  | "emerald-wealth";
 
 export interface ThemeOption {
-  id: ThemeType;
+  id: "classic-slate" | "pure-light" | "deep-obsidian" | "cyber-sapphire" | "emerald-wealth" | "system";
   name: string;
   category: "light" | "dark" | "system";
   description: string;
@@ -22,7 +39,7 @@ export interface ThemeOption {
 
 export const AVAILABLE_THEMES: ThemeOption[] = [
   {
-    id: "default",
+    id: "classic-slate",
     name: "Classic Slate",
     category: "light",
     description: "Original Lead2Ledger clean indigo & slate workspace",
@@ -36,7 +53,7 @@ export const AVAILABLE_THEMES: ThemeOption[] = [
     },
   },
   {
-    id: "light",
+    id: "pure-light",
     name: "Pure Light",
     category: "light",
     description: "Crisp high-contrast executive daylight theme",
@@ -50,7 +67,7 @@ export const AVAILABLE_THEMES: ThemeOption[] = [
     },
   },
   {
-    id: "dark",
+    id: "deep-obsidian",
     name: "Deep Obsidian",
     category: "dark",
     description: "Deep slate & luminous indigo for focused work",
@@ -64,28 +81,28 @@ export const AVAILABLE_THEMES: ThemeOption[] = [
     },
   },
   {
-    id: "modern",
+    id: "cyber-sapphire",
     name: "Cyber Sapphire",
     category: "dark",
     description: "Midnight navy glass with radiant cyan glow",
     icon: "🌌",
     colors: {
-      bg: "#070d1e",
-      card: "#0d1833",
+      bg: "#060b18",
+      card: "#0c152b",
       primary: "#0ea5e9",
       border: "#1e3a6a",
       text: "#f0f6fc",
     },
   },
   {
-    id: "emerald",
+    id: "emerald-wealth",
     name: "Emerald Wealth",
     category: "dark",
     description: "Luxury dark pine with vibrant emerald financial accents",
     icon: "🌲",
     colors: {
       bg: "#05140f",
-      card: "#0c241c",
+      card: "#0a221a",
       primary: "#10b981",
       border: "#1c4d3d",
       text: "#ecfdf5",
@@ -107,8 +124,22 @@ export const AVAILABLE_THEMES: ThemeOption[] = [
   },
 ];
 
+// Helper to normalize legacy theme IDs to canonical IDs
+export function normalizeThemeId(id: string | null | undefined): "classic-slate" | "pure-light" | "deep-obsidian" | "cyber-sapphire" | "emerald-wealth" | "system" {
+  if (!id) return "classic-slate";
+  if (id === "default") return "classic-slate";
+  if (id === "light") return "pure-light";
+  if (id === "dark") return "deep-obsidian";
+  if (id === "modern") return "cyber-sapphire";
+  if (id === "emerald") return "emerald-wealth";
+  if (AVAILABLE_THEMES.some((t) => t.id === id)) {
+    return id as any;
+  }
+  return "classic-slate";
+}
+
 interface ThemeContextType {
-  theme: ThemeType;
+  theme: "classic-slate" | "pure-light" | "deep-obsidian" | "cyber-sapphire" | "emerald-wealth" | "system";
   resolvedTheme: ResolvedThemeType;
   setTheme: (theme: ThemeType) => void;
   availableThemes: ThemeOption[];
@@ -120,39 +151,50 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 const THEME_STORAGE_KEY = "lead2ledger_theme_preference";
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeType>("default");
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedThemeType>("default");
+  const [theme, setThemeState] = useState<"classic-slate" | "pure-light" | "deep-obsidian" | "cyber-sapphire" | "emerald-wealth" | "system">("classic-slate");
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedThemeType>("classic-slate");
   const [mounted, setMounted] = useState(false);
 
   // Helper to determine system theme resolution
   const getSystemTheme = (): ResolvedThemeType => {
-    if (typeof window === "undefined") return "default";
-    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "default";
+    if (typeof window === "undefined") return "classic-slate";
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "deep-obsidian" : "classic-slate";
   };
 
-  // Apply theme attributes to document.documentElement
-  const applyThemeToDOM = (activeTheme: ThemeType) => {
+  // Apply theme attributes to document.documentElement and body
+  const applyThemeToDOM = (activeTheme: string) => {
     if (typeof document === "undefined") return;
 
+    const normalized = normalizeThemeId(activeTheme);
     const root = document.documentElement;
-    let effective: ResolvedThemeType = "default";
+    let effective: ResolvedThemeType = "classic-slate";
 
-    if (activeTheme === "system") {
+    if (normalized === "system") {
       effective = getSystemTheme();
     } else {
-      effective = activeTheme as ResolvedThemeType;
+      effective = normalized;
     }
 
     setResolvedTheme(effective);
 
-    // Set data-theme attribute
+    // Set data-theme attribute on root html and body
     root.setAttribute("data-theme", effective);
+    if (document.body) {
+      document.body.setAttribute("data-theme", effective);
+    }
 
     // Manage 'dark' CSS class
-    if (effective === "dark" || effective === "modern" || effective === "emerald") {
+    const isDarkTheme =
+      effective === "deep-obsidian" ||
+      effective === "cyber-sapphire" ||
+      effective === "emerald-wealth";
+
+    if (isDarkTheme) {
       root.classList.add("dark");
+      if (document.body) document.body.classList.add("dark");
     } else {
       root.classList.remove("dark");
+      if (document.body) document.body.classList.remove("dark");
     }
 
     // Also update meta theme-color for mobile browsers
@@ -174,22 +216,19 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setMounted(true);
     try {
-      const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) as ThemeType | null;
-      if (savedTheme && AVAILABLE_THEMES.some((t) => t.id === savedTheme)) {
-        setThemeState(savedTheme);
-        applyThemeToDOM(savedTheme);
-      } else {
-        applyThemeToDOM("default");
-      }
+      const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+      const normalized = normalizeThemeId(savedTheme);
+      setThemeState(normalized);
+      applyThemeToDOM(normalized);
     } catch {
-      applyThemeToDOM("default");
+      applyThemeToDOM("classic-slate");
     }
 
     // Listen for OS system theme changes
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const handleSystemChange = () => {
-      const currentSaved = localStorage.getItem(THEME_STORAGE_KEY) as ThemeType | null;
-      if (currentSaved === "system" || !currentSaved) {
+      const currentSaved = localStorage.getItem(THEME_STORAGE_KEY);
+      if (currentSaved === "system") {
         applyThemeToDOM("system");
       }
     };
@@ -199,17 +238,20 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setTheme = (newTheme: ThemeType) => {
-    setThemeState(newTheme);
+    const normalized = normalizeThemeId(newTheme);
+    setThemeState(normalized);
     try {
-      localStorage.setItem(THEME_STORAGE_KEY, newTheme);
+      localStorage.setItem(THEME_STORAGE_KEY, normalized);
     } catch (err) {
       console.error("Failed to save theme preference to localStorage:", err);
     }
-    applyThemeToDOM(newTheme);
+    applyThemeToDOM(normalized);
   };
 
   const isDark =
-    resolvedTheme === "dark" || resolvedTheme === "modern" || resolvedTheme === "emerald";
+    resolvedTheme === "deep-obsidian" ||
+    resolvedTheme === "cyber-sapphire" ||
+    resolvedTheme === "emerald-wealth";
 
   return (
     <ThemeContext.Provider

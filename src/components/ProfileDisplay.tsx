@@ -154,11 +154,11 @@ export default function ProfileDisplay({ isOpen, onClose, user, logout }: Profil
             className={`w-full max-w-md p-6 rounded-3xl space-y-6 relative max-h-[90vh] overflow-y-auto custom-scrollbar ${
               isTechky
                 ? "bg-[#0B0F19] border border-emerald-500/30 font-mono text-slate-100 shadow-[0_0_50px_rgba(0,0,0,0.9)]"
-                : "bg-white border border-slate-200 font-sans text-slate-800 shadow-2xl"
+                : "bg-card border border-border font-sans text-foreground shadow-2xl"
             }`}
           >
             {/* Header */}
-            <div className={`flex items-center justify-between border-b pb-3 ${isTechky ? "border-slate-800" : "border-slate-100"}`}>
+            <div className={`flex items-center justify-between border-b pb-3 ${isTechky ? "border-slate-800" : "border-border"}`}>
               <h3 className={`text-xs font-black uppercase tracking-wider ${isTechky ? "text-emerald-400" : "text-slate-400"}`}>
                 {isTechky ? "// USER_PROFILE_CONSOLE" : "User Profile"}
               </h3>
@@ -414,29 +414,29 @@ export default function ProfileDisplay({ isOpen, onClose, user, logout }: Profil
                         isSelected
                           ? isTechky
                             ? "bg-emerald-950/40 border-emerald-400/80 shadow-[0_0_15px_rgba(16,185,129,0.15)]"
-                            : "bg-indigo-50/80 border-indigo-300 shadow-xs"
+                            : "bg-primary/15 border-primary/40 shadow-xs"
                           : isTechky
                           ? "bg-slate-900/60 border-slate-800 hover:border-slate-700"
-                          : "bg-white border-slate-200 hover:bg-slate-50"
+                          : "bg-card border-border hover:bg-muted"
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1.5">
                         <span className="text-base leading-none">{t.icon}</span>
                         <div className="flex items-center gap-1">
                           <span
-                            className="w-3 h-3 rounded-full border border-slate-300 shadow-2xs"
+                            className="w-3 h-3 rounded-full border border-border shadow-2xs"
                             style={{ backgroundColor: t.colors.primary }}
                           />
                           <span
-                            className="w-3 h-3 rounded-full border border-slate-300 shadow-2xs"
+                            className="w-3 h-3 rounded-full border border-border shadow-2xs"
                             style={{ backgroundColor: t.colors.bg }}
                           />
                         </div>
                       </div>
-                      <span className={`text-xs font-extrabold truncate ${isSelected ? (isTechky ? "text-emerald-300" : "text-indigo-950") : (isTechky ? "text-slate-200" : "text-slate-800")}`}>
+                      <span className={`text-xs font-extrabold truncate ${isSelected ? (isTechky ? "text-emerald-300" : "text-primary") : (isTechky ? "text-slate-200" : "text-foreground")}`}>
                         {t.name}
                       </span>
-                      <span className="text-[9px] text-slate-400 truncate mt-0.5">
+                      <span className="text-[9px] text-muted-foreground truncate mt-0.5">
                         {t.category.toUpperCase()}
                       </span>
                     </button>
