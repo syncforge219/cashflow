@@ -254,14 +254,13 @@ export default function ManagerSidebar() {
     <aside
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className={`bg-sidebar text-sidebar-foreground border-r border-sidebar-border h-screen flex flex-col font-sans transition-all duration-300 ease-in-out shrink-0 relative group/sidebar ${
-        effectiveCollapsed ? "w-20" : "w-64"
-      }`}
+      className={`h-screen bg-white border-r border-slate-100 flex flex-col font-sans shrink-0 transition-all duration-300 ease-in-out relative group/sidebar ${effectiveCollapsed ? "w-20" : "w-64 shadow-xl"
+        }`}
     >
       {/* Pin / Lock Sidebar Toggle Button */}
       <button
         onClick={() => setIsPinned(!isPinned)}
-        className="absolute right-2 top-3 p-1.5 rounded-lg text-sidebar-foreground/60 hover:text-sidebar-primary hover:bg-sidebar-accent transition-all opacity-0 group-hover/sidebar:opacity-100 z-50 cursor-pointer"
+        className="absolute right-2 top-3 p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 transition-all opacity-0 group-hover/sidebar:opacity-100 z-50 cursor-pointer"
         title={isPinned ? "Unpin sidebar (Auto-collapse on mouse exit)" : "Pin sidebar expanded"}
       >
         <svg
@@ -270,14 +269,14 @@ export default function ManagerSidebar() {
           fill={isPinned ? "currentColor" : "none"}
           stroke="currentColor"
           strokeWidth="2"
-          className={`w-4 h-4 transition-transform ${isPinned ? "text-sidebar-primary rotate-45" : "text-sidebar-foreground/60"}`}
+          className={`w-4 h-4 transition-transform ${isPinned ? "text-indigo-600 rotate-45" : "text-slate-400"}`}
         >
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
         </svg>
       </button>
 
       {/* Brand / Logo Area */}
-      <div className="py-4 px-4 border-b border-sidebar-border/60 shrink-0">
+      <div className="py-4 px-4 border-b border-slate-100 shrink-0">
         <SidebarBrandHeader isCollapsed={effectiveCollapsed} subtitle="ERP" />
       </div>
 
@@ -287,10 +286,10 @@ export default function ManagerSidebar() {
           <div key={idx} className="space-y-3">
             {!effectiveCollapsed && (
               <div className="flex items-center gap-4">
-                <h3 className="text-[10px] font-bold text-sidebar-foreground/60 uppercase tracking-widest shrink-0 px-2">
+                <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest shrink-0 px-2">
                   {group.category}
                 </h3>
-                <div className="h-px bg-sidebar-border/60 flex-1"></div>
+                <div className="h-px bg-slate-100 flex-1"></div>
               </div>
             )}
             <div className="space-y-1">
@@ -302,13 +301,13 @@ export default function ManagerSidebar() {
                     <button
                       key={itemIdx}
                       onClick={item.onClick || logout}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group relative text-rose-500 hover:bg-rose-500/10 hover:text-rose-600"
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group relative text-rose-600 hover:bg-rose-50 hover:text-rose-700"
                     >
-                      <div className="shrink-0 text-rose-500 group-hover:text-rose-600 transition-colors">
+                      <div className="shrink-0 text-rose-500 group-hover:text-rose-700 transition-colors">
                         {item.icon}
                       </div>
                       {!effectiveCollapsed && (
-                        <span className="text-sm font-semibold truncate text-rose-500 group-hover:text-rose-600 font-bold">
+                        <span className="text-sm font-semibold truncate text-rose-600 group-hover:text-rose-700 font-bold">
                           {item.name}
                         </span>
                       )}
@@ -321,25 +320,25 @@ export default function ManagerSidebar() {
                     key={itemIdx}
                     href={item.href}
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group relative ${isActive
-                      ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-md shadow-sidebar-primary/20 font-bold"
-                      : "text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-indigo-600"
                       }`}
                   >
                     <div
-                      className={`shrink-0 transition-colors ${isActive ? "text-sidebar-primary-foreground" : "text-sidebar-foreground/60 group-hover:text-sidebar-accent-foreground"
+                      className={`shrink-0 transition-colors ${isActive ? "text-white" : "text-slate-400 group-hover:text-indigo-600"
                         }`}
                     >
                       {item.icon}
                     </div>
                     {!effectiveCollapsed && (
-                      <span className={`text-sm font-semibold truncate ${isActive ? "text-sidebar-primary-foreground font-bold" : ""}`}>
+                      <span className={`text-sm font-semibold truncate ${isActive ? "text-white font-bold" : ""}`}>
                         {item.name}
                       </span>
                     )}
 
                     {/* Tooltip for collapsed state */}
                     {effectiveCollapsed && (
-                      <div className="absolute left-full ml-4 px-2 py-1 bg-card text-foreground border border-border text-xs font-semibold rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50 shadow-xl">
+                      <div className="absolute left-full ml-4 px-2 py-1 bg-slate-800 text-white text-xs font-semibold rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50">
                         {item.name}
                       </div>
                     )}

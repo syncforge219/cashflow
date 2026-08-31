@@ -13,7 +13,6 @@ import AddBatchModal from "@/components/AddBatchModal";
 import AdmissionBreakdownModal from "@/components/AdmissionBreakdownModal";
 import PaymentBreakdownModal from "@/components/PaymentBreakdownModal";
 import TimelineComparisonGraph from "@/components/TimelineComparisonGraph";
-import ThemeSwitcher from "@/components/ThemeSwitcher";
 
 export default function AdminDashboard() {
   const { user, logout } = useUser();
@@ -441,47 +440,46 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden font-sans transition-colors duration-200">
+    <div className="flex h-screen bg-[#f8faff] text-slate-800 overflow-hidden font-sans transition-colors duration-200">
       <Sidebar />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto px-6 py-6 space-y-6">
 
         {/* ELEGANT HEADER */}
-        <header className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-border pb-4 shrink-0">
+        <header className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-200/80 pb-4 shrink-0">
           <div>
-            <div className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5 select-none">
+            <div className="text-xs font-semibold text-slate-400 flex items-center gap-1.5 select-none">
               <span>CoachFlow</span>
-              <span className="text-muted-foreground/60">/</span>
-              <span className="text-foreground font-bold tracking-tight">Executive Dashboard</span>
+              <span className="text-slate-300">/</span>
+              <span className="text-slate-800 font-bold tracking-tight">Executive Dashboard</span>
             </div>
           </div>
 
           <div className="flex items-center gap-4 w-full sm:w-auto">
             <button
               onClick={() => setIsCommandPaletteOpen(true)}
-              className="relative w-full sm:w-64 flex items-center justify-between pl-3.5 pr-3 py-1.5 text-xs bg-card border border-border rounded-xl hover:border-primary/50 transition-all text-muted-foreground group shadow-xs"
+              className="relative w-full sm:w-64 flex items-center justify-between pl-3.5 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-xl hover:bg-gradient-to-r hover:from-indigo-50/50 hover:to-blue-50/50 hover:border-indigo-300 transition-all text-slate-400 group shadow-xs"
             >
               <div className="flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4 mr-2 group-hover:text-primary transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4 mr-2 group-hover:text-indigo-600 transition-colors">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.637 10.637z" />
                 </svg>
                 Search financials & leads...
               </div>
-              <span className="flex items-center pointer-events-none text-[9px] font-bold text-muted-foreground uppercase tracking-wider bg-muted border border-border px-1.5 py-0.5 rounded">
+              <span className="flex items-center pointer-events-none text-[9px] font-bold text-slate-400/80 uppercase tracking-wider bg-slate-100 px-1.5 py-0.5 rounded">
                 CTRL+K
               </span>
             </button>
-            <ThemeSwitcher />
             <ProfileDisplay isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} user={user} logout={logout} />
 
-            <div className="flex items-center gap-2.5 border-l border-border pl-4">
+            <div className="flex items-center gap-2.5 border-l border-slate-200 pl-4">
               <div className="text-right hidden sm:block">
-                <div className="text-xs font-bold text-foreground">{user.name}</div>
-                <div className="text-[9px] font-bold text-primary uppercase tracking-wider">{user.role}</div>
+                <div className="text-xs font-bold text-slate-900">{user.name}</div>
+                <div className="text-[9px] font-bold text-indigo-600 uppercase tracking-wider">{user.role}</div>
               </div>
               <button
                 onClick={() => setIsProfileOpen(true)}
-                className="h-9 w-9 rounded-xl bg-primary text-primary-foreground font-bold text-xs flex items-center justify-center border border-primary/50 shadow-xs hover:opacity-90 transition-all cursor-pointer overflow-hidden shrink-0"
+                className="h-9 w-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-700 text-white font-bold text-xs flex items-center justify-center border border-indigo-500 shadow-xs hover:from-indigo-700 hover:to-indigo-800 transition-all cursor-pointer overflow-hidden shrink-0"
                 title="View Profile Details"
               >
                 {user.photoUrl ? (
@@ -541,63 +539,63 @@ export default function AdminDashboard() {
         )}
 
         {/* ELEGANT QUICK ACTIONS BAR WITH GRADIENT HOVER BUTTONS */}
-        <div className="bg-card border border-border rounded-2xl p-3 shadow-xs flex items-center gap-3 overflow-hidden shrink-0">
-          <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider px-2 select-none shrink-0 border-r border-border pr-3">
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-3 shadow-xs flex items-center gap-3 overflow-hidden shrink-0">
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-2 select-none shrink-0 border-r border-slate-200 pr-3">
             Quick Actions:
           </span>
           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth py-0.5 w-full">
             <button
               onClick={() => router.push("/payroll")}
-              className="px-3.5 py-1.5 bg-card border border-border text-foreground text-xs font-semibold rounded-xl transition-all duration-300 hover:bg-muted hover:border-primary/50 cursor-pointer shrink-0 shadow-xs"
+              className="px-3.5 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-emerald-500 hover:to-teal-600 hover:text-white hover:border-emerald-500 cursor-pointer shrink-0 shadow-xs"
             >
               Payroll
             </button>
             <button
               onClick={() => router.push("/expenses")}
-              className="px-3.5 py-1.5 bg-card border border-border text-foreground text-xs font-semibold rounded-xl transition-all duration-300 hover:bg-muted hover:border-primary/50 cursor-pointer shrink-0 shadow-xs"
+              className="px-3.5 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-rose-500 hover:to-pink-600 hover:text-white hover:border-rose-500 cursor-pointer shrink-0 shadow-xs"
             >
               Expenses
             </button>
             <button
               onClick={() => router.push("/admin-dashboard/brands")}
-              className="px-3.5 py-1.5 bg-card border border-border text-foreground text-xs font-semibold rounded-xl transition-all duration-300 hover:bg-muted hover:border-primary/50 cursor-pointer shrink-0 shadow-xs"
+              className="px-3.5 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-blue-500 hover:to-indigo-600 hover:text-white hover:border-blue-500 cursor-pointer shrink-0 shadow-xs"
             >
               Brands
             </button>
             <button
               onClick={() => router.push("/companies")}
-              className="px-3.5 py-1.5 bg-card border border-border text-foreground text-xs font-semibold rounded-xl transition-all duration-300 hover:bg-muted hover:border-primary/50 cursor-pointer shrink-0 shadow-xs"
+              className="px-3.5 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-purple-500 hover:to-indigo-600 hover:text-white hover:border-purple-500 cursor-pointer shrink-0 shadow-xs"
             >
               Companies
             </button>
             <button
               onClick={() => router.push("/counsellors")}
-              className="px-3.5 py-1.5 bg-card border border-border text-foreground text-xs font-semibold rounded-xl transition-all duration-300 hover:bg-muted hover:border-primary/50 cursor-pointer shrink-0 shadow-xs"
+              className="px-3.5 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-teal-500 hover:to-cyan-600 hover:text-white hover:border-teal-500 cursor-pointer shrink-0 shadow-xs"
             >
               Users
             </button>
             <button
               onClick={() => router.push("/admin-dashboard/reports")}
-              className="px-3.5 py-1.5 bg-card border border-border text-foreground text-xs font-semibold rounded-xl transition-all duration-300 hover:bg-muted hover:border-primary/50 cursor-pointer shrink-0 shadow-xs"
+              className="px-3.5 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-amber-500 hover:to-orange-600 hover:text-white hover:border-amber-500 cursor-pointer shrink-0 shadow-xs"
             >
               Reports
             </button>
             <button
               onClick={() => setIsBatchModalOpen(true)}
-              className="px-3.5 py-1.5 bg-card border border-border text-foreground text-xs font-semibold rounded-xl transition-all duration-300 hover:bg-muted hover:border-primary/50 cursor-pointer shrink-0 shadow-xs"
+              className="px-3.5 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-indigo-500 hover:to-purple-600 hover:text-white hover:border-indigo-500 cursor-pointer shrink-0 shadow-xs"
             >
               Create Batch
             </button>
             <button
               onClick={handleSendWeeklyReport}
               disabled={isSendingWeeklyReport}
-              className="px-3.5 py-1.5 bg-card border border-border text-foreground text-xs font-semibold rounded-xl transition-all duration-300 hover:bg-muted hover:border-primary/50 cursor-pointer shrink-0 shadow-xs disabled:opacity-50"
+              className="px-3.5 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-purple-500 hover:to-pink-600 hover:text-white hover:border-purple-500 cursor-pointer shrink-0 shadow-xs disabled:opacity-50"
             >
               {isSendingWeeklyReport ? "Sending..." : "Weekly Report"}
             </button>
             <button
               onClick={handleCheckOverdueEmis}
-              className="px-3.5 py-1.5 bg-card border border-border text-foreground text-xs font-semibold rounded-xl transition-all duration-300 hover:bg-muted hover:border-primary/50 cursor-pointer shrink-0 shadow-xs"
+              className="px-3.5 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-rose-500 hover:to-red-600 hover:text-white hover:border-rose-500 cursor-pointer shrink-0 shadow-xs"
             >
               Overdue EMIs
             </button>
@@ -613,7 +611,7 @@ export default function AdminDashboard() {
                 link.click();
                 document.body.removeChild(link);
               }}
-              className="px-3.5 py-1.5 bg-primary hover:opacity-90 text-primary-foreground text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shrink-0 shadow-xs ml-auto"
+              className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shrink-0 shadow-xs ml-auto"
             >
               <span>Export CSV</span>
             </button>
@@ -642,10 +640,10 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-6 gap-3.5">
             {isLoading && !data ? (
               Array.from({ length: 12 }).map((_, i) => (
-                <div key={i} className="bg-card border border-border rounded-2xl p-4 shadow-xs flex flex-col justify-between h-28 animate-pulse">
-                  <div className="h-3 w-20 bg-muted rounded-md"></div>
-                  <div className="h-7 w-16 bg-muted rounded-lg my-2"></div>
-                  <div className="h-4 w-16 bg-muted rounded-md"></div>
+                <div key={i} className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs flex flex-col justify-between h-28 animate-pulse">
+                  <div className="h-3 w-20 bg-slate-200 rounded-md"></div>
+                  <div className="h-7 w-16 bg-slate-200 rounded-lg my-2"></div>
+                  <div className="h-4 w-16 bg-slate-100 rounded-md"></div>
                 </div>
               ))
             ) : (
@@ -662,25 +660,25 @@ export default function AdminDashboard() {
                         setIsPaymentBreakdownOpen(true);
                       }
                     }}
-                    className={`bg-card border border-border rounded-2xl p-4 shadow-xs flex flex-col justify-between transition-all duration-300 hover:shadow-lg hover:-translate-y-1 group ${card.borderAccent || ""} ${
+                    className={`bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs flex flex-col justify-between transition-all duration-300 hover:shadow-lg hover:-translate-y-1 group ${card.borderAccent || ""} ${card.hoverGradient || ""} ${
                       isAdmCard || isPaymentCard
-                        ? "cursor-pointer ring-2 ring-primary/20 hover:border-primary"
+                        ? "cursor-pointer ring-2 ring-indigo-500/10 hover:border-indigo-400"
                         : ""
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-[10.5px] font-bold text-muted-foreground uppercase tracking-wider select-none leading-snug group-hover:text-foreground transition-colors">
+                      <span className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider select-none leading-snug group-hover:text-slate-700 transition-colors">
                         {card.name}
                       </span>
                       {(isAdmCard || isPaymentCard) && (
-                        <span className="text-[9px] font-black text-primary bg-primary/10 px-1.5 py-0.5 rounded uppercase">
+                        <span className="text-[9px] font-black text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded uppercase">
                           Click for Details
                         </span>
                       )}
                     </div>
 
                     <div className="my-2 flex items-baseline gap-1">
-                      <span className="text-xl lg:text-2xl font-bold text-foreground tracking-tight">
+                      <span className="text-xl lg:text-2xl font-bold text-slate-900 tracking-tight">
                         {card.value}
                       </span>
                     </div>
@@ -690,10 +688,10 @@ export default function AdminDashboard() {
                         card.pillClass
                           ? card.pillClass
                           : card.simpleText
-                          ? "text-muted-foreground bg-muted border-border"
+                          ? "text-slate-600 bg-slate-100 border-slate-200"
                           : card.isGreen
-                          ? "text-emerald-500 bg-emerald-500/10 border-emerald-500/30"
-                          : "text-rose-500 bg-rose-500/10 border-rose-500/30"
+                          ? "text-emerald-700 bg-emerald-50 border-emerald-200/60"
+                          : "text-rose-700 bg-rose-50 border-rose-200/60"
                       }`}
                     >
                       {card.trend}

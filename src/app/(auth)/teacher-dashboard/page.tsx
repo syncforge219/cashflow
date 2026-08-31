@@ -8,7 +8,6 @@ import ProfileDisplay from "@/components/ProfileDisplay";
 import CommandPalette from "@/components/CommandPalette";
 import TakeAttendanceModal from "@/components/TakeAttendanceModal";
 import NotificationPanel from "@/components/NotificationPanel";
-import ThemeSwitcher from "@/components/ThemeSwitcher";
 
 export default function TeacherDashboard() {
   const router = useRouter();
@@ -205,19 +204,19 @@ export default function TeacherDashboard() {
   });
 
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden font-sans transition-colors duration-200">
+    <div className="flex h-screen bg-[#f8faff] text-slate-800 overflow-hidden font-sans transition-colors duration-200">
       {/* Teacher Sidebar */}
       <TeacherSidebar />
 
       {/* Main Content Area */}
       <div className="flex-1 h-screen overflow-y-auto min-w-0 px-6 py-6 pb-32">
         {/* Top Header */}
-        <header className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-border pb-4 mb-6 shrink-0">
+        <header className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-200/80 pb-4 mb-6 shrink-0">
           <div>
-            <div className="text-xs font-semibold text-muted-foreground flex items-center gap-1 select-none">
+            <div className="text-xs font-semibold text-slate-400 flex items-center gap-1 select-none">
               <span>CoachFlow</span>
-              <span className="text-muted-foreground/60">/</span>
-              <span className="text-foreground font-bold">Faculty Command Center</span>
+              <span>/</span>
+              <span className="text-slate-600 font-bold">Faculty Command Center (Live MongoDB)</span>
             </div>
           </div>
 
@@ -250,8 +249,6 @@ export default function TeacherDashboard() {
                 🔔
               </span>
             </button>
-
-            <ThemeSwitcher />
 
             <ProfileDisplay isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} user={user} logout={logout} />
 

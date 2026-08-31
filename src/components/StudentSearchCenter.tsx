@@ -47,15 +47,15 @@ export default function StudentSearchCenter({ className = "" }: StudentSearchCen
   return (
     <div className={`space-y-4 ${className}`}>
       {/* Search Bar Container */}
-      <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
-        <h2 className="text-sm font-bold text-foreground flex items-center gap-2 mb-4">
+      <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm">
+        <h2 className="text-sm font-bold text-slate-700 flex items-center gap-2 mb-4">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             viewBox="0 0 24 24"
             strokeWidth={2.5}
             stroke="currentColor"
-            className="w-4 h-4 text-primary"
+            className="w-4 h-4 text-indigo-500"
           >
             <path
               strokeLinecap="round"
@@ -67,7 +67,7 @@ export default function StudentSearchCenter({ className = "" }: StudentSearchCen
         </h2>
 
         <div>
-          <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2 select-none">
+          <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 select-none">
             SEARCH BY STUDENT NAME / PHONE NUMBER
           </label>
           <div className="flex gap-3">
@@ -79,7 +79,7 @@ export default function StudentSearchCenter({ className = "" }: StudentSearchCen
                   viewBox="0 0 24 24"
                   strokeWidth={2.5}
                   stroke="currentColor"
-                  className="w-4 h-4 text-muted-foreground"
+                  className="w-4 h-4 text-slate-300"
                 >
                   <path
                     strokeLinecap="round"
@@ -94,13 +94,13 @@ export default function StudentSearchCenter({ className = "" }: StudentSearchCen
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                 placeholder="Enter mobile, name, parent name, email, or registration ID"
-                className="w-full bg-input border border-border rounded-xl pl-10 pr-4 py-3 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-muted-foreground"
+                className="w-full bg-slate-50/70 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all placeholder:text-slate-400"
               />
             </div>
             <button
               onClick={handleSearch}
               disabled={isSearching}
-              className="bg-primary hover:opacity-90 text-primary-foreground text-sm font-bold px-8 py-3 rounded-xl transition-all shadow-sm shadow-primary/20 disabled:opacity-50 flex items-center gap-2 shrink-0 cursor-pointer"
+              className="bg-[#6366f1] hover:bg-[#4f46e5] text-white text-sm font-bold px-8 py-3 rounded-xl transition-all shadow-sm shadow-indigo-500/20 disabled:opacity-50 flex items-center gap-2 shrink-0 cursor-pointer"
             >
               {isSearching ? (
                 <>

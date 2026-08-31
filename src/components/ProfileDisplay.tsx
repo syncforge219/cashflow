@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { User, useUser } from "../app/component/context/user-context";
-import { useTheme } from "../app/component/context/theme-context";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface ProfileDisplayProps {
@@ -15,7 +14,6 @@ interface ProfileDisplayProps {
 export default function ProfileDisplay({ isOpen, onClose, user, logout }: ProfileDisplayProps) {
   if (!user) return null;
   const { login } = useUser();
-  const { theme, setTheme, availableThemes } = useTheme();
 
   const roleLower = (user.role || "").toLowerCase().trim();
   const isTechky =
@@ -154,11 +152,11 @@ export default function ProfileDisplay({ isOpen, onClose, user, logout }: Profil
             className={`w-full max-w-md p-6 rounded-3xl space-y-6 relative max-h-[90vh] overflow-y-auto custom-scrollbar ${
               isTechky
                 ? "bg-[#0B0F19] border border-emerald-500/30 font-mono text-slate-100 shadow-[0_0_50px_rgba(0,0,0,0.9)]"
-                : "bg-card border border-border font-sans text-foreground shadow-2xl"
+                : "bg-white border border-slate-200 font-sans text-slate-800 shadow-2xl"
             }`}
           >
             {/* Header */}
-            <div className={`flex items-center justify-between border-b pb-3 ${isTechky ? "border-slate-800" : "border-border"}`}>
+            <div className={`flex items-center justify-between border-b pb-3 ${isTechky ? "border-slate-800" : "border-slate-100"}`}>
               <h3 className={`text-xs font-black uppercase tracking-wider ${isTechky ? "text-emerald-400" : "text-slate-400"}`}>
                 {isTechky ? "// USER_PROFILE_CONSOLE" : "User Profile"}
               </h3>
@@ -388,60 +386,6 @@ export default function ProfileDisplay({ isOpen, onClose, user, logout }: Profil
                     [EDIT_PROFILE]
                   </button>
                 )}
-              </div>
-            </div>
-
-            {/* Appearance & Themes Section */}
-            <div className={`space-y-3 border-t pt-4 ${isTechky ? "border-slate-800" : "border-slate-100"}`}>
-              <div className="flex items-center justify-between">
-                <h5 className={`text-xs font-black uppercase tracking-wider ${isTechky ? "text-slate-400" : "text-slate-400"}`}>
-                  {isTechky ? "// THEME_APPEARANCE" : "Appearance & Theme"}
-                </h5>
-                <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100 uppercase">
-                  {theme}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                {availableThemes.map((t) => {
-                  const isSelected = theme === t.id;
-                  return (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => setTheme(t.id)}
-                      className={`flex flex-col p-2.5 rounded-2xl border text-left transition-all cursor-pointer relative ${
-                        isSelected
-                          ? isTechky
-                            ? "bg-emerald-950/40 border-emerald-400/80 shadow-[0_0_15px_rgba(16,185,129,0.15)]"
-                            : "bg-primary/15 border-primary/40 shadow-xs"
-                          : isTechky
-                          ? "bg-slate-900/60 border-slate-800 hover:border-slate-700"
-                          : "bg-card border-border hover:bg-muted"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-base leading-none">{t.icon}</span>
-                        <div className="flex items-center gap-1">
-                          <span
-                            className="w-3 h-3 rounded-full border border-border shadow-2xs"
-                            style={{ backgroundColor: t.colors.primary }}
-                          />
-                          <span
-                            className="w-3 h-3 rounded-full border border-border shadow-2xs"
-                            style={{ backgroundColor: t.colors.bg }}
-                          />
-                        </div>
-                      </div>
-                      <span className={`text-xs font-extrabold truncate ${isSelected ? (isTechky ? "text-emerald-300" : "text-primary") : (isTechky ? "text-slate-200" : "text-foreground")}`}>
-                        {t.name}
-                      </span>
-                      <span className="text-[9px] text-muted-foreground truncate mt-0.5">
-                        {t.category.toUpperCase()}
-                      </span>
-                    </button>
-                  );
-                })}
               </div>
             </div>
 

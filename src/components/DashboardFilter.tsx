@@ -58,13 +58,10 @@ export default function DashboardFilter({
       const end = new Date(selectedYear, selectedMonth + 1, 0, 23, 59, 59);
       onFilterChange(formatDateStr(start), formatDateStr(end), `${MONTHS[selectedMonth]} ${selectedYear}`);
     } else if (activeTab === "weekly") {
-      const firstDayOfMonth = new Date(selectedYear, selectedMonth, 1);
-      const startDay = 1 + (selectedWeek - 1) * 7;
-      const endDay = Math.min(startDay + 6, new Date(selectedYear, selectedMonth + 1, 0).getDate());
-      
+      const startDay = (selectedWeek - 1) * 7 + 1;
+      const endDay = Math.min(selectedWeek * 7, new Date(selectedYear, selectedMonth + 1, 0).getDate());
       const start = new Date(selectedYear, selectedMonth, startDay);
       const end = new Date(selectedYear, selectedMonth, endDay, 23, 59, 59);
-      
       onFilterChange(formatDateStr(start), formatDateStr(end), `Week ${selectedWeek}, ${MONTHS[selectedMonth]} ${selectedYear}`);
     }
   }, [selectedYear, selectedMonth, selectedWeek, activeTab]);
@@ -95,20 +92,20 @@ export default function DashboardFilter({
   };
 
   return (
-    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-card text-foreground px-4 py-3 rounded-xl border border-border shadow-sm">
+    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white px-4 py-3 rounded-xl border border-slate-200/60 shadow-sm">
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        <span className="text-sm font-bold text-foreground whitespace-nowrap">Filter By:</span>
+        <span className="text-sm font-bold text-slate-700 whitespace-nowrap">Filter By:</span>
         
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => handleTabClick("today")}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${activeTab === "today" ? "bg-primary text-primary-foreground font-bold shadow-xs" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${activeTab === "today" ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
           >
             Today
           </button>
           <button
             onClick={handleClear}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${activeTab === null || currentLabel === "Overall" ? "bg-primary text-primary-foreground font-bold shadow-xs" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${activeTab === null || currentLabel === "Overall" ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
           >
             All Time
           </button>
@@ -118,12 +115,12 @@ export default function DashboardFilter({
               setSelectedWeek(Number(e.target.value));
               setActiveTab("weekly");
             }}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer outline-none border border-border ${activeTab === "weekly" ? "bg-primary text-primary-foreground font-bold" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer outline-none ${activeTab === "weekly" ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
             style={{ WebkitAppearance: 'none', MozAppearance: 'none', appearance: 'none', textAlign: 'center' }}
           >
             <option value="weekly" disabled hidden>Weekly</option>
             {[1, 2, 3, 4, 5].map(w => (
-              <option key={w} value={w} className="bg-card text-foreground">Week {w}</option>
+              <option key={w} value={w} className="bg-white text-slate-700">Week {w}</option>
             ))}
           </select>
 
@@ -133,12 +130,12 @@ export default function DashboardFilter({
               setSelectedMonth(Number(e.target.value));
               setActiveTab("monthly");
             }}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer outline-none border border-border ${activeTab === "monthly" ? "bg-primary text-primary-foreground font-bold" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer outline-none ${activeTab === "monthly" ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
             style={{ WebkitAppearance: 'none', MozAppearance: 'none', appearance: 'none', textAlign: 'center' }}
           >
             <option value="monthly" disabled hidden>Monthly</option>
             {MONTHS.map((m, i) => (
-              <option key={i} value={i} className="bg-card text-foreground">{m}</option>
+              <option key={i} value={i} className="bg-white text-slate-700">{m}</option>
             ))}
           </select>
 
@@ -148,41 +145,41 @@ export default function DashboardFilter({
               setSelectedYear(Number(e.target.value));
               setActiveTab("yearly");
             }}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer outline-none border border-border ${activeTab === "yearly" ? "bg-primary text-primary-foreground font-bold" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer outline-none ${activeTab === "yearly" ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
             style={{ WebkitAppearance: 'none', MozAppearance: 'none', appearance: 'none', textAlign: 'center' }}
           >
             <option value="yearly" disabled hidden>Yearly</option>
             {years.map(y => (
-              <option key={y} value={y} className="bg-card text-foreground">{y}</option>
+              <option key={y} value={y} className="bg-white text-slate-700">{y}</option>
             ))}
           </select>
           <button
             onClick={() => handleTabClick("custom")}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${activeTab === "custom" ? "bg-primary text-primary-foreground font-bold" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${activeTab === "custom" ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
           >
             Custom
           </button>
         </div>
 
         {activeTab === "custom" && (
-          <div className="flex flex-wrap items-center gap-2 border-t sm:border-t-0 sm:border-l border-border pt-2 sm:pt-0 sm:pl-3">
+          <div className="flex flex-wrap items-center gap-2 border-t sm:border-t-0 sm:border-l border-slate-200 pt-2 sm:pt-0 sm:pl-3">
             <input
               type="date"
               value={customStart}
               onChange={(e) => setCustomStart(e.target.value)}
-              className="text-xs px-2 py-1.5 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-input font-medium text-foreground"
+              className="text-xs px-2 py-1.5 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 font-medium text-slate-700"
             />
-            <span className="text-muted-foreground text-xs font-semibold">to</span>
+            <span className="text-slate-400 text-xs font-semibold">to</span>
             <input
               type="date"
               value={customEnd}
               onChange={(e) => setCustomEnd(e.target.value)}
-              className="text-xs px-2 py-1.5 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-input font-medium text-foreground"
+              className="text-xs px-2 py-1.5 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 font-medium text-slate-700"
             />
             <button
               onClick={handleCustomApply}
               disabled={!customStart || !customEnd}
-              className="px-3 py-1.5 text-xs font-bold bg-primary text-primary-foreground rounded-md disabled:opacity-50 hover:opacity-90 transition-colors"
+              className="px-3 py-1.5 text-xs font-bold bg-slate-800 text-white rounded-md disabled:opacity-50 hover:bg-slate-700 transition-colors"
             >
               Apply
             </button>
@@ -191,16 +188,16 @@ export default function DashboardFilter({
       </div>
 
       {onBrandChange && (
-        <div className="flex items-center gap-2 shrink-0 border-t md:border-t-0 md:border-l border-border pt-2 md:pt-0 md:pl-4 mt-1 md:mt-0">
-          <span className="text-xs font-bold text-muted-foreground whitespace-nowrap">Brand:</span>
+        <div className="flex items-center gap-2 shrink-0 border-t md:border-t-0 md:border-l border-slate-200 pt-2 md:pt-0 md:pl-4 mt-1 md:mt-0">
+          <span className="text-xs font-bold text-slate-500 whitespace-nowrap">Brand:</span>
           <select
             value={selectedBrand || "All Brands"}
             onChange={(e) => onBrandChange(e.target.value)}
-            className="px-3 py-1.5 text-xs font-bold bg-primary/10 text-primary border border-primary/20 rounded-lg hover:bg-primary/20 transition-colors cursor-pointer outline-none shadow-xs"
+            className="px-3 py-1.5 text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/80 rounded-lg hover:bg-indigo-100 transition-colors cursor-pointer outline-none shadow-xs"
           >
             <option value="All Brands">All Brands</option>
             {brandsList?.map((brand) => (
-              <option key={brand} value={brand} className="bg-card text-foreground font-semibold">
+              <option key={brand} value={brand} className="bg-white text-slate-800 font-semibold">
                 {brand}
               </option>
             ))}
