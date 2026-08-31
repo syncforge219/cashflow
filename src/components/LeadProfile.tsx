@@ -660,7 +660,7 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
               <span className="text-slate-300">•</span>
               <span>Enquiry Date: <span className="font-mono text-slate-600">{localLead.date || (localLead.createdAt ? new Date(localLead.createdAt).toISOString().split('T')[0] : "N/A")}</span></span>
               <span className="text-slate-300">•</span>
-              <span>Course: <span className="font-mono text-slate-600">{localLead.targetCourse || "N/A"}</span></span>
+              <span>Course / Purpose: <span className="font-semibold text-slate-700">{localLead.isLookingForJob || localLead.targetCourse === "Looking for Job" ? "💼 Looking for Job" : (localLead.targetCourse || "N/A")}</span></span>
             </div>
           </div>
 

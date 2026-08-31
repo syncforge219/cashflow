@@ -17,7 +17,13 @@ export async function PATCH(
 
     // Normalize courses array if updating course fields
     const updateTarget = body.$set || body;
-    if (updateTarget.courses || updateTarget.targetCourses || updateTarget.targetCourse) {
+    if (updateTarget.isLookingForJob === true || updateTarget.isLookingForJob === "true") {
+      updateTarget.isLookingForJob = true;
+      updateTarget.courses = ["Looking for Job"];
+      updateTarget.targetCourses = ["Looking for Job"];
+      updateTarget.targetCourse = "Looking for Job";
+      updateTarget.expectedCourseFee = "₹0";
+    } else if (updateTarget.courses || updateTarget.targetCourses || updateTarget.targetCourse) {
       let coursesList: string[] = [];
       if (Array.isArray(updateTarget.courses) && updateTarget.courses.length > 0) {
         coursesList = updateTarget.courses.map((c: any) => String(c).trim()).filter(Boolean);
@@ -31,6 +37,11 @@ export async function PATCH(
         updateTarget.courses = coursesList;
         updateTarget.targetCourses = coursesList;
         updateTarget.targetCourse = coursesList.join(", ");
+        if (coursesList.includes("Looking for Job") && coursesList.length === 1) {
+          updateTarget.isLookingForJob = true;
+        } else {
+          updateTarget.isLookingForJob = false;
+        }
       }
     }
 

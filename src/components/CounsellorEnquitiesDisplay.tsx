@@ -554,8 +554,14 @@ export default function CounsellorEnquiriesDisplay() {
                                         </td>
 
                                         {/* Course requested */}
-                                        <td className="py-4 px-6 font-mono text-[10px] text-slate-500">
-                                            {lead.targetCourse}
+                                        <td className="py-4 px-6 font-semibold text-slate-700">
+                                            {lead.isLookingForJob || lead.targetCourse === "Looking for Job" ? (
+                                                <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 shadow-2xs font-sans">
+                                                    💼 Looking for Job
+                                                </span>
+                                            ) : (
+                                                <span className="font-mono text-[10px] text-slate-600">{lead.targetCourse || "-"}</span>
+                                            )}
                                         </td>
 
                                         {/* Advisor dropdown */}

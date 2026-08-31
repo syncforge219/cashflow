@@ -54,6 +54,10 @@ const EnquirySchema = new Schema(
         trim: true,
       },
     ],
+    isLookingForJob: {
+      type: Boolean,
+      default: false,
+    },
     assignedCrmAdvisor: {
       type: String,
     },

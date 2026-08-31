@@ -44,23 +44,35 @@ export async function POST(req: Request) {
     body.primaryPhoneMobile = body.primaryPhoneMobile?.trim() || "+91 0000000000";
     body.currentCity = body.currentCity?.trim() || "N/A";
     
-    // Process multi-selected courses
+    // Handle Looking for Job vs Courses
+    const isLookingForJob = body.isLookingForJob === true || body.isLookingForJob === "true" || body.lookingForJob === true || body.lookingForJob === "true";
+    body.isLookingForJob = isLookingForJob;
+
     let coursesList: string[] = [];
-    if (Array.isArray(body.courses) && body.courses.length > 0) {
-      coursesList = body.courses.map((c: any) => String(c).trim()).filter(Boolean);
-    } else if (Array.isArray(body.targetCourses) && body.targetCourses.length > 0) {
-      coursesList = body.targetCourses.map((c: any) => String(c).trim()).filter(Boolean);
-    } else if (typeof body.targetCourse === "string" && body.targetCourse.trim()) {
-      coursesList = body.targetCourse.split(",").map((c: string) => c.trim()).filter(Boolean);
-    }
+    if (isLookingForJob) {
+      coursesList = ["Looking for Job"];
+      body.courses = ["Looking for Job"];
+      body.targetCourses = ["Looking for Job"];
+      body.targetCourse = "Looking for Job";
+      body.expectedCourseFee = "₹0";
+    } else {
+      // Process multi-selected courses
+      if (Array.isArray(body.courses) && body.courses.length > 0) {
+        coursesList = body.courses.map((c: any) => String(c).trim()).filter(Boolean);
+      } else if (Array.isArray(body.targetCourses) && body.targetCourses.length > 0) {
+        coursesList = body.targetCourses.map((c: any) => String(c).trim()).filter(Boolean);
+      } else if (typeof body.targetCourse === "string" && body.targetCourse.trim()) {
+        coursesList = body.targetCourse.split(",").map((c: string) => c.trim()).filter(Boolean);
+      }
 
-    if (coursesList.length === 0) {
-      coursesList = ["General Course"];
-    }
+      if (coursesList.length === 0) {
+        coursesList = ["General Course"];
+      }
 
-    body.courses = coursesList;
-    body.targetCourses = coursesList;
-    body.targetCourse = coursesList.join(", ");
+      body.courses = coursesList;
+      body.targetCourses = coursesList;
+      body.targetCourse = coursesList.join(", ");
+    }
     body.targetBrand = body.targetBrand?.trim() || "Cadd Mantra";
     body.assignedCrmAdvisor = body.assignedCrmAdvisor?.trim() || user?.name || "Unassigned";
 

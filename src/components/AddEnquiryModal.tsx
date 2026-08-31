@@ -27,6 +27,7 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
   const [selectedBrand, setSelectedBrand] = useState<string>("");
   const [selectedAdvisor, setSelectedAdvisor] = useState("");
   const [expectedCourseFee, setExpectedCourseFee] = useState("₹0");
+  const [isLookingForJob, setIsLookingForJob] = useState(false);
   const [isDemoScheduled, setIsDemoScheduled] = useState(false);
   const [isFollowUpScheduled, setIsFollowUpScheduled] = useState(false);
   const [primaryPhone, setPrimaryPhone] = useState("+91 ");
@@ -39,6 +40,7 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
       setParentsPhone("+91 ");
       setEnquiryDate(new Date().toISOString().split("T")[0]);
       setIsFollowUpScheduled(false);
+      setIsLookingForJob(false);
       setSelectedCourses([]);
       setExpectedCourseFee("₹0");
       // Auto-select brand if defaultBrand or user's brandScope / brand is available
@@ -208,8 +210,8 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
       return;
     }
 
-    if (selectedCourses.length === 0) {
-      alert("Please select at least one course.");
+    if (!isLookingForJob && selectedCourses.length === 0) {
+      alert("Please select at least one Target Course or mark the lead as Looking for Job.");
       setIsSubmitting(false);
       return;
     }
@@ -223,11 +225,20 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
       data.parentsPhoneNumber = cleanParents ? `+91 ${cleanParents}` : "";
     }
 
-    // Attach multi-selected courses array and string fallback
-    (data as any).courses = selectedCourses;
-    (data as any).targetCourses = selectedCourses;
-    (data as any).targetCourse = selectedCourses.join(", ");
-    (data as any).expectedCourseFee = expectedCourseFee;
+    // Attach multi-selected courses array or looking for job
+    if (isLookingForJob) {
+      (data as any).isLookingForJob = true;
+      (data as any).courses = ["Looking for Job"];
+      (data as any).targetCourses = ["Looking for Job"];
+      (data as any).targetCourse = "Looking for Job";
+      (data as any).expectedCourseFee = "₹0";
+    } else {
+      (data as any).isLookingForJob = false;
+      (data as any).courses = selectedCourses;
+      (data as any).targetCourses = selectedCourses;
+      (data as any).targetCourse = selectedCourses.join(", ");
+      (data as any).expectedCourseFee = expectedCourseFee;
+    }
 
     // Ensure boolean value for the toggles
     data.isDemoScheduled = isDemoScheduled as any;
@@ -369,7 +380,31 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
 
           {/* SECTION 2 */}
           <div>
-            <h4 className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-4">Section 2: Business Routing</h4>
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+              <h4 className="text-xs font-bold text-indigo-600 uppercase tracking-wider">Section 2: Business Routing</h4>
+              
+              {/* Looking for Job Checkbox Option */}
+              <label className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100/80 transition-colors cursor-pointer select-none shadow-2xs">
+                <input
+                  type="checkbox"
+                  name="isLookingForJobCheckbox"
+                  checked={isLookingForJob}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setIsLookingForJob(checked);
+                    if (checked) {
+                      setSelectedCourses([]);
+                      setExpectedCourseFee("₹0");
+                    }
+                  }}
+                  className="w-4 h-4 text-amber-600 rounded border-amber-300 focus:ring-amber-500 cursor-pointer accent-amber-600"
+                />
+                <span className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                  💼 Lead is Looking for Job
+                </span>
+              </label>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <div className="flex items-center justify-between mb-1.5">
@@ -405,20 +440,33 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                    Target Course(s) <span className="text-rose-500">*</span>
+                    Target Course(s) {!isLookingForJob && <span className="text-rose-500">*</span>}
                   </label>
-                  {selectedCourses.length > 0 && (
+                  {isLookingForJob ? (
+                    <span className="text-[10px] font-extrabold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                      Looking for Job
+                    </span>
+                  ) : selectedCourses.length > 0 ? (
                     <span className="text-[10px] font-extrabold text-indigo-600">
                       Total Fee: {expectedCourseFee}
                     </span>
-                  )}
+                  ) : null}
                 </div>
                 <CourseMultiSelect
                   courses={filteredCourses}
                   selectedCourses={selectedCourses}
-                  onChange={handleCourseSelectionChange}
-                  placeholder="-- Search & Select Course(s) --"
+                  onChange={(newCourses) => {
+                    if (isLookingForJob) setIsLookingForJob(false);
+                    handleCourseSelectionChange(newCourses);
+                  }}
+                  disabled={isLookingForJob}
+                  placeholder={isLookingForJob ? "💼 Looking for Job (Course selection disabled)" : "-- Search & Select Course(s) --"}
                 />
+                {isLookingForJob && (
+                  <p className="text-[10px] font-semibold text-amber-600 mt-1 flex items-center gap-1">
+                    ℹ️ Lead is marked as &quot;Looking for Job&quot;. Course selection is bypassed.
+                  </p>
+                )}
               </div>
               {user?.role === "counsellor" ? (
                 <input type="hidden" name="assignedCrmAdvisor" value={user.name} />

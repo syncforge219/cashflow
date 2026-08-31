@@ -698,7 +698,13 @@ export default function EnquiriesDisplay() {
 
                     {/* Course requested */}
                     <td className="py-4 px-6 font-semibold text-slate-700">
-                      {lead.targetCourse || "-"}
+                      {lead.isLookingForJob || lead.targetCourse === "Looking for Job" ? (
+                        <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 shadow-2xs">
+                          💼 Looking for Job
+                        </span>
+                      ) : (
+                        lead.targetCourse || "-"
+                      )}
                     </td>
 
                     {/* Brand */}
