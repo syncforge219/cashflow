@@ -13,6 +13,12 @@
  * 1. DEFAULT THEME: Lead2Ledger Classic (Slate Clean & Indigo)
  * -------------------------------------------------------------------------- */
 :root,
+:root[data-theme="classic-slate"],
+:root[data-theme="default"],
+html[data-theme="classic-slate"],
+html[data-theme="default"],
+body[data-theme="classic-slate"],
+body[data-theme="default"],
 [data-theme="classic-slate"],
 [data-theme="default"] {
   --background: #f8faff;
@@ -73,6 +79,12 @@
 /* --------------------------------------------------------------------------
  * 2. PURE LIGHT THEME: Crisp Executive Daylight
  * -------------------------------------------------------------------------- */
+:root[data-theme="pure-light"],
+:root[data-theme="light"],
+html[data-theme="pure-light"],
+html[data-theme="light"],
+body[data-theme="pure-light"],
+body[data-theme="light"],
 [data-theme="pure-light"],
 [data-theme="light"] {
   --background: #f1f5f9;
@@ -131,6 +143,12 @@
 /* --------------------------------------------------------------------------
  * 3. DEEP OBSIDIAN THEME: Deep Slate Dark Mode
  * -------------------------------------------------------------------------- */
+:root[data-theme="deep-obsidian"],
+:root[data-theme="dark"],
+html[data-theme="deep-obsidian"],
+html[data-theme="dark"],
+body[data-theme="deep-obsidian"],
+body[data-theme="dark"],
 [data-theme="deep-obsidian"],
 [data-theme="dark"],
 .dark {
@@ -190,6 +208,12 @@
 /* --------------------------------------------------------------------------
  * 4. CYBER SAPPHIRE THEME: Modern Midnight Navy
  * -------------------------------------------------------------------------- */
+:root[data-theme="cyber-sapphire"],
+:root[data-theme="modern"],
+html[data-theme="cyber-sapphire"],
+html[data-theme="modern"],
+body[data-theme="cyber-sapphire"],
+body[data-theme="modern"],
 [data-theme="cyber-sapphire"],
 [data-theme="modern"] {
   --background: #060b18;
@@ -248,6 +272,12 @@
 /* --------------------------------------------------------------------------
  * 5. EMERALD WEALTH THEME: Luxury Dark Pine & Financial Green
  * -------------------------------------------------------------------------- */
+:root[data-theme="emerald-wealth"],
+:root[data-theme="emerald"],
+html[data-theme="emerald-wealth"],
+html[data-theme="emerald"],
+body[data-theme="emerald-wealth"],
+body[data-theme="emerald"],
 [data-theme="emerald-wealth"],
 [data-theme="emerald"] {
   --background: #05140f;
@@ -469,25 +499,11 @@ body {
 [data-theme="dark"] [class*="text-slate-500"],
 [data-theme="emerald-wealth"] [class*="text-slate-500"],
 [data-theme="emerald"] [class*="text-slate-500"],
-.dark [class*="text-slate-500"],
-[data-theme="cyber-sapphire"] [class*="text-slate-400"],
-[data-theme="modern"] [class*="text-slate-400"],
-[data-theme="deep-obsidian"] [class*="text-slate-400"],
-[data-theme="dark"] [class*="text-slate-400"],
-[data-theme="emerald-wealth"] [class*="text-slate-400"],
-[data-theme="emerald"] [class*="text-slate-400"],
-.dark [class*="text-slate-400"] {
+.dark [class*="text-slate-500"] {
   color: var(--muted-foreground) !important;
 }
 
-/* Borders */
-[data-theme="cyber-sapphire"] [class*="border-slate-200"],
-[data-theme="modern"] [class*="border-slate-200"],
-[data-theme="deep-obsidian"] [class*="border-slate-200"],
-[data-theme="dark"] [class*="border-slate-200"],
-[data-theme="emerald-wealth"] [class*="border-slate-200"],
-[data-theme="emerald"] [class*="border-slate-200"],
-.dark [class*="border-slate-200"],
+/* Border Colors */
 [data-theme="cyber-sapphire"] [class*="border-slate-100"],
 [data-theme="modern"] [class*="border-slate-100"],
 [data-theme="deep-obsidian"] [class*="border-slate-100"],
@@ -495,31 +511,24 @@ body {
 [data-theme="emerald-wealth"] [class*="border-slate-100"],
 [data-theme="emerald"] [class*="border-slate-100"],
 .dark [class*="border-slate-100"],
-[data-theme="cyber-sapphire"] [class*="divide-slate-100"],
-[data-theme="modern"] [class*="divide-slate-100"],
-[data-theme="deep-obsidian"] [class*="divide-slate-100"],
-[data-theme="dark"] [class*="divide-slate-100"],
-[data-theme="emerald-wealth"] [class*="divide-slate-100"],
-[data-theme="emerald"] [class*="divide-slate-100"],
-.dark [class*="divide-slate-100"],
-[data-theme="cyber-sapphire"] [class*="divide-slate-200"],
-[data-theme="modern"] [class*="divide-slate-200"],
-[data-theme="deep-obsidian"] [class*="divide-slate-200"],
-[data-theme="dark"] [class*="divide-slate-200"],
-[data-theme="emerald-wealth"] [class*="divide-slate-200"],
-[data-theme="emerald"] [class*="divide-slate-200"],
-.dark [class*="divide-slate-200"] {
+[data-theme="cyber-sapphire"] [class*="border-slate-200"],
+[data-theme="modern"] [class*="border-slate-200"],
+[data-theme="deep-obsidian"] [class*="border-slate-200"],
+[data-theme="dark"] [class*="border-slate-200"],
+[data-theme="emerald-wealth"] [class*="border-slate-200"],
+[data-theme="emerald"] [class*="border-slate-200"],
+.dark [class*="border-slate-200"] {
   border-color: var(--border) !important;
 }
 
-/* Inputs & Form Controls */
-[data-theme="cyber-sapphire"] input:not([type="checkbox"]):not([type="radio"]),
-[data-theme="modern"] input:not([type="checkbox"]):not([type="radio"]),
-[data-theme="deep-obsidian"] input:not([type="checkbox"]):not([type="radio"]),
-[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]),
-[data-theme="emerald-wealth"] input:not([type="checkbox"]):not([type="radio"]),
-[data-theme="emerald"] input:not([type="checkbox"]):not([type="radio"]),
-.dark input:not([type="checkbox"]):not([type="radio"]),
+/* Inputs, Selects, Textareas */
+[data-theme="cyber-sapphire"] input,
+[data-theme="modern"] input,
+[data-theme="deep-obsidian"] input,
+[data-theme="dark"] input,
+[data-theme="emerald-wealth"] input,
+[data-theme="emerald"] input,
+.dark input,
 [data-theme="cyber-sapphire"] select,
 [data-theme="modern"] select,
 [data-theme="deep-obsidian"] select,
@@ -539,83 +548,36 @@ body {
   border-color: var(--input-border) !important;
 }
 
-/* Input Placeholders in Dark */
-[data-theme="cyber-sapphire"] input::placeholder,
-[data-theme="modern"] input::placeholder,
-[data-theme="deep-obsidian"] input::placeholder,
-[data-theme="dark"] input::placeholder,
-[data-theme="emerald-wealth"] input::placeholder,
-[data-theme="emerald"] input::placeholder,
-.dark input::placeholder,
-[data-theme="cyber-sapphire"] textarea::placeholder,
-[data-theme="modern"] textarea::placeholder,
-[data-theme="deep-obsidian"] textarea::placeholder,
-[data-theme="dark"] textarea::placeholder,
-[data-theme="emerald-wealth"] textarea::placeholder,
-[data-theme="emerald"] textarea::placeholder,
-.dark textarea::placeholder {
-  color: var(--muted-foreground) !important;
-}
-
-/* Tables in Dark */
-[data-theme="cyber-sapphire"] table th,
-[data-theme="modern"] table th,
-[data-theme="deep-obsidian"] table th,
-[data-theme="dark"] table th,
-[data-theme="emerald-wealth"] table th,
-[data-theme="emerald"] table th,
-.dark table th {
-  background-color: var(--card) !important;
+/* Table Headers & Rows */
+[data-theme="cyber-sapphire"] th,
+[data-theme="modern"] th,
+[data-theme="deep-obsidian"] th,
+[data-theme="dark"] th,
+[data-theme="emerald-wealth"] th,
+[data-theme="emerald"] th,
+.dark th {
+  background-color: var(--muted) !important;
   color: var(--muted-foreground) !important;
   border-color: var(--border) !important;
 }
 
-[data-theme="cyber-sapphire"] table td,
-[data-theme="modern"] table td,
-[data-theme="deep-obsidian"] table td,
-[data-theme="dark"] table td,
-[data-theme="emerald-wealth"] table td,
-[data-theme="emerald"] table td,
-.dark table td {
+[data-theme="cyber-sapphire"] td,
+[data-theme="modern"] td,
+[data-theme="deep-obsidian"] td,
+[data-theme="dark"] td,
+[data-theme="emerald-wealth"] td,
+[data-theme="emerald"] td,
+.dark td {
   border-color: var(--border) !important;
+  color: var(--foreground);
 }
 
-/* Hover States in Dark */
-[data-theme="cyber-sapphire"] [class*="hover:bg-slate-50"]:hover,
-[data-theme="modern"] [class*="hover:bg-slate-50"]:hover,
-[data-theme="deep-obsidian"] [class*="hover:bg-slate-50"]:hover,
-[data-theme="dark"] [class*="hover:bg-slate-50"]:hover,
-[data-theme="emerald-wealth"] [class*="hover:bg-slate-50"]:hover,
-[data-theme="emerald"] [class*="hover:bg-slate-50"]:hover,
-.dark [class*="hover:bg-slate-50"]:hover,
-[data-theme="cyber-sapphire"] [class*="hover:bg-slate-100"]:hover,
-[data-theme="modern"] [class*="hover:bg-slate-100"]:hover,
-[data-theme="deep-obsidian"] [class*="hover:bg-slate-100"]:hover,
-[data-theme="dark"] [class*="hover:bg-slate-100"]:hover,
-[data-theme="emerald-wealth"] [class*="hover:bg-slate-100"]:hover,
-[data-theme="emerald"] [class*="hover:bg-slate-100"]:hover,
-.dark [class*="hover:bg-slate-100"]:hover {
-  background-color: var(--secondary) !important;
-}
-
-/* Scrollbars */
-[data-theme="cyber-sapphire"] ::-webkit-scrollbar-track,
-[data-theme="modern"] ::-webkit-scrollbar-track,
-[data-theme="deep-obsidian"] ::-webkit-scrollbar-track,
-[data-theme="dark"] ::-webkit-scrollbar-track,
-[data-theme="emerald-wealth"] ::-webkit-scrollbar-track,
-[data-theme="emerald"] ::-webkit-scrollbar-track,
-.dark ::-webkit-scrollbar-track {
-  background: var(--background);
-}
-
-[data-theme="cyber-sapphire"] ::-webkit-scrollbar-thumb,
-[data-theme="modern"] ::-webkit-scrollbar-thumb,
-[data-theme="deep-obsidian"] ::-webkit-scrollbar-thumb,
-[data-theme="dark"] ::-webkit-scrollbar-thumb,
-[data-theme="emerald-wealth"] ::-webkit-scrollbar-thumb,
-[data-theme="emerald"] ::-webkit-scrollbar-thumb,
-.dark ::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 8px;
+[data-theme="cyber-sapphire"] tr:hover td,
+[data-theme="modern"] tr:hover td,
+[data-theme="deep-obsidian"] tr:hover td,
+[data-theme="dark"] tr:hover td,
+[data-theme="emerald-wealth"] tr:hover td,
+[data-theme="emerald"] tr:hover td,
+.dark tr:hover td {
+  background-color: var(--muted) !important;
 }

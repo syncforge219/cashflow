@@ -37,6 +37,174 @@ export interface ThemeOption {
   };
 }
 
+export const THEME_PALETTES: Record<ResolvedThemeType, Record<string, string>> = {
+  "classic-slate": {
+    "--background": "#f8faff",
+    "--foreground": "#0f172a",
+    "--card": "#ffffff",
+    "--card-foreground": "#0f172a",
+    "--popover": "#ffffff",
+    "--popover-foreground": "#0f172a",
+    "--primary": "#4f46e5",
+    "--primary-foreground": "#ffffff",
+    "--secondary": "#f1f5f9",
+    "--secondary-foreground": "#1e293b",
+    "--muted": "#f8fafc",
+    "--muted-foreground": "#64748b",
+    "--accent": "#eef2ff",
+    "--accent-foreground": "#4338ca",
+    "--destructive": "#ef4444",
+    "--destructive-foreground": "#ffffff",
+    "--border": "#e2e8f0",
+    "--input": "#ffffff",
+    "--input-border": "#e2e8f0",
+    "--ring": "#6366f1",
+    "--sidebar": "#ffffff",
+    "--sidebar-foreground": "#334155",
+    "--sidebar-primary": "#4f46e5",
+    "--sidebar-primary-foreground": "#ffffff",
+    "--sidebar-accent": "#f1f5f9",
+    "--sidebar-accent-foreground": "#0f172a",
+    "--sidebar-border": "#e2e8f0",
+    "--success": "#10b981",
+    "--warning": "#f59e0b",
+    "--error": "#ef4444",
+    "--info": "#3b82f6",
+  },
+  "pure-light": {
+    "--background": "#f1f5f9",
+    "--foreground": "#090d16",
+    "--card": "#ffffff",
+    "--card-foreground": "#090d16",
+    "--popover": "#ffffff",
+    "--popover-foreground": "#090d16",
+    "--primary": "#2563eb",
+    "--primary-foreground": "#ffffff",
+    "--secondary": "#e2e8f0",
+    "--secondary-foreground": "#0f172a",
+    "--muted": "#f1f5f9",
+    "--muted-foreground": "#475569",
+    "--accent": "#eff6ff",
+    "--accent-foreground": "#1d4ed8",
+    "--destructive": "#dc2626",
+    "--destructive-foreground": "#ffffff",
+    "--border": "#cbd5e1",
+    "--input": "#ffffff",
+    "--input-border": "#cbd5e1",
+    "--ring": "#3b82f6",
+    "--sidebar": "#ffffff",
+    "--sidebar-foreground": "#1e293b",
+    "--sidebar-primary": "#2563eb",
+    "--sidebar-primary-foreground": "#ffffff",
+    "--sidebar-accent": "#e2e8f0",
+    "--sidebar-accent-foreground": "#090d16",
+    "--sidebar-border": "#cbd5e1",
+    "--success": "#059669",
+    "--warning": "#d97706",
+    "--error": "#dc2626",
+    "--info": "#2563eb",
+  },
+  "deep-obsidian": {
+    "--background": "#0b0f19",
+    "--foreground": "#f8fafc",
+    "--card": "#131b2e",
+    "--card-foreground": "#f8fafc",
+    "--popover": "#131b2e",
+    "--popover-foreground": "#f8fafc",
+    "--primary": "#6366f1",
+    "--primary-foreground": "#ffffff",
+    "--secondary": "#1e293b",
+    "--secondary-foreground": "#f1f5f9",
+    "--muted": "#1a233a",
+    "--muted-foreground": "#94a3b8",
+    "--accent": "#1e223f",
+    "--accent-foreground": "#a5b4fc",
+    "--destructive": "#ef4444",
+    "--destructive-foreground": "#ffffff",
+    "--border": "#243048",
+    "--input": "#0f172a",
+    "--input-border": "#283548",
+    "--ring": "#818cf8",
+    "--sidebar": "#0e1526",
+    "--sidebar-foreground": "#cbd5e1",
+    "--sidebar-primary": "#6366f1",
+    "--sidebar-primary-foreground": "#ffffff",
+    "--sidebar-accent": "#1e293b",
+    "--sidebar-accent-foreground": "#ffffff",
+    "--sidebar-border": "#1e293b",
+    "--success": "#10b981",
+    "--warning": "#f59e0b",
+    "--error": "#f43f5e",
+    "--info": "#38bdf8",
+  },
+  "cyber-sapphire": {
+    "--background": "#060b18",
+    "--foreground": "#f0f6fc",
+    "--card": "#0c152b",
+    "--card-foreground": "#f0f6fc",
+    "--popover": "#0c152b",
+    "--popover-foreground": "#f0f6fc",
+    "--primary": "#0ea5e9",
+    "--primary-foreground": "#ffffff",
+    "--secondary": "#132448",
+    "--secondary-foreground": "#e0f2fe",
+    "--muted": "#0f1f3d",
+    "--muted-foreground": "#7dd3fc",
+    "--accent": "#0c284d",
+    "--accent-foreground": "#38bdf8",
+    "--destructive": "#f43f5e",
+    "--destructive-foreground": "#ffffff",
+    "--border": "#1e3a6a",
+    "--input": "#081024",
+    "--input-border": "#1e3a6a",
+    "--ring": "#38bdf8",
+    "--sidebar": "#091124",
+    "--sidebar-foreground": "#93c5fd",
+    "--sidebar-primary": "#0ea5e9",
+    "--sidebar-primary-foreground": "#ffffff",
+    "--sidebar-accent": "#132448",
+    "--sidebar-accent-foreground": "#f0f6fc",
+    "--sidebar-border": "#1e3a6a",
+    "--success": "#06b6d4",
+    "--warning": "#fb923c",
+    "--error": "#f43f5e",
+    "--info": "#0ea5e9",
+  },
+  "emerald-wealth": {
+    "--background": "#05140f",
+    "--foreground": "#ecfdf5",
+    "--card": "#0a221a",
+    "--card-foreground": "#ecfdf5",
+    "--popover": "#0a221a",
+    "--popover-foreground": "#ecfdf5",
+    "--primary": "#10b981",
+    "--primary-foreground": "#ffffff",
+    "--secondary": "#13382c",
+    "--secondary-foreground": "#a7f3d0",
+    "--muted": "#0e2e23",
+    "--muted-foreground": "#6ee7b7",
+    "--accent": "#144234",
+    "--accent-foreground": "#34d399",
+    "--destructive": "#f87171",
+    "--destructive-foreground": "#ffffff",
+    "--border": "#1c4d3d",
+    "--input": "#061811",
+    "--input-border": "#1c4d3d",
+    "--ring": "#34d399",
+    "--sidebar": "#071b14",
+    "--sidebar-foreground": "#a7f3d0",
+    "--sidebar-primary": "#10b981",
+    "--sidebar-primary-foreground": "#ffffff",
+    "--sidebar-accent": "#13382c",
+    "--sidebar-accent-foreground": "#ecfdf5",
+    "--sidebar-border": "#1c4d3d",
+    "--success": "#10b981",
+    "--warning": "#fbbf24",
+    "--error": "#f87171",
+    "--info": "#2dd4bf",
+  },
+};
+
 export const AVAILABLE_THEMES: ThemeOption[] = [
   {
     id: "classic-slate",
@@ -124,7 +292,7 @@ export const AVAILABLE_THEMES: ThemeOption[] = [
   },
 ];
 
-// Helper to normalize legacy theme IDs to canonical IDs
+// Normalize legacy theme IDs to canonical IDs
 export function normalizeThemeId(id: string | null | undefined): "classic-slate" | "pure-light" | "deep-obsidian" | "cyber-sapphire" | "emerald-wealth" | "system" {
   if (!id) return "classic-slate";
   if (id === "default") return "classic-slate";
@@ -161,7 +329,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return window.matchMedia("(prefers-color-scheme: dark)").matches ? "deep-obsidian" : "classic-slate";
   };
 
-  // Apply theme attributes to document.documentElement and body
+  // Apply theme attributes and direct CSS variables to document.documentElement and body
   const applyThemeToDOM = (activeTheme: string) => {
     if (typeof document === "undefined") return;
 
@@ -177,13 +345,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
     setResolvedTheme(effective);
 
-    // Set data-theme attribute on root html and body
+    // 1. Set data-theme attribute on root html and body
     root.setAttribute("data-theme", effective);
     if (document.body) {
       document.body.setAttribute("data-theme", effective);
     }
 
-    // Manage 'dark' CSS class
+    // 2. Manage 'dark' CSS class
     const isDarkTheme =
       effective === "deep-obsidian" ||
       effective === "cyber-sapphire" ||
@@ -197,7 +365,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       if (document.body) document.body.classList.remove("dark");
     }
 
-    // Also update meta theme-color for mobile browsers
+    // 3. Directly inject CSS custom properties on document.documentElement.style for 100% instant certainty
+    const palette = THEME_PALETTES[effective] || THEME_PALETTES["classic-slate"];
+    Object.entries(palette).forEach(([varName, val]) => {
+      root.style.setProperty(varName, val);
+    });
+
+    // 4. Update meta theme-color for mobile browsers
     const metaThemeColor = document.querySelector('meta[name="theme-color"]');
     const matched = AVAILABLE_THEMES.find((t) => t.id === effective);
     if (matched && matched.colors.bg.startsWith("#")) {

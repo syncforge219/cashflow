@@ -224,7 +224,7 @@ export default function ManagerDashboard() {
 
             <button
               onClick={() => setIsBatchModalOpen(true)}
-              className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
+              className="flex items-center gap-1.5 px-4 py-2 bg-primary hover:opacity-90 text-primary-foreground rounded-xl text-xs font-bold shadow-md transition-all cursor-pointer"
             >
               <span>📚 + Create Batch</span>
             </button>
@@ -233,15 +233,15 @@ export default function ManagerDashboard() {
             <div className="relative hidden md:block">
               <button
                 onClick={() => setIsCommandPaletteOpen(true)}
-                className="flex items-center justify-between px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-colors w-56 text-slate-400 group"
+                className="flex items-center justify-between px-4 py-2 bg-card border border-border rounded-xl text-sm font-semibold hover:bg-muted transition-colors w-56 text-muted-foreground group"
               >
                 <div className="flex items-center gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 group-hover:text-indigo-500 transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 group-hover:text-primary transition-colors">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
                   </svg>
                   Search...
                 </div>
-                <span className="text-[10px] font-bold text-slate-400/80 uppercase">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase">
                   CTRL+K
                 </span>
               </button>
@@ -252,17 +252,17 @@ export default function ManagerDashboard() {
             {/* Profile Avatar */}
             <div
               onClick={() => setIsProfileOpen(true)}
-              className="flex items-center gap-3 pl-4 border-l border-slate-200 cursor-pointer group"
+              className="flex items-center gap-3 pl-4 border-l border-border cursor-pointer group"
             >
-              <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-sm shadow-sm group-hover:shadow transition-shadow overflow-hidden shrink-0">
+              <div className="h-10 w-10 rounded-full bg-primary/15 flex items-center justify-center text-primary font-bold text-sm shadow-sm group-hover:shadow transition-shadow overflow-hidden shrink-0">
                 {user?.photoUrl ? (
                   <img src={user.photoUrl} alt={user.name} className="h-full w-full object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} />
                 ) : null}
                 <span className={user?.photoUrl ? "hidden" : "block"}>{initialLetter}</span>
               </div>
               <div className="hidden lg:block text-right">
-                <p className="text-sm font-extrabold text-slate-800 leading-tight">{displayName}</p>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{displayRole}</p>
+                <p className="text-sm font-extrabold text-foreground leading-tight">{displayName}</p>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{displayRole}</p>
               </div>
             </div>
           </div>
@@ -289,113 +289,113 @@ export default function ManagerDashboard() {
           {/* KPI Row */}
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
 
-            <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+            <div className="bg-card rounded-2xl p-4 border border-border shadow-sm">
               <div className="flex justify-between items-start mb-2">
                 <div>
-                  <h3 className="text-xs font-bold text-slate-500 mb-1">Total Leads</h3>
-                  <p className="text-xl font-extrabold text-slate-800">{loading ? "..." : (stats?.kpis?.totalLeads ?? 0)}</p>
+                  <h3 className="text-xs font-bold text-muted-foreground mb-1">Total Leads</h3>
+                  <p className="text-xl font-extrabold text-foreground">{loading ? "..." : (stats?.kpis?.totalLeads ?? 0)}</p>
                 </div>
-                <div className="h-8 w-8 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center">
+                <div className="h-8 w-8 bg-indigo-500/10 text-indigo-500 rounded-lg flex items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>
                 </div>
               </div>
-              <p className="text-[10px] font-bold text-indigo-600">{filterLabel === "Overall" ? "Active Pipeline" : `Filtered: ${filterLabel}`}</p>
+              <p className="text-[10px] font-bold text-primary">{filterLabel === "Overall" ? "Active Pipeline" : `Filtered: ${filterLabel}`}</p>
             </div>
 
-            <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+            <div className="bg-card rounded-2xl p-4 border border-border shadow-sm">
               <div className="flex justify-between items-start mb-2">
                 <div>
-                  <h3 className="text-xs font-bold text-slate-500 mb-1">{filterLabel === "Today" ? "New Leads Today" : "New Leads"}</h3>
-                  <p className="text-xl font-extrabold text-slate-800">{loading ? "..." : (stats?.kpis?.newLeads ?? 0)}</p>
+                  <h3 className="text-xs font-bold text-muted-foreground mb-1">{filterLabel === "Today" ? "New Leads Today" : "New Leads"}</h3>
+                  <p className="text-xl font-extrabold text-foreground">{loading ? "..." : (stats?.kpis?.newLeads ?? 0)}</p>
                 </div>
-                <div className="h-8 w-8 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center">
+                <div className="h-8 w-8 bg-emerald-500/10 text-emerald-500 rounded-lg flex items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z" /></svg>
                 </div>
               </div>
-              <p className="text-[10px] font-bold text-emerald-600">{filterLabel === "Overall" ? "Fresh Prospects" : filterLabel}</p>
+              <p className="text-[10px] font-bold text-emerald-500">{filterLabel === "Overall" ? "Fresh Prospects" : filterLabel}</p>
             </div>
 
-            <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+            <div className="bg-card rounded-2xl p-4 border border-border shadow-sm">
               <div className="flex justify-between items-start mb-2">
                 <div>
-                  <h3 className="text-xs font-bold text-slate-500 mb-1">{filterLabel === "Today" ? "Follow-ups Today" : "Follow-ups"}</h3>
-                  <p className="text-xl font-extrabold text-slate-800">{loading ? "..." : (stats?.kpis?.followUpsToday ?? 0)}</p>
+                  <h3 className="text-xs font-bold text-muted-foreground mb-1">{filterLabel === "Today" ? "Follow-ups Today" : "Follow-ups"}</h3>
+                  <p className="text-xl font-extrabold text-foreground">{loading ? "..." : (stats?.kpis?.followUpsToday ?? 0)}</p>
                 </div>
-                <div className="h-8 w-8 bg-amber-50 text-amber-500 rounded-lg flex items-center justify-center">
+                <div className="h-8 w-8 bg-amber-500/10 text-amber-500 rounded-lg flex items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>
                 </div>
               </div>
-              <p className="text-[10px] font-bold text-amber-600">{filterLabel === "Today" ? "Scheduled" : filterLabel}</p>
+              <p className="text-[10px] font-bold text-amber-500">{filterLabel === "Today" ? "Scheduled" : filterLabel}</p>
             </div>
 
             <div
               onClick={() => setIsAdmissionBreakdownOpen(true)}
-              className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm cursor-pointer hover:border-purple-300 hover:shadow-md transition-all ring-2 ring-purple-500/10"
+              className="bg-card rounded-2xl p-4 border border-border shadow-sm cursor-pointer hover:border-primary hover:shadow-md transition-all ring-2 ring-primary/10"
             >
               <div className="flex justify-between items-start mb-2">
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <h3 className="text-xs font-bold text-slate-500">{filterLabel === "Today" ? "Today's Admissions" : "Admissions"}</h3>
-                    <span className="text-[8px] font-black text-purple-600 bg-purple-50 px-1 py-0.5 rounded uppercase">
+                    <h3 className="text-xs font-bold text-muted-foreground">{filterLabel === "Today" ? "Today's Admissions" : "Admissions"}</h3>
+                    <span className="text-[8px] font-black text-primary bg-primary/10 px-1 py-0.5 rounded uppercase">
                       Details
                     </span>
                   </div>
-                  <p className="text-xl font-extrabold text-slate-800">{loading ? "..." : (stats?.kpis?.admissions ?? 0)}</p>
+                  <p className="text-xl font-extrabold text-foreground">{loading ? "..." : (stats?.kpis?.admissions ?? 0)}</p>
                 </div>
-                <div className="h-8 w-8 bg-purple-50 text-purple-600 rounded-lg flex items-center justify-center">
+                <div className="h-8 w-8 bg-purple-500/10 text-purple-500 rounded-lg flex items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342M6.75 15a.75.75 0 100-1.5.75.75 0 000 1.5zm0 0v-3.675A55.378 55.378 0 0112 8.443m-7.007 11.55A5.981 5.981 0 006.75 15.75v-1.5" /></svg>
                 </div>
               </div>
-              <p className="text-[10px] font-bold text-purple-600">{filterLabel === "Overall" ? "Total Enrolled" : filterLabel} • Click for Details</p>
+              <p className="text-[10px] font-bold text-primary">{filterLabel === "Overall" ? "Total Enrolled" : filterLabel} • Click for Details</p>
             </div>
 
-            <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+            <div className="bg-card rounded-2xl p-4 border border-border shadow-sm">
               <div className="flex justify-between items-start mb-2">
                 <div>
-                  <h3 className="text-xs font-bold text-slate-500 mb-1">Revenue</h3>
-                  <p className="text-xl font-extrabold text-slate-800">{loading ? "..." : (stats?.kpis?.revenue ?? "₹0 L")}</p>
+                  <h3 className="text-xs font-bold text-muted-foreground mb-1">Revenue</h3>
+                  <p className="text-xl font-extrabold text-foreground">{loading ? "..." : (stats?.kpis?.revenue ?? "₹0 L")}</p>
                 </div>
-                <div className="h-8 w-8 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center">
+                <div className="h-8 w-8 bg-emerald-500/10 text-emerald-500 rounded-lg flex items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" /></svg>
                 </div>
               </div>
-              <p className="text-[10px] font-bold text-emerald-600">{filterLabel === "Overall" ? "Booked Course Fees" : filterLabel}</p>
+              <p className="text-[10px] font-bold text-emerald-500">{filterLabel === "Overall" ? "Booked Course Fees" : filterLabel}</p>
             </div>
 
             <div
               onClick={() => setIsPaymentBreakdownOpen(true)}
-              className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm cursor-pointer hover:border-blue-300 hover:shadow-md transition-all ring-2 ring-blue-500/10"
+              className="bg-card rounded-2xl p-4 border border-border shadow-sm cursor-pointer hover:border-primary hover:shadow-md transition-all ring-2 ring-primary/10"
             >
               <div className="flex justify-between items-start mb-2">
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <h3 className="text-xs font-bold text-slate-500">
+                    <h3 className="text-xs font-bold text-muted-foreground">
                       {filterLabel === "Today" || filterLabel === "Overall" ? "Collection" : "Period Collection"}
                     </h3>
-                    <span className="text-[8px] font-black text-blue-600 bg-blue-50 px-1 py-0.5 rounded uppercase">
+                    <span className="text-[8px] font-black text-primary bg-primary/10 px-1 py-0.5 rounded uppercase">
                       Details
                     </span>
                   </div>
-                  <p className="text-xl font-extrabold text-slate-800">{loading ? "..." : (stats?.kpis?.collection ?? "₹0 L")}</p>
+                  <p className="text-xl font-extrabold text-foreground">{loading ? "..." : (stats?.kpis?.collection ?? "₹0 L")}</p>
                 </div>
-                <div className="h-8 w-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center">
+                <div className="h-8 w-8 bg-blue-500/10 text-blue-500 rounded-lg flex items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" /></svg>
                 </div>
               </div>
-              <p className="text-[10px] font-bold text-blue-600">{filterLabel === "Overall" ? "Payments Received" : filterLabel} • Click for Details</p>
+              <p className="text-[10px] font-bold text-primary">{filterLabel === "Overall" ? "Payments Received" : filterLabel} • Click for Details</p>
             </div>
 
-            <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+            <div className="bg-card rounded-2xl p-4 border border-border shadow-sm">
               <div className="flex justify-between items-start mb-2">
                 <div>
-                  <h3 className="text-xs font-bold text-slate-500 mb-1">Pending Fees</h3>
-                  <p className="text-xl font-extrabold text-slate-800">{loading ? "..." : (stats?.kpis?.pendingFees ?? "₹0 L")}</p>
+                  <h3 className="text-xs font-bold text-muted-foreground mb-1">Pending Fees</h3>
+                  <p className="text-xl font-extrabold text-foreground">{loading ? "..." : (stats?.kpis?.pendingFees ?? "₹0 L")}</p>
                 </div>
-                <div className="h-8 w-8 bg-rose-50 text-rose-500 rounded-lg flex items-center justify-center">
+                <div className="h-8 w-8 bg-rose-500/10 text-rose-500 rounded-lg flex items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 </div>
               </div>
-              <p className="text-[10px] font-bold text-rose-600">Outstanding Balance</p>
+              <p className="text-[10px] font-bold text-rose-500">Outstanding Balance</p>
             </div>
 
           </div>
@@ -404,8 +404,8 @@ export default function ManagerDashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
             {/* Lead Pipeline */}
-            <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-6 flex flex-col">
-              <h3 className="text-sm font-bold text-slate-800 mb-6">Lead Pipeline</h3>
+            <div className="bg-card border border-border rounded-2xl shadow-sm p-6 flex flex-col">
+              <h3 className="text-sm font-bold text-foreground mb-6">Lead Pipeline</h3>
               <div className="flex-1 flex items-center gap-6">
                 <div className="flex-1 flex flex-col gap-1 items-center justify-center">
                   {stats?.pipeline?.map((item, idx) => {
@@ -423,16 +423,16 @@ export default function ManagerDashboard() {
                 </div>
                 <div className="flex-1 space-y-3">
                   {loading ? (
-                    <p className="text-xs text-slate-400">Loading pipeline...</p>
+                    <p className="text-xs text-muted-foreground">Loading pipeline...</p>
                   ) : (
                     stats?.pipeline?.map((item, i) => (
                       <div key={i} className="flex justify-between items-center text-xs">
                         <div className="flex items-center gap-2">
                           <span className={`w-2 h-2 ${item.color} rounded-sm`}></span>
-                          <span className="font-semibold text-slate-600">{item.label}</span>
+                          <span className="font-semibold text-muted-foreground">{item.label}</span>
                         </div>
-                        <div className="font-bold text-slate-800">
-                          {item.count} <span className="text-[10px] text-slate-400 font-semibold">({item.pct})</span>
+                        <div className="font-bold text-foreground">
+                          {item.count} <span className="text-[10px] text-muted-foreground font-semibold">({item.pct})</span>
                         </div>
                       </div>
                     ))
@@ -442,9 +442,9 @@ export default function ManagerDashboard() {
             </div>
 
             {/* Leads Trend Chart */}
-            <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-6 flex flex-col">
+            <div className="bg-card border border-border rounded-2xl shadow-sm p-6 flex flex-col">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-sm font-bold text-slate-800">Leads Trend <span className="text-[10px] text-slate-400 font-normal">(Last 15 Days)</span></h3>
+                <h3 className="text-sm font-bold text-foreground">Leads Trend <span className="text-[10px] text-muted-foreground font-normal">(Last 15 Days)</span></h3>
               </div>
               <div className="flex gap-4 justify-center mb-4 text-[10px] font-bold">
                 <span className="flex items-center gap-1.5"><span className="w-2 h-2 bg-[#2563eb] rounded-sm"></span>New Leads</span>
@@ -453,12 +453,12 @@ export default function ManagerDashboard() {
               </div>
               <div className="flex-1 relative mt-2 min-h-[140px]">
                 {loading ? (
-                  <div className="flex items-center justify-center h-full text-xs text-slate-400">Loading trend chart...</div>
+                  <div className="flex items-center justify-center h-full text-xs text-muted-foreground">Loading trend chart...</div>
                 ) : (
                   <svg viewBox="0 0 400 140" className="w-full h-full overflow-visible">
                     {/* Horizontal Grid lines */}
                     {[0, 35, 70, 105].map(y => (
-                      <line key={y} x1="0" y1={y} x2="400" y2={y} stroke="#f1f5f9" strokeWidth="1" />
+                      <line key={y} x1="0" y1={y} x2="400" y2={y} stroke="var(--border)" strokeWidth="1" />
                     ))}
 
                     {/* Trend Lines */}
@@ -477,7 +477,7 @@ export default function ManagerDashboard() {
                       if (i % 3 === 0 || i === (stats.trendDays.length - 1)) {
                         const x = (i / (stats.trendDays.length - 1)) * 400;
                         return (
-                          <text key={i} x={x} y="138" className="text-[9px] fill-slate-400 font-semibold" textAnchor="middle">
+                          <text key={i} x={x} y="138" className="text-[9px] fill-muted-foreground font-semibold" textAnchor="middle">
                             {d.dateLabel}
                           </text>
                         );
@@ -490,11 +490,11 @@ export default function ManagerDashboard() {
             </div>
 
             {/* Top Counsellors */}
-            <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-6 flex flex-col">
+            <div className="bg-card border border-border rounded-2xl shadow-sm p-6 flex flex-col">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-sm font-bold text-slate-800">Top Counsellors <span className="text-[10px] text-slate-400 font-semibold">(By Admissions)</span></h3>
+                <h3 className="text-sm font-bold text-foreground">Top Counsellors <span className="text-[10px] text-muted-foreground font-semibold">(By Admissions)</span></h3>
               </div>
-              <div className="grid grid-cols-12 pb-2 mb-2 border-b border-slate-100 text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+              <div className="grid grid-cols-12 pb-2 mb-2 border-b border-border text-[9px] font-bold text-muted-foreground uppercase tracking-wider">
                 <div className="col-span-6">Counsellor</div>
                 <div className="col-span-2 text-center">Admissions</div>
                 <div className="col-span-2 text-center">Revenue</div>
@@ -502,29 +502,29 @@ export default function ManagerDashboard() {
               </div>
               <div className="space-y-3 overflow-y-auto max-h-[220px]">
                 {loading ? (
-                  <p className="text-xs text-slate-400">Loading counsellors...</p>
+                  <p className="text-xs text-muted-foreground">Loading counsellors...</p>
                 ) : stats?.topCounsellors && stats.topCounsellors.length > 0 ? (
                   stats.topCounsellors.map(c => (
                     <div key={c.rank} className="grid grid-cols-12 items-center text-xs">
                       <div className="col-span-6 flex items-center gap-2">
                         <div className={`h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold ${c.rank === 1 ? 'bg-amber-400 text-white' :
-                            c.rank === 2 ? 'bg-slate-300 text-white' :
-                              c.rank === 3 ? 'bg-orange-400 text-white' : 'bg-slate-100 text-slate-400'
+                            c.rank === 2 ? 'bg-slate-300 text-slate-800' :
+                              c.rank === 3 ? 'bg-orange-400 text-white' : 'bg-muted text-muted-foreground'
                           }`}>
                           {c.rank}
                         </div>
                         <div className="flex items-center gap-1.5 min-w-0">
-                          <div className="h-6 w-6 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-[10px] shrink-0">{c.initials}</div>
-                          <span className="font-semibold text-slate-700 truncate">{c.name}</span>
+                          <div className="h-6 w-6 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-[10px] shrink-0">{c.initials}</div>
+                          <span className="font-semibold text-foreground truncate">{c.name}</span>
                         </div>
                       </div>
-                      <div className="col-span-2 text-center font-bold text-slate-800">{c.adm}</div>
-                      <div className="col-span-2 text-center font-semibold text-slate-600">{c.rev}</div>
-                      <div className="col-span-2 text-right font-semibold text-slate-800">{c.conv}</div>
+                      <div className="col-span-2 text-center font-bold text-foreground">{c.adm}</div>
+                      <div className="col-span-2 text-center font-semibold text-muted-foreground">{c.rev}</div>
+                      <div className="col-span-2 text-right font-semibold text-foreground">{c.conv}</div>
                     </div>
                   ))
                 ) : (
-                  <p className="text-xs text-slate-400 py-4 text-center">No counsellor data recorded yet.</p>
+                  <p className="text-xs text-muted-foreground py-4 text-center">No counsellor data recorded yet.</p>
                 )}
               </div>
             </div>
@@ -535,8 +535,8 @@ export default function ManagerDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
             {/* Enquiries by Source */}
-            <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-6 flex flex-col items-center">
-              <h3 className="text-sm font-bold text-slate-800 self-start mb-6">Enquiries by Source</h3>
+            <div className="bg-card border border-border rounded-2xl shadow-sm p-6 flex flex-col items-center">
+              <h3 className="text-sm font-bold text-foreground self-start mb-6">Enquiries by Source</h3>
               <div className="flex items-center gap-6 w-full">
                 <div className="relative w-32 h-32 shrink-0 flex items-center justify-center">
                   <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
@@ -561,32 +561,32 @@ export default function ManagerDashboard() {
                         cy="18"
                         r="15.91549430918954"
                         fill="transparent"
-                        stroke="#e2e8f0"
+                        stroke="var(--border)"
                         strokeWidth="6"
                       />
                     )}
                   </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center rounded-full bg-white m-3.5 shadow-2xs">
-                    <span className="text-sm font-black text-slate-900 leading-none">
+                  <div className="absolute inset-0 flex flex-col items-center justify-center rounded-full bg-card m-3.5 shadow-2xs border border-border">
+                    <span className="text-sm font-black text-foreground leading-none">
                       {stats?.enquiriesBySource?.reduce((acc, s) => acc + (s.count || 0), 0) || 0}
                     </span>
-                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter mt-0.5">
+                    <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-tighter mt-0.5">
                       Total Leads
                     </span>
                   </div>
                 </div>
                 <div className="flex-1 space-y-1.5 max-h-36 overflow-y-auto pr-1">
                   {loading ? (
-                    <p className="text-xs text-slate-400">Loading sources...</p>
+                    <p className="text-xs text-muted-foreground">Loading sources...</p>
                   ) : (
                     stats?.enquiriesBySource?.map((s, i) => (
                       <div key={i} className="flex justify-between items-center text-[10px]">
                         <div className="flex items-center gap-1.5 min-w-0">
-                          <span className={`w-2 h-2 ${s.color || "bg-indigo-500"} rounded-full shrink-0`}></span>
-                          <span className="font-semibold text-slate-700 truncate">{s.label}</span>
+                          <span className={`w-2 h-2 ${s.color || "bg-primary"} rounded-full shrink-0`}></span>
+                          <span className="font-semibold text-foreground truncate">{s.label}</span>
                         </div>
-                        <span className="font-bold text-slate-900 shrink-0 ml-2">
-                          {s.pct} <span className="text-slate-400 font-semibold">({s.count})</span>
+                        <span className="font-bold text-foreground shrink-0 ml-2">
+                          {s.pct} <span className="text-muted-foreground font-semibold">({s.count})</span>
                         </span>
                       </div>
                     ))
@@ -596,44 +596,44 @@ export default function ManagerDashboard() {
             </div>
 
             {/* Today's Follow-ups */}
-            <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-6 flex flex-col">
+            <div className="bg-card border border-border rounded-2xl shadow-sm p-6 flex flex-col">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-sm font-bold text-slate-800">Today's Scheduled Follow-ups</h3>
+                <h3 className="text-sm font-bold text-foreground">Today's Scheduled Follow-ups</h3>
               </div>
               <div className="space-y-3">
                 {loading ? (
-                  <p className="text-xs text-slate-400">Loading followups...</p>
+                  <p className="text-xs text-muted-foreground">Loading followups...</p>
                 ) : stats?.todayFollowups && stats.todayFollowups.length > 0 ? (
                   stats.todayFollowups.map((f, i) => (
                     <div key={i} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="h-6 w-6 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-[9px]">{f.initials}</div>
+                        <div className="h-6 w-6 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-[9px]">{f.initials}</div>
                         <div>
-                          <span className="text-xs font-semibold text-slate-700 block leading-tight">{f.name}</span>
-                          <span className="text-[9px] text-slate-400">{f.phone}</span>
+                          <span className="text-xs font-semibold text-foreground block leading-tight">{f.name}</span>
+                          <span className="text-[9px] text-muted-foreground">{f.phone}</span>
                         </div>
                       </div>
-                      <span className="text-[10px] font-semibold text-slate-400">{f.time}</span>
-                      <button className="text-[9px] font-bold px-2 py-0.5 rounded border text-emerald-600 bg-emerald-50 border-emerald-100">
+                      <span className="text-[10px] font-semibold text-muted-foreground">{f.time}</span>
+                      <button className="text-[9px] font-bold px-2 py-0.5 rounded border text-emerald-500 bg-emerald-500/10 border-emerald-500/30">
                         {f.action}
                       </button>
                     </div>
                   ))
                 ) : (
-                  <p className="text-xs text-slate-400 py-4 text-center">No follow-ups scheduled for today.</p>
+                  <p className="text-xs text-muted-foreground py-4 text-center">No follow-ups scheduled for today.</p>
                 )}
               </div>
             </div>
 
             {/* Recent Activity */}
-            <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-6 flex flex-col">
+            <div className="bg-card border border-border rounded-2xl shadow-sm p-6 flex flex-col">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-sm font-bold text-slate-800">Recent System Activity</h3>
+                <h3 className="text-sm font-bold text-foreground">Recent System Activity</h3>
               </div>
               <div className="space-y-4 relative">
-                <div className="absolute top-2 bottom-2 left-3 w-px bg-slate-100"></div>
+                <div className="absolute top-2 bottom-2 left-3 w-px bg-border"></div>
                 {loading ? (
-                  <p className="text-xs text-slate-400">Loading activities...</p>
+                  <p className="text-xs text-muted-foreground">Loading activities...</p>
                 ) : stats?.recentActivity && stats.recentActivity.length > 0 ? (
                   stats.recentActivity.map((a, i) => (
                     <div key={i} className="flex items-start gap-3 relative z-10">
@@ -643,13 +643,13 @@ export default function ManagerDashboard() {
                         </svg>
                       </div>
                       <div className="flex-1">
-                        <p className="text-xs font-semibold text-slate-700">{a.text}</p>
-                        <p className="text-[9px] font-bold text-slate-400 mt-0.5">{a.time}</p>
+                        <p className="text-xs font-semibold text-foreground">{a.text}</p>
+                        <p className="text-[9px] font-bold text-muted-foreground mt-0.5">{a.time}</p>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <p className="text-xs text-slate-400 py-4 text-center">No recent activity recorded.</p>
+                  <p className="text-xs text-muted-foreground py-4 text-center">No recent activity recorded.</p>
                 )}
               </div>
             </div>
