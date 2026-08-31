@@ -231,17 +231,17 @@ export default function CounsellorDashboardPage() {
   const unreadNotificationsCount = stats.followupsDue + stats.todaysCalls;
 
   return (
-    <div className="flex h-screen bg-[#f8faff] text-slate-800 font-sans overflow-hidden">
+    <div className="flex h-screen bg-background text-foreground font-sans overflow-hidden">
       <CounsellorSidebar />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
         
         {/* HEADER BAR WITH NOTIFICATION BELL */}
-        <header className="h-16 px-8 flex items-center justify-between bg-white/70 backdrop-blur-md sticky top-0 z-30 border-b border-slate-200/80 shrink-0">
+        <header className="h-16 px-8 flex items-center justify-between bg-card/80 backdrop-blur-md sticky top-0 z-30 border-b border-border shrink-0">
           
           <div className="flex items-center gap-3">
-            <h2 className="text-base font-extrabold text-slate-800 tracking-tight">Counsellor Workspace</h2>
-            <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+            <h2 className="text-base font-extrabold text-foreground tracking-tight">Counsellor Workspace</h2>
+            <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
               Live Overview
             </span>
           </div>

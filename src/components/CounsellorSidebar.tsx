@@ -177,13 +177,13 @@ export default function CounsellorSidebar() {
     <aside
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className={`bg-white border-r border-slate-200/80 h-screen flex flex-col py-6 font-sans transition-all duration-300 ease-in-out shrink-0 relative group/sidebar ${effectiveCollapsed ? "w-20 px-3" : "w-64 px-4 shadow-xl"
+      className={`bg-sidebar text-sidebar-foreground border-r border-sidebar-border h-screen flex flex-col py-6 font-sans transition-all duration-300 ease-in-out shrink-0 relative group/sidebar ${effectiveCollapsed ? "w-20 px-3" : "w-64 px-4 shadow-xl"
         }`}
     >
       {/* Pin / Lock Sidebar Toggle Button */}
       <button
         onClick={() => setIsPinned(!isPinned)}
-        className="absolute right-2 top-3 p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-slate-100 transition-all opacity-0 group-hover/sidebar:opacity-100 z-50 cursor-pointer"
+        className="absolute right-2 top-3 p-1.5 rounded-lg text-sidebar-foreground/60 hover:text-sidebar-primary hover:bg-sidebar-accent transition-all opacity-0 group-hover/sidebar:opacity-100 z-50 cursor-pointer"
         title={isPinned ? "Unpin sidebar (Auto-collapse on mouse exit)" : "Pin sidebar expanded"}
       >
         <svg
@@ -192,7 +192,7 @@ export default function CounsellorSidebar() {
           fill={isPinned ? "currentColor" : "none"}
           stroke="currentColor"
           strokeWidth="2"
-          className={`w-4 h-4 transition-transform ${isPinned ? "text-emerald-600 rotate-45" : "text-slate-400"}`}
+          className={`w-4 h-4 transition-transform ${isPinned ? "text-sidebar-primary rotate-45" : "text-sidebar-foreground/60"}`}
         >
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
         </svg>
@@ -206,11 +206,11 @@ export default function CounsellorSidebar() {
         {groups.map((group) => (
           <div key={group.category} className="space-y-2">
             {!effectiveCollapsed ? (
-              <h3 className="px-3 text-[10px] font-bold tracking-widest text-slate-400/90 uppercase select-none">
+              <h3 className="px-3 text-[10px] font-bold tracking-widest text-sidebar-foreground/60 uppercase select-none">
                 {group.category}
               </h3>
             ) : (
-              <div className="border-t border-slate-200/50 my-1 mx-2"></div>
+              <div className="border-t border-sidebar-border/50 my-1 mx-2"></div>
             )}
             <ul className="space-y-1">
               {group.items.map((item) => {
@@ -225,12 +225,12 @@ export default function CounsellorSidebar() {
                       href={item.href}
                       onClick={item.onClick ? (e) => { e.preventDefault(); item.onClick!(); } : undefined}
                       className={`group flex items-center ${effectiveCollapsed ? "justify-center" : "gap-3 px-3"} py-2.5 text-xs font-bold rounded-xl transition-all duration-200 relative ${isActive
-                        ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/20"
-                        : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                        ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-lg shadow-sidebar-primary/20"
+                        : "text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                         }`}
                       title={effectiveCollapsed ? item.name : undefined}
                     >
-                      <span className={`${isActive ? "text-white" : "text-slate-400 group-hover:text-slate-700 transition-colors"} relative`}>
+                      <span className={`${isActive ? "text-sidebar-primary-foreground" : "text-sidebar-foreground/60 group-hover:text-sidebar-foreground transition-colors"} relative`}>
                         {item.icon}
                         {item.hasNotification && (
                           <span className="absolute -top-0.5 -right-0.5 h-2 w-2 bg-rose-500 rounded-full border border-white"></span>
@@ -243,7 +243,7 @@ export default function CounsellorSidebar() {
               })}
             </ul>
             {!effectiveCollapsed && group.category !== "Tools" && (
-              <div className="pt-2 border-b border-slate-200/50 mx-3"></div>
+              <div className="pt-2 border-b border-sidebar-border/50 mx-3"></div>
             )}
           </div>
         ))}

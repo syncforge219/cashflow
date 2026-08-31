@@ -207,15 +207,15 @@ export default function ManagerDashboard() {
   const donutSegments = getDonutSegments();
 
   return (
-    <div className="flex h-screen bg-[#f8faff] text-slate-800 font-sans overflow-hidden">
+    <div className="flex h-screen bg-background text-foreground font-sans overflow-hidden">
       <ManagerSidebar />
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto relative">
         {/* Header Area */}
-        <header className="h-20 px-8 flex items-center justify-between bg-white/50 backdrop-blur-md sticky top-0 z-10 border-b border-slate-100 shrink-0">
+        <header className="h-20 px-8 flex items-center justify-between bg-card/80 backdrop-blur-md sticky top-0 z-10 border-b border-border shrink-0">
           <div className="flex items-center gap-4">
-            <h2 className="text-xl font-extrabold text-slate-800 tracking-tight">Dashboard</h2>
+            <h2 className="text-xl font-extrabold text-foreground tracking-tight">Dashboard</h2>
           </div>
 
           <div className="flex items-center gap-4">

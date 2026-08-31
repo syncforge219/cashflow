@@ -71,9 +71,9 @@
 
 /* --------------------------------------------------------------------------
  * 1. DEFAULT THEME: Lead2Ledger Classic (Slate Clean & Indigo)
- * Preserves the exact original visual identity
  * -------------------------------------------------------------------------- */
-:root {
+:root,
+[data-theme="default"] {
   --background: #f8faff;
   --foreground: #0f172a;
 
@@ -103,7 +103,7 @@
   --input-border: #e2e8f0;
   --ring: #6366f1;
 
-  --sidebar: rgba(248, 250, 255, 0.95);
+  --sidebar: #ffffff;
   --sidebar-foreground: #334155;
   --sidebar-primary: #4f46e5;
   --sidebar-primary-foreground: #ffffff;
@@ -220,7 +220,7 @@
   --input-border: #283548;
   --ring: #818cf8;
 
-  --sidebar: #0d1424;
+  --sidebar: #0e1526;
   --sidebar-foreground: #cbd5e1;
   --sidebar-primary: #6366f1;
   --sidebar-primary-foreground: #ffffff;
@@ -248,13 +248,13 @@
  * 4. CYBER SAPPHIRE THEME: Modern Midnight Navy
  * -------------------------------------------------------------------------- */
 [data-theme="modern"] {
-  --background: #070d1e;
+  --background: #060b18;
   --foreground: #f0f6fc;
 
-  --card: #0d1833;
+  --card: #0c152b;
   --card-foreground: #f0f6fc;
 
-  --popover: #0d1833;
+  --popover: #0c152b;
   --popover-foreground: #f0f6fc;
 
   --primary: #0ea5e9;
@@ -273,11 +273,11 @@
   --destructive-foreground: #ffffff;
 
   --border: #1e3a6a;
-  --input: #091329;
+  --input: #081024;
   --input-border: #1e3a6a;
   --ring: #38bdf8;
 
-  --sidebar: #091226;
+  --sidebar: #091124;
   --sidebar-foreground: #93c5fd;
   --sidebar-primary: #0ea5e9;
   --sidebar-primary-foreground: #ffffff;
@@ -308,10 +308,10 @@
   --background: #05140f;
   --foreground: #ecfdf5;
 
-  --card: #0c241c;
+  --card: #0a221a;
   --card-foreground: #ecfdf5;
 
-  --popover: #0c241c;
+  --popover: #0a221a;
   --popover-foreground: #ecfdf5;
 
   --primary: #10b981;
@@ -330,11 +330,11 @@
   --destructive-foreground: #ffffff;
 
   --border: #1c4d3d;
-  --input: #071a13;
+  --input: #061811;
   --input-border: #1c4d3d;
   --ring: #34d399;
 
-  --sidebar: #071c15;
+  --sidebar: #071b14;
   --sidebar-foreground: #a7f3d0;
   --sidebar-primary: #10b981;
   --sidebar-primary-foreground: #ffffff;
@@ -363,8 +363,8 @@
  * -------------------------------------------------------------------------- */
 html,
 body {
-  background-color: var(--background);
-  color: var(--foreground);
+  background-color: var(--background) !important;
+  color: var(--foreground) !important;
   transition-property: background-color, border-color, color;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 150ms;
@@ -380,95 +380,111 @@ body {
 }
 
 /* --------------------------------------------------------------------------
- * DARK & THEMED SURFACE HARMONY RULES
- * Automatically maps card surfaces, tables, inputs, sidebars, borders, modals
- * across Dark, Cyber Sapphire, and Emerald Wealth themes without breaking
- * semantic status tags (green/red/amber/blue badges).
+ * UNIVERSAL THEME SURFACE OVERRIDES
+ * Guarantees that any legacy class variant (bg-white, bg-white/*, bg-slate-50, 
+ * bg-slate-50/*, bg-[#f8faff], text-slate-*, border-slate-*) automatically
+ * responds to Dark, Cyber Sapphire, and Emerald Wealth themes without breaking
+ * legitimate semantic badges (green/red/amber/blue status pills).
  * -------------------------------------------------------------------------- */
-[data-theme="dark"] body,
-[data-theme="modern"] body,
-[data-theme="emerald"] body,
-.dark body {
-  background-color: var(--background);
-  color: var(--foreground);
+[data-theme="dark"] aside,
+[data-theme="modern"] aside,
+[data-theme="emerald"] aside,
+.dark aside {
+  background-color: var(--sidebar) !important;
+  color: var(--sidebar-foreground) !important;
+  border-color: var(--sidebar-border) !important;
 }
 
-/* Main Dashboard Containers & Workspaces */
-[data-theme="dark"] .bg-\[\#f8faff\],
-[data-theme="modern"] .bg-\[\#f8faff\],
-[data-theme="emerald"] .bg-\[\#f8faff\],
-.dark .bg-\[\#f8faff\] {
+[data-theme="dark"] header,
+[data-theme="modern"] header,
+[data-theme="emerald"] header,
+.dark header {
+  border-color: var(--border) !important;
+}
+
+/* Main Workspace Containers */
+[data-theme="dark"] [class*="bg-[#f8faff]"],
+[data-theme="modern"] [class*="bg-[#f8faff]"],
+[data-theme="emerald"] [class*="bg-[#f8faff]"],
+.dark [class*="bg-[#f8faff]"],
+[data-theme="dark"] [class*="bg-slate-50"],
+[data-theme="modern"] [class*="bg-slate-50"],
+[data-theme="emerald"] [class*="bg-slate-50"],
+.dark [class*="bg-slate-50"] {
   background-color: var(--background) !important;
-  color: var(--foreground);
+  color: var(--foreground) !important;
 }
 
-[data-theme="dark"] .bg-slate-50,
-[data-theme="modern"] .bg-slate-50,
-[data-theme="emerald"] .bg-slate-50,
-.dark .bg-slate-50 {
-  background-color: var(--background) !important;
-}
-
-/* Cards & Modals */
-[data-theme="dark"] .bg-white,
-[data-theme="modern"] .bg-white,
-[data-theme="emerald"] .bg-white,
-.dark .bg-white {
+/* Cards, Modals, Popovers, Dropdowns */
+[data-theme="dark"] [class*="bg-white"],
+[data-theme="modern"] [class*="bg-white"],
+[data-theme="emerald"] [class*="bg-white"],
+.dark [class*="bg-white"] {
   background-color: var(--card) !important;
   color: var(--card-foreground) !important;
 }
 
-[data-theme="dark"] .bg-white\/95,
-[data-theme="modern"] .bg-white\/95,
-[data-theme="emerald"] .bg-white\/95,
-.dark .bg-white\/95,
-[data-theme="dark"] .bg-white\/80,
-[data-theme="modern"] .bg-white\/80,
-[data-theme="emerald"] .bg-white\/80,
-.dark .bg-white\/80 {
-  background-color: var(--card) !important;
+/* Secondary & Muted Backgrounds */
+[data-theme="dark"] [class*="bg-slate-100"],
+[data-theme="modern"] [class*="bg-slate-100"],
+[data-theme="emerald"] [class*="bg-slate-100"],
+.dark [class*="bg-slate-100"],
+[data-theme="dark"] [class*="bg-slate-200"],
+[data-theme="modern"] [class*="bg-slate-200"],
+[data-theme="emerald"] [class*="bg-slate-200"],
+.dark [class*="bg-slate-200"] {
+  background-color: var(--secondary) !important;
+  color: var(--secondary-foreground) !important;
 }
 
-/* Text adaptations in dark themes */
-[data-theme="dark"] .text-slate-900,
-[data-theme="modern"] .text-slate-900,
-[data-theme="emerald"] .text-slate-900,
-.dark .text-slate-900,
-[data-theme="dark"] .text-slate-800,
-[data-theme="modern"] .text-slate-800,
-[data-theme="emerald"] .text-slate-800,
-.dark .text-slate-800 {
+/* Text Colors */
+[data-theme="dark"] [class*="text-slate-900"],
+[data-theme="modern"] [class*="text-slate-900"],
+[data-theme="emerald"] [class*="text-slate-900"],
+.dark [class*="text-slate-900"],
+[data-theme="dark"] [class*="text-slate-800"],
+[data-theme="modern"] [class*="text-slate-800"],
+[data-theme="emerald"] [class*="text-slate-800"],
+.dark [class*="text-slate-800"] {
   color: var(--foreground) !important;
 }
 
-[data-theme="dark"] .text-slate-700,
-[data-theme="modern"] .text-slate-700,
-[data-theme="emerald"] .text-slate-700,
-.dark .text-slate-700,
-[data-theme="dark"] .text-slate-600,
-[data-theme="modern"] .text-slate-600,
-[data-theme="emerald"] .text-slate-600,
-.dark .text-slate-600 {
+[data-theme="dark"] [class*="text-slate-700"],
+[data-theme="modern"] [class*="text-slate-700"],
+[data-theme="emerald"] [class*="text-slate-700"],
+.dark [class*="text-slate-700"],
+[data-theme="dark"] [class*="text-slate-600"],
+[data-theme="modern"] [class*="text-slate-600"],
+[data-theme="emerald"] [class*="text-slate-600"],
+.dark [class*="text-slate-600"],
+[data-theme="dark"] [class*="text-slate-500"],
+[data-theme="modern"] [class*="text-slate-500"],
+[data-theme="emerald"] [class*="text-slate-500"],
+.dark [class*="text-slate-500"],
+[data-theme="dark"] [class*="text-slate-400"],
+[data-theme="modern"] [class*="text-slate-400"],
+[data-theme="emerald"] [class*="text-slate-400"],
+.dark [class*="text-slate-400"] {
   color: var(--muted-foreground) !important;
 }
 
 /* Borders */
-[data-theme="dark"] .border-slate-200,
-[data-theme="modern"] .border-slate-200,
-[data-theme="emerald"] .border-slate-200,
-.dark .border-slate-200,
-[data-theme="dark"] .border-slate-200\/80,
-[data-theme="modern"] .border-slate-200\/80,
-[data-theme="emerald"] .border-slate-200\/80,
-.dark .border-slate-200\/80,
-[data-theme="dark"] .border-slate-100,
-[data-theme="modern"] .border-slate-100,
-[data-theme="emerald"] .border-slate-100,
-.dark .border-slate-100,
-[data-theme="dark"] .divide-slate-100,
-[data-theme="modern"] .divide-slate-100,
-[data-theme="emerald"] .divide-slate-100,
-.dark .divide-slate-100 {
+[data-theme="dark"] [class*="border-slate-200"],
+[data-theme="modern"] [class*="border-slate-200"],
+[data-theme="emerald"] [class*="border-slate-200"],
+.dark [class*="border-slate-200"],
+[data-theme="dark"] [class*="border-slate-100"],
+[data-theme="modern"] [class*="border-slate-100"],
+[data-theme="emerald"] [class*="border-slate-100"],
+.dark [class*="border-slate-100"],
+[data-theme="dark"] [class*="divide-slate-100"],
+[data-theme="modern"] [class*="divide-slate-100"],
+[data-theme="emerald"] [class*="divide-slate-100"],
+.dark [class*="divide-slate-100"],
+[data-theme="dark"] [class*="divide-slate-200"],
+[data-theme="modern"] [class*="divide-slate-200"],
+[data-theme="emerald"] [class*="divide-slate-200"],
+.dark [class*="divide-slate-200"] {
   border-color: var(--border) !important;
 }
 
@@ -519,18 +535,19 @@ body {
   border-color: var(--border) !important;
 }
 
-[data-theme="dark"] .hover\:bg-slate-50\/40:hover,
-[data-theme="modern"] .hover\:bg-slate-50\/40:hover,
-[data-theme="emerald"] .hover\:bg-slate-50\/40:hover,
-.dark .hover\:bg-slate-50\/40:hover,
-[data-theme="dark"] .hover\:bg-slate-50:hover,
-[data-theme="modern"] .hover\:bg-slate-50:hover,
-[data-theme="emerald"] .hover\:bg-slate-50:hover,
-.dark .hover\:bg-slate-50:hover {
-  background-color: var(--muted) !important;
+/* Hover States in Dark */
+[data-theme="dark"] [class*="hover:bg-slate-50"]:hover,
+[data-theme="modern"] [class*="hover:bg-slate-50"]:hover,
+[data-theme="emerald"] [class*="hover:bg-slate-50"]:hover,
+.dark [class*="hover:bg-slate-50"]:hover,
+[data-theme="dark"] [class*="hover:bg-slate-100"]:hover,
+[data-theme="modern"] [class*="hover:bg-slate-100"]:hover,
+[data-theme="emerald"] [class*="hover:bg-slate-100"]:hover,
+.dark [class*="hover:bg-slate-100"]:hover {
+  background-color: var(--secondary) !important;
 }
 
-/* Dark Scrollbars */
+/* Scrollbars */
 [data-theme="dark"] ::-webkit-scrollbar-track,
 [data-theme="modern"] ::-webkit-scrollbar-track,
 [data-theme="emerald"] ::-webkit-scrollbar-track,

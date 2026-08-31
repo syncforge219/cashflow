@@ -111,12 +111,12 @@ export default function TeacherSidebar() {
 
   return (
     <aside
-      className={`h-screen bg-white border-r border-slate-100 flex flex-col font-sans shrink-0 ${
+      className={`h-screen bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col font-sans shrink-0 ${
         isCollapsed ? "w-20" : "w-64"
       }`}
     >
       {/* Brand Header */}
-      <div className="py-4 px-4 border-b border-slate-100 shrink-0">
+      <div className="py-4 px-4 border-b border-sidebar-border/60 shrink-0">
         <SidebarBrandHeader isCollapsed={isCollapsed} subtitle="Teacher Portal" />
       </div>
 
@@ -126,10 +126,10 @@ export default function TeacherSidebar() {
           <div key={idx} className="space-y-3">
             {!isCollapsed && (
               <div className="flex items-center gap-4">
-                <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest shrink-0 px-2">
+                <h3 className="text-[10px] font-bold text-sidebar-foreground/60 uppercase tracking-widest shrink-0 px-2">
                   {group.category}
                 </h3>
-                <div className="h-px bg-slate-100 flex-1"></div>
+                <div className="h-px bg-sidebar-border/60 flex-1"></div>
               </div>
             )}
 
@@ -142,20 +142,20 @@ export default function TeacherSidebar() {
                     <button
                       key={itemIdx}
                       onClick={item.onClick || logout}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group relative text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group relative text-rose-500 hover:bg-rose-500/10 hover:text-rose-600"
                     >
-                      <div className="shrink-0 text-rose-500 group-hover:text-rose-700 transition-colors">
+                      <div className="shrink-0 text-rose-500 group-hover:text-rose-600 transition-colors">
                         {item.icon}
                       </div>
                       {!isCollapsed && (
-                        <span className="text-sm font-semibold truncate text-rose-600 group-hover:text-rose-700 font-bold">
+                        <span className="text-sm font-semibold truncate text-rose-500 group-hover:text-rose-600 font-bold">
                           {item.name}
                         </span>
                       )}
 
                       {/* Tooltip for collapsed state */}
                       {isCollapsed && (
-                        <div className="absolute left-full ml-4 px-2 py-1 bg-slate-800 text-white text-xs font-semibold rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50">
+                        <div className="absolute left-full ml-4 px-2 py-1 bg-card text-foreground border border-border text-xs font-semibold rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50 shadow-xl">
                           {item.name}
                         </div>
                       )}
@@ -169,19 +169,19 @@ export default function TeacherSidebar() {
                     href={item.href}
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group relative ${
                       isActive
-                        ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
-                        : "text-slate-600 hover:bg-slate-50 hover:text-indigo-600"
+                        ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-md shadow-sidebar-primary/20 font-bold"
+                        : "text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                     }`}
                   >
                     <div
                       className={`shrink-0 transition-colors ${
-                        isActive ? "text-white" : "text-slate-400 group-hover:text-indigo-600"
+                        isActive ? "text-sidebar-primary-foreground" : "text-sidebar-foreground/60 group-hover:text-sidebar-accent-foreground"
                       }`}
                     >
                       {item.icon}
                     </div>
                     {!isCollapsed && (
-                      <span className="text-sm font-semibold truncate">{item.name}</span>
+                      <span className={`text-sm font-semibold truncate ${isActive ? "text-sidebar-primary-foreground font-bold" : ""}`}>{item.name}</span>
                     )}
 
                     {/* Tooltip for collapsed state */}

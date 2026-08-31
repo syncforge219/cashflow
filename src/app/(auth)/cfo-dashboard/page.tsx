@@ -636,21 +636,21 @@ export default function CfoDashboardPage() {
 
   return (
     <CfoSecurityGuard>
-      <div className="flex h-screen bg-[#f8faff] text-slate-800 overflow-hidden font-sans transition-colors duration-200 relative">
+      <div className="flex h-screen bg-background text-foreground overflow-hidden font-sans transition-colors duration-200 relative">
       <Sidebar />
 
       {/* FLOATING HOVER TOOLTIP */}
       {hoveredTooltip && (
         <div
-          className="fixed z-50 pointer-events-none bg-slate-900/95 text-white text-xs font-bold px-3.5 py-2.5 rounded-xl shadow-2xl border border-slate-700 backdrop-blur-md transform -translate-x-1/2 -translate-y-full transition-all duration-100"
+          className="fixed z-50 pointer-events-none bg-card text-foreground text-xs font-bold px-3.5 py-2.5 rounded-xl shadow-2xl border border-border backdrop-blur-md transform -translate-x-1/2 -translate-y-full transition-all duration-100"
           style={{ left: tooltipPos.x, top: tooltipPos.y - 12 }}
         >
-          <div className="text-[10px] text-indigo-300 font-extrabold uppercase mb-0.5">{hoveredTooltip.category || "DETAILS"}</div>
-          <div className="text-sm font-black text-white">{hoveredTooltip.name}</div>
-          <div className="flex items-center justify-between gap-4 mt-1 pt-1 border-t border-slate-800 text-[11px]">
-            <span className="text-emerald-400 font-extrabold">Amount: ₹{Number(hoveredTooltip.value).toLocaleString("en-IN")}</span>
+          <div className="text-[10px] text-primary font-extrabold uppercase mb-0.5">{hoveredTooltip.category || "DETAILS"}</div>
+          <div className="text-sm font-black text-foreground">{hoveredTooltip.name}</div>
+          <div className="flex items-center justify-between gap-4 mt-1 pt-1 border-t border-border text-[11px]">
+            <span className="text-emerald-500 font-extrabold">Amount: ₹{Number(hoveredTooltip.value).toLocaleString("en-IN")}</span>
             {hoveredTooltip.pct !== undefined && (
-              <span className="text-slate-300 font-bold bg-slate-800 px-1.5 py-0.5 rounded">
+              <span className="text-muted-foreground font-bold bg-muted px-1.5 py-0.5 rounded">
                 Share: {hoveredTooltip.pct}%
               </span>
             )}
@@ -660,12 +660,12 @@ export default function CfoDashboardPage() {
 
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto px-6 py-6 space-y-6">
         {/* Header */}
-        <header className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-200/80 pb-4 shrink-0">
+        <header className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-border pb-4 shrink-0">
           <div>
-            <div className="text-xs font-semibold text-slate-400 flex items-center gap-1 select-none">
+            <div className="text-xs font-semibold text-muted-foreground flex items-center gap-1 select-none">
               <span>CoachFlow</span>
-              <span>/</span>
-              <span className="text-slate-600 font-bold">CFO Financial Overview</span>
+              <span className="text-muted-foreground/60">/</span>
+              <span className="text-foreground font-bold">CFO Financial Overview</span>
             </div>
           </div>
 
