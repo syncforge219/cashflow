@@ -5,6 +5,7 @@ import AddBatchModal from "./AddBatchModal";
 import EditBatchModal from "./EditBatchModal";
 import DeleteConfirmModal from "./DeleteConfirmModal";
 import BatchStudentsModal from "./BatchStudentsModal";
+import FacultyAvailabilityMatrix from "./FacultyAvailabilityMatrix";
 import { useUser } from "@/app/component/context/user-context";
 
 export default function BatchDisplay() {
@@ -16,6 +17,15 @@ export default function BatchDisplay() {
   const [batchToDelete, setBatchToDelete] = useState<any | null>(null);
   const [viewRosterBatch, setViewRosterBatch] = useState<any | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // View state: 'directory' (standard table list) vs 'matrix' (8 AM - 7 PM hourly availability)
+  const [activeView, setActiveView] = useState<"directory" | "matrix">("directory");
+
+  // Pre-fill state for slot-to-batch creation
+  const [prefillTeacherId, setPrefillTeacherId] = useState<string>("");
+  const [prefillTiming, setPrefillTiming] = useState<string>("");
+  const [prefillDays, setPrefillDays] = useState<string[]>([]);
+  const [prefillBrand, setPrefillBrand] = useState<string>("");
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedBrandFilter, setSelectedBrandFilter] = useState("All Brands");
@@ -71,6 +81,24 @@ export default function BatchDisplay() {
     }
   };
 
+  const handleScheduleFreeSlot = (
+    facultyId: string,
+    facultyName: string,
+    timingSlot: string,
+    day: string,
+    brand: string
+  ) => {
+    setPrefillTeacherId(facultyId);
+    setPrefillTiming(timingSlot);
+    if (day && day !== "All" && day !== "Today") {
+      setPrefillDays([day]);
+    } else {
+      setPrefillDays(["Mon", "Wed", "Fri"]);
+    }
+    setPrefillBrand(brand || userBrandScope || "");
+    setIsAddModalOpen(true);
+  };
+
   const hasBrandScope = Boolean(user?.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "ALL BRANDS" && user.brandScope !== "All");
   const userBrandScope = hasBrandScope ? user?.brandScope : undefined;
 
@@ -121,9 +149,43 @@ export default function BatchDisplay() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* View Mode Toggle: Table vs 8 AM - 7 PM Slot Matrix */}
+          <div className="flex items-center p-1 bg-slate-100 border border-slate-200 rounded-2xl">
+            <button
+              type="button"
+              onClick={() => setActiveView("directory")}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeView === "directory"
+                  ? "bg-white text-slate-800 shadow-xs"
+                  : "text-slate-500 hover:text-slate-900"
+              }`}
+            >
+              <span>📋</span>
+              <span>Batches Table</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveView("matrix")}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeView === "matrix"
+                  ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/30"
+                  : "text-slate-500 hover:text-slate-900"
+              }`}
+            >
+              <span>⏰</span>
+              <span>Faculty Slot Matrix (8 AM - 7 PM)</span>
+            </button>
+          </div>
+
+          {/* Create New Batch Button */}
           <button
-            onClick={() => setIsAddModalOpen(true)}
+            onClick={() => {
+              setPrefillTeacherId("");
+              setPrefillTiming("10:00 AM - 12:00 PM");
+              setPrefillDays(["Mon", "Wed", "Fri"]);
+              setIsAddModalOpen(true);
+            }}
             className="flex items-center gap-2 text-xs font-bold bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl px-5 py-2.5 shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-4 w-4">
@@ -134,196 +196,207 @@ export default function BatchDisplay() {
         </div>
       </div>
 
-      {/* KPI Cards Summary */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Total Batches</span>
-          <span className="text-2xl font-black text-slate-800 tracking-tight">{batches.length}</span>
-        </div>
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs">
-          <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider block mb-1">Active Batches</span>
-          <span className="text-2xl font-black text-emerald-600 tracking-tight">{activeBatchesCount}</span>
-        </div>
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs">
-          <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider block mb-1">Upcoming Batches</span>
-          <span className="text-2xl font-black text-indigo-600 tracking-tight">{upcomingBatchesCount}</span>
-        </div>
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs">
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Completed Batches</span>
-          <span className="text-2xl font-black text-slate-600 tracking-tight">{completedBatchesCount}</span>
-        </div>
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs">
-          <span className="text-[10px] font-bold text-purple-500 uppercase tracking-wider block mb-1">Assigned Faculty</span>
-          <span className="text-2xl font-black text-purple-600 tracking-tight">{assignedFacultyCount}</span>
-        </div>
-      </div>
+      {/* Conditionally Render: Faculty Availability Matrix vs Batches Directory */}
+      {activeView === "matrix" ? (
+        <FacultyAvailabilityMatrix
+          batches={batches}
+          onScheduleSlot={handleScheduleFreeSlot}
+          onViewBatchDetails={(batch) => setViewRosterBatch(batch)}
+          userBrandScope={userBrandScope}
+        />
+      ) : (
+        <>
+          {/* KPI Cards Summary */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Total Batches</span>
+              <span className="text-2xl font-black text-slate-800 tracking-tight">{batches.length}</span>
+            </div>
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs">
+              <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider block mb-1">Active Batches</span>
+              <span className="text-2xl font-black text-emerald-600 tracking-tight">{activeBatchesCount}</span>
+            </div>
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs">
+              <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider block mb-1">Upcoming Batches</span>
+              <span className="text-2xl font-black text-indigo-600 tracking-tight">{upcomingBatchesCount}</span>
+            </div>
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Completed Batches</span>
+              <span className="text-2xl font-black text-slate-600 tracking-tight">{completedBatchesCount}</span>
+            </div>
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs">
+              <span className="text-[10px] font-bold text-purple-500 uppercase tracking-wider block mb-1">Assigned Faculty</span>
+              <span className="text-2xl font-black text-purple-600 tracking-tight">{assignedFacultyCount}</span>
+            </div>
+          </div>
 
-      {/* Filters & Search */}
-      <div className="bg-white border border-slate-200/80 rounded-2xl shadow-xs p-4 mb-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="relative w-full sm:w-80">
-          <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-4 w-4">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.637 10.637z" />
-            </svg>
-          </span>
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by batch name, course, faculty..."
-            className="w-full pl-9 pr-4 py-2 text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-          />
-        </div>
+          {/* Filters & Search */}
+          <div className="bg-white border border-slate-200/80 rounded-2xl shadow-xs p-4 mb-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="relative w-full sm:w-80">
+              <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-4 w-4">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.637 10.637z" />
+                </svg>
+              </span>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search by batch name, course, faculty..."
+                className="w-full pl-9 pr-4 py-2 text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+              />
+            </div>
 
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          {!userBrandScope && (
-            <select
-              value={selectedBrandFilter}
-              onChange={(e) => setSelectedBrandFilter(e.target.value)}
-              className="text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none cursor-pointer"
-            >
-              <option value="All Brands">All Brands</option>
-              {brandsList.map((b) => (
-                <option key={b} value={b}>
-                  {b}
-                </option>
-              ))}
-            </select>
-          )}
-
-          <select
-            value={selectedStatusFilter}
-            onChange={(e) => setSelectedStatusFilter(e.target.value)}
-            className="text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none cursor-pointer"
-          >
-            <option value="All Status">All Status</option>
-            <option value="Upcoming">Upcoming</option>
-            <option value="Active">Active</option>
-            <option value="Completed">Completed</option>
-            <option value="Cancelled">Cancelled</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Batches Table List */}
-      <div className="bg-white border border-slate-200/80 rounded-2xl shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200/80 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                <th className="py-3.5 px-6">Batch Name</th>
-                <th className="py-3.5 px-6">Course</th>
-                <th className="py-3.5 px-6">Assigned Faculty</th>
-                <th className="py-3.5 px-6">Timing / Slot</th>
-                <th className="py-3.5 px-6">Start Date</th>
-                <th className="py-3.5 px-6">Brand Scope</th>
-                <th className="py-3.5 px-6">Status</th>
-                <th className="py-3.5 px-6 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-xs font-semibold">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-400">
-                    Loading faculty batches...
-                  </td>
-                </tr>
-              ) : filteredBatches.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-400">
-                    No batches found matching criteria. Click &quot;+ Create New Batch&quot; to add one.
-                  </td>
-                </tr>
-              ) : (
-                filteredBatches.map((batch, idx) => (
-                  <tr key={batch._id || idx} className="hover:bg-slate-50/60 transition-colors">
-                    <td className="py-4 px-6 font-bold text-slate-800">
-                      <div
-                        onClick={() => setViewRosterBatch(batch)}
-                        className="flex items-center gap-2 cursor-pointer group flex-wrap"
-                        title="Click to view admitted students in this batch"
-                      >
-                        <span className="h-2.5 w-2.5 rounded-full bg-indigo-600 group-hover:scale-125 transition-transform"></span>
-                        {batch.batchId && (
-                          <span className="text-[10px] font-mono font-black bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md border border-slate-200 shadow-2xs">
-                            {batch.batchId}
-                          </span>
-                        )}
-                        <span className="group-hover:text-indigo-600 group-hover:underline transition-colors font-extrabold">
-                          {batch.batchName}
-                        </span>
-                        <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-md px-1.5 py-0.5 opacity-90 group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                          👥 View Students
-                        </span>
-                      </div>
-                      {batch.days && batch.days.length > 0 && (
-                        <div className="text-[10px] text-slate-400 font-medium mt-0.5">
-                          Days: {batch.days.join(", ")}
-                        </div>
-                      )}
-                    </td>
-                    <td className="py-4 px-6 text-slate-700 font-bold">{batch.course}</td>
-                    <td className="py-4 px-6">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 text-purple-700 font-bold text-xs rounded-lg border border-purple-200">
-                        <span>👨‍🏫</span> {batch.teacherName || "Unassigned"}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6 text-slate-600 font-bold">{batch.timing}</td>
-                    <td className="py-4 px-6 text-slate-600 font-bold">
-                      <div>{batch.startDate ? new Date(batch.startDate).toLocaleDateString("en-GB") : "-"}</div>
-                      {batch.endDate && (
-                        <div className="text-[10px] text-slate-400 font-medium mt-0.5">
-                          End: {new Date(batch.endDate).toLocaleDateString("en-GB")}
-                        </div>
-                      )}
-                    </td>
-                    <td className="py-4 px-6">
-                      <span className="inline-block px-2 py-0.5 bg-slate-100 text-slate-700 font-bold text-[10px] rounded-md border border-slate-200">
-                        {batch.brand}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6">
-                      <span
-                        className={`inline-block px-2.5 py-0.5 text-[10px] font-extrabold rounded-md border uppercase tracking-wide ${
-                          batch.status === "Active"
-                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                            : batch.status === "Upcoming"
-                            ? "bg-indigo-50 text-indigo-700 border-indigo-200"
-                            : batch.status === "Completed"
-                            ? "bg-slate-100 text-slate-600 border-slate-200"
-                            : "bg-rose-50 text-rose-700 border-rose-200"
-                        }`}
-                      >
-                        {batch.status}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => setEditingBatch(batch)}
-                          className="px-2.5 py-1 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg border border-indigo-200 transition-colors"
-                          title="Edit / Reassign Faculty"
-                        >
-                          Edit / Reassign
-                        </button>
-                        <button
-                          onClick={() => setBatchToDelete(batch)}
-                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                          title="Delete Batch"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                          </svg>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              {!userBrandScope && (
+                <select
+                  value={selectedBrandFilter}
+                  onChange={(e) => setSelectedBrandFilter(e.target.value)}
+                  className="text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none cursor-pointer"
+                >
+                  <option value="All Brands">All Brands</option>
+                  {brandsList.map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
+                </select>
               )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+
+              <select
+                value={selectedStatusFilter}
+                onChange={(e) => setSelectedStatusFilter(e.target.value)}
+                className="text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none cursor-pointer"
+              >
+                <option value="All Status">All Status</option>
+                <option value="Upcoming">Upcoming</option>
+                <option value="Active">Active</option>
+                <option value="Completed">Completed</option>
+                <option value="Cancelled">Cancelled</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Batches Table List */}
+          <div className="bg-white border border-slate-200/80 rounded-2xl shadow-xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200/80 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    <th className="py-3.5 px-6">Batch Name</th>
+                    <th className="py-3.5 px-6">Course</th>
+                    <th className="py-3.5 px-6">Assigned Faculty</th>
+                    <th className="py-3.5 px-6">Timing / Slot</th>
+                    <th className="py-3.5 px-6">Start Date</th>
+                    <th className="py-3.5 px-6">Brand Scope</th>
+                    <th className="py-3.5 px-6">Status</th>
+                    <th className="py-3.5 px-6 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs font-semibold">
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={8} className="py-12 text-center text-slate-400">
+                        Loading faculty batches...
+                      </td>
+                    </tr>
+                  ) : filteredBatches.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-12 text-center text-slate-400">
+                        No batches found matching criteria. Click &quot;+ Create New Batch&quot; to add one.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredBatches.map((batch, idx) => (
+                      <tr key={batch._id || idx} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="py-4 px-6 font-bold text-slate-800">
+                          <div
+                            onClick={() => setViewRosterBatch(batch)}
+                            className="flex items-center gap-2 cursor-pointer group flex-wrap"
+                            title="Click to view admitted students in this batch"
+                          >
+                            <span className="h-2.5 w-2.5 rounded-full bg-indigo-600 group-hover:scale-125 transition-transform"></span>
+                            {batch.batchId && (
+                              <span className="text-[10px] font-mono font-black bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md border border-slate-200 shadow-2xs">
+                                {batch.batchId}
+                              </span>
+                            )}
+                            <span className="group-hover:text-indigo-600 group-hover:underline transition-colors font-extrabold">
+                              {batch.batchName}
+                            </span>
+                            <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-md px-1.5 py-0.5 opacity-90 group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                              👥 View Students
+                            </span>
+                          </div>
+                          {batch.days && batch.days.length > 0 && (
+                            <div className="text-[10px] text-slate-400 font-medium mt-0.5">
+                              Days: {batch.days.join(", ")}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-4 px-6 text-slate-700 font-bold">{batch.course}</td>
+                        <td className="py-4 px-6">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 text-purple-700 font-bold text-xs rounded-lg border border-purple-200">
+                            <span>👨‍🏫</span> {batch.teacherName || "Unassigned"}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6 text-slate-600 font-bold">{batch.timing}</td>
+                        <td className="py-4 px-6 text-slate-600 font-bold">
+                          <div>{batch.startDate ? new Date(batch.startDate).toLocaleDateString("en-GB") : "-"}</div>
+                          {batch.endDate && (
+                            <div className="text-[10px] text-slate-400 font-medium mt-0.5">
+                              End: {new Date(batch.endDate).toLocaleDateString("en-GB")}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-4 px-6">
+                          <span className="inline-block px-2 py-0.5 bg-slate-100 text-slate-700 font-bold text-[10px] rounded-md border border-slate-200">
+                            {batch.brand}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6">
+                          <span
+                            className={`inline-block px-2.5 py-0.5 text-[10px] font-extrabold rounded-md border uppercase tracking-wide ${
+                              batch.status === "Active"
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                : batch.status === "Upcoming"
+                                ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                                : batch.status === "Completed"
+                                ? "bg-slate-100 text-slate-600 border-slate-200"
+                                : "bg-rose-50 text-rose-700 border-rose-200"
+                            }`}
+                          >
+                            {batch.status}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => setEditingBatch(batch)}
+                              className="px-3 py-1 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                            >
+                              Edit / Reassign
+                            </button>
+                            <button
+                              onClick={() => setBatchToDelete(batch)}
+                              className="p-1 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                              title="Delete Batch"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                              </svg>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Add Batch Modal */}
       <AddBatchModal
@@ -333,7 +406,10 @@ export default function BatchDisplay() {
           setIsAddModalOpen(false);
           fetchBatches();
         }}
-        initialBrandScope={userBrandScope}
+        initialBrandScope={prefillBrand || userBrandScope}
+        initialTeacherId={prefillTeacherId}
+        initialTiming={prefillTiming}
+        initialDays={prefillDays}
       />
 
       {/* Edit Batch Modal */}
@@ -367,4 +443,3 @@ export default function BatchDisplay() {
     </div>
   );
 }
-

@@ -9,6 +9,9 @@ interface AddBatchModalProps {
   onClose: () => void;
   onSuccess: () => void;
   initialBrandScope?: string;
+  initialTeacherId?: string;
+  initialTiming?: string;
+  initialDays?: string[];
 }
 
 export default function AddBatchModal({
@@ -16,6 +19,9 @@ export default function AddBatchModal({
   onClose,
   onSuccess,
   initialBrandScope,
+  initialTeacherId,
+  initialTiming,
+  initialDays,
 }: AddBatchModalProps) {
   const { user } = useUser();
   const [batchName, setBatchName] = useState("");
@@ -38,6 +44,15 @@ export default function AddBatchModal({
   const [errorMsg, setErrorMsg] = useState("");
 
   const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+  // Pre-fill when modal opens with provided props
+  useEffect(() => {
+    if (isOpen) {
+      if (initialTeacherId) setTeacherId(initialTeacherId);
+      if (initialTiming) setTiming(initialTiming);
+      if (initialDays && initialDays.length > 0) setSelectedDays(initialDays);
+    }
+  }, [isOpen, initialTeacherId, initialTiming, initialDays]);
 
   // Fetch available courses, teachers, and brands
   useEffect(() => {
@@ -71,7 +86,7 @@ export default function AddBatchModal({
         if (teachersRes.success || teachersRes.teachers) {
           const tList = teachersRes.data || teachersRes.teachers || [];
           setTeachersList(tList);
-          if (tList.length > 0 && !teacherId) {
+          if (tList.length > 0 && !teacherId && !initialTeacherId) {
             setTeacherId(tList[0]._id || "");
           }
         }
@@ -97,7 +112,7 @@ export default function AddBatchModal({
     };
 
     fetchOptions();
-  }, [isOpen, initialBrandScope, user]);
+  }, [isOpen, initialBrandScope, initialTeacherId, user]);
 
   const filteredTeachersList = useMemo(() => {
     const activeBrand = (brand || user?.brandScope || initialBrandScope || "").trim().toLowerCase();
