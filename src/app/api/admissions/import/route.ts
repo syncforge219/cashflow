@@ -32,6 +32,15 @@ export async function POST(req: NextRequest) {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       try {
+        let assignedBatchId = row.batchId?.trim() || "";
+        if (!assignedBatchId && row.batch && row.batch !== "General Batch" && row.batch !== "Unassigned") {
+          const Batch = (await import("@/models/Batch")).default;
+          const matchingBatches = await Batch.find({ batchName: row.batch.trim() }).lean();
+          if (matchingBatches.length === 1) {
+            assignedBatchId = matchingBatches[0].batchId || matchingBatches[0]._id.toString();
+          }
+        }
+
         // All fields optional with safe defaults
         const record = {
           ...row,
@@ -43,6 +52,7 @@ export async function POST(req: NextRequest) {
           counsellor: row.counsellor?.trim() || user.name || "Counsellor",
           course: row.course?.trim() || "General Course",
           batch: row.batch?.trim() || "General Batch",
+          batchId: assignedBatchId,
           duration: row.duration?.trim() || "6 Months",
           academicYear: row.academicYear?.trim() || `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
           isHistoricalImport: true,

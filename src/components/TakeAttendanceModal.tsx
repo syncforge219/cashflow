@@ -56,9 +56,9 @@ export default function TakeAttendanceModal({
           setBatchesList(bList);
 
           if (bList.length > 0) {
-            const initialId = initialBatchId && bList.some((b: any) => b._id === initialBatchId)
+            const initialId = initialBatchId && bList.some((b: any) => (b.batchId || b._id) === initialBatchId || b._id === initialBatchId)
               ? initialBatchId
-              : bList[0]._id;
+              : (bList[0].batchId || bList[0]._id);
             setSelectedBatchId(initialId);
           }
         }
@@ -162,7 +162,7 @@ export default function TakeAttendanceModal({
     setSuccessMsg("");
 
     try {
-      const selectedBatch = batchesList.find((b) => b._id === selectedBatchId);
+      const selectedBatch = batchesList.find((b) => (b.batchId || b._id) === selectedBatchId);
       const batchName = selectedBatch ? selectedBatch.batchName : "Faculty Batch";
       const course = selectedBatch ? selectedBatch.course : "";
       const brand = selectedBatch ? selectedBatch.brand : user?.brandScope || "";
@@ -171,7 +171,7 @@ export default function TakeAttendanceModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          batchId: selectedBatchId,
+          batchId: selectedBatch?.batchId || selectedBatchId,
           batchName,
           course,
           date: attendanceDate,
@@ -254,8 +254,8 @@ export default function TakeAttendanceModal({
                   <option value="">No batches found</option>
                 ) : (
                   batchesList.map((b) => (
-                    <option key={b._id} value={b._id}>
-                      {b.batchName} ({b.course})
+                    <option key={b._id} value={b.batchId || b._id}>
+                      {b.batchId ? `[${b.batchId}] ` : ""}{b.batchName} ({b.course})
                     </option>
                   ))
                 )}

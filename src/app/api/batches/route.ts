@@ -153,9 +153,30 @@ export async function GET(request: Request) {
 
         let enrolledInDb = 0;
         if (batchIdOrConditions.length > 0) {
-          const enrolledAdmissions = await Admission.countDocuments({
+          let enrolledAdmissions = await Admission.countDocuments({
             $or: batchIdOrConditions
           });
+
+          if (enrolledAdmissions === 0 && b.batchName) {
+            const nameCount = await Batch.countDocuments({ batchName: b.batchName });
+            if (nameCount === 1) {
+              const legacyCount = await Admission.countDocuments({
+                batch: b.batchName,
+                $or: [{ batchId: { $exists: false } }, { batchId: "" }, { batchId: null }]
+              });
+              if (legacyCount > 0) {
+                const canonicalId = b.batchId || b._id.toString();
+                await Admission.updateMany(
+                  {
+                    batch: b.batchName,
+                    $or: [{ batchId: { $exists: false } }, { batchId: "" }, { batchId: null }]
+                  },
+                  { $set: { batchId: canonicalId } }
+                );
+                enrolledAdmissions = legacyCount;
+              }
+            }
+          }
 
           const enrolledEnquiries = await Enquiry.countDocuments({
             $or: batchIdOrConditions

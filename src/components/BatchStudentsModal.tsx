@@ -47,12 +47,17 @@ export default function BatchStudentsModal({
 
         const bIdStr = batchId;
         const bMongoId = mongoBatchId;
+        const bCustomBatchId = batch.batchId ? String(batch.batchId).trim() : "";
 
         // Strictly verify that student's batchId matches this exact batch
         const admStudents = admStudentsRaw.filter((s: any) => {
           const studentBId = String(s.batchId || "").trim();
           if (!studentBId) return false;
-          return (bIdStr && studentBId === bIdStr) || (bMongoId && studentBId === bMongoId);
+          return (
+            (bIdStr && studentBId === bIdStr) ||
+            (bMongoId && studentBId === bMongoId) ||
+            (bCustomBatchId && studentBId === bCustomBatchId)
+          );
         });
 
         // Deduplicate students by mobile or admissionId/studentName
@@ -200,7 +205,7 @@ export default function BatchStudentsModal({
               <p className="text-xs text-slate-500 max-w-sm mx-auto font-medium">
                 {searchQuery
                   ? `No students matching "${searchQuery}" found in this batch.`
-                  : `There are currently no students admitted/allocated to batch "${batch.batchName}".`}
+                  : `There are currently no students admitted/allocated to batch ${batch.batchId ? `[${batch.batchId}] ` : ""}"${batch.batchName}".`}
               </p>
             </div>
           ) : (

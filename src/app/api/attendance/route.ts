@@ -43,12 +43,13 @@ export async function GET(request: Request) {
         batchIdOrQuery.push({ batchId: trimmedBatchId });
       }
 
+      let batchObj: any = null;
       try {
         const bQuery: any[] = [{ batchId: trimmedBatchId }];
         if (mongoose.Types.ObjectId.isValid(trimmedBatchId)) {
           bQuery.push({ _id: new mongoose.Types.ObjectId(trimmedBatchId) });
         }
-        const batchObj = await Batch.findOne({ $or: bQuery }).lean();
+        batchObj = await Batch.findOne({ $or: bQuery }).lean();
         if (batchObj) {
           if (batchObj.batchId && batchObj.batchId !== trimmedBatchId) {
             batchIdOrQuery.push({ batchId: batchObj.batchId });
@@ -59,9 +60,29 @@ export async function GET(request: Request) {
         }
       } catch (_) {}
 
-      const admissions = await Admission.find({
+      let admissions = await Admission.find({
         $or: batchIdOrQuery
       }).select("fullName studentFullName mobileNumber phone email admissionId batch batchId course").lean();
+
+      // If no admissions found, check if unique legacy batch resolution applies
+      if (admissions.length === 0 && batchObj && batchObj.batchName) {
+        const matchingCount = await Batch.countDocuments({ batchName: batchObj.batchName });
+        if (matchingCount === 1) {
+          const legacyAdmissions = await Admission.find({
+            batch: batchObj.batchName,
+            $or: [{ batchId: { $exists: false } }, { batchId: "" }, { batchId: null }]
+          }).select("fullName studentFullName mobileNumber phone email admissionId batch batchId course").lean();
+
+          if (legacyAdmissions.length > 0) {
+            const canonicalId = batchObj.batchId || batchObj._id.toString();
+            await Admission.updateMany(
+              { _id: { $in: legacyAdmissions.map((a: any) => a._id) } },
+              { $set: { batchId: canonicalId } }
+            );
+            admissions = legacyAdmissions;
+          }
+        }
+      }
 
       let studentRoster = admissions.map((a: any) => ({
         studentName: a.fullName || a.studentFullName || "Student",
@@ -86,6 +107,33 @@ export async function GET(request: Request) {
             status: "Present",
             remarks: ""
           }));
+        }
+      }
+
+      // Check Attendance collection for this exact batchId if roster is still empty
+      if (studentRoster.length === 0) {
+        const attendanceLogs = await Attendance.find({
+          $or: batchIdOrQuery
+        }).sort({ date: -1 }).limit(10).lean();
+
+        const studentMap = new Map<string, any>();
+        attendanceLogs.forEach((att: any) => {
+          (att.records || []).forEach((r: any) => {
+            const key = (r.admissionId || r.mobileNumber || r.studentName || "").trim().toLowerCase();
+            if (key && !studentMap.has(key)) {
+              studentMap.set(key, {
+                studentName: r.studentName || "Student",
+                admissionId: r.admissionId || "ADM-N/A",
+                mobileNumber: r.mobileNumber || "",
+                status: "Present",
+                remarks: ""
+              });
+            }
+          });
+        });
+
+        if (studentMap.size > 0) {
+          studentRoster = Array.from(studentMap.values());
         }
       }
 
