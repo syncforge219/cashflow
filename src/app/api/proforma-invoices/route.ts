@@ -102,9 +102,26 @@ export async function POST(req: Request) {
       profile = await QuotationProfile.create({ companyId });
     }
 
-    const piDate = body.date ? new Date(body.date) : new Date();
-    const generatedNum = await generateProformaInvoiceNumber(companyId, piDate);
-    const piNumber = body.piNumber?.trim() || generatedNum;
+    const qNum = (body.quotationNumber || "").trim();
+    let derivedNum = body.piNumber?.trim();
+    if (!derivedNum && qNum) {
+      if (qNum.includes("-PI/")) {
+        derivedNum = qNum;
+      } else if (qNum.includes("/")) {
+        const parts = qNum.split("/");
+        if (parts.length >= 3) {
+          const prefix = parts[0];
+          const year = parts[1];
+          const seq = parts.slice(2).join("/");
+          derivedNum = `${prefix}-PI/${year}/${seq}`;
+        } else {
+          derivedNum = qNum;
+        }
+      } else {
+        derivedNum = qNum;
+      }
+    }
+    const piNumber = derivedNum || generatedNum;
 
     const items = Array.isArray(body.items) ? body.items : [];
     let calculatedSubtotal = 0;

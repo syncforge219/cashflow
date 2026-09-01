@@ -18,9 +18,39 @@ export async function POST(
       return NextResponse.json({ success: false, error: "Quotation not found" }, { status: 404 });
     }
 
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch {
+      // body is optional
+    }
+
     const companyId = (quotation as any).companyId || "DEFAULT_COMPANY";
     const piDate = new Date();
-    const piNumber = await generateProformaInvoiceNumber(companyId, piDate);
+
+    let piNumber = body.piNumber?.trim();
+    if (!piNumber) {
+      const qNum = (quotation.quotationNumber || "").trim();
+      if (qNum) {
+        if (qNum.includes("-PI/")) {
+          piNumber = qNum;
+        } else if (qNum.includes("/")) {
+          const parts = qNum.split("/");
+          if (parts.length >= 3) {
+            const prefix = parts[0];
+            const year = parts[1];
+            const seq = parts.slice(2).join("/");
+            piNumber = `${prefix}-PI/${year}/${seq}`;
+          } else {
+            piNumber = qNum;
+          }
+        } else {
+          piNumber = qNum;
+        }
+      } else {
+        piNumber = await generateProformaInvoiceNumber(companyId, piDate);
+      }
+    }
 
     const piData = {
       companyId,
