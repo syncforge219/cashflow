@@ -158,22 +158,52 @@ export async function GET(request: Request) {
           });
 
           if (enrolledAdmissions === 0 && b.batchName) {
-            const nameCount = await Batch.countDocuments({ batchName: b.batchName });
+            const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const nameCount = await Batch.countDocuments({
+              batchName: { $regex: new RegExp(`^${escapeRegExp(b.batchName.trim())}$`, "i") }
+            });
+
             if (nameCount === 1) {
               const legacyCount = await Admission.countDocuments({
-                batch: b.batchName,
+                batch: { $regex: new RegExp(`^${escapeRegExp(b.batchName.trim())}$`, "i") },
                 $or: [{ batchId: { $exists: false } }, { batchId: "" }, { batchId: null }]
               });
               if (legacyCount > 0) {
                 const canonicalId = b.batchId || b._id.toString();
                 await Admission.updateMany(
                   {
-                    batch: b.batchName,
+                    batch: { $regex: new RegExp(`^${escapeRegExp(b.batchName.trim())}$`, "i") },
                     $or: [{ batchId: { $exists: false } }, { batchId: "" }, { batchId: null }]
                   },
                   { $set: { batchId: canonicalId } }
                 );
                 enrolledAdmissions = legacyCount;
+              }
+            } else if (b.course && b.course.trim()) {
+              const courseRegex = new RegExp(`^${escapeRegExp(b.course.trim())}$`, "i");
+              const batchesWithSameNameAndCourse = await Batch.find({
+                batchName: { $regex: new RegExp(`^${escapeRegExp(b.batchName.trim())}$`, "i") },
+                course: { $regex: courseRegex }
+              }).lean();
+
+              if (batchesWithSameNameAndCourse.length === 1) {
+                const legacyCount = await Admission.countDocuments({
+                  batch: { $regex: new RegExp(`^${escapeRegExp(b.batchName.trim())}$`, "i") },
+                  course: { $regex: courseRegex },
+                  $or: [{ batchId: { $exists: false } }, { batchId: "" }, { batchId: null }]
+                });
+                if (legacyCount > 0) {
+                  const canonicalId = b.batchId || b._id.toString();
+                  await Admission.updateMany(
+                    {
+                      batch: { $regex: new RegExp(`^${escapeRegExp(b.batchName.trim())}$`, "i") },
+                      course: { $regex: courseRegex },
+                      $or: [{ batchId: { $exists: false } }, { batchId: "" }, { batchId: null }]
+                    },
+                    { $set: { batchId: canonicalId } }
+                  );
+                  enrolledAdmissions = legacyCount;
+                }
               }
             }
           }

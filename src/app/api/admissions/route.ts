@@ -626,11 +626,14 @@ export async function GET(req: Request) {
 
       // If batch exists, resolve any unassigned legacy admissions that unambiguously belong to this batch
       if (batchDoc && batchDoc.batchName) {
-        const matchingBatchesCount = await Batch.countDocuments({ batchName: batchDoc.batchName });
+        const matchingBatchesCount = await Batch.countDocuments({
+          batchName: { $regex: new RegExp(`^${escapeRegExp(batchDoc.batchName.trim())}$`, "i") }
+        });
+
         if (matchingBatchesCount === 1) {
           // Exactly 1 batch exists with this name -> legacy records with batch: batchDoc.batchName unambiguously belong here
           const unassignedLegacy = await Admission.find({
-            batch: batchDoc.batchName,
+            batch: { $regex: new RegExp(`^${escapeRegExp(batchDoc.batchName.trim())}$`, "i") },
             $or: [{ batchId: { $exists: false } }, { batchId: "" }, { batchId: null }]
           }).select("_id").lean();
 
@@ -641,30 +644,53 @@ export async function GET(req: Request) {
               { $set: { batchId: canonicalId } }
             );
           }
-        } else {
-          // Multiple batches share this batchName: check Attendance logs for this exact batchId
-          const Attendance = (await import("@/models/Attendance")).default;
-          const attendanceDocs = await Attendance.find({
-            $or: idMatches
-          }).select("records").lean();
+        } else if (batchDoc.course && batchDoc.course.trim()) {
+          // Multiple batches share this batchName: check if this batch has a unique course among them
+          const courseRegex = new RegExp(`^${escapeRegExp(batchDoc.course.trim())}$`, "i");
+          const batchesWithSameNameAndCourse = await Batch.find({
+            batchName: { $regex: new RegExp(`^${escapeRegExp(batchDoc.batchName.trim())}$`, "i") },
+            course: { $regex: courseRegex }
+          }).lean();
 
-          const studentAdmissionIds: string[] = [];
-          attendanceDocs.forEach((att: any) => {
-            (att.records || []).forEach((r: any) => {
-              if (r.admissionId) studentAdmissionIds.push(r.admissionId);
-            });
-          });
+          if (batchesWithSameNameAndCourse.length === 1) {
+            const courseLegacy = await Admission.find({
+              batch: { $regex: new RegExp(`^${escapeRegExp(batchDoc.batchName.trim())}$`, "i") },
+              course: { $regex: courseRegex },
+              $or: [{ batchId: { $exists: false } }, { batchId: "" }, { batchId: null }]
+            }).select("_id").lean();
 
-          if (studentAdmissionIds.length > 0) {
-            const canonicalId = batchDoc.batchId || batchDoc._id.toString();
-            await Admission.updateMany(
-              {
-                admissionId: { $in: studentAdmissionIds },
-                $or: [{ batchId: { $exists: false } }, { batchId: "" }, { batchId: null }]
-              },
-              { $set: { batchId: canonicalId } }
-            );
+            if (courseLegacy.length > 0) {
+              const canonicalId = batchDoc.batchId || batchDoc._id.toString();
+              await Admission.updateMany(
+                { _id: { $in: courseLegacy.map((u: any) => u._id) } },
+                { $set: { batchId: canonicalId } }
+              );
+            }
           }
+        }
+
+        // Check Attendance logs for this exact batchId to link verified attendees
+        const Attendance = (await import("@/models/Attendance")).default;
+        const attendanceDocs = await Attendance.find({
+          $or: idMatches
+        }).select("records").lean();
+
+        const studentAdmissionIds: string[] = [];
+        attendanceDocs.forEach((att: any) => {
+          (att.records || []).forEach((r: any) => {
+            if (r.admissionId) studentAdmissionIds.push(r.admissionId);
+          });
+        });
+
+        if (studentAdmissionIds.length > 0) {
+          const canonicalId = batchDoc.batchId || batchDoc._id.toString();
+          await Admission.updateMany(
+            {
+              admissionId: { $in: studentAdmissionIds },
+              $or: [{ batchId: { $exists: false } }, { batchId: "" }, { batchId: null }]
+            },
+            { $set: { batchId: canonicalId } }
+          );
         }
       }
 
