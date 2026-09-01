@@ -232,6 +232,22 @@ export async function PUT(
       }
     }
 
+    // Fast-path for batch allocation / unassignment:
+    const bodyKeys = Object.keys(body);
+    const isOnlyBatchUpdate = bodyKeys.every((k) => k === "batch" || k === "batchId" || k === "reason");
+    if (isOnlyBatchUpdate) {
+      const updatedDoc = await Admission.findOneAndUpdate(
+        admFilter,
+        { $set: { batch: assignedBatchName, batchId: assignedBatchId } },
+        { new: true }
+      );
+      return NextResponse.json({
+        success: true,
+        message: assignedBatchName === "Unassigned" ? "Student removed from batch successfully" : "Student allocated to batch successfully",
+        data: updatedDoc,
+      });
+    }
+
     const updatePayload = {
       fullName: body.fullName !== undefined ? body.fullName.trim() : existingDoc.fullName,
       mobileNumber: body.mobileNumber !== undefined ? body.mobileNumber.trim() : existingDoc.mobileNumber,
