@@ -454,7 +454,6 @@ function generateProformaInvoiceHtml(pi: any, profile: any): string {
           <div><span class="meta-label">PROFORMA INVOICE NO. :-</span> <b>${pi.piNumber}</b></div>
           <div style="margin-top: 3px;"><span class="meta-label">DATED :-</span> ${dateStr}</div>
           ${validUntilStr ? `<div style="margin-top: 3px;"><span class="meta-label">VALID UNTIL :-</span> ${validUntilStr}</div>` : ""}
-          ${pi.poNumber ? `<div style="margin-top: 3px;"><span class="meta-label">P.O. NO. :-</span> <b>${pi.poNumber}</b></div>` : ""}
         </td>
         <td style="width: 50%;">
           <div><span class="meta-label">Client / Consignee :-</span> <b>${pi.customerName}</b></div>
