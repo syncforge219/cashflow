@@ -133,7 +133,7 @@ export async function PUT(
     const body = await req.json();
 
     const admFilter = mongoose.Types.ObjectId.isValid(id)
-      ? { _id: id }
+      ? { $or: [{ _id: id }, { admissionId: id }] }
       : { admissionId: id };
 
     const existingDoc = await Admission.findOne(admFilter);
@@ -152,8 +152,9 @@ export async function PUT(
       userRole === "center head" ||
       userRole === "center_head";
     if (isBrandManager && user.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "All") {
-      const studentBrand = existingDoc.brand || "";
-      if (studentBrand.toLowerCase() !== user.brandScope.toLowerCase()) {
+      const studentBrand = (existingDoc.brand || "").trim().toLowerCase();
+      const userScope = user.brandScope.trim().toLowerCase();
+      if (studentBrand && userScope && studentBrand !== userScope) {
         return NextResponse.json({ success: false, message: "Access denied for this brand student" }, { status: 403 });
       }
     }
@@ -199,9 +200,17 @@ export async function PUT(
     let assignedBatchName = body.batch !== undefined ? body.batch.trim() : existingDoc.batch;
     let assignedBatchId = body.batchId !== undefined ? body.batchId.trim() : existingDoc.batchId;
 
-    if (body.batch === "Unassigned" || body.batch === "General Batch" || body.batch === "" || body.batch === null) {
-      assignedBatchName = body.batch || "Unassigned";
+    if (body.batch === "Unassigned" || body.batch === "General Batch" || body.batch === "" || body.batch === null || body.batchId === "" || body.batchId === null) {
+      assignedBatchName = "Unassigned";
       assignedBatchId = "";
+
+      try {
+        const Batch = (await import("@/models/Batch")).default;
+        await Batch.updateMany(
+          {},
+          { $pull: { students: { $in: [existingDoc.admissionId, existingDoc._id.toString(), existingDoc.fullName] } } }
+        );
+      } catch (_) {}
     } else if (body.batchId && body.batchId.trim()) {
       const Batch = (await import("@/models/Batch")).default;
       const trimmedBId = body.batchId.trim();

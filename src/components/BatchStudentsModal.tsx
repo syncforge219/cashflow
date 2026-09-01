@@ -179,12 +179,16 @@ export default function BatchStudentsModal({
   };
 
   // Handle removing a student from this batch
-  const handleRemoveStudent = async (studentId: string, studentName: string) => {
+  const handleRemoveStudent = async (student: any) => {
+    const studentId = student._id || student.admissionId;
+    const studentName = student.name || student.fullName || "Student";
+    if (!studentId) return;
+
     if (!confirm(`Are you sure you want to remove ${studentName} from batch "${batch.batchName}"?`)) return;
 
     setAllocatingStudentId(studentId);
     try {
-      const res = await fetch(`/api/admissions/${studentId}`, {
+      const res = await fetch(`/api/admissions/${encodeURIComponent(studentId)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -196,12 +200,14 @@ export default function BatchStudentsModal({
       const json = await res.json();
       if (res.ok && json.success) {
         showToast(`Removed ${studentName} from batch successfully.`);
-        setStudents((prev) => prev.filter((s) => s._id !== studentId));
+        setStudents((prev) => prev.filter((s) => s._id !== studentId && s.admissionId !== studentId));
         setAllBrandStudents((prev) =>
           prev.map((s) =>
-            s._id === studentId ? { ...s, batch: "Unassigned", batchId: "" } : s
+            (s._id === studentId || s.admissionId === studentId) ? { ...s, batch: "Unassigned", batchId: "" } : s
           )
         );
+        await fetchEnrolledStudents();
+        await fetchAllBrandStudents();
       } else {
         showToast(json.error || json.message || "Failed to remove student", "error");
       }
@@ -491,16 +497,14 @@ export default function BatchStudentsModal({
                                   </a>
                                 </>
                               )}
-                              {st._id && (
-                                <button
-                                  onClick={() => handleRemoveStudent(st._id, st.name)}
-                                  disabled={allocatingStudentId === st._id}
-                                  className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-[11px] font-bold border border-rose-200 transition-colors inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                                  title="Remove student from batch"
-                                >
-                                  ✕ Remove
-                                </button>
-                              )}
+                              <button
+                                onClick={() => handleRemoveStudent(st)}
+                                disabled={allocatingStudentId === st._id || allocatingStudentId === st.admissionId}
+                                className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-[11px] font-bold border border-rose-200 transition-colors inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                                title="Remove student from batch"
+                              >
+                                ✕ Remove
+                              </button>
                             </div>
                           </td>
                         </tr>
