@@ -102,6 +102,8 @@ export async function POST(req: Request) {
       profile = await QuotationProfile.create({ companyId });
     }
 
+    const piDate = body.date ? new Date(body.date) : new Date();
+
     const qNum = (body.quotationNumber || "").trim();
     let derivedNum = body.piNumber?.trim();
     if (!derivedNum && qNum) {
@@ -121,7 +123,7 @@ export async function POST(req: Request) {
         derivedNum = qNum;
       }
     }
-    const piNumber = derivedNum || generatedNum;
+    const piNumber = derivedNum || (await generateProformaInvoiceNumber(companyId, piDate));
 
     const items = Array.isArray(body.items) ? body.items : [];
     let calculatedSubtotal = 0;
