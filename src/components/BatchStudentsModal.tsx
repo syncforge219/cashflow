@@ -194,6 +194,9 @@ export default function BatchStudentsModal({
         body: JSON.stringify({
           batch: "Unassigned",
           batchId: "",
+          admissionId: student.admissionId,
+          mobileNumber: student.mobile,
+          fullName: studentName,
         }),
       });
 

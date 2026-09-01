@@ -130,14 +130,48 @@ export async function PUT(
       return NextResponse.json({ success: false, message: "Forbidden: Authorized roles only can edit student records." }, { status: 403 });
     }
 
-    const body = await req.json();
+    const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const trimmedId = decodeURIComponent(id || "").trim();
 
-    const admFilter = mongoose.Types.ObjectId.isValid(id)
-      ? { $or: [{ _id: id }, { admissionId: id }] }
-      : { admissionId: id };
+    const orConditions: any[] = [];
+    if (mongoose.Types.ObjectId.isValid(trimmedId)) {
+      orConditions.push({ _id: new mongoose.Types.ObjectId(trimmedId) });
+    }
+    if (trimmedId) {
+      orConditions.push({ admissionId: trimmedId });
+      orConditions.push({ admissionId: { $regex: new RegExp(`^${escapeRegExp(trimmedId)}$`, "i") } });
+      orConditions.push({ mobileNumber: trimmedId });
+    }
+    if (body.admissionId) {
+      const cleanAdmId = String(body.admissionId).trim();
+      orConditions.push({ admissionId: cleanAdmId });
+      orConditions.push({ admissionId: { $regex: new RegExp(`^${escapeRegExp(cleanAdmId)}$`, "i") } });
+    }
+    if (body.mobileNumber) {
+      orConditions.push({ mobileNumber: String(body.mobileNumber).trim() });
+    }
+    if (body.fullName) {
+      orConditions.push({ fullName: { $regex: new RegExp(`^${escapeRegExp(String(body.fullName).trim())}$`, "i") } });
+    }
 
-    const existingDoc = await Admission.findOne(admFilter);
+    let existingDoc = orConditions.length > 0 ? await Admission.findOne({ $or: orConditions }) : null;
     if (!existingDoc) {
+      // Check Enquiry collection if only batch update
+      if (body.batch !== undefined || body.batchId !== undefined) {
+        const Enquiry = (await import("@/models/Enquiry")).default;
+        const enqDoc = orConditions.length > 0 ? await Enquiry.findOne({ $or: orConditions }) : null;
+        if (enqDoc) {
+          await Enquiry.updateOne(
+            { _id: enqDoc._id },
+            { $set: { batch: body.batch || "Unassigned", batchId: body.batchId || "" } }
+          );
+          return NextResponse.json({
+            success: true,
+            message: "Enquiry batch updated successfully",
+            data: enqDoc,
+          });
+        }
+      }
       return NextResponse.json({ success: false, message: "Student record not found" }, { status: 404 });
     }
 
@@ -234,10 +268,10 @@ export async function PUT(
 
     // Fast-path for batch allocation / unassignment:
     const bodyKeys = Object.keys(body);
-    const isOnlyBatchUpdate = bodyKeys.every((k) => k === "batch" || k === "batchId" || k === "reason");
+    const isOnlyBatchUpdate = bodyKeys.every((k) => k === "batch" || k === "batchId" || k === "reason" || k === "admissionId" || k === "mobileNumber" || k === "fullName");
     if (isOnlyBatchUpdate) {
       const updatedDoc = await Admission.findOneAndUpdate(
-        admFilter,
+        { _id: existingDoc._id },
         { $set: { batch: assignedBatchName, batchId: assignedBatchId } },
         { new: true }
       );
@@ -309,9 +343,6 @@ export async function PUT(
 
     const oldFee = Number(existingDoc.finalFee) > 0 ? Number(existingDoc.finalFee) : (Number(existingDoc.courseFee) || 0);
     const newFee = Number(updatePayload.finalFee) > 0 ? Number(updatePayload.finalFee) : (Number(updatePayload.courseFee) || 0);
-
-    const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
     const isOldValidComp = oldCompany && oldCompany !== "Cash" && oldCompany !== "Unallocated" && oldCompany !== "Cash (Unallocated)";
     const isNewValidComp = newCompany && newCompany !== "Cash" && newCompany !== "Unallocated" && newCompany !== "Cash (Unallocated)";
 
@@ -341,7 +372,7 @@ export async function PUT(
       }
     }
 
-    const updatedDoc = await Admission.findOneAndUpdate(admFilter, updatePayload, { new: true });
+    const updatedDoc = await Admission.findOneAndUpdate({ _id: existingDoc._id }, updatePayload, { new: true });
 
     // Synchronize initial registration Payment record so registration fee belongs to the admission month
     try {
