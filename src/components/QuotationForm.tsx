@@ -419,6 +419,233 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
     setItems((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // Helper to format/convert list lines
+  const formatDescriptionList = (idx: number, type: "alpha" | "num" | "bullet") => {
+    const current = items[idx]?.description || "";
+    const lines = current
+      .split("\n")
+      .map((l) => l.replace(/^([A-Za-z0-9]+[.)]|[-•*])\s*/, "").trim())
+      .filter((l) => l.length > 0);
+
+    if (lines.length === 0) {
+      if (type === "alpha") handleUpdateRow(idx, "description", "A) ");
+      else if (type === "num") handleUpdateRow(idx, "description", "1. ");
+      else handleUpdateRow(idx, "description", "• ");
+      return;
+    }
+
+    const formatted = lines
+      .map((line, i) => {
+        if (type === "alpha") {
+          const letter = String.fromCharCode(65 + (i % 26));
+          return `${letter}) ${line}`;
+        } else if (type === "num") {
+          return `${i + 1}. ${line}`;
+        } else {
+          return `• ${line}`;
+        }
+      })
+      .join("\n");
+
+    handleUpdateRow(idx, "description", formatted);
+  };
+
+  // Smart dynamic line numbering on Shift+Enter / Enter
+  const handleDescriptionKeyDown = (
+    e: React.KeyboardEvent<HTMLTextAreaElement>,
+    idx: number
+  ) => {
+    if (e.key === "Enter") {
+      const textarea = e.currentTarget;
+      const { selectionStart, selectionEnd, value } = textarea;
+
+      // Extract current line context around the cursor
+      const textBefore = value.substring(0, selectionStart);
+      const textAfter = value.substring(selectionEnd);
+      const lineStart = textBefore.lastIndexOf("\n") + 1;
+      const currentLineBefore = textBefore.substring(lineStart);
+      const lineEndOffset = textAfter.indexOf("\n");
+      const currentLineAfter = lineEndOffset === -1 ? textAfter : textAfter.substring(0, lineEndOffset);
+      const fullCurrentLine = currentLineBefore + currentLineAfter;
+
+      // 1. Capital letter prefix: "A) " or "A. "
+      const capParen = fullCurrentLine.match(/^([A-Z])\)\s*(.*)$/);
+      if (capParen) {
+        e.preventDefault();
+        const letter = capParen[1];
+        const content = capParen[2].trim();
+        if (!content && fullCurrentLine.trim() === `${letter})`) {
+          // Empty item -> exit list
+          const newBefore = textBefore.substring(0, lineStart);
+          const newAfter = textAfter.substring(currentLineAfter.length);
+          const newVal = newBefore + newAfter;
+          handleUpdateRow(idx, "description", newVal);
+          setTimeout(() => {
+            textarea.selectionStart = textarea.selectionEnd = newBefore.length;
+          }, 0);
+        } else {
+          const nextLetter = String.fromCharCode(letter.charCodeAt(0) + 1);
+          const insertion = `\n${nextLetter}) `;
+          const newVal = textBefore + insertion + textAfter;
+          handleUpdateRow(idx, "description", newVal);
+          setTimeout(() => {
+            textarea.selectionStart = textarea.selectionEnd = selectionStart + insertion.length;
+          }, 0);
+        }
+        return;
+      }
+
+      const capDot = fullCurrentLine.match(/^([A-Z])\.\s*(.*)$/);
+      if (capDot) {
+        e.preventDefault();
+        const letter = capDot[1];
+        const content = capDot[2].trim();
+        if (!content && fullCurrentLine.trim() === `${letter}.`) {
+          const newBefore = textBefore.substring(0, lineStart);
+          const newAfter = textAfter.substring(currentLineAfter.length);
+          const newVal = newBefore + newAfter;
+          handleUpdateRow(idx, "description", newVal);
+          setTimeout(() => {
+            textarea.selectionStart = textarea.selectionEnd = newBefore.length;
+          }, 0);
+        } else {
+          const nextLetter = String.fromCharCode(letter.charCodeAt(0) + 1);
+          const insertion = `\n${nextLetter}. `;
+          const newVal = textBefore + insertion + textAfter;
+          handleUpdateRow(idx, "description", newVal);
+          setTimeout(() => {
+            textarea.selectionStart = textarea.selectionEnd = selectionStart + insertion.length;
+          }, 0);
+        }
+        return;
+      }
+
+      // 2. Numbers prefix: "1. " or "1) "
+      const numDot = fullCurrentLine.match(/^(\d+)\.\s*(.*)$/);
+      if (numDot) {
+        e.preventDefault();
+        const num = parseInt(numDot[1], 10);
+        const content = numDot[2].trim();
+        if (!content && fullCurrentLine.trim() === `${num}.`) {
+          const newBefore = textBefore.substring(0, lineStart);
+          const newAfter = textAfter.substring(currentLineAfter.length);
+          const newVal = newBefore + newAfter;
+          handleUpdateRow(idx, "description", newVal);
+          setTimeout(() => {
+            textarea.selectionStart = textarea.selectionEnd = newBefore.length;
+          }, 0);
+        } else {
+          const insertion = `\n${num + 1}. `;
+          const newVal = textBefore + insertion + textAfter;
+          handleUpdateRow(idx, "description", newVal);
+          setTimeout(() => {
+            textarea.selectionStart = textarea.selectionEnd = selectionStart + insertion.length;
+          }, 0);
+        }
+        return;
+      }
+
+      const numParen = fullCurrentLine.match(/^(\d+)\)\s*(.*)$/);
+      if (numParen) {
+        e.preventDefault();
+        const num = parseInt(numParen[1], 10);
+        const content = numParen[2].trim();
+        if (!content && fullCurrentLine.trim() === `${num})`) {
+          const newBefore = textBefore.substring(0, lineStart);
+          const newAfter = textAfter.substring(currentLineAfter.length);
+          const newVal = newBefore + newAfter;
+          handleUpdateRow(idx, "description", newVal);
+          setTimeout(() => {
+            textarea.selectionStart = textarea.selectionEnd = newBefore.length;
+          }, 0);
+        } else {
+          const insertion = `\n${num + 1}) `;
+          const newVal = textBefore + insertion + textAfter;
+          handleUpdateRow(idx, "description", newVal);
+          setTimeout(() => {
+            textarea.selectionStart = textarea.selectionEnd = selectionStart + insertion.length;
+          }, 0);
+        }
+        return;
+      }
+
+      // 3. Lowercase letter prefix: "a) " or "a. "
+      const lowParen = fullCurrentLine.match(/^([a-z])\)\s*(.*)$/);
+      if (lowParen) {
+        e.preventDefault();
+        const letter = lowParen[1];
+        const content = lowParen[2].trim();
+        if (!content && fullCurrentLine.trim() === `${letter})`) {
+          const newBefore = textBefore.substring(0, lineStart);
+          const newAfter = textAfter.substring(currentLineAfter.length);
+          const newVal = newBefore + newAfter;
+          handleUpdateRow(idx, "description", newVal);
+          setTimeout(() => {
+            textarea.selectionStart = textarea.selectionEnd = newBefore.length;
+          }, 0);
+        } else {
+          const nextLetter = String.fromCharCode(letter.charCodeAt(0) + 1);
+          const insertion = `\n${nextLetter}) `;
+          const newVal = textBefore + insertion + textAfter;
+          handleUpdateRow(idx, "description", newVal);
+          setTimeout(() => {
+            textarea.selectionStart = textarea.selectionEnd = selectionStart + insertion.length;
+          }, 0);
+        }
+        return;
+      }
+
+      // 4. Bullet prefix: "- " or "• " or "* "
+      const bullet = fullCurrentLine.match(/^([-•*])\s*(.*)$/);
+      if (bullet) {
+        e.preventDefault();
+        const bChar = bullet[1];
+        const content = bullet[2].trim();
+        if (!content && fullCurrentLine.trim() === bChar) {
+          const newBefore = textBefore.substring(0, lineStart);
+          const newAfter = textAfter.substring(currentLineAfter.length);
+          const newVal = newBefore + newAfter;
+          handleUpdateRow(idx, "description", newVal);
+          setTimeout(() => {
+            textarea.selectionStart = textarea.selectionEnd = newBefore.length;
+          }, 0);
+        } else {
+          const insertion = `\n${bChar} `;
+          const newVal = textBefore + insertion + textAfter;
+          handleUpdateRow(idx, "description", newVal);
+          setTimeout(() => {
+            textarea.selectionStart = textarea.selectionEnd = selectionStart + insertion.length;
+          }, 0);
+        }
+        return;
+      }
+
+      // 5. If user pressed Shift+Enter on an un-prefixed line with text
+      if (e.shiftKey && fullCurrentLine.trim().length > 0) {
+        e.preventDefault();
+        if (textBefore.lastIndexOf("\n") === -1 && !value.includes("\n")) {
+          // First line: prefix with A) and create line 2 B)
+          const updatedLine1 = `A) ${fullCurrentLine.trim()}`;
+          const insertion = `\nB) `;
+          const newVal = updatedLine1 + insertion;
+          handleUpdateRow(idx, "description", newVal);
+          setTimeout(() => {
+            textarea.selectionStart = textarea.selectionEnd = newVal.length;
+          }, 0);
+        } else {
+          const allLines = value.split("\n").filter((l) => l.trim().length > 0);
+          const nextLetter = String.fromCharCode(65 + Math.min(25, allLines.length));
+          const insertion = `\n${nextLetter}) `;
+          const newVal = textBefore + insertion + textAfter;
+          handleUpdateRow(idx, "description", newVal);
+          setTimeout(() => {
+            textarea.selectionStart = textarea.selectionEnd = selectionStart + insertion.length;
+          }, 0);
+        }
+      }
+    }
+  };
+
   // Calculations
   const isPhysicalGoods = category === "PRODUCT";
   const calculatedSubtotal = items.reduce((sum, item) => {
@@ -931,22 +1158,57 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
                 {items.map((row, idx) => (
                   <tr key={idx} className="hover:bg-slate-50/80">
                     <td className="px-3 py-2 text-center font-bold text-slate-400">{idx + 1}</td>
-                    <td className="px-3 py-2 space-y-1">
+                    <td className="px-3 py-2 space-y-1.5 align-top">
                       <input
                         type="text"
                         required
                         value={row.name}
                         onChange={(e) => handleUpdateRow(idx, "name", e.target.value)}
                         placeholder="Item / Module Name"
-                        className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-bold rounded-lg px-2.5 py-1.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                        className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-bold rounded-lg px-2.5 py-1.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs"
                       />
-                      <input
-                        type="text"
-                        value={row.description}
-                        onChange={(e) => handleUpdateRow(idx, "description", e.target.value)}
-                        placeholder="Sub description / Specifications"
-                        className="w-full bg-slate-50 border border-slate-200 text-slate-500 text-[11px] rounded-lg px-2.5 py-1 focus:bg-white focus:outline-none"
-                      />
+                      <div className="space-y-1">
+                        <textarea
+                          rows={Math.max(2, (row.description || "").split("\n").length)}
+                          value={row.description}
+                          onChange={(e) => handleUpdateRow(idx, "description", e.target.value)}
+                          onKeyDown={(e) => handleDescriptionKeyDown(e, idx)}
+                          placeholder="Sub description / Specifications (Press Shift+Enter or Enter for next numbered line)"
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-700 text-[11px] font-medium rounded-lg px-2.5 py-1.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 resize-y leading-relaxed font-sans"
+                        />
+                        <div className="flex flex-wrap items-center justify-between gap-1 text-[10px]">
+                          <div className="flex items-center gap-1">
+                            <span className="text-slate-400 font-medium">Format:</span>
+                            <button
+                              type="button"
+                              onClick={() => formatDescriptionList(idx, "alpha")}
+                              title="Format all lines as A), B), C)..."
+                              className="px-1.5 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded font-bold transition-colors cursor-pointer"
+                            >
+                              A) B) C)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => formatDescriptionList(idx, "num")}
+                              title="Format all lines as 1., 2., 3...."
+                              className="px-1.5 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded font-bold transition-colors cursor-pointer"
+                            >
+                              1. 2. 3.
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => formatDescriptionList(idx, "bullet")}
+                              title="Format all lines with bullet points"
+                              className="px-1.5 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded font-bold transition-colors cursor-pointer"
+                            >
+                              • Bullet
+                            </button>
+                          </div>
+                          <span className="text-slate-400 italic text-[9px]">
+                            Shift+Enter for next line
+                          </span>
+                        </div>
+                      </div>
                     </td>
                     <td className="px-3 py-2 text-center">
                       <input

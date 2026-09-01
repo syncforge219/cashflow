@@ -492,7 +492,7 @@ function generatePurchaseOrderHtml(po: any, profile: any): string {
             <td class="text-center">${index + 1}</td>
             <td class="text-left font-bold">
               ${item.name}
-              ${item.description ? `<div style="font-weight: normal; font-size: 9.5px; color: #444;">${item.description}</div>` : ""}
+              ${item.description ? `<div style="font-weight: normal; font-size: 9px; color: #444; white-space: pre-wrap; margin-top: 2px; line-height: 1.3;">${item.description}</div>` : ""}
             </td>
             <td class="text-center">${displayQty}</td>
             <td class="text-center">₹${rN.toLocaleString("en-IN")}</td>
