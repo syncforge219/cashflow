@@ -121,7 +121,7 @@ export async function POST(req: Request) {
         name: item.name || item.productName || "Product",
         description: item.description || "",
         quantity: item.quantity || 1,
-        unit: item.unit || "mtr",
+        unit: item.unit !== undefined && item.unit !== null ? String(item.unit).trim() : "",
         rate: rate,
         gstRate: Number(item.gstRate) !== undefined ? Number(item.gstRate) : 18,
         amount: amt,

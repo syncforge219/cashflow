@@ -663,8 +663,8 @@ function generateQuotationHtml(quotation: any, profile: any): string {
             <div>${bankDetails.branch || "SITAPURA IND. AREA JAIPUR"}</div>
             <div class="bank-label">Account No. :</div>
             <div>"${bankDetails.accountNumber || "61330464677"}"</div>
-            <div class="bank-label">RTGS Code :</div>
-            <div>${bankDetails.rtgsCode || bankDetails.ifsc || "SBIN0031792"}</div>
+            <div class="bank-label">IFSC Code :</div>
+            <div>${bankDetails.ifsc || bankDetails.rtgsCode || "SBIN0031792"}</div>
           </div>
         </div>
         ${profile?.bankQrImage ? `

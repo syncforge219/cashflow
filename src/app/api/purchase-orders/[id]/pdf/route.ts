@@ -562,8 +562,8 @@ function generatePurchaseOrderHtml(po: any, profile: any): string {
             <div>${bankDetails.branch || "Ashok Marg"}</div>
             <div class="bank-label">Account No. :</div>
             <div>"${bankDetails.accountNumber || "680530110000089"}"</div>
-            <div class="bank-label">RTGS Code :</div>
-            <div>${bankDetails.rtgsCode || bankDetails.ifsc || "BKID0006805"}</div>
+            <div class="bank-label">IFSC Code :</div>
+            <div>${bankDetails.ifsc || bankDetails.rtgsCode || "BKID0006805"}</div>
           </div>
         </div>
         ${profile?.bankQrImage ? `
