@@ -33,15 +33,9 @@ function generateQuotationHtml(quotation: any, profile: any): string {
     rtgsCode: "SBIN0031792",
   };
 
-  const terms = quotation.termsAndConditions && quotation.termsAndConditions.length > 0
+  const terms: string[] = Array.isArray(quotation.termsAndConditions)
     ? quotation.termsAndConditions
-    : profile?.defaultTerms || [
-        "GST CHARGE EXTRA",
-        "TRANSPORTATION INCLUDED",
-        "PAYMENT ADVANCE",
-        "ALL PIPE 6MTR LENGTH",
-        "MATERIAL DELIVERD WITHIN 7DAYS",
-      ];
+    : (profile?.defaultTerms || []);
 
   const parseItemQty = (item: any): { qtyNum: number; displayQty: string } => {
     const q = item.quantity;
@@ -637,13 +631,14 @@ function generateQuotationHtml(quotation: any, profile: any): string {
     </div>
 
     <!-- Terms & Signature -->
-    <div class="bottom-section">
+    <div class="bottom-section" style="${terms.length > 0 ? '' : 'justify-content: flex-end;'}">
+      ${terms.length > 0 ? `
       <div class="terms-col">
         <ol>
           ${terms.map((t: string) => `<li>${t}</li>`).join("")}
         </ol>
-      </div>
-      <div class="sig-col">
+      </div>` : ''}
+      <div class="sig-col" style="${terms.length > 0 ? '' : 'width: 260px; border-left: 1px solid #000;'}">
         <div class="sig-company">FOR ${companyName}</div>
         <div class="stamp-container" style="position: relative; width: 140px; height: 95px; margin: 0 auto; display: flex; align-items: center; justify-content: center;">
           ${profile?.stampImage ? `<img src="${profile.stampImage}" alt="Stamp Seal" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0.95;" />` : ''}

@@ -182,10 +182,12 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
   const [transportText, setTransportText] = useState(initialData?.transportText || "");
   const [additionalCharges, setAdditionalCharges] = useState(initialData?.additionalCharges || 0);
   const [terms, setTerms] = useState<string[]>(
-    initialData?.termsAndConditions || categoryTermsPresets[category] || [
-      "GST CHARGE EXTRA",
-      "PAYMENT ADVANCE",
-    ]
+    Array.isArray(initialData?.termsAndConditions)
+      ? initialData.termsAndConditions
+      : (categoryTermsPresets[category] || [
+          "GST CHARGE EXTRA",
+          "PAYMENT ADVANCE",
+        ])
   );
 
   const [status, setStatus] = useState(initialData?.status || "DRAFT");
@@ -225,7 +227,7 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
               setPoNumber(`${p.prefix && p.prefix !== "APPL" ? p.prefix : "SICCES"}/2026-27`);
             }
           }
-          if (!isEdit && !initialData?.termsAndConditions) {
+          if (!isEdit && !initialData) {
             setTerms(p.defaultTerms || []);
           }
         }

@@ -235,7 +235,7 @@ export async function POST(req: Request) {
       additionalCharges,
       grandTotal: calculatedGrandTotal,
       amountInWords,
-      termsAndConditions: Array.isArray(body.termsAndConditions) && body.termsAndConditions.length > 0
+      termsAndConditions: Array.isArray(body.termsAndConditions)
         ? body.termsAndConditions
         : ((profile as any)?.defaultTerms || []),
       bankDetails: body.bankDetails || (profile as any)?.bankDetails || {},
@@ -343,7 +343,7 @@ export async function PUT(req: Request) {
       additionalCharges,
       grandTotal: calculatedGrandTotal,
       amountInWords,
-      ...(body.termsAndConditions && { termsAndConditions: body.termsAndConditions }),
+      ...(body.termsAndConditions !== undefined && { termsAndConditions: body.termsAndConditions }),
       ...(body.bankDetails && { bankDetails: body.bankDetails }),
       ...(body.status && { status: body.status }),
     };

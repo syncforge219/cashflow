@@ -34,30 +34,21 @@ export default function ConvertToPoModal({
 
   useEffect(() => {
     if (quotation) {
-      if (Array.isArray(quotation.termsAndConditions) && quotation.termsAndConditions.length > 0) {
+      if (Array.isArray(quotation.termsAndConditions)) {
         setTerms(quotation.termsAndConditions);
       } else {
         // Fetch detailed quotation to get terms
         fetch(`/api/quotations/${quotation._id}`)
           .then((res) => res.json())
           .then((data) => {
-            if (data.success && data.data?.termsAndConditions) {
+            if (data.success && Array.isArray(data.data?.termsAndConditions)) {
               setTerms(data.data.termsAndConditions);
             } else {
-              setTerms([
-                "GST CHARGE EXTRA",
-                "TRANSPORTATION INCLUDED",
-                "PAYMENT ADVANCE",
-                "MATERIAL DELIVERED WITHIN 7 DAYS",
-              ]);
+              setTerms([]);
             }
           })
           .catch(() => {
-            setTerms([
-              "GST CHARGE EXTRA",
-              "TRANSPORTATION INCLUDED",
-              "PAYMENT ADVANCE",
-            ]);
+            setTerms([]);
           });
       }
     }
