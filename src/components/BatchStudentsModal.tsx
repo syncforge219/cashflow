@@ -13,12 +13,12 @@ export default function BatchStudentsModal({
   onClose,
   batch,
 }: BatchStudentsModalProps) {
+  const [activeTab, setActiveTab] = useState<"roster" | "allocate">("roster");
   const [students, setStudents] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Add Student Sub-Modal State
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  // Add / Allocate Students State
   const [allBrandStudents, setAllBrandStudents] = useState<any[]>([]);
   const [isLoadingBrandStudents, setIsLoadingBrandStudents] = useState(false);
   const [addSearchQuery, setAddSearchQuery] = useState("");
@@ -104,17 +104,7 @@ export default function BatchStudentsModal({
     }
   };
 
-  useEffect(() => {
-    setStudents([]);
-    setSearchQuery("");
-    setIsAddModalOpen(false);
-
-    if (isOpen && batch) {
-      fetchEnrolledStudents();
-    }
-  }, [isOpen, batch?._id, batch?.batchId]);
-
-  // Load all students for the brand when opening the Add Student modal
+  // Load all students for the brand
   const fetchAllBrandStudents = async () => {
     if (!batch) return;
     setIsLoadingBrandStudents(true);
@@ -135,12 +125,17 @@ export default function BatchStudentsModal({
     }
   };
 
-  const handleOpenAddModal = () => {
-    setIsAddModalOpen(true);
+  useEffect(() => {
+    setStudents([]);
+    setSearchQuery("");
     setAddSearchQuery("");
-    setFilterType("all");
-    fetchAllBrandStudents();
-  };
+    setActiveTab("roster");
+
+    if (isOpen && batch) {
+      fetchEnrolledStudents();
+      fetchAllBrandStudents();
+    }
+  }, [isOpen, batch?._id, batch?.batchId]);
 
   // Handle allocating a student to this batch
   const handleAllocateStudent = async (student: any) => {
@@ -202,6 +197,11 @@ export default function BatchStudentsModal({
       if (res.ok && json.success) {
         showToast(`Removed ${studentName} from batch successfully.`);
         setStudents((prev) => prev.filter((s) => s._id !== studentId));
+        setAllBrandStudents((prev) =>
+          prev.map((s) =>
+            s._id === studentId ? { ...s, batch: "Unassigned", batchId: "" } : s
+          )
+        );
       } else {
         showToast(json.error || json.message || "Failed to remove student", "error");
       }
@@ -213,7 +213,7 @@ export default function BatchStudentsModal({
     }
   };
 
-  // Filter Enrolled Students
+  // Filter Enrolled Students (Roster Tab)
   const filteredStudents = students.filter((s) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase().trim();
@@ -225,7 +225,7 @@ export default function BatchStudentsModal({
     );
   });
 
-  // Filter Brand Students in Add Modal
+  // Filter Brand Students (Allocate Tab)
   const filteredBrandStudents = useMemo(() => {
     const currentBatchId = String(batch?.batchId || batch?._id || "").trim();
     const currentMongoId = batch?._id ? String(batch._id).trim() : "";
@@ -257,17 +257,18 @@ export default function BatchStudentsModal({
   if (!isOpen || !batch) return null;
 
   const currentBatchIdentifier = String(batch.batchId || batch._id || "").trim();
+  const unassignedCount = allBrandStudents.filter((s) => !s.batch || s.batch === "Unassigned" || s.batch === "General Batch" || !s.batchId).length;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/80 w-full max-w-4xl overflow-hidden flex flex-col max-h-[92vh] relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-4xl overflow-hidden flex flex-col h-[90vh] max-h-[880px] relative">
         
         {/* Toast Notification */}
         {toastMessage && (
-          <div className={`absolute top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl shadow-xl border text-xs font-extrabold flex items-center gap-2 animate-in slide-in-from-top-2 duration-200 ${
+          <div className={`absolute top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl shadow-2xl border text-xs font-extrabold flex items-center gap-2 animate-in slide-in-from-top-2 duration-200 ${
             toastMessage.type === "success"
-              ? "bg-emerald-600 text-white border-emerald-500 shadow-emerald-600/20"
-              : "bg-rose-600 text-white border-rose-500 shadow-rose-600/20"
+              ? "bg-emerald-600 text-white border-emerald-500 shadow-emerald-600/30"
+              : "bg-rose-600 text-white border-rose-500 shadow-rose-600/30"
           }`}>
             <span>{toastMessage.type === "success" ? "✓" : "⚠️"}</span>
             <span>{toastMessage.text}</span>
@@ -275,267 +276,270 @@ export default function BatchStudentsModal({
         )}
 
         {/* Modal Header */}
-        <div className="px-6 py-5 bg-gradient-to-r from-indigo-900 via-indigo-800 to-slate-900 text-white flex items-start justify-between relative shrink-0">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="px-2.5 py-0.5 bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 rounded-lg text-[10px] font-extrabold uppercase tracking-wider">
-                Batch Roster
-              </span>
-              {batch.batchId && (
-                <span className="px-2.5 py-0.5 bg-white/20 text-white font-mono text-[10px] font-extrabold rounded-lg">
-                  {batch.batchId}
+        <div className="px-6 py-4 bg-gradient-to-r from-indigo-900 via-indigo-800 to-slate-900 text-white shrink-0">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="px-2.5 py-0.5 bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 rounded-lg text-[10px] font-extrabold uppercase tracking-wider">
+                  Batch Manager
                 </span>
-              )}
-              {batch.brand && (
-                <span className="px-2.5 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-lg text-[10px] font-bold">
-                  🏢 {batch.brand}
+                {batch.batchId && (
+                  <span className="px-2.5 py-0.5 bg-white/20 text-white font-mono text-[10px] font-extrabold rounded-lg">
+                    {batch.batchId}
+                  </span>
+                )}
+                {batch.brand && (
+                  <span className="px-2.5 py-0.5 bg-amber-400/20 text-amber-300 border border-amber-400/30 rounded-lg text-[10px] font-bold">
+                    🏢 {batch.brand}
+                  </span>
+                )}
+                <span
+                  className={`px-2.5 py-0.5 rounded-lg text-[10px] font-extrabold uppercase border ${
+                    batch.status === "Active"
+                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                      : batch.status === "Upcoming"
+                      ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/30"
+                      : batch.status === "Completed"
+                      ? "bg-slate-500/20 text-slate-300 border-slate-500/30"
+                      : "bg-rose-500/20 text-rose-300 border-rose-500/30"
+                  }`}
+                >
+                  {batch.status || "Active"}
                 </span>
-              )}
-              <span
-                className={`px-2.5 py-0.5 rounded-lg text-[10px] font-extrabold uppercase border ${
-                  batch.status === "Active"
-                    ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
-                    : batch.status === "Upcoming"
-                    ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/30"
-                    : batch.status === "Completed"
-                    ? "bg-slate-500/20 text-slate-300 border-slate-500/30"
-                    : "bg-rose-500/20 text-rose-300 border-rose-500/30"
-                }`}
-              >
-                {batch.status || "Active"}
-              </span>
-            </div>
-            <h2 className="text-xl font-black tracking-tight text-white flex items-center gap-2">
-              ⚡ {batch.batchName}
-            </h2>
-            <div className="text-xs text-indigo-200 font-semibold flex flex-wrap items-center gap-3 pt-1">
-              <span>📚 Course: <strong className="text-white">{batch.course || "General"}</strong></span>
-              {batch.timing && <span>⏰ Slot: <strong className="text-white">{batch.timing}</strong></span>}
-              {batch.teacherName && <span>👨‍🏫 Faculty: <strong className="text-white">{batch.teacherName}</strong></span>}
-            </div>
-          </div>
-
-          <button
-            onClick={onClose}
-            className="h-8 w-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center font-bold transition-all cursor-pointer"
-          >
-            ✕
-          </button>
-        </div>
-
-        {/* Search & Action Bar */}
-        <div className="p-4 bg-slate-50 border-b border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
-          <div className="relative w-full sm:w-80">
-            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-              🔍
-            </span>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search roster by name, ID, phone..."
-              className="w-full pl-8 pr-3 py-1.5 text-xs font-semibold bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-            />
-          </div>
-
-          <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
-            <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
-              <span>Enrolled:</span>
-              <span className="px-2.5 py-1 bg-indigo-100 text-indigo-800 rounded-xl font-extrabold text-xs">
-                👨‍🎓 {students.length} Students
-              </span>
+              </div>
+              <h2 className="text-lg sm:text-xl font-black tracking-tight text-white flex items-center gap-2">
+                ⚡ {batch.batchName}
+              </h2>
+              <div className="text-xs text-indigo-200 font-semibold flex flex-wrap items-center gap-3 pt-0.5">
+                <span>📚 Course: <strong className="text-white">{batch.course || "General"}</strong></span>
+                {batch.timing && <span>⏰ Slot: <strong className="text-white">{batch.timing}</strong></span>}
+                {batch.teacherName && <span>👨‍🏫 Faculty: <strong className="text-white">{batch.teacherName}</strong></span>}
+              </div>
             </div>
 
             <button
-              onClick={handleOpenAddModal}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white rounded-xl text-xs font-extrabold transition-all shadow-md shadow-indigo-600/20 flex items-center gap-1.5 cursor-pointer"
+              onClick={onClose}
+              className="h-8 w-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center font-bold transition-all cursor-pointer shrink-0"
+              title="Close Dialog"
             >
-              <span>➕</span>
-              <span>Add / Allocate Student</span>
+              ✕
+            </button>
+          </div>
+
+          {/* Navigation Tabs */}
+          <div className="flex items-center gap-2 mt-4 pt-3 border-t border-indigo-700/50">
+            <button
+              onClick={() => setActiveTab("roster")}
+              className={`px-4 py-1.5 rounded-xl font-extrabold text-xs transition-all flex items-center gap-2 cursor-pointer ${
+                activeTab === "roster"
+                  ? "bg-white text-indigo-900 shadow-md"
+                  : "bg-indigo-800/60 text-indigo-200 hover:bg-indigo-700/60 hover:text-white"
+              }`}
+            >
+              <span>👨‍🎓 Enrolled Roster</span>
+              <span className={`px-2 py-0.2 rounded-full text-[10px] font-black ${
+                activeTab === "roster" ? "bg-indigo-100 text-indigo-800" : "bg-indigo-900 text-indigo-300"
+              }`}>
+                {students.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("allocate")}
+              className={`px-4 py-1.5 rounded-xl font-extrabold text-xs transition-all flex items-center gap-2 cursor-pointer ${
+                activeTab === "allocate"
+                  ? "bg-white text-indigo-900 shadow-md"
+                  : "bg-indigo-800/60 text-indigo-200 hover:bg-indigo-700/60 hover:text-white"
+              }`}
+            >
+              <span>➕ Add / Allocate Students</span>
+              <span className={`px-2 py-0.2 rounded-full text-[10px] font-black ${
+                activeTab === "allocate" ? "bg-indigo-100 text-indigo-800" : "bg-indigo-900 text-indigo-300"
+              }`}>
+                {allBrandStudents.length}
+              </span>
             </button>
           </div>
         </div>
 
-        {/* Student Roster Content Area */}
-        <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
-          {isLoading ? (
-            <div className="py-16 text-center text-slate-400 font-semibold text-xs">
-              Loading enrolled students roster for {batch.batchName}...
-            </div>
-          ) : filteredStudents.length === 0 ? (
-            <div className="py-14 text-center space-y-3">
-              <div className="h-14 w-14 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center mx-auto text-2xl font-bold border border-amber-200/60 shadow-xs">
-                ⚠️
+        {/* =================================================================== */}
+        {/* TAB 1: ENROLLED ROSTER VIEW */}
+        {/* =================================================================== */}
+        {activeTab === "roster" && (
+          <div className="flex flex-col flex-1 overflow-hidden">
+            {/* Search & Action Bar */}
+            <div className="p-4 bg-slate-50 border-b border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+              <div className="relative w-full sm:w-80">
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                  🔍
+                </span>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search enrolled students by name, ID, phone..."
+                  className="w-full pl-8 pr-3 py-2 text-xs font-semibold bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                />
               </div>
-              <div>
-                <h4 className="text-sm font-extrabold text-slate-800">
-                  No Admitted Students Found in this Batch
-                </h4>
-                <p className="text-xs text-slate-500 max-w-md mx-auto font-medium pt-1">
-                  {searchQuery
-                    ? `No students matching "${searchQuery}" found in this batch.`
-                    : `There are currently no students allocated to batch ${batch.batchId ? `[${batch.batchId}] ` : ""}"${batch.batchName}".`}
-                </p>
-              </div>
-              <div className="pt-2">
+
+              <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
+                  <span>Enrolled Count:</span>
+                  <span className="px-2.5 py-1 bg-indigo-100 text-indigo-800 rounded-xl font-extrabold text-xs">
+                    👨‍🎓 {students.length} Students
+                  </span>
+                </div>
+
                 <button
-                  onClick={handleOpenAddModal}
-                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-extrabold transition-all shadow-md shadow-indigo-600/20 inline-flex items-center gap-2 cursor-pointer"
+                  onClick={() => setActiveTab("allocate")}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white rounded-xl text-xs font-extrabold transition-all shadow-md shadow-indigo-600/20 flex items-center gap-1.5 cursor-pointer shrink-0"
                 >
                   <span>➕</span>
-                  <span>Allocate Students from {batch.brand || "Brand"}</span>
+                  <span>Add Student</span>
                 </button>
               </div>
             </div>
-          ) : (
-            <div className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-2xs">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200/80 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    <th className="py-3 px-4">Student Details</th>
-                    <th className="py-3 px-4">Enrolled Course</th>
-                    <th className="py-3 px-4">Contact Number</th>
-                    <th className="py-3 px-4 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-xs font-semibold">
-                  {filteredStudents.map((st, idx) => (
-                    <tr key={st._id || idx} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-3">
-                          <div className="h-9 w-9 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-extrabold text-xs shrink-0 shadow-2xs">
-                            {(st.name || "S").charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <span className="font-extrabold text-slate-900 block text-xs">
-                              {st.name}
-                            </span>
-                            <span className="text-[10px] text-slate-400 font-mono block">
-                              {st.admissionId}
-                            </span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4 text-slate-700">
-                        <span className="px-2.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-md text-[11px] font-bold border border-indigo-100 inline-block">
-                          {st.course}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-slate-600 font-mono text-[11px]">
-                        {st.mobile || "N/A"}
-                      </td>
-                      <td className="py-3.5 px-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          {st.mobile && (
-                            <>
-                              <a
-                                href={`https://wa.me/91${st.mobile.replace(/[^0-9]/g, "")}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-[11px] font-bold border border-emerald-200 transition-colors inline-flex items-center gap-1"
-                                title="WhatsApp Student"
-                              >
-                                💬 WhatsApp
-                              </a>
-                              <a
-                                href={`tel:${st.mobile}`}
-                                className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-[11px] font-bold border border-blue-200 transition-colors inline-flex items-center gap-1"
-                                title="Call Student"
-                              >
-                                📞 Call
-                              </a>
-                            </>
-                          )}
-                          {st._id && (
-                            <button
-                              onClick={() => handleRemoveStudent(st._id, st.name)}
-                              disabled={allocatingStudentId === st._id}
-                              className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-[11px] font-bold border border-rose-200 transition-colors inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                              title="Remove student from batch"
-                            >
-                              ✕ Remove
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
 
-        {/* Footer */}
-        <div className="p-4 bg-slate-50 border-t border-slate-200/80 flex items-center justify-between shrink-0">
-          <span className="text-[11px] font-semibold text-slate-400">
-            Batch ID: <strong className="font-mono text-slate-600">{batch.batchId || batch._id}</strong>
-          </span>
-          <button
-            onClick={onClose}
-            className="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
-          >
-            Close Dialog
-          </button>
-        </div>
-
-        {/* =================================================================== */}
-        {/* ADD / ALLOCATE STUDENT MODAL (BRAND-SCOPED DIRECTORY) */}
-        {/* =================================================================== */}
-        {isAddModalOpen && (
-          <div className="absolute inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-150">
-            <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh]">
-              
-              {/* Header */}
-              <div className="p-5 bg-gradient-to-r from-indigo-800 to-indigo-950 text-white flex items-start justify-between shrink-0">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="px-2.5 py-0.5 bg-white/20 text-white text-[10px] font-extrabold uppercase rounded-lg">
-                      Student Allocation
-                    </span>
-                    {batch.brand && (
-                      <span className="px-2.5 py-0.5 bg-amber-400 text-slate-900 text-[10px] font-extrabold rounded-lg">
-                        🏢 {batch.brand}
-                      </span>
-                    )}
+            {/* Roster Table Content Area */}
+            <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
+              {isLoading ? (
+                <div className="py-20 text-center text-slate-400 font-semibold text-xs flex flex-col items-center gap-2">
+                  <div className="h-6 w-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                  <span>Loading enrolled students roster for {batch.batchName}...</span>
+                </div>
+              ) : filteredStudents.length === 0 ? (
+                <div className="py-14 text-center space-y-3">
+                  <div className="h-14 w-14 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center mx-auto text-2xl font-bold border border-amber-200/60 shadow-xs">
+                    ⚠️
                   </div>
-                  <h3 className="text-lg font-black tracking-tight text-white flex items-center gap-1.5">
-                    ➕ Allocate Student to {batch.batchId ? `[${batch.batchId}] ` : ""}{batch.batchName}
-                  </h3>
-                  <p className="text-xs text-indigo-200 font-medium pt-0.5">
-                    Search students of this brand and allocate them to this batch.
-                  </p>
+                  <div>
+                    <h4 className="text-sm font-extrabold text-slate-800">
+                      No Admitted Students Found in this Batch
+                    </h4>
+                    <p className="text-xs text-slate-500 max-w-md mx-auto font-medium pt-1">
+                      {searchQuery
+                        ? `No students matching "${searchQuery}" found in this batch.`
+                        : `There are currently no students allocated to batch ${batch.batchId ? `[${batch.batchId}] ` : ""}"${batch.batchName}".`}
+                    </p>
+                  </div>
+                  <div className="pt-2">
+                    <button
+                      onClick={() => setActiveTab("allocate")}
+                      className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-extrabold transition-all shadow-md shadow-indigo-600/20 inline-flex items-center gap-2 cursor-pointer"
+                    >
+                      <span>➕</span>
+                      <span>Allocate Students from {batch.brand || "Brand Directory"}</span>
+                    </button>
+                  </div>
                 </div>
+              ) : (
+                <div className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-2xs">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200/80 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        <th className="py-3 px-4">Student Details</th>
+                        <th className="py-3 px-4">Enrolled Course</th>
+                        <th className="py-3 px-4">Contact Number</th>
+                        <th className="py-3 px-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-xs font-semibold">
+                      {filteredStudents.map((st, idx) => (
+                        <tr key={st._id || idx} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-3">
+                              <div className="h-9 w-9 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-extrabold text-xs shrink-0 shadow-2xs">
+                                {(st.name || "S").charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <span className="font-extrabold text-slate-900 block text-xs">
+                                  {st.name}
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-mono block">
+                                  {st.admissionId}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4 text-slate-700">
+                            <span className="px-2.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-md text-[11px] font-bold border border-indigo-100 inline-block max-w-xs truncate">
+                              {st.course}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-slate-600 font-mono text-[11px]">
+                            {st.mobile || "N/A"}
+                          </td>
+                          <td className="py-3.5 px-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              {st.mobile && (
+                                <>
+                                  <a
+                                    href={`https://wa.me/91${st.mobile.replace(/[^0-9]/g, "")}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-[11px] font-bold border border-emerald-200 transition-colors inline-flex items-center gap-1"
+                                    title="WhatsApp Student"
+                                  >
+                                    💬 WhatsApp
+                                  </a>
+                                  <a
+                                    href={`tel:${st.mobile}`}
+                                    className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-[11px] font-bold border border-blue-200 transition-colors inline-flex items-center gap-1"
+                                    title="Call Student"
+                                  >
+                                    📞 Call
+                                  </a>
+                                </>
+                              )}
+                              {st._id && (
+                                <button
+                                  onClick={() => handleRemoveStudent(st._id, st.name)}
+                                  disabled={allocatingStudentId === st._id}
+                                  className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-[11px] font-bold border border-rose-200 transition-colors inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                                  title="Remove student from batch"
+                                >
+                                  ✕ Remove
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
-                <button
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="h-7 w-7 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center font-bold text-xs cursor-pointer"
-                >
-                  ✕
-                </button>
+        {/* =================================================================== */}
+        {/* TAB 2: ALLOCATE STUDENTS VIEW (FULL DIRECTORY WITH SEARCH) */}
+        {/* =================================================================== */}
+        {activeTab === "allocate" && (
+          <div className="flex flex-col flex-1 overflow-hidden">
+            {/* Search & Filter Bar */}
+            <div className="p-4 bg-slate-50 border-b border-slate-200/80 space-y-3 shrink-0">
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 text-sm">
+                  🔍
+                </span>
+                <input
+                  type="text"
+                  value={addSearchQuery}
+                  onChange={(e) => setAddSearchQuery(e.target.value)}
+                  placeholder="Search by student name, admission ID, mobile, course, current batch..."
+                  className="w-full pl-10 pr-4 py-2.5 text-xs font-semibold bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-2xs"
+                  autoFocus
+                />
               </div>
 
-              {/* Search & Filter Bar */}
-              <div className="p-4 bg-slate-50 border-b border-slate-200/80 space-y-2.5 shrink-0">
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                    🔍
-                  </span>
-                  <input
-                    type="text"
-                    value={addSearchQuery}
-                    onChange={(e) => setAddSearchQuery(e.target.value)}
-                    placeholder="Search by student name, admission ID, mobile, course, current batch..."
-                    className="w-full pl-9 pr-3 py-2 text-xs font-semibold bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                    autoFocus
-                  />
-                </div>
-
-                {/* Filter Pills */}
-                <div className="flex items-center gap-2 text-xs">
+              {/* Filter Pills */}
+              <div className="flex items-center justify-between flex-wrap gap-2 text-xs">
+                <div className="flex items-center gap-2 flex-wrap">
                   <button
                     onClick={() => setFilterType("all")}
-                    className={`px-3 py-1 rounded-lg font-bold text-[11px] transition-all cursor-pointer ${
+                    className={`px-3.5 py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
                       filterType === "all"
                         ? "bg-indigo-600 text-white shadow-xs"
                         : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
@@ -545,137 +549,143 @@ export default function BatchStudentsModal({
                   </button>
                   <button
                     onClick={() => setFilterType("unassigned")}
-                    className={`px-3 py-1 rounded-lg font-bold text-[11px] transition-all cursor-pointer ${
+                    className={`px-3.5 py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
                       filterType === "unassigned"
                         ? "bg-amber-600 text-white shadow-xs"
                         : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
                     }`}
                   >
-                    Unassigned ({allBrandStudents.filter((s) => !s.batch || s.batch === "Unassigned" || s.batch === "General Batch" || !s.batchId).length})
+                    Unassigned ({unassignedCount})
                   </button>
                   <button
                     onClick={() => setFilterType("assigned")}
-                    className={`px-3 py-1 rounded-lg font-bold text-[11px] transition-all cursor-pointer ${
+                    className={`px-3.5 py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
                       filterType === "assigned"
                         ? "bg-emerald-600 text-white shadow-xs"
                         : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
                     }`}
                   >
-                    In Other Batches
+                    In Other Batches ({allBrandStudents.length - unassignedCount})
                   </button>
                 </div>
+
+                <span className="text-[11px] font-semibold text-slate-500">
+                  Showing <strong>{filteredBrandStudents.length}</strong> matching students
+                </span>
               </div>
+            </div>
 
-              {/* Student Directory List */}
-              <div className="p-4 overflow-y-auto flex-1 space-y-2 custom-scrollbar">
-                {isLoadingBrandStudents ? (
-                  <div className="py-16 text-center text-slate-400 text-xs font-semibold">
-                    Loading student directory...
-                  </div>
-                ) : filteredBrandStudents.length === 0 ? (
-                  <div className="py-12 text-center text-slate-400 text-xs font-semibold">
-                    No students found matching your criteria.
-                  </div>
-                ) : (
-                  filteredBrandStudents.map((s: any) => {
-                    const studentId = s._id;
-                    const studentName = s.fullName || s.studentFullName || "Student";
-                    const sBatchId = String(s.batchId || "").trim();
-                    const sBatchName = (s.batch || "").trim();
-                    const isAlreadyInThisBatch = (currentBatchIdentifier && sBatchId === currentBatchIdentifier) ||
-                                                 (batch._id && sBatchId === String(batch._id)) ||
-                                                 (sBatchName === batch.batchName && currentBatchIdentifier && sBatchId === currentBatchIdentifier);
+            {/* Student Cards List */}
+            <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-3 custom-scrollbar bg-slate-50/50">
+              {isLoadingBrandStudents ? (
+                <div className="py-20 text-center text-slate-400 text-xs font-semibold flex flex-col items-center gap-2">
+                  <div className="h-6 w-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                  <span>Loading brand student directory...</span>
+                </div>
+              ) : filteredBrandStudents.length === 0 ? (
+                <div className="py-16 text-center text-slate-400 text-xs font-semibold">
+                  No students found matching your search.
+                </div>
+              ) : (
+                filteredBrandStudents.map((s: any) => {
+                  const studentId = s._id;
+                  const studentName = s.fullName || s.studentFullName || "Student";
+                  const sBatchId = String(s.batchId || "").trim();
+                  const sBatchName = (s.batch || "").trim();
+                  const isAlreadyInThisBatch = (currentBatchIdentifier && sBatchId === currentBatchIdentifier) ||
+                                               (batch._id && sBatchId === String(batch._id)) ||
+                                               (sBatchName === batch.batchName && currentBatchIdentifier && sBatchId === currentBatchIdentifier);
 
-                    const isUnassigned = !sBatchName || sBatchName === "Unassigned" || sBatchName === "General Batch" || !sBatchId;
+                  const isUnassigned = !sBatchName || sBatchName === "Unassigned" || sBatchName === "General Batch" || !sBatchId;
 
-                    return (
-                      <div
-                        key={studentId}
-                        className="p-3 bg-white border border-slate-200/80 rounded-2xl flex items-center justify-between gap-3 hover:border-indigo-200 hover:shadow-xs transition-all"
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="h-10 w-10 rounded-full bg-indigo-50 text-indigo-700 flex items-center justify-center font-extrabold text-xs shrink-0 border border-indigo-100">
-                            {(studentName || "S").charAt(0).toUpperCase()}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="font-extrabold text-xs text-slate-900 truncate">
-                                {studentName}
-                              </span>
-                              <span className="text-[10px] font-mono text-slate-400">
-                                {s.admissionId}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2 pt-0.5 flex-wrap">
-                              <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-[10px] font-semibold truncate max-w-xs">
-                                📚 {s.course || "General Course"}
-                              </span>
-                              {s.mobileNumber && (
-                                <span className="text-[10px] font-mono text-slate-500">
-                                  📞 {s.mobileNumber}
-                                </span>
-                              )}
-                            </div>
-                            <div className="pt-1">
-                              {isAlreadyInThisBatch ? (
-                                <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-block">
-                                  ✓ Currently Enrolled in this Batch
-                                </span>
-                              ) : isUnassigned ? (
-                                <span className="text-[10px] font-extrabold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 inline-block">
-                                  ⚠️ Unassigned (No Batch)
-                                </span>
-                              ) : (
-                                <span className="text-[10px] font-extrabold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 inline-block">
-                                  ⚡ Current Batch: {s.batchId ? `[${s.batchId}] ` : ""}{s.batch}
-                                </span>
-                              )}
-                            </div>
-                          </div>
+                  return (
+                    <div
+                      key={studentId}
+                      className="p-4 bg-white border border-slate-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-indigo-300 hover:shadow-xs transition-all"
+                    >
+                      <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+                        <div className="h-11 w-11 rounded-full bg-indigo-50 text-indigo-700 flex items-center justify-center font-black text-sm shrink-0 border border-indigo-100 shadow-2xs">
+                          {(studentName || "S").charAt(0).toUpperCase()}
                         </div>
-
-                        <div className="shrink-0">
-                          {isAlreadyInThisBatch ? (
-                            <span className="px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-xl text-xs font-bold border border-emerald-200 inline-block">
-                              ✓ Enrolled
+                        <div className="min-w-0 space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-black text-sm text-slate-900">
+                              {studentName}
                             </span>
-                          ) : (
-                            <button
-                              onClick={() => handleAllocateStudent(s)}
-                              disabled={allocatingStudentId === studentId}
-                              className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white rounded-xl text-xs font-extrabold transition-all shadow-xs cursor-pointer disabled:opacity-50 flex items-center gap-1"
-                            >
-                              {allocatingStudentId === studentId ? (
-                                <span>Saving...</span>
-                              ) : (
-                                <>
-                                  <span>➕</span>
-                                  <span>Allocate</span>
-                                </>
-                              )}
-                            </button>
-                          )}
+                            <span className="text-[11px] font-mono font-semibold text-slate-400">
+                              {s.admissionId}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 flex-wrap text-xs">
+                            <span className="px-2.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-md font-bold text-[11px] border border-indigo-100 truncate max-w-sm">
+                              📚 {s.course || "General Course"}
+                            </span>
+                            {s.mobileNumber && (
+                              <span className="font-mono text-slate-500 font-semibold text-[11px]">
+                                📞 {s.mobileNumber}
+                              </span>
+                            )}
+                          </div>
+                          <div className="pt-0.5">
+                            {isAlreadyInThisBatch ? (
+                              <span className="text-[11px] font-extrabold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200 inline-block">
+                                ✓ Currently Enrolled in this Batch
+                              </span>
+                            ) : isUnassigned ? (
+                              <span className="text-[11px] font-extrabold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-md border border-amber-200 inline-block">
+                                ⚠️ Unassigned (No Batch)
+                              </span>
+                            ) : (
+                              <span className="text-[11px] font-extrabold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-md border border-indigo-200 inline-block">
+                                ⚡ Current Batch: {s.batchId ? `[${s.batchId}] ` : ""}{s.batch}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    );
-                  })
-                )}
-              </div>
 
-              {/* Modal Footer */}
-              <div className="p-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500 font-semibold shrink-0">
-                <span>Showing {filteredBrandStudents.length} students</span>
-                <button
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-xl text-xs font-bold transition-all cursor-pointer"
-                >
-                  Done
-                </button>
-              </div>
-
+                      <div className="shrink-0 pt-2 sm:pt-0 flex justify-end">
+                        {isAlreadyInThisBatch ? (
+                          <span className="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl text-xs font-bold border border-emerald-200 inline-flex items-center gap-1">
+                            <span>✓</span> Enrolled
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => handleAllocateStudent(s)}
+                            disabled={allocatingStudentId === studentId}
+                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white rounded-xl text-xs font-extrabold transition-all shadow-sm shadow-indigo-600/20 cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                          >
+                            {allocatingStudentId === studentId ? (
+                              <span>Saving...</span>
+                            ) : (
+                              <>
+                                <span>➕</span>
+                                <span>Allocate</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         )}
+
+        {/* Footer */}
+        <div className="p-4 bg-slate-50 border-t border-slate-200/80 flex items-center justify-between shrink-0">
+          <div className="text-xs text-slate-500 font-semibold flex items-center gap-2">
+            <span>Batch ID: <strong className="font-mono text-slate-700">{batch.batchId || batch._id}</strong></span>
+          </div>
+          <button
+            onClick={onClose}
+            className="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+          >
+            Close Dialog
+          </button>
+        </div>
 
       </div>
     </div>
