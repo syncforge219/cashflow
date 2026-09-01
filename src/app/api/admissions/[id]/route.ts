@@ -199,7 +199,10 @@ export async function PUT(
     let assignedBatchName = body.batch !== undefined ? body.batch.trim() : existingDoc.batch;
     let assignedBatchId = body.batchId !== undefined ? body.batchId.trim() : existingDoc.batchId;
 
-    if (body.batchId && body.batchId.trim()) {
+    if (body.batch === "Unassigned" || body.batch === "General Batch" || body.batch === "" || body.batch === null) {
+      assignedBatchName = body.batch || "Unassigned";
+      assignedBatchId = "";
+    } else if (body.batchId && body.batchId.trim()) {
       const Batch = (await import("@/models/Batch")).default;
       const trimmedBId = body.batchId.trim();
       const bQuery: any[] = [{ batchId: trimmedBId }];
@@ -213,10 +216,10 @@ export async function PUT(
       }
     } else if (body.batch && body.batch !== "Unassigned" && body.batch !== "General Batch") {
       const Batch = (await import("@/models/Batch")).default;
-      const batchDoc = await Batch.findOne({ batchName: body.batch.trim() }).lean();
-      if (batchDoc) {
-        assignedBatchId = batchDoc.batchId || batchDoc._id.toString();
-        assignedBatchName = batchDoc.batchName;
+      const matchingBatches = await Batch.find({ batchName: body.batch.trim() }).lean();
+      if (matchingBatches.length === 1) {
+        assignedBatchId = matchingBatches[0].batchId || matchingBatches[0]._id.toString();
+        assignedBatchName = matchingBatches[0].batchName;
       }
     }
 

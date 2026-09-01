@@ -136,7 +136,7 @@ export async function GET(request: Request) {
       batches = batches.filter((b) => b.status === status);
     }
 
-    // Attach enrolled student counts to each batch
+    // Attach enrolled student counts strictly by unique batchId
     try {
       const Admission = (await import("@/models/Admission")).default;
       const Enquiry = (await import("@/models/Enquiry")).default;
@@ -146,35 +146,27 @@ export async function GET(request: Request) {
         const b = batches[i] as any;
         const bIdStr = b._id ? b._id.toString() : "";
         const bCustomId = b.batchId || "";
-        const bName = b.batchName || "";
 
         const batchIdOrConditions: any[] = [];
         if (bIdStr) batchIdOrConditions.push({ batchId: bIdStr });
         if (bCustomId && bCustomId !== bIdStr) batchIdOrConditions.push({ batchId: bCustomId });
 
-        const batchMatchQuery: any[] = [...batchIdOrConditions];
-        if (bName) {
-          batchMatchQuery.push({
-            $and: [
-              { $or: [{ batch: bName }, { assignedBatch: bName }] },
-              { $or: [{ batchId: { $exists: false } }, { batchId: "" }, { batchId: null }] }
-            ]
+        let enrolledInDb = 0;
+        if (batchIdOrConditions.length > 0) {
+          const enrolledAdmissions = await Admission.countDocuments({
+            $or: batchIdOrConditions
           });
+
+          const enrolledEnquiries = await Enquiry.countDocuments({
+            $or: batchIdOrConditions
+          });
+
+          enrolledInDb = Math.max(enrolledAdmissions, enrolledEnquiries);
         }
 
-        const enrolledAdmissions = await Admission.countDocuments({
-          $or: batchMatchQuery
-        });
-
-        const enrolledEnquiries = await Enquiry.countDocuments({
-          $or: batchMatchQuery
-        });
-
-        const enrolledInDb = Math.max(enrolledAdmissions, enrolledEnquiries);
-
-        const latestAttendanceLog = await Attendance.findOne({
-          $or: batchIdOrConditions.length > 0 ? batchIdOrConditions : [{ batchName: bName }]
-        }).sort({ date: -1 }).lean();
+        const latestAttendanceLog = batchIdOrConditions.length > 0
+          ? await Attendance.findOne({ $or: batchIdOrConditions }).sort({ date: -1 }).lean()
+          : null;
 
         const logStudentCount = (latestAttendanceLog as any)?.totalStudents || 0;
         const arrayCount = Array.isArray(b.students) ? b.students.length : 0;

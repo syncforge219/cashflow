@@ -67,10 +67,11 @@ export async function POST(req: NextRequest) {
         finalBatchId = batchDoc.batchId || batchDoc._id.toString();
       }
     } else if (finalBatchName && finalBatchName !== "General Batch" && finalBatchName !== "Unassigned") {
-      const batchDoc = await Batch.findOne({ batchName: finalBatchName }).lean();
-      if (batchDoc) {
-        finalBatchId = batchDoc.batchId || batchDoc._id.toString();
-        finalBatchName = batchDoc.batchName;
+      // Only resolve batchId if exactly one batch exists with this name to avoid guessing across duplicate batch names
+      const matchingBatches = await Batch.find({ batchName: finalBatchName }).lean();
+      if (matchingBatches.length === 1) {
+        finalBatchId = matchingBatches[0].batchId || matchingBatches[0]._id.toString();
+        finalBatchName = matchingBatches[0].batchName;
       }
     }
 
@@ -599,46 +600,36 @@ export async function GET(req: Request) {
     const batchIdParam = searchParams.get("batchId");
     const exactBatchParam = searchParams.get("exactBatch");
 
-    if (batchIdParam || batchParam) {
-      let resolvedBatchName = batchParam ? batchParam.trim() : "";
-      let resolvedBatchId = batchIdParam ? batchIdParam.trim() : "";
-      let mongoBatchId = "";
-
-      if (resolvedBatchId) {
-        try {
-          const bQuery: any[] = [{ batchId: resolvedBatchId }];
-          if (mongoose.Types.ObjectId.isValid(resolvedBatchId)) {
-            bQuery.push({ _id: new mongoose.Types.ObjectId(resolvedBatchId) });
-          }
-          const batchDoc = await Batch.findOne({ $or: bQuery }).lean();
-          if (batchDoc) {
-            resolvedBatchName = batchDoc.batchName;
-            resolvedBatchId = batchDoc.batchId || resolvedBatchId;
-            mongoBatchId = batchDoc._id ? batchDoc._id.toString() : "";
-          }
-        } catch (_) {}
+    if (batchIdParam) {
+      const trimmedBId = batchIdParam.trim();
+      const idMatches: any[] = [{ batchId: trimmedBId }];
+      if (mongoose.Types.ObjectId.isValid(trimmedBId)) {
+        idMatches.push({ batchId: trimmedBId });
       }
 
-      if (resolvedBatchId) {
-        const idMatches: any[] = [{ batchId: resolvedBatchId }];
-        if (mongoBatchId && mongoBatchId !== resolvedBatchId) {
-          idMatches.push({ batchId: mongoBatchId });
+      try {
+        const bQuery: any[] = [{ batchId: trimmedBId }];
+        if (mongoose.Types.ObjectId.isValid(trimmedBId)) {
+          bQuery.push({ _id: new mongoose.Types.ObjectId(trimmedBId) });
         }
-
-        const unassignedBatchIdFallback = resolvedBatchName ? [{
-          $and: [
-            { batch: resolvedBatchName },
-            { $or: [{ batchId: { $exists: false } }, { batchId: "" }, { batchId: null }] }
-          ]
-        }] : [];
-
-        andConditions.push({ $or: [...idMatches, ...unassignedBatchIdFallback] });
-      } else if (resolvedBatchName) {
-        if (exactBatchParam === "true") {
-          andConditions.push({ batch: resolvedBatchName });
-        } else {
-          andConditions.push({ batch: { $regex: new RegExp(`^${escapeRegExp(resolvedBatchName)}$`, "i") } });
+        const batchDoc = await Batch.findOne({ $or: bQuery }).lean();
+        if (batchDoc) {
+          if (batchDoc.batchId && batchDoc.batchId !== trimmedBId) {
+            idMatches.push({ batchId: batchDoc.batchId });
+          }
+          if (batchDoc._id && batchDoc._id.toString() !== trimmedBId) {
+            idMatches.push({ batchId: batchDoc._id.toString() });
+          }
         }
+      } catch (_) {}
+
+      andConditions.push({ $or: idMatches });
+    } else if (batchParam) {
+      const resolvedBatchName = batchParam.trim();
+      if (exactBatchParam === "true") {
+        andConditions.push({ batch: resolvedBatchName });
+      } else {
+        andConditions.push({ batch: { $regex: new RegExp(`^${escapeRegExp(resolvedBatchName)}$`, "i") } });
       }
     }
 

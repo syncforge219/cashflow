@@ -89,14 +89,19 @@ export async function PATCH(
 
     if (body.batchName && oldBatch.batchName !== body.batchName) {
       const Admission = (await import("@/models/Admission")).default;
-      const orList: any[] = [{ batch: oldBatch.batchName }];
+      const orList: any[] = [];
       if (oldBatch.batchId) {
         orList.push({ batchId: oldBatch.batchId });
       }
-      await Admission.updateMany(
-        { $or: orList },
-        { $set: { batch: body.batchName.trim(), batchId: oldBatch.batchId || updatedBatch?.batchId } }
-      );
+      if (oldBatch._id) {
+        orList.push({ batchId: oldBatch._id.toString() });
+      }
+      if (orList.length > 0) {
+        await Admission.updateMany(
+          { $or: orList },
+          { $set: { batch: body.batchName.trim(), batchId: oldBatch.batchId || updatedBatch?.batchId } }
+        );
+      }
     }
 
     return NextResponse.json({

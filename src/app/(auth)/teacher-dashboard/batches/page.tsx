@@ -86,16 +86,16 @@ export default function TeacherBatchesPage() {
       const uniqueCourses = Array.from(new Set(relevantStudents.map((s: any) => s.course).filter(Boolean))) as string[];
       setCourses(uniqueCourses);
 
-      // Initialize batch selection map for each student
+      // Initialize batch selection map for each student using batchId
       const initialMap: Record<string, string> = {};
       relevantStudents.forEach((s: any) => {
-        initialMap[s._id || s.id] = isBatchUnassigned(s.batch) ? "" : (s.batch || "");
+        initialMap[s._id || s.id] = isBatchUnassigned(s.batch) ? "" : (s.batchId || s.batch || "");
       });
       setAssignedBatchMap(initialMap);
 
       // Auto-expand first batch if batches exist
       if (teacherBatches.length > 0 && !expandedBatchId) {
-        setExpandedBatchId(teacherBatches[0]._id || teacherBatches[0].batchName);
+        setExpandedBatchId(teacherBatches[0].batchId || teacherBatches[0]._id || teacherBatches[0].batchName);
       }
 
     } catch (err) {
@@ -116,8 +116,9 @@ export default function TeacherBatchesPage() {
 
     setUpdatingStudentId(studentId);
     try {
-      const selectedB = batches.find((b: any) => (b.batchId || b._id) === targetBatchVal || b.batchName === targetBatchVal);
-      const targetBatchName = selectedB ? selectedB.batchName : (targetBatchVal || "Unassigned");
+      const selectedB = batches.find((b: any) => (b.batchId || b._id) === targetBatchVal || String(b._id) === targetBatchVal);
+      const isUnassigning = targetBatchVal === "Unassigned" || targetBatchVal === "" || !selectedB;
+      const targetBatchName = selectedB ? selectedB.batchName : (isUnassigning ? "Unassigned" : targetBatchVal);
       const targetBatchId = selectedB ? (selectedB.batchId || selectedB._id) : "";
 
       const res = await fetch(`/api/admissions/${studentId}`, {
@@ -145,24 +146,16 @@ export default function TeacherBatchesPage() {
     }
   };
 
-  // Helper to get students enrolled in a specific batch using batchId and exact batch match
+  // Helper to get students enrolled in a specific batch using batchId strictly
   const getStudentsInBatch = (batchObj: any) => {
-    const bId = typeof batchObj === "object" ? (batchObj?.batchId || batchObj?._id) : "";
-    const bMongoId = typeof batchObj === "object" ? (batchObj?._id ? String(batchObj._id) : "") : "";
-    const bName = typeof batchObj === "object" ? batchObj?.batchName : batchObj;
+    const bId = typeof batchObj === "object" ? String(batchObj?.batchId || "").trim() : "";
+    const bMongoId = typeof batchObj === "object" && batchObj?._id ? String(batchObj._id).trim() : "";
+    if (!bId && !bMongoId) return [];
 
     return students.filter((s) => {
-      // If student has a batchId assigned, strictly check against target batch's batchId or _id
-      if (s.batchId && String(s.batchId).trim()) {
-        const studentBId = String(s.batchId).trim();
-        return (bId && studentBId === String(bId).trim()) || (bMongoId && studentBId === bMongoId);
-      }
-
-      // If student DOES NOT have a batchId assigned, fall back to matching batch name
-      if (bName && s.batch) {
-        return s.batch.trim() === String(bName).trim();
-      }
-      return false;
+      const studentBId = String(s.batchId || "").trim();
+      if (!studentBId) return false;
+      return (bId && studentBId === bId) || (bMongoId && studentBId === bMongoId);
     });
   };
 
@@ -567,8 +560,8 @@ export default function TeacherBatchesPage() {
                                     >
                                       <option value="">Select Batch Assignment...</option>
                                       {batches.map((b) => (
-                                        <option key={b._id || b.batchName} value={b.batchName}>
-                                          {b.batchName} {b.timing ? `(${b.timing})` : ""}
+                                        <option key={b._id || b.batchId} value={b.batchId || b._id}>
+                                          {b.batchId ? `[${b.batchId}] ` : ""}{b.batchName} {b.timing ? `(${b.timing})` : ""}
                                         </option>
                                       ))}
                                     </select>
@@ -723,8 +716,8 @@ export default function TeacherBatchesPage() {
                                 <option value="">Select Batch Assignment...</option>
                                 <option value="Unassigned">Unassigned (No Batch)</option>
                                 {batches.map((b) => (
-                                  <option key={b._id || b.batchName} value={b.batchName}>
-                                    {b.batchName} {b.timing ? `(${b.timing})` : ""}
+                                  <option key={b._id || b.batchId} value={b.batchId || b._id}>
+                                    {b.batchId ? `[${b.batchId}] ` : ""}{b.batchName} {b.timing ? `(${b.timing})` : ""}
                                   </option>
                                 ))}
                               </select>

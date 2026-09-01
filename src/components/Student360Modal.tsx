@@ -1145,7 +1145,7 @@ export default function Student360Modal({
                               <div className="overflow-y-auto max-h-48 space-y-1 custom-scrollbar">
                                 <div
                                   onClick={() => {
-                                    setFormData({ ...formData, batch: "Unassigned" });
+                                    setFormData({ ...formData, batch: "Unassigned", batchId: "" });
                                     setIsBatchDropdownOpen(false);
                                     setBatchSearchQuery("");
                                   }}
@@ -1159,7 +1159,7 @@ export default function Student360Modal({
 
                                 <div
                                   onClick={() => {
-                                    setFormData({ ...formData, batch: "General Batch" });
+                                    setFormData({ ...formData, batch: "General Batch", batchId: "" });
                                     setIsBatchDropdownOpen(false);
                                     setBatchSearchQuery("");
                                   }}
@@ -1178,13 +1178,14 @@ export default function Student360Modal({
                                     const q = batchSearchQuery.toLowerCase().trim();
                                     return (
                                       (b.batchName || "").toLowerCase().includes(q) ||
+                                      (b.batchId || "").toLowerCase().includes(q) ||
                                       (b.course || "").toLowerCase().includes(q) ||
                                       (b.teacherName || "").toLowerCase().includes(q)
                                     );
                                   })
                                   .map((b: any) => {
                                     const bName = b.batchName;
-                                    const isSelected = formData.batch === bName;
+                                    const isSelected = (formData.batchId && (formData.batchId === b.batchId || formData.batchId === b._id)) || (!formData.batchId && formData.batch === bName);
 
                                     return (
                                       <div
@@ -1221,7 +1222,7 @@ export default function Student360Modal({
                                   !availableBatches.some((b: any) => (b.batchName || "").toLowerCase() === batchSearchQuery.toLowerCase().trim()) && (
                                     <div
                                       onClick={() => {
-                                        setFormData({ ...formData, batch: batchSearchQuery.trim() });
+                                        setFormData({ ...formData, batch: batchSearchQuery.trim(), batchId: "" });
                                         setIsBatchDropdownOpen(false);
                                         setBatchSearchQuery("");
                                       }}

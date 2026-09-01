@@ -27,55 +27,41 @@ export async function GET(request: Request) {
       brand = userBrand;
     }
 
-    // If rosterOnly flag is passed, fetch enrolled students for the specified batch
-    if (getRosterOnly === "true" && (batchId || batchName)) {
-      let targetBatchName = batchName;
-      let targetCourse = "";
-
-      let customBatchId = "";
-      if (batchId) {
-        try {
-          const bQuery: any[] = [{ batchId: batchId }];
-          if (mongoose.Types.ObjectId.isValid(batchId)) {
-            bQuery.push({ _id: new mongoose.Types.ObjectId(batchId) });
-          }
-          const batchObj = await Batch.findOne({ $or: bQuery }).lean();
-          if (batchObj) {
-            targetBatchName = batchObj.batchName;
-            targetCourse = batchObj.course || "";
-            customBatchId = batchObj.batchId || "";
-          }
-        } catch (_) {}
+    // If rosterOnly flag is passed, fetch enrolled students strictly for the specified batchId
+    if (getRosterOnly === "true") {
+      if (!batchId) {
+        return NextResponse.json({
+          success: true,
+          count: 0,
+          roster: [],
+        });
       }
 
-      // Build strict match queries for batch assignment
-      const batchOrQuery: any[] = [];
-      if (batchId) {
-        batchOrQuery.push({ batchId: batchId });
-      }
-      if (customBatchId && customBatchId !== batchId) {
-        batchOrQuery.push({ batchId: customBatchId });
+      const trimmedBatchId = batchId.trim();
+      const batchIdOrQuery: any[] = [{ batchId: trimmedBatchId }];
+      if (mongoose.Types.ObjectId.isValid(trimmedBatchId)) {
+        batchIdOrQuery.push({ batchId: trimmedBatchId });
       }
 
-      if (batchOrQuery.length > 0) {
-        if (targetBatchName) {
-          batchOrQuery.push({
-            $and: [
-              { batch: targetBatchName.trim() },
-              { $or: [{ batchId: { $exists: false } }, { batchId: "" }, { batchId: null }] }
-            ]
-          });
+      try {
+        const bQuery: any[] = [{ batchId: trimmedBatchId }];
+        if (mongoose.Types.ObjectId.isValid(trimmedBatchId)) {
+          bQuery.push({ _id: new mongoose.Types.ObjectId(trimmedBatchId) });
         }
-      } else if (targetBatchName) {
-        batchOrQuery.push({ batch: targetBatchName.trim() });
-      }
+        const batchObj = await Batch.findOne({ $or: bQuery }).lean();
+        if (batchObj) {
+          if (batchObj.batchId && batchObj.batchId !== trimmedBatchId) {
+            batchIdOrQuery.push({ batchId: batchObj.batchId });
+          }
+          if (batchObj._id && batchObj._id.toString() !== trimmedBatchId) {
+            batchIdOrQuery.push({ batchId: batchObj._id.toString() });
+          }
+        }
+      } catch (_) {}
 
-      let admissions: any[] = [];
-      if (batchOrQuery.length > 0) {
-        admissions = await Admission.find({
-          $or: batchOrQuery
-        }).select("fullName studentFullName mobileNumber phone email admissionId batch batchId course").lean();
-      }
+      const admissions = await Admission.find({
+        $or: batchIdOrQuery
+      }).select("fullName studentFullName mobileNumber phone email admissionId batch batchId course").lean();
 
       let studentRoster = admissions.map((a: any) => ({
         studentName: a.fullName || a.studentFullName || "Student",
@@ -85,28 +71,11 @@ export async function GET(request: Request) {
         remarks: ""
       }));
 
-      // Check Enquiry ONLY if enquiry has this specific batch explicitly assigned
-      if (studentRoster.length === 0 && (batchId || targetBatchName)) {
-        const enquiryBatchQuery: any[] = [];
-        if (batchId) enquiryBatchQuery.push({ batchId: batchId });
-        if (customBatchId && customBatchId !== batchId) enquiryBatchQuery.push({ batchId: customBatchId });
-
-        if (enquiryBatchQuery.length > 0) {
-          if (targetBatchName) {
-            enquiryBatchQuery.push({
-              $and: [
-                { batch: targetBatchName.trim() },
-                { $or: [{ batchId: { $exists: false } }, { batchId: "" }, { batchId: null }] }
-              ]
-            });
-          }
-        } else if (targetBatchName) {
-          enquiryBatchQuery.push({ batch: targetBatchName.trim() });
-        }
-
+      // Check Enquiry ONLY if enquiry has this specific batchId explicitly assigned
+      if (studentRoster.length === 0) {
         const batchEnquiries = await Enquiry.find({
           status: { $in: ["Admitted", "Enrolled", "Demo Attended"] },
-          $or: enquiryBatchQuery
+          $or: batchIdOrQuery
         }).select("studentFullName primaryPhoneMobile targetCourse enquiryId batch batchId").lean();
 
         if (batchEnquiries.length > 0) {

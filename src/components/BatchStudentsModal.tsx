@@ -18,40 +18,41 @@ export default function BatchStudentsModal({
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
+    setStudents([]);
+    setSearchQuery("");
+
     if (!isOpen || !batch) {
-      setStudents([]);
-      setSearchQuery("");
       return;
     }
 
     const fetchEnrolledStudents = async () => {
       setIsLoading(true);
       try {
-        const batchName = batch.batchName;
-        const batchId = batch.batchId || batch._id;
+        const batchId = String(batch.batchId || batch._id || "").trim();
+        const mongoBatchId = batch._id ? String(batch._id).trim() : "";
 
-        // Fetch students from admissions & roster endpoints using unique batchId and exact batch match
+        if (!batchId && !mongoBatchId) {
+          setStudents([]);
+          return;
+        }
+
+        // Fetch students strictly by unique batchId
         const [admissionsRes, rosterRes] = await Promise.all([
-          fetch(`/api/admissions?batchId=${encodeURIComponent(batchId)}&batch=${encodeURIComponent(batchName)}&exactBatch=true`).then((r) => r.json().catch(() => ({}))),
-          fetch(`/api/attendance?batchId=${encodeURIComponent(batchId)}&batchName=${encodeURIComponent(batchName)}&rosterOnly=true`).then((r) => r.json().catch(() => ({}))),
+          fetch(`/api/admissions?batchId=${encodeURIComponent(batchId)}`).then((r) => r.json().catch(() => ({}))),
+          fetch(`/api/attendance?batchId=${encodeURIComponent(batchId)}&rosterOnly=true`).then((r) => r.json().catch(() => ({}))),
         ]);
 
         const admStudentsRaw = admissionsRes.success && Array.isArray(admissionsRes.data) ? admissionsRes.data : [];
         const rosterStudents = rosterRes.success && Array.isArray(rosterRes.roster) ? rosterRes.roster : [];
 
-        const bIdStr = String(batch.batchId || batch._id || "").trim();
-        const bMongoId = batch._id ? String(batch._id).trim() : "";
-        const bNameStr = String(batch.batchName || "").trim();
+        const bIdStr = batchId;
+        const bMongoId = mongoBatchId;
 
+        // Strictly verify that student's batchId matches this exact batch
         const admStudents = admStudentsRaw.filter((s: any) => {
-          if (s.batchId && String(s.batchId).trim()) {
-            const studentBId = String(s.batchId).trim();
-            return (bIdStr && studentBId === bIdStr) || (bMongoId && studentBId === bMongoId);
-          }
-          if (bNameStr && s.batch) {
-            return String(s.batch).trim() === bNameStr;
-          }
-          return true;
+          const studentBId = String(s.batchId || "").trim();
+          if (!studentBId) return false;
+          return (bIdStr && studentBId === bIdStr) || (bMongoId && studentBId === bMongoId);
         });
 
         // Deduplicate students by mobile or admissionId/studentName
@@ -96,7 +97,7 @@ export default function BatchStudentsModal({
     };
 
     fetchEnrolledStudents();
-  }, [isOpen, batch]);
+  }, [isOpen, batch?._id, batch?.batchId]);
 
   if (!isOpen || !batch) return null;
 
