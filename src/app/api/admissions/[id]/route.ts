@@ -130,6 +130,7 @@ export async function PUT(
       return NextResponse.json({ success: false, message: "Forbidden: Authorized roles only can edit student records." }, { status: 403 });
     }
 
+    const body = await req.json();
     const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const trimmedId = decodeURIComponent(id || "").trim();
 
