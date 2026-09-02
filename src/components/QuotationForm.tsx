@@ -699,7 +699,18 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
       customCategoryName: customCategoryName.trim().toUpperCase(),
       billingCycle,
       contractPeriod: contractPeriod.trim(),
-      quotationNumber: quotationNumber.trim(),
+      quotationNumber: (() => {
+        const val = quotationNumber.trim();
+        if (val && /^\d+$/.test(val)) {
+          const pref = issuingCompanyInfo?.prefix || "SICCES";
+          const d = date ? new Date(date) : new Date();
+          const yr = d.getFullYear();
+          const mo = d.getMonth() + 1;
+          const fy = mo >= 4 ? `${yr}-${String(yr + 1).slice(-2)}` : `${yr - 1}-${String(yr).slice(-2)}`;
+          return `${pref}/${fy}/${val.padStart(4, "0")}`;
+        }
+        return val;
+      })(),
       date,
       validUntil: validUntil || undefined,
       poNumber: poNumber.trim(),
@@ -921,15 +932,38 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 text-xs">
             <div>
               <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
-                Quotation #
+                {isPo ? "PO #" : "Quotation #"}
               </label>
               <input
                 type="text"
                 value={quotationNumber}
                 onChange={(e) => setQuotationNumber(e.target.value)}
-                placeholder="Auto generated"
-                className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                onBlur={() => {
+                  const val = quotationNumber.trim();
+                  if (val && /^\d+$/.test(val)) {
+                    const pref = issuingCompanyInfo?.prefix || "SICCES";
+                    const d = date ? new Date(date) : new Date();
+                    const yr = d.getFullYear();
+                    const mo = d.getMonth() + 1;
+                    const fy = mo >= 4 ? `${yr}-${String(yr + 1).slice(-2)}` : `${yr - 1}-${String(yr).slice(-2)}`;
+                    setQuotationNumber(`${pref}/${fy}/${val.padStart(4, "0")}`);
+                  }
+                }}
+                placeholder="e.g. 0033 or SICCES/2026-27/0033"
+                className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-mono text-xs"
               />
+              {quotationNumber && /^\d+$/.test(quotationNumber.trim()) ? (
+                <p className="text-[10px] text-indigo-600 mt-1 font-mono font-bold">
+                  Formatted: {issuingCompanyInfo?.prefix || "SICCES"}/{(() => {
+                    const d = date ? new Date(date) : new Date();
+                    const yr = d.getFullYear();
+                    const mo = d.getMonth() + 1;
+                    return mo >= 4 ? `${yr}-${String(yr + 1).slice(-2)}` : `${yr - 1}-${String(yr).slice(-2)}`;
+                  })()}/{quotationNumber.trim().padStart(4, "0")}
+                </p>
+              ) : (
+                <p className="text-[10px] text-slate-400 mt-0.5">Leave blank for auto-generation</p>
+              )}
             </div>
 
             <div>

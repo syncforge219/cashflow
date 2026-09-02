@@ -15,6 +15,22 @@ export function getFinancialYear(dateInput: Date = new Date()): string {
   }
 }
 
+export function formatQuotationNumber(
+  input: string,
+  prefix: string = "SICCES",
+  customDate?: Date
+): string {
+  const trimmed = (input || "").trim();
+  if (!trimmed) return "";
+  if (/^\d+$/.test(trimmed)) {
+    const fy = getFinancialYear(customDate || new Date());
+    const seq = trimmed.padStart(4, "0");
+    const p = prefix && prefix !== "APPL" ? prefix : "SICCES";
+    return `${p}/${fy}/${seq}`;
+  }
+  return trimmed;
+}
+
 export async function generateQuotationNumber(companyId: string = "DEFAULT_COMPANY", customDate?: Date): Promise<string> {
   await dbConnect();
   let profile = await QuotationProfile.findOne({ companyId }).lean();
@@ -22,7 +38,8 @@ export async function generateQuotationNumber(companyId: string = "DEFAULT_COMPA
     profile = await QuotationProfile.create({ companyId });
   }
 
-  const prefix = (profile as any).prefix || "APPL";
+  const p = (profile as any)?.prefix;
+  const prefix = p && p !== "APPL" ? p : "SICCES";
   const fy = getFinancialYear(customDate || new Date());
 
   const counterDoc = await QuotationCounter.findOneAndUpdate(

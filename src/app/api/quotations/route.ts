@@ -3,7 +3,7 @@ import dbConnect from "@/lib/db";
 import Quotation from "@/models/Quotation";
 import QuotationProfile from "@/models/QuotationProfile";
 import { numberToIndianWords } from "@/lib/numberToWords";
-import { generateQuotationNumber } from "@/lib/quotationHelper";
+import { generateQuotationNumber, formatQuotationNumber } from "@/lib/quotationHelper";
 
 const parseItemQty = (item: any): number => {
   const q = item.quantity;
@@ -170,8 +170,13 @@ export async function POST(req: Request) {
     }
 
     const qDate = body.date ? new Date(body.date) : new Date();
-    const generatedNum = await generateQuotationNumber(companyId, qDate);
-    const quotationNumber = body.quotationNumber?.trim() || generatedNum;
+    const profPrefix = (profile as any)?.prefix && (profile as any).prefix !== "APPL" ? (profile as any).prefix : "SICCES";
+    let quotationNumber = body.quotationNumber?.trim();
+    if (quotationNumber) {
+      quotationNumber = formatQuotationNumber(quotationNumber, profPrefix, qDate);
+    } else {
+      quotationNumber = await generateQuotationNumber(companyId, qDate);
+    }
 
     // Server-side Recalculate Items & Totals
     const items = Array.isArray(body.items) ? body.items : [];
@@ -319,8 +324,16 @@ export async function PUT(req: Request) {
     const calculatedGrandTotal = Math.round(taxableBase + calculatedGstAmount + transportCharges + additionalCharges);
 
     const amountInWords = numberToIndianWords(calculatedGrandTotal);
+    let updatedQuotationNumber: string | undefined = undefined;
+    if (body.quotationNumber !== undefined && String(body.quotationNumber).trim() !== "") {
+      const rawNum = String(body.quotationNumber).trim();
+      const qDate = body.date ? new Date(body.date) : (existingQuotation.date ? new Date(existingQuotation.date) : new Date());
+      const prefix = existingQuotation.quotationNumber?.split("/")[0] || "SICCES";
+      updatedQuotationNumber = formatQuotationNumber(rawNum, prefix, qDate);
+    }
 
     const updatePayload: any = {
+      ...(updatedQuotationNumber && { quotationNumber: updatedQuotationNumber }),
       ...(body.category && { category: body.category }),
       ...(body.customCategoryName !== undefined && { customCategoryName: body.customCategoryName.trim() }),
       ...(body.billingCycle && { billingCycle: body.billingCycle }),
