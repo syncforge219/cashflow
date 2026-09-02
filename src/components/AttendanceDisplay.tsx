@@ -441,7 +441,7 @@ export default function AttendanceDisplay() {
                   {/* Block Actions */}
                   <div className="pt-2 flex items-center gap-2">
                     <button
-                      onClick={() => handleOpenModalForBatch(batch._id)}
+                      onClick={() => handleOpenModalForBatch(batch.batchId || String(batch._id))}
                       className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl cursor-pointer shadow-xs transition-colors flex items-center justify-center gap-1.5"
                     >
                       <span>⚡</span> Mark Attendance

@@ -11,6 +11,21 @@ interface TakeAttendanceModalProps {
   initialBatchId?: string;
 }
 
+const resolveCanonicalBatchId = (list: any[], targetId?: string): string => {
+  if (!list || list.length === 0) return "";
+  if (!targetId) return list[0].batchId || String(list[0]._id);
+  const cleanTarget = String(targetId).trim().toLowerCase();
+  const match = list.find((b: any) =>
+    (b.batchId && String(b.batchId).trim().toLowerCase() === cleanTarget) ||
+    (b._id && String(b._id).trim().toLowerCase() === cleanTarget) ||
+    (b.batchName && String(b.batchName).trim().toLowerCase() === cleanTarget)
+  );
+  if (match) {
+    return match.batchId || String(match._id);
+  }
+  return list[0].batchId || String(list[0]._id);
+};
+
 export default function TakeAttendanceModal({
   isOpen,
   onClose,
@@ -35,6 +50,22 @@ export default function TakeAttendanceModal({
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
+  // Whenever modal opens or initialBatchId changes, immediately sync selectedBatchId
+  useEffect(() => {
+    if (isOpen) {
+      if (initialBatchId) {
+        if (batchesList.length > 0) {
+          const canonical = resolveCanonicalBatchId(batchesList, initialBatchId);
+          setSelectedBatchId(canonical);
+        } else {
+          setSelectedBatchId(initialBatchId);
+        }
+      } else if (batchesList.length > 0 && !selectedBatchId) {
+        setSelectedBatchId(batchesList[0].batchId || String(batchesList[0]._id));
+      }
+    }
+  }, [isOpen, initialBatchId, batchesList]);
+
   // Fetch faculty's assigned batches when modal opens
   useEffect(() => {
     if (!isOpen) return;
@@ -56,11 +87,10 @@ export default function TakeAttendanceModal({
           const bList: any[] = sortBatchesByTiming(json.data || json.batches || []);
           setBatchesList(bList);
 
-          if (bList.length > 0) {
-            const initialId = initialBatchId && bList.some((b: any) => (b.batchId || b._id) === initialBatchId || b._id === initialBatchId)
-              ? initialBatchId
-              : (bList[0].batchId || bList[0]._id);
-            setSelectedBatchId(initialId);
+          const target = initialBatchId || selectedBatchId;
+          const canonical = resolveCanonicalBatchId(bList, target);
+          if (canonical) {
+            setSelectedBatchId(canonical);
           }
         }
       } catch (err) {
@@ -163,7 +193,12 @@ export default function TakeAttendanceModal({
     setSuccessMsg("");
 
     try {
-      const selectedBatch = batchesList.find((b) => (b.batchId || b._id) === selectedBatchId);
+      const selectedBatch = batchesList.find(
+        (b) =>
+          (b.batchId && b.batchId === selectedBatchId) ||
+          (b._id && String(b._id) === selectedBatchId) ||
+          (b.batchId || String(b._id)) === selectedBatchId
+      );
       const batchName = selectedBatch ? selectedBatch.batchName : "Faculty Batch";
       const course = selectedBatch ? selectedBatch.course : "";
       const brand = selectedBatch ? selectedBatch.brand : user?.brandScope || "";
@@ -256,8 +291,9 @@ export default function TakeAttendanceModal({
                 ) : (
                   batchesList.map((b) => {
                     const slot = getBatchSlotInfo(b.timing);
+                    const val = b.batchId || String(b._id);
                     return (
-                      <option key={b._id} value={b.batchId || b._id}>
+                      <option key={String(b._id)} value={val}>
                         {slot.icon} {b.batchId ? `[${b.batchId}] ` : ""}{b.batchName} ({b.course || "General"}) • {b.timing || "10:00 AM - 12:00 PM"}
                       </option>
                     );
@@ -300,7 +336,10 @@ export default function TakeAttendanceModal({
         {/* Selected Batch Timing & Slot Info Strip */}
         {(() => {
           const activeBatch = batchesList.find(
-            (b) => (b.batchId || b._id) === selectedBatchId || b._id === selectedBatchId
+            (b) =>
+              (b.batchId && b.batchId === selectedBatchId) ||
+              (b._id && String(b._id) === selectedBatchId) ||
+              (b.batchId || String(b._id)) === selectedBatchId
           );
           if (!activeBatch) return null;
           const slot = getBatchSlotInfo(activeBatch.timing);
