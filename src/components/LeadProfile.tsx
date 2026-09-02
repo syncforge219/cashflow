@@ -37,6 +37,11 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
   const [completeRemarks, setCompleteRemarks] = useState("");
   const [conversionChance, setConversionChance] = useState("High");
   const [updateLeadStatus, setUpdateLeadStatus] = useState("Contacted");
+  const [nextFollowUpDate, setNextFollowUpDate] = useState("");
+  const [nextFollowUpTime, setNextFollowUpTime] = useState("");
+  const [nextFollowUpPriority, setNextFollowUpPriority] = useState("Medium");
+  const [nextFollowUpType, setNextFollowUpType] = useState("Phone Call");
+  const [nextFollowUpRemarks, setNextFollowUpRemarks] = useState("");
   const [isCompletingTask, setIsCompletingTask] = useState(false);
 
   // Schedule Demo Modal states
@@ -357,6 +362,11 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
     } else {
       setUpdateLeadStatus(localLead.status || "Contacted");
     }
+    setNextFollowUpDate("");
+    setNextFollowUpTime("");
+    setNextFollowUpPriority(localLead.priorityLevel || "Medium");
+    setNextFollowUpType(task.typeOfContact || "Phone Call");
+    setNextFollowUpRemarks("");
     setIsCompleteTaskModalOpen(true);
   };
 
@@ -421,31 +431,76 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
 
   const handleCompleteTaskSubmit = async () => {
     if (!taskToComplete) return;
+
+    // Strict validation: every field is compulsory
+    if (!completeRemarks.trim()) {
+      return alert("Please enter Interaction Remarks / Outcome for this task.");
+    }
+    if (!conversionChance) {
+      return alert("Please select Conversion Chance / Interest Level.");
+    }
+    if (!updateLeadStatus) {
+      return alert("Please select Lead Pipeline Status.");
+    }
+    if (!nextFollowUpDate) {
+      return alert("Please select Next Follow-up Date.");
+    }
+    if (!nextFollowUpTime) {
+      return alert("Please select Next Follow-up Time.");
+    }
+    if (!nextFollowUpPriority) {
+      return alert("Please select Follow-up Priority.");
+    }
+    if (!nextFollowUpType) {
+      return alert("Please select Type of Contact.");
+    }
+    if (!nextFollowUpRemarks.trim()) {
+      return alert("Please enter Next Follow-up Interaction Remarks.");
+    }
+
     setIsCompletingTask(true);
     try {
+      // 1. Mark current task completed & update lead status
       const response = await fetch(`/api/enquiries/${localLead._id}/tasks/${taskToComplete._id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           isCompleted: true,
           status: "Completed",
-          remarks: completeRemarks,
+          remarks: completeRemarks.trim(),
           conversionChance: conversionChance,
           leadStatus: updateLeadStatus
         })
       });
-      const data = await response.json();
-      if (data.success) {
-        setLocalLead(data.data);
-        setIsCompleteTaskModalOpen(false);
-        setTaskToComplete(null);
-        if (onSuccess) onSuccess();
-      } else {
-        alert("Failed to update task: " + (data.message || data.error));
+      const patchData = await response.json();
+      if (!patchData.success) {
+        throw new Error(patchData.message || patchData.error || "Failed to update task");
       }
-    } catch (e) {
+
+      // 2. Schedule the next planned follow-up interaction
+      const taskRes = await fetch(`/api/enquiries/${localLead._id}/tasks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date: nextFollowUpDate,
+          time: nextFollowUpTime,
+          priority: nextFollowUpPriority,
+          typeOfContact: nextFollowUpType,
+          remarks: nextFollowUpRemarks.trim()
+        })
+      });
+      const taskData = await taskRes.json();
+
+      const finalLead = taskData.data || patchData.data;
+      if (finalLead) {
+        setLocalLead(finalLead);
+      }
+      setIsCompleteTaskModalOpen(false);
+      setTaskToComplete(null);
+      if (onSuccess) onSuccess();
+    } catch (e: any) {
       console.error(e);
-      alert("Error completing task.");
+      alert("Error completing task: " + (e.message || e));
     } finally {
       setIsCompletingTask(false);
     }
@@ -1321,7 +1376,7 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
       {/* COMPLETE TASK & LOG REMARKS MODAL OVERLAY */}
       {isCompleteTaskModalOpen && taskToComplete && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+          <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
             {/* Modal Header */}
             <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-emerald-50/50">
               <div className="flex items-center gap-3">
@@ -1335,7 +1390,7 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
                   <p className="text-xs font-semibold text-slate-500">[{taskToComplete.typeOfContact}] scheduled for {taskToComplete.date} at {taskToComplete.time}</p>
                 </div>
               </div>
-              <button onClick={() => setIsCompleteTaskModalOpen(false)} className="text-slate-400 hover:text-slate-700 transition-colors">
+              <button onClick={() => setIsCompleteTaskModalOpen(false)} className="text-slate-400 hover:text-slate-700 transition-colors cursor-pointer">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -1343,65 +1398,170 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
             </div>
 
             {/* Form Content */}
-            <div className="px-6 py-6 overflow-y-auto max-h-[75vh] flex flex-col gap-5">
-              {/* Interaction Remarks / Notes */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Interaction Remarks / Outcome *
-                </label>
-                <textarea
-                  value={completeRemarks}
-                  onChange={(e) => setCompleteRemarks(e.target.value)}
-                  rows={3}
-                  placeholder="Log what happened during this call/meeting (e.g. Student requested fee discount, demo scheduled for Friday)..."
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition-all resize-none bg-white"
-                />
-              </div>
+            <div className="px-6 py-6 overflow-y-auto max-h-[75vh] flex flex-col gap-6">
+              {/* SECTION 1: Current Interaction Outcome */}
+              <div className="flex flex-col gap-5">
+                {/* Interaction Remarks / Notes */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    INTERACTION REMARKS / OUTCOME <span className="text-rose-500">*</span>
+                  </label>
+                  <textarea
+                    value={completeRemarks}
+                    onChange={(e) => setCompleteRemarks(e.target.value)}
+                    rows={3}
+                    placeholder="visited on 2 Sept will plan in mid sept only ..Fee 15K late eve batch"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition-all resize-none bg-white"
+                  />
+                </div>
 
-              {/* Conversion Chances / Priority */}
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Conversion Chance / Interest Level *
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { label: "High (Hot)", value: "High", color: "border-emerald-300 bg-emerald-50 text-emerald-700" },
-                    { label: "Medium (Warm)", value: "Medium", color: "border-amber-300 bg-amber-50 text-amber-700" },
-                    { label: "Low (Cold)", value: "Low", color: "border-slate-300 bg-slate-50 text-slate-700" },
-                  ].map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => setConversionChance(option.value)}
-                      className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all text-center ${
-                        conversionChance === option.value
-                          ? `${option.color} shadow-sm ring-2 ring-emerald-500/20`
-                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
+                {/* Conversion Chances / Priority */}
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    CONVERSION CHANCE / INTEREST LEVEL <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { label: "High (Hot)", value: "High", color: "border-emerald-300 bg-emerald-50 text-emerald-700" },
+                      { label: "Medium (Warm)", value: "Medium", color: "border-amber-300 bg-amber-50 text-amber-700" },
+                      { label: "Low (Cold)", value: "Low", color: "border-slate-300 bg-slate-50 text-slate-700" },
+                    ].map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setConversionChance(option.value)}
+                        className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all text-center cursor-pointer ${
+                          conversionChance === option.value
+                            ? `${option.color} shadow-sm ring-2 ring-emerald-500/20`
+                            : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Lead Status Update */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    UPDATE LEAD PIPELINE STATUS <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={updateLeadStatus}
+                    onChange={(e) => setUpdateLeadStatus(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition-all bg-white cursor-pointer appearance-none"
+                    style={{
+                      backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E\")",
+                      backgroundPosition: "right 1rem center",
+                      backgroundRepeat: "no-repeat",
+                      backgroundSize: "1em",
+                    }}
+                  >
+                    <option value="New">New</option>
+                    <option value="Contacted">Contacted</option>
+                    <option value="Interested">Interested</option>
+                    <option value="Demo Scheduled">Demo Scheduled</option>
+                    <option value="Demo Attended">Demo Attended</option>
+                    <option value="Lost">Lost</option>
+                  </select>
                 </div>
               </div>
 
-              {/* Lead Status Update */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Update Lead Pipeline Status
-                </label>
-                <select
-                  value={updateLeadStatus}
-                  onChange={(e) => setUpdateLeadStatus(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition-all bg-white"
-                >
-                  <option value="New">New</option>
-                  <option value="Contacted">Contacted</option>
-                  <option value="Interested">Interested</option>
-                  <option value="Demo Scheduled">Demo Scheduled</option>
-                  <option value="Demo Attended">Demo Attended</option>
-                  <option value="Lost">Lost</option>
-                </select>
+              {/* SECTION 2: Plan Follow-up Interaction (from SS 2nd) */}
+              <div className="pt-5 border-t border-slate-200 flex flex-col gap-5">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                    <span>📅</span> Plan Follow-up Interaction
+                  </h4>
+                  <span className="text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-lg">
+                    Compulsory
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-slate-500">
+                      Follow-up Date <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={nextFollowUpDate}
+                      onChange={(e) => setNextFollowUpDate(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-slate-500">
+                      Follow-up Time <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="time"
+                      value={nextFollowUpTime}
+                      onChange={(e) => setNextFollowUpTime(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-slate-500">
+                      Priority <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={nextFollowUpPriority}
+                      onChange={(e) => setNextFollowUpPriority(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white appearance-none cursor-pointer"
+                      style={{
+                        backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E\")",
+                        backgroundPosition: "right 1rem center",
+                        backgroundRepeat: "no-repeat",
+                        backgroundSize: "1em",
+                      }}
+                    >
+                      <option value="High">High</option>
+                      <option value="Medium">Medium</option>
+                      <option value="Low">Low</option>
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-slate-500">
+                      Type of Contact <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={nextFollowUpType}
+                      onChange={(e) => setNextFollowUpType(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white appearance-none cursor-pointer"
+                      style={{
+                        backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E\")",
+                        backgroundPosition: "right 1rem center",
+                        backgroundRepeat: "no-repeat",
+                        backgroundSize: "1em",
+                      }}
+                    >
+                      <option value="Phone Call">Phone Call</option>
+                      <option value="WhatsApp Message">WhatsApp Message</option>
+                      <option value="Face-to-Face Meeting">Face-to-Face Meeting</option>
+                      <option value="Zoom/Google Meet Video Call">Zoom/Google Meet Video Call</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-slate-500">
+                    Interaction Remarks <span className="text-rose-500">*</span>
+                  </label>
+                  <textarea
+                    value={nextFollowUpRemarks}
+                    onChange={(e) => setNextFollowUpRemarks(e.target.value)}
+                    rows={3}
+                    placeholder="e.g. Schedule weekend consultation, send fee structures..."
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all resize-none bg-white"
+                  />
+                </div>
               </div>
             </div>
 
