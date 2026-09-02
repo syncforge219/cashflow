@@ -105,7 +105,10 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split("T")[0]);
   
   const amountReceivedToday = registrationAmount;
-  const remainingBalance = Math.max(0, finalFee - registrationAmount);
+  const remainingBalance = Math.max(
+    0,
+    finalFee - (Number(registrationAmount) || 0) - (Number(downpaymentAmount) || 0)
+  );
 
   const [hasEmi, setHasEmi] = useState(false);
   const [numInstallments, setNumInstallments] = useState(1);
@@ -506,7 +509,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
         targetCourses: selectedCourses,
         batch, batchId, duration, startDate, academicYear, admissionDate, companyAssigned,
         courseFee, scholarshipType, scholarshipAmount, discountType, discountAmount, additionalDiscount, totalDiscount, finalFee,
-        paymentMode, transactionNo, amountReceivedToday: Number(registrationAmount) || 0, registrationAmount: Number(registrationAmount) || 0, downpaymentAmount: Number(downpaymentAmount) || 0, downpaymentDueDate, paymentDate, remainingBalance: Math.max(0, finalFee - (Number(registrationAmount) || 0)), hasEmi,
+        paymentMode, transactionNo, amountReceivedToday: Number(registrationAmount) || 0, registrationAmount: Number(registrationAmount) || 0, downpaymentAmount: Number(downpaymentAmount) || 0, downpaymentDueDate, paymentDate, remainingBalance, hasEmi,
         numInstallments: customEmiItems.length || numInstallments,
         installmentAmount: customEmiItems.length > 0 ? Math.round(scheduledEmiSum / customEmiItems.length) : installmentAmount,
         customEmiPlan
@@ -1033,8 +1036,8 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
                     <input
                       type="number"
                       step="any"
-                      value={downpaymentAmount}
-                      onChange={(e) => setDownpaymentAmount(Number(e.target.value))}
+                      value={downpaymentAmount === 0 ? "" : downpaymentAmount}
+                      onChange={(e) => setDownpaymentAmount(e.target.value === "" ? 0 : Number(e.target.value))}
                       placeholder="0"
                       className="w-full h-11 px-4 rounded-xl border border-slate-200 text-sm font-bold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white"
                     />
@@ -1387,6 +1390,12 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
                     <span className="text-slate-500 font-medium">Received Today</span>
                     <span className="font-semibold text-slate-800">₹{amountReceivedToday.toLocaleString()}</span>
                   </div>
+                  {downpaymentAmount > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 font-medium">Downpayment Committed</span>
+                      <span className="font-semibold text-amber-700 font-bold">₹{downpaymentAmount.toLocaleString()}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-rose-600">
                     <span className="font-bold">Outstanding Balance</span>
                     <span className="font-extrabold">₹{remainingBalance.toLocaleString()}</span>

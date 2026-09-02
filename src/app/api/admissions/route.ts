@@ -91,7 +91,10 @@ export async function POST(req: NextRequest) {
     data.amountReceivedToday = data.registrationAmount;
     data.downpaymentAmount = Number(data.downpaymentAmount) || 0;
     data.downpaymentDueDate = data.downpaymentDueDate ? new Date(data.downpaymentDueDate) : undefined;
-    data.remainingBalance = Math.max(0, data.finalFee - data.registrationAmount);
+    data.remainingBalance = Math.max(
+      0,
+      data.finalFee - data.registrationAmount - data.downpaymentAmount
+    );
 
     // Reconcile custom EMI plan so its total strictly matches remainingBalance
     if (Array.isArray(data.customEmiPlan) && data.customEmiPlan.length > 0) {
