@@ -65,6 +65,8 @@ export async function GET(req: Request) {
     const q = searchParams.get("q") || "";
     const status = searchParams.get("status") || "ALL";
     const category = searchParams.get("category") || "ALL";
+    const billingCycle = searchParams.get("billingCycle") || "ALL";
+    const customer = searchParams.get("customer") || "ALL";
     const page = parseInt(searchParams.get("page") || "1", 10);
     const limit = parseInt(searchParams.get("limit") || "10", 10);
 
@@ -78,6 +80,14 @@ export async function GET(req: Request) {
       query.category = category;
     }
 
+    if (billingCycle !== "ALL") {
+      query.billingCycle = billingCycle;
+    }
+
+    if (customer !== "ALL") {
+      query.customerName = { $regex: `^${customer.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, $options: "i" };
+    }
+
     if (q) {
       query.$or = [
         { quotationNumber: { $regex: q, $options: "i" } },
@@ -89,11 +99,18 @@ export async function GET(req: Request) {
 
     const skip = (page - 1) * limit;
 
-    const [quotations, totalCount, allQuotationsForStats] = await Promise.all([
+    const [quotations, totalCount, allQuotationsForStats, distinctCustomers] = await Promise.all([
       Quotation.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
       Quotation.countDocuments(query),
       Quotation.find({ companyId }).select("status grandTotal items gstRate transportCharges discount date createdAt").lean(),
+      Quotation.distinct("customerName", { companyId }),
     ]);
+
+    const cleanCustomers = (distinctCustomers || [])
+      .filter((c: any) => typeof c === "string" && c.trim().length > 0)
+      .map((c: string) => c.trim())
+      .filter((c: string, idx: number, arr: string[]) => arr.indexOf(c) === idx)
+      .sort((a: string, b: string) => a.localeCompare(b));
 
     // Compute Stats
     let totalVal = 0;
@@ -150,6 +167,7 @@ export async function GET(req: Request) {
         totalPages: Math.ceil(totalCount / limit),
       },
       stats,
+      customers: cleanCustomers,
     });
   } catch (error: any) {
     console.error("Error fetching quotations:", error);

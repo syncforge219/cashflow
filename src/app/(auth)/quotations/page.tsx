@@ -48,6 +48,9 @@ export default function QuotationsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
+  const [billingCycleFilter, setBillingCycleFilter] = useState("ALL");
+  const [customerFilter, setCustomerFilter] = useState("ALL");
+  const [customerList, setCustomerList] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [selectedQuotationForPo, setSelectedQuotationForPo] = useState<QuotationItem | null>(null);
@@ -59,6 +62,8 @@ export default function QuotationsPage() {
         q: search,
         status: statusFilter,
         category: categoryFilter,
+        billingCycle: billingCycleFilter,
+        customer: customerFilter,
         page: page.toString(),
         limit: "10",
       });
@@ -70,6 +75,12 @@ export default function QuotationsPage() {
         setQuotations(data.data || []);
         if (data.stats) setStats(data.stats);
         if (data.pagination) setTotalPages(data.pagination.totalPages || 1);
+        if (Array.isArray(data.customers)) {
+          setCustomerList((prev) => {
+            const combined = Array.from(new Set([...prev, ...data.customers])).sort((a, b) => a.localeCompare(b));
+            return combined;
+          });
+        }
       }
     } catch (err) {
       console.error("Error loading quotations:", err);
@@ -79,8 +90,27 @@ export default function QuotationsPage() {
   };
 
   useEffect(() => {
+    async function loadCustomers() {
+      try {
+        const res = await fetch("/api/quotations/customers");
+        const data = await res.json();
+        if (res.ok && data.success && Array.isArray(data.data)) {
+          const names: string[] = data.data.map((c: any) => c.name?.trim()).filter(Boolean);
+          setCustomerList((prev) => {
+            const combined = Array.from(new Set([...prev, ...names])).sort((a, b) => a.localeCompare(b));
+            return combined;
+          });
+        }
+      } catch (err) {
+        console.error("Error loading customers:", err);
+      }
+    }
+    loadCustomers();
+  }, []);
+
+  useEffect(() => {
     fetchQuotations();
-  }, [search, statusFilter, categoryFilter, page]);
+  }, [search, statusFilter, categoryFilter, billingCycleFilter, customerFilter, page]);
 
   const handleDuplicate = async (id: string, num: string) => {
     if (!confirm(`Duplicate quotation ${num}?`)) return;
@@ -233,22 +263,86 @@ export default function QuotationsPage() {
             </div>
 
             {/* Controls & Filter Bar */}
-            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm">
-              <div className="w-full md:w-72">
-                <input
-                  type="text"
-                  placeholder="Search quotation #, customer, PO..."
-                  value={search}
-                  onChange={(e) => {
-                    setSearch(e.target.value);
-                    setPage(1);
-                  }}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 placeholder-slate-400 text-xs rounded-xl px-3.5 py-2.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all shadow-sm"
-                />
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 space-y-3.5 shadow-sm">
+              {/* Row 1: Search, Customer Filter & Billing Frequency Filter */}
+              <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+                <div className="flex-1 min-w-[220px] max-w-md">
+                  <input
+                    type="text"
+                    placeholder="Search quotation #, customer, PO..."
+                    value={search}
+                    onChange={(e) => {
+                      setSearch(e.target.value);
+                      setPage(1);
+                    }}
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 placeholder-slate-400 text-xs rounded-xl px-3.5 py-2.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all shadow-sm"
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2.5">
+                  {/* Customer Filter Dropdown */}
+                  <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 shadow-xs">
+                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">👤 Customer:</span>
+                    <select
+                      value={customerFilter}
+                      onChange={(e) => {
+                        setCustomerFilter(e.target.value);
+                        setPage(1);
+                      }}
+                      className="bg-transparent text-slate-800 font-bold text-xs py-1.5 focus:outline-none cursor-pointer max-w-[200px] truncate"
+                    >
+                      <option value="ALL">All Customers</option>
+                      {customerList.map((cust) => (
+                        <option key={cust} value={cust}>
+                          {cust}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Billing Frequency Dropdown Filter */}
+                  <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 shadow-xs">
+                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">🔄 Billing:</span>
+                    <select
+                      value={billingCycleFilter}
+                      onChange={(e) => {
+                        setBillingCycleFilter(e.target.value);
+                        setPage(1);
+                      }}
+                      className="bg-transparent text-slate-800 font-bold text-xs py-1.5 focus:outline-none cursor-pointer"
+                    >
+                      <option value="ALL">All Frequencies</option>
+                      <option value="ONE_TIME">One-Time / Fixed Price</option>
+                      <option value="MONTHLY">Monthly Recurring</option>
+                      <option value="QUARTERLY">Quarterly Billing</option>
+                      <option value="HALF_YEARLY">Half-Yearly (6 Months)</option>
+                      <option value="YEARLY">Yearly / Annual Contract</option>
+                      <option value="CUSTOM">Custom Schedule</option>
+                    </select>
+                  </div>
+
+                  {/* Reset Filters button */}
+                  {(search || statusFilter !== "ALL" || categoryFilter !== "ALL" || billingCycleFilter !== "ALL" || customerFilter !== "ALL") && (
+                    <button
+                      onClick={() => {
+                        setSearch("");
+                        setStatusFilter("ALL");
+                        setCategoryFilter("ALL");
+                        setBillingCycleFilter("ALL");
+                        setCustomerFilter("ALL");
+                        setPage(1);
+                      }}
+                      className="px-2.5 py-1.5 text-[11px] font-extrabold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100/80 rounded-xl border border-rose-200/80 transition-all cursor-pointer flex items-center gap-1"
+                      title="Clear all filters"
+                    >
+                      ✕ Reset
+                    </button>
+                  )}
+                </div>
               </div>
 
-              {/* Status & Category Filter Tabs */}
-              <div className="flex flex-wrap items-center gap-1.5 w-full md:w-auto">
+              {/* Row 2: Category and Status Tabs */}
+              <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2.5 border-t border-slate-100">
                 <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/60 text-xs font-bold text-slate-500">
                   <span className="px-2 text-[10px] uppercase">Cat:</span>
                   {[
