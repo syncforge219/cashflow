@@ -5,6 +5,7 @@ import Batch from "@/models/Batch";
 import User from "@/models/User";
 import { getUserFromCookies } from "@/lib/helper";
 import { computeBatchStatus } from "@/lib/batchHelper";
+import { sortBatchesByTiming } from "@/lib/slotHelper";
 
 export async function GET(request: Request) {
   try {
@@ -115,10 +116,22 @@ export async function GET(request: Request) {
         needsDbUpdate = true;
       }
 
-      if (b.timing && /12:00\s*AM/i.test(b.timing)) {
+      if (!b.timing || !b.timing.trim()) {
+        const defaultTiming = "10:00 AM - 12:00 PM";
+        updates.timing = defaultTiming;
+        batches[i].timing = defaultTiming;
+        needsDbUpdate = true;
+      } else if (/12:00\s*AM/i.test(b.timing)) {
         const correctedTiming = b.timing.replace(/12:00\s*AM/gi, "12:00 PM");
         updates.timing = correctedTiming;
         batches[i].timing = correctedTiming;
+        needsDbUpdate = true;
+      }
+
+      if (!b.startDate) {
+        const defaultStart = b.createdAt ? new Date(b.createdAt) : new Date();
+        updates.startDate = defaultStart;
+        batches[i].startDate = defaultStart;
         needsDbUpdate = true;
       }
 
@@ -232,6 +245,8 @@ export async function GET(request: Request) {
     } catch (e) {
       console.error("Error calculating batch student counts:", e);
     }
+
+    batches = sortBatchesByTiming(batches);
 
     return NextResponse.json({
       success: true,

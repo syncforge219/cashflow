@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import TeacherSidebar from "@/components/TeacherSidebar";
 import { useUser } from "@/app/component/context/user-context";
+import { getBatchSlotInfo, sortBatchesByTiming } from "@/lib/slotHelper";
 
 // Helper to determine if a batch value represents an unassigned state
 const isBatchUnassigned = (batchName?: string) => {
@@ -22,6 +23,7 @@ export default function TeacherBatchesPage() {
   const [activeTab, setActiveTab] = useState<"batches" | "students">("batches");
   // Expanded batch ID or 'UNASSIGNED'
   const [expandedBatchId, setExpandedBatchId] = useState<string | null>(null);
+  const [batchSlotFilter, setBatchSlotFilter] = useState<"all" | "morning" | "afternoon" | "evening">("all");
 
   // Filters & State
   const [searchQuery, setSearchQuery] = useState("");
@@ -289,6 +291,56 @@ export default function TeacherBatchesPage() {
               </p>
             </div>
 
+            {/* Time Slot Filter Toolbar */}
+            <div className="flex items-center gap-1.5 flex-wrap bg-white p-3 rounded-2xl border border-slate-200/80 shadow-xs">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">
+                Time Slots:
+              </span>
+              <button
+                onClick={() => setBatchSlotFilter("all")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  batchSlotFilter === "all"
+                    ? "bg-slate-900 text-white shadow-xs"
+                    : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+                }`}
+              >
+                All ({batches.length})
+              </button>
+              <button
+                onClick={() => setBatchSlotFilter("morning")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                  batchSlotFilter === "morning"
+                    ? "bg-amber-500 text-white shadow-xs shadow-amber-500/20"
+                    : "bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/60"
+                }`}
+              >
+                <span>🌅</span>
+                <span>Morning ({batches.filter((b) => getBatchSlotInfo(b.timing).slotKey === "morning").length})</span>
+              </button>
+              <button
+                onClick={() => setBatchSlotFilter("afternoon")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                  batchSlotFilter === "afternoon"
+                    ? "bg-sky-600 text-white shadow-xs shadow-sky-600/20"
+                    : "bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200/60"
+                }`}
+              >
+                <span>☀️</span>
+                <span>Afternoon ({batches.filter((b) => getBatchSlotInfo(b.timing).slotKey === "afternoon").length})</span>
+              </button>
+              <button
+                onClick={() => setBatchSlotFilter("evening")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                  batchSlotFilter === "evening"
+                    ? "bg-indigo-600 text-white shadow-xs shadow-indigo-600/20"
+                    : "bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200/60"
+                }`}
+              >
+                <span>🌆</span>
+                <span>Evening ({batches.filter((b) => getBatchSlotInfo(b.timing).slotKey === "evening").length})</span>
+              </button>
+            </div>
+
             {/* List of Batches assigned to teacher */}
             <div className="space-y-4">
               {isLoadingStudents ? (
@@ -300,8 +352,11 @@ export default function TeacherBatchesPage() {
                   No active batches assigned to you at the moment.
                 </div>
               ) : (
-                batches
+                sortBatchesByTiming(batches)
                   .filter((b) => {
+                    if (batchSlotFilter !== "all") {
+                      if (getBatchSlotInfo(b.timing).slotKey !== batchSlotFilter) return false;
+                    }
                     if (!searchQuery.trim()) return true;
                     const q = searchQuery.toLowerCase();
                     const matchBatch = (b.batchName || "").toLowerCase().includes(q) || (b.course || "").toLowerCase().includes(q) || (b.batchId || "").toLowerCase().includes(q);
@@ -313,6 +368,7 @@ export default function TeacherBatchesPage() {
                     const bId = batch._id || batch.batchId || batch.batchName;
                     const enrolledList = getStudentsInBatch(batch);
                     const isExpanded = expandedBatchId === bId;
+                    const slotInfo = getBatchSlotInfo(batch.timing);
 
                     return (
                       <div
@@ -351,10 +407,17 @@ export default function TeacherBatchesPage() {
                                 >
                                   {batch.status || "Active"}
                                 </span>
+                                <span
+                                  className={`px-2 py-0.5 rounded-lg text-[10px] font-extrabold border ${slotInfo.badgeBg} ${slotInfo.badgeText} ${slotInfo.badgeBorder} flex items-center gap-1`}
+                                >
+                                  <span>{slotInfo.icon}</span>
+                                  <span>{slotInfo.label}</span>
+                                </span>
                               </div>
                               <div className="text-xs font-semibold text-slate-500 mt-1 flex flex-wrap items-center gap-3">
                                 <span>📚 Course: <strong className="text-slate-700">{batch.course || "General"}</strong></span>
-                                {batch.timing && <span>⏰ Timing: <strong className="text-slate-700">{batch.timing}</strong></span>}
+                                <span>⏰ Timing: <strong className="text-slate-700">{batch.timing || "10:00 AM - 12:00 PM"}</strong></span>
+                                <span>🗓️ Start Date: <strong className="text-slate-700">{batch.startDate ? new Date(batch.startDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "Not Set"}</strong></span>
                                 {batch.days && batch.days.length > 0 && <span>🗓️ Days: <strong className="text-slate-700">{Array.isArray(batch.days) ? batch.days.join(", ") : batch.days}</strong></span>}
                               </div>
                             </div>

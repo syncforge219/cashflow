@@ -239,3 +239,140 @@ export function calculateFacultyAvailability(
     assignedBatches: facultyBatches,
   };
 }
+
+export interface BatchSlotInfo {
+  slotKey: "morning" | "afternoon" | "evening" | "flexible";
+  label: string;
+  timeRange: string;
+  icon: string;
+  badgeBg: string;
+  badgeText: string;
+  badgeBorder: string;
+  startMin: number;
+}
+
+/**
+ * Computes the start minutes from midnight for any batch timing string.
+ * Returns 9999 if timing is unparseable or absent, so flexible/unslotted batches sort to the bottom.
+ */
+export function getBatchStartMinutes(timing?: string): number {
+  if (!timing || !timing.trim()) return 9999;
+  const parsed = parseBatchTimingRange(timing);
+  if (parsed) return parsed.startMin;
+
+  const firstToken = timing.split(/[-–—]|(?:\s+to\s+)/i)[0]?.trim();
+  const min = parseTimeToMinutes(firstToken, false);
+  return min !== null ? min : 9999;
+}
+
+/**
+ * Classifies a batch into a time slot: Morning (< 12:00 PM), Afternoon (12:00 PM - 4:00 PM), Evening (4:00 PM+), or Flexible.
+ */
+export function getBatchSlotInfo(timing?: string): BatchSlotInfo {
+  const startMin = getBatchStartMinutes(timing);
+
+  if (startMin === 9999) {
+    return {
+      slotKey: "flexible",
+      label: "Flexible Slot",
+      timeRange: "Flexible / Not Fixed",
+      icon: "⏱️",
+      badgeBg: "bg-slate-50",
+      badgeText: "text-slate-700",
+      badgeBorder: "border-slate-200",
+      startMin: 9999,
+    };
+  }
+
+  // Morning Slot: Before 12:00 PM (0..719 min)
+  if (startMin < 720) {
+    return {
+      slotKey: "morning",
+      label: "Morning Slot",
+      timeRange: "08:00 AM - 12:00 PM",
+      icon: "🌅",
+      badgeBg: "bg-amber-50",
+      badgeText: "text-amber-700",
+      badgeBorder: "border-amber-200",
+      startMin,
+    };
+  }
+
+  // Afternoon Slot: 12:00 PM to 04:00 PM (720..959 min)
+  if (startMin < 960) {
+    return {
+      slotKey: "afternoon",
+      label: "Afternoon Slot",
+      timeRange: "12:00 PM - 04:00 PM",
+      icon: "☀️",
+      badgeBg: "bg-sky-50",
+      badgeText: "text-sky-700",
+      badgeBorder: "border-sky-200",
+      startMin,
+    };
+  }
+
+  // Evening Slot: 04:00 PM to 08:00 PM+ (960..1439 min)
+  return {
+    slotKey: "evening",
+    label: "Evening Slot",
+    timeRange: "04:00 PM - 08:00 PM",
+    icon: "🌆",
+    badgeBg: "bg-indigo-50",
+    badgeText: "text-indigo-700",
+    badgeBorder: "border-indigo-200",
+    startMin,
+  };
+}
+
+/**
+ * Sorts batches strictly in chronological order by their timing slot start minutes.
+ * Batches starting earlier appear first (e.g., 8:00 AM -> 9:00 AM -> 10:00 AM -> 1:00 PM -> 5:00 PM).
+ */
+export function sortBatchesByTiming<T extends { timing?: string; batchName?: string; startDate?: any; [key: string]: any } = any>(
+  batches: T[]
+): T[] {
+  return [...batches].sort((a, b) => {
+    const minA = getBatchStartMinutes(a.timing);
+    const minB = getBatchStartMinutes(b.timing);
+    if (minA !== minB) return minA - minB;
+
+    // Secondary sort: startDate ascending
+    if (a.startDate && b.startDate) {
+      const dateA = new Date(a.startDate).getTime();
+      const dateB = new Date(b.startDate).getTime();
+      if (!isNaN(dateA) && !isNaN(dateB) && dateA !== dateB) {
+        return dateA - dateB;
+      }
+    }
+
+    return (a.batchName || "").localeCompare(b.batchName || "");
+  });
+}
+
+/**
+ * Groups batches into morning, afternoon, evening, and flexible slot buckets.
+ */
+export function groupBatchesBySlot<T extends { timing?: string; batchName?: string; [key: string]: any } = any>(
+  batches: T[]
+): {
+  morning: T[];
+  afternoon: T[];
+  evening: T[];
+  flexible: T[];
+} {
+  const sorted = sortBatchesByTiming(batches);
+  const groups: { morning: T[]; afternoon: T[]; evening: T[]; flexible: T[] } = {
+    morning: [],
+    afternoon: [],
+    evening: [],
+    flexible: [],
+  };
+
+  for (const b of sorted) {
+    const slot = getBatchSlotInfo(b.timing);
+    groups[slot.slotKey].push(b);
+  }
+
+  return groups;
+}

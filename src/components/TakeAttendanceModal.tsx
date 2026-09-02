@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useUser } from "@/app/component/context/user-context";
+import { sortBatchesByTiming, getBatchSlotInfo } from "@/lib/slotHelper";
 
 interface TakeAttendanceModalProps {
   isOpen: boolean;
@@ -52,7 +53,7 @@ export default function TakeAttendanceModal({
         const json = await res.json();
 
         if (res.ok && json.success && (json.data || json.batches)) {
-          const bList = json.data || json.batches || [];
+          const bList: any[] = sortBatchesByTiming(json.data || json.batches || []);
           setBatchesList(bList);
 
           if (bList.length > 0) {
@@ -253,11 +254,14 @@ export default function TakeAttendanceModal({
                 {batchesList.length === 0 ? (
                   <option value="">No batches found</option>
                 ) : (
-                  batchesList.map((b) => (
-                    <option key={b._id} value={b.batchId || b._id}>
-                      {b.batchId ? `[${b.batchId}] ` : ""}{b.batchName} ({b.course})
-                    </option>
-                  ))
+                  batchesList.map((b) => {
+                    const slot = getBatchSlotInfo(b.timing);
+                    return (
+                      <option key={b._id} value={b.batchId || b._id}>
+                        {slot.icon} {b.batchId ? `[${b.batchId}] ` : ""}{b.batchName} ({b.course || "General"}) • {b.timing || "10:00 AM - 12:00 PM"}
+                      </option>
+                    );
+                  })
                 )}
               </select>
             </div>
@@ -292,6 +296,33 @@ export default function TakeAttendanceModal({
             </button>
           </div>
         </div>
+
+        {/* Selected Batch Timing & Slot Info Strip */}
+        {(() => {
+          const activeBatch = batchesList.find(
+            (b) => (b.batchId || b._id) === selectedBatchId || b._id === selectedBatchId
+          );
+          if (!activeBatch) return null;
+          const slot = getBatchSlotInfo(activeBatch.timing);
+          return (
+            <div className="px-4 py-2 bg-indigo-50/60 border-b border-indigo-100 flex items-center justify-between text-xs font-semibold flex-wrap gap-2 shrink-0">
+              <div className="flex items-center gap-2 text-slate-700 flex-wrap">
+                <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${slot.badgeBg} ${slot.badgeText} ${slot.badgeBorder} flex items-center gap-1`}>
+                  <span>{slot.icon}</span>
+                  <span>{slot.label}</span>
+                </span>
+                <span>⏰ Timing: <strong className="text-slate-900">{activeBatch.timing || "10:00 AM - 12:00 PM"}</strong></span>
+                <span className="text-slate-300">•</span>
+                <span>🗓️ Start Date: <strong className="text-slate-900">{activeBatch.startDate ? new Date(activeBatch.startDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "Not Set"}</strong></span>
+              </div>
+              {activeBatch.days && activeBatch.days.length > 0 && (
+                <span className="text-[10px] text-slate-500 font-medium">
+                  Days: {Array.isArray(activeBatch.days) ? activeBatch.days.join(", ") : activeBatch.days}
+                </span>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Realtime Attendance Stats Summary Bar */}
         <div className="px-6 py-2.5 bg-white border-b border-slate-100 flex items-center justify-between text-xs font-bold shrink-0">
