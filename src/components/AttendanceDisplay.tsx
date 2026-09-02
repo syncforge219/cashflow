@@ -82,8 +82,14 @@ export default function AttendanceDisplay() {
   }, [user]);
 
   const filteredLogs = logs.filter((log) => {
-    if (selectedBatchId !== "All Batches" && log.batchId !== selectedBatchId) {
-      return false;
+    if (selectedBatchId !== "All Batches") {
+      const matchBatch = batches.find((b) => String(b._id) === selectedBatchId || b.batchId === selectedBatchId);
+      const bId = matchBatch?._id ? String(matchBatch._id) : selectedBatchId;
+      const bCustom = matchBatch?.batchId ? String(matchBatch.batchId).trim() : "";
+      const logBId = log.batchId ? String(log.batchId).trim() : "";
+      if (logBId !== bId && (!bCustom || logBId !== bCustom)) {
+        return false;
+      }
     }
     if (filterDate && log.dateStr !== filterDate) {
       return false;
@@ -304,9 +310,12 @@ export default function AttendanceDisplay() {
 
             const renderBatchBlockCard = (batch: any) => {
               const slotInfo = getBatchSlotInfo(batch.timing);
-              const batchLogs = logs.filter(
-                (l) => l.batchId === batch._id || l.batchName === batch.batchName || l.batchId === batch.batchId
-              );
+              const bMongoId = batch._id ? String(batch._id) : "";
+              const bCustomId = batch.batchId ? String(batch.batchId).trim() : "";
+              const batchLogs = logs.filter((l) => {
+                const lBId = l.batchId ? String(l.batchId).trim() : "";
+                return (bMongoId && lBId === bMongoId) || (bCustomId && lBId === bCustomId);
+              });
               const latestLog = batchLogs[0];
 
               const arrayCount = Array.isArray(batch.students) ? batch.students.length : 0;

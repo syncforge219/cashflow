@@ -17,8 +17,7 @@ const resolveCanonicalBatchId = (list: any[], targetId?: string): string => {
   const cleanTarget = String(targetId).trim().toLowerCase();
   const match = list.find((b: any) =>
     (b.batchId && String(b.batchId).trim().toLowerCase() === cleanTarget) ||
-    (b._id && String(b._id).trim().toLowerCase() === cleanTarget) ||
-    (b.batchName && String(b.batchName).trim().toLowerCase() === cleanTarget)
+    (b._id && String(b._id).trim().toLowerCase() === cleanTarget)
   );
   if (match) {
     return match.batchId || String(match._id);
@@ -111,6 +110,7 @@ export default function TakeAttendanceModal({
       setIsLoadingRoster(true);
       setErrorMsg("");
       setSuccessMsg("");
+      setStudentRecords([]);
 
       try {
         // First, check if attendance log already exists for this batch on selected date

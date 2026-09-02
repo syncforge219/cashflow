@@ -171,8 +171,15 @@ export default function TeacherBatchesPage() {
     if (selectedBatchFilter !== "All Batches") {
       if (selectedBatchFilter === "Unassigned") {
         if (!isBatchUnassigned(s.batch)) return false;
-      } else if (s.batch !== selectedBatchFilter) {
-        return false;
+      } else {
+        const targetBatchObj = batches.find(
+          (b) => (b.batchId && b.batchId === selectedBatchFilter) || String(b._id) === selectedBatchFilter
+        );
+        const bId = targetBatchObj?.batchId || selectedBatchFilter;
+        const bMongoId = targetBatchObj?._id ? String(targetBatchObj._id) : "";
+        const sBId = String(s.batchId || "").trim();
+        const matchesId = (bId && sBId === bId) || (bMongoId && sBId === bMongoId);
+        if (!matchesId) return false;
       }
     }
 
@@ -694,9 +701,14 @@ export default function TeacherBatchesPage() {
                 >
                   <option value="All Batches">All Batch Filters</option>
                   <option value="Unassigned">⚠️ Unassigned Students Only</option>
-                  {batches.map((b) => (
-                    <option key={b._id || b.batchName} value={b.batchName}>{b.batchName}</option>
-                  ))}
+                  {batches.map((b) => {
+                    const bVal = b.batchId || String(b._id);
+                    return (
+                      <option key={String(b._id || b.batchId)} value={bVal}>
+                        {b.batchId ? `[${b.batchId}] ` : ""}{b.batchName} ({b.course || "General"}) • {b.timing || "Timing N/A"}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
             </div>
