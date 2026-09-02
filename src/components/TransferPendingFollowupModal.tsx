@@ -18,6 +18,7 @@ interface TransferPendingFollowupModalProps {
   isOpen: boolean;
   onClose: () => void;
   selectedLeads?: TransferLeadItem[];
+  allPendingLeads?: TransferLeadItem[];
   allCounsellors: any[];
   allAdvisorsOnLeads?: string[];
   userBrandScope?: string;
@@ -28,19 +29,23 @@ export default function TransferPendingFollowupModal({
   isOpen,
   onClose,
   selectedLeads = [],
+  allPendingLeads = [],
   allCounsellors = [],
   allAdvisorsOnLeads = [],
   userBrandScope = "",
   onSuccess,
 }: TransferPendingFollowupModalProps) {
-  const [transferMode, setTransferMode] = useState<"selected" | "counsellor_pending" | "all_pending">(
-    selectedLeads.length > 0 ? "selected" : "all_pending"
-  );
+  const [transferMode, setTransferMode] = useState<"single_lead" | "selected" | "counsellor_pending" | "all_pending">("single_lead");
   const [sourceCounsellor, setSourceCounsellor] = useState("");
   const [targetCounsellor, setTargetCounsellor] = useState("");
   const [transferRemarks, setTransferRemarks] = useState("");
   const [rescheduleDate, setRescheduleDate] = useState("");
   const [shouldReschedule, setShouldReschedule] = useState(false);
+
+  // Single Lead (One by One) states
+  const [singleLeadToTransfer, setSingleLeadToTransfer] = useState<TransferLeadItem | null>(null);
+  const [leadSearchQuery, setLeadSearchQuery] = useState("");
+  const [fetchedLeads, setFetchedLeads] = useState<TransferLeadItem[]>([]);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -71,6 +76,42 @@ export default function TransferPendingFollowupModal({
     });
   }, [allCounsellors, userBrands, isGlobalUser]);
 
+  // Combined pool of available pending leads
+  const availableLeadsPool = useMemo(() => {
+    if (allPendingLeads && allPendingLeads.length > 0) return allPendingLeads;
+    if (fetchedLeads && fetchedLeads.length > 0) return fetchedLeads;
+    if (selectedLeads && selectedLeads.length > 0) return selectedLeads;
+    return [];
+  }, [allPendingLeads, fetchedLeads, selectedLeads]);
+
+  // Fetch leads pool if not provided via props
+  useEffect(() => {
+    if (isOpen && allPendingLeads.length === 0 && fetchedLeads.length === 0) {
+      fetch("/api/enquiries")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && Array.isArray(data.data)) {
+            const mapped: TransferLeadItem[] = data.data
+              .filter((e: any) => !["Lost", "Admitted", "Do Not Call", "Do Not Followup", "Completed"].includes(e.status))
+              .map((e: any) => ({
+                _id: e._id,
+                enquiryId: e.enquiryId || e.admissionId,
+                studentFullName: e.studentFullName || e.fullName || "Student",
+                primaryPhoneMobile: e.primaryPhoneMobile || e.mobileNumber || "",
+                targetCourse: e.targetCourse || e.course || "",
+                targetBrand: e.targetBrand || e.brand || "",
+                assignedCrmAdvisor: e.assignedCrmAdvisor || "Unassigned",
+                dueDateStr: e.followUps?.[e.followUps.length - 1]?.date || "Pending",
+                lastRemarkStr: e.followUps?.[e.followUps.length - 1]?.remarks || e.remarks || "",
+              }));
+            setFetchedLeads(mapped);
+          }
+        })
+        .catch((err) => console.error("Error fetching leads for transfer modal:", err));
+    }
+  }, [isOpen, allPendingLeads, fetchedLeads.length]);
+
+  // Reset modal state on open
   useEffect(() => {
     if (isOpen) {
       setError("");
@@ -79,11 +120,17 @@ export default function TransferPendingFollowupModal({
       setTransferRemarks("");
       setRescheduleDate("");
       setShouldReschedule(false);
+      setLeadSearchQuery("");
 
-      if (selectedLeads.length > 0) {
+      if (selectedLeads.length === 1) {
+        setTransferMode("single_lead");
+        setSingleLeadToTransfer(selectedLeads[0]);
+      } else if (selectedLeads.length > 1) {
         setTransferMode("selected");
+        setSingleLeadToTransfer(null);
       } else {
-        setTransferMode("all_pending");
+        setTransferMode("single_lead");
+        setSingleLeadToTransfer(allPendingLeads[0] || null);
       }
 
       if (eligibleCounsellors.length > 0) {
@@ -96,7 +143,29 @@ export default function TransferPendingFollowupModal({
         setSourceCounsellor(allAdvisorsOnLeads[0]);
       }
     }
-  }, [isOpen, selectedLeads, eligibleCounsellors, allAdvisorsOnLeads]);
+  }, [isOpen, selectedLeads, allPendingLeads, eligibleCounsellors, allAdvisorsOnLeads]);
+
+  // Filtered leads for One by One search
+  const filteredSearchLeads = useMemo(() => {
+    const q = leadSearchQuery.trim().toLowerCase();
+    if (!q) return availableLeadsPool;
+    return availableLeadsPool.filter(
+      (l) =>
+        (l.studentFullName || "").toLowerCase().includes(q) ||
+        (l.primaryPhoneMobile || "").toLowerCase().includes(q) ||
+        (l.enquiryId || "").toLowerCase().includes(q) ||
+        (l.targetCourse || "").toLowerCase().includes(q) ||
+        (l.assignedCrmAdvisor || "").toLowerCase().includes(q)
+    );
+  }, [availableLeadsPool, leadSearchQuery]);
+
+  // Count leads for the chosen source counsellor
+  const sourceAdvisorPendingCount = useMemo(() => {
+    if (!sourceCounsellor) return 0;
+    return availableLeadsPool.filter(
+      (l) => (l.assignedCrmAdvisor || "").toLowerCase() === sourceCounsellor.toLowerCase()
+    ).length;
+  }, [availableLeadsPool, sourceCounsellor]);
 
   if (!isOpen) return null;
 
@@ -107,6 +176,11 @@ export default function TransferPendingFollowupModal({
 
     if (!targetCounsellor) {
       setError("Please select a target counsellor/employee from the dropdown.");
+      return;
+    }
+
+    if (transferMode === "single_lead" && !singleLeadToTransfer) {
+      setError("Please search and select a student lead to transfer.");
       return;
     }
 
@@ -132,12 +206,22 @@ export default function TransferPendingFollowupModal({
         (c) => (c.name || "").toLowerCase() === targetCounsellor.toLowerCase()
       );
 
+      const enquiryIdsToSend =
+        transferMode === "single_lead" && singleLeadToTransfer
+          ? [singleLeadToTransfer._id]
+          : transferMode === "selected"
+          ? selectedLeads.map((l) => l._id)
+          : [];
+
+      const effectiveScope =
+        transferMode === "single_lead" ? "selected" : transferMode;
+
       const payload = {
-        enquiryIds: transferMode === "selected" ? selectedLeads.map((l) => l._id) : [],
+        enquiryIds: enquiryIdsToSend,
         targetAdvisor: targetCounsellor,
         targetAdvisorId: selectedUserObj?._id || selectedUserObj?.id,
         sourceAdvisor: transferMode === "counsellor_pending" ? sourceCounsellor : undefined,
-        transferScope: transferMode,
+        transferScope: effectiveScope,
         transferRemarks: transferRemarks.trim() || undefined,
         rescheduleDate: shouldReschedule && rescheduleDate ? rescheduleDate : undefined,
         brandScope: userBrandScope && !isGlobalUser ? userBrandScope : undefined,
@@ -152,11 +236,22 @@ export default function TransferPendingFollowupModal({
       const data = await res.json();
 
       if (res.ok && data.success) {
-        setSuccessMsg(data.message || `Successfully transferred followups to ${targetCounsellor}!`);
+        const count =
+          transferMode === "single_lead"
+            ? 1
+            : data.transferredCount || (transferMode === "selected" ? selectedLeads.length : 1);
+
+        const transferredName =
+          transferMode === "single_lead" && singleLeadToTransfer
+            ? `lead "${singleLeadToTransfer.studentFullName || "Student"}"`
+            : `${count} pending lead(s)`;
+
+        setSuccessMsg(data.message || `Successfully transferred ${transferredName} to ${targetCounsellor}!`);
+
         setTimeout(() => {
-          onSuccess(targetCounsellor, data.transferredCount || selectedLeads.length);
+          onSuccess(targetCounsellor, count);
           onClose();
-        }, 1000);
+        }, 1200);
       } else {
         setError(data.error || "Failed to transfer pending follow-ups.");
       }
@@ -170,10 +265,10 @@ export default function TransferPendingFollowupModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs font-sans animate-in fade-in duration-200">
-      <div className="relative w-full max-w-xl overflow-hidden bg-white rounded-3xl shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-xl overflow-hidden bg-white rounded-3xl shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
         
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-rose-50/80 via-indigo-50/50 to-white">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-rose-50/80 via-indigo-50/50 to-white shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-rose-100 text-rose-600 rounded-2xl border border-rose-200/80 shadow-xs">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
@@ -188,7 +283,7 @@ export default function TransferPendingFollowupModal({
                 </span>
               </div>
               <p className="text-xs text-slate-500 font-medium">
-                Reassign pending leads & follow-up calls to counsellors of your branch
+                Reassign leads one by one or in bulk to counsellors of your branch
               </p>
             </div>
           </div>
@@ -203,8 +298,8 @@ export default function TransferPendingFollowupModal({
           </button>
         </div>
 
-        {/* Modal Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+        {/* Modal Form Body */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
           {error && (
             <div className="p-3.5 text-xs font-bold text-rose-800 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2">
               <span>⚠️</span>
@@ -219,27 +314,33 @@ export default function TransferPendingFollowupModal({
             </div>
           )}
 
-          {/* Transfer Scope Mode Pill / Selector */}
+          {/* Transfer Scope Mode Selector: ONE BY ONE vs BULK MODES */}
           <div className="space-y-1.5">
-            <label className="block text-[11px] font-black text-slate-600 uppercase tracking-wider">
-              Transfer Scope
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              {selectedLeads.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setTransferMode("selected")}
-                  className={`p-2.5 rounded-xl border text-xs font-extrabold transition-all text-center cursor-pointer ${
-                    transferMode === "selected"
-                      ? "bg-rose-50 border-rose-400 text-rose-700 shadow-xs ring-1 ring-rose-400/40"
-                      : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                  }`}
-                >
-                  <span className="block text-[10px] uppercase font-bold text-slate-400">Selected</span>
-                  <span className="block truncate">{selectedLeads.length} Lead(s)</span>
-                </button>
-              )}
+            <div className="flex items-center justify-between">
+              <label className="block text-[11px] font-black text-slate-600 uppercase tracking-wider">
+                Transfer Scope
+              </label>
+              <span className="text-[10px] text-slate-400 font-bold">
+                Choose One-by-One or Bulk mode
+              </span>
+            </div>
 
+            <div className={`grid ${selectedLeads.length > 1 ? "grid-cols-4" : "grid-cols-3"} gap-2`}>
+              {/* Option 1: One by One */}
+              <button
+                type="button"
+                onClick={() => setTransferMode("single_lead")}
+                className={`p-2.5 rounded-xl border text-xs font-extrabold transition-all text-center cursor-pointer ${
+                  transferMode === "single_lead"
+                    ? "bg-rose-50 border-rose-400 text-rose-700 shadow-xs ring-1 ring-rose-400/40"
+                    : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                <span className="block text-[10px] uppercase font-bold text-slate-400">One by One</span>
+                <span className="block truncate">Single Lead</span>
+              </button>
+
+              {/* Option 2: Bulk By Advisor */}
               <button
                 type="button"
                 onClick={() => setTransferMode("counsellor_pending")}
@@ -253,6 +354,7 @@ export default function TransferPendingFollowupModal({
                 <span className="block truncate">From Counsellor</span>
               </button>
 
+              {/* Option 3: Bulk All Pending */}
               <button
                 type="button"
                 onClick={() => setTransferMode("all_pending")}
@@ -265,18 +367,200 @@ export default function TransferPendingFollowupModal({
                 <span className="block text-[10px] uppercase font-bold text-slate-400">Bulk All</span>
                 <span className="block truncate">All Pending</span>
               </button>
+
+              {/* Option 4: Bulk Selected from Table Checkboxes */}
+              {selectedLeads.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => setTransferMode("selected")}
+                  className={`p-2.5 rounded-xl border text-xs font-extrabold transition-all text-center cursor-pointer ${
+                    transferMode === "selected"
+                      ? "bg-rose-50 border-rose-400 text-rose-700 shadow-xs ring-1 ring-rose-400/40"
+                      : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  <span className="block text-[10px] uppercase font-bold text-slate-400">Bulk Selected</span>
+                  <span className="block truncate">{selectedLeads.length} Leads</span>
+                </button>
+              )}
             </div>
           </div>
 
-          {/* Mode 1: Selected Leads Preview List */}
+          {/* MODE 1: ONE BY ONE LEAD SELECTOR */}
+          {transferMode === "single_lead" && (
+            <div className="space-y-3">
+              {singleLeadToTransfer ? (
+                /* Selected Lead Summary Card */
+                <div className="bg-rose-50/60 border border-rose-200/80 rounded-2xl p-4 space-y-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-black text-slate-900">
+                          {singleLeadToTransfer.studentFullName || "Student"}
+                        </h4>
+                        {singleLeadToTransfer.enquiryId && (
+                          <span className="text-[10px] font-mono font-bold bg-white text-rose-700 border border-rose-200 px-1.5 py-0.5 rounded">
+                            {singleLeadToTransfer.enquiryId}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2.5 text-xs text-slate-600 font-semibold mt-1">
+                        <span>📞 {singleLeadToTransfer.primaryPhoneMobile || "N/A"}</span>
+                        <span>•</span>
+                        <span>📚 {singleLeadToTransfer.targetCourse || "General Course"}</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSingleLeadToTransfer(null)}
+                      className="px-2.5 py-1 bg-white hover:bg-rose-100 text-rose-700 border border-rose-300 rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-2xs"
+                    >
+                      Change Lead
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-rose-200/60 text-[11px]">
+                    <div>
+                      <span className="text-slate-400 font-bold uppercase text-[9px] block">Currently Handled By</span>
+                      <span className="font-bold text-slate-800">👤 {singleLeadToTransfer.assignedCrmAdvisor || "Unassigned"}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 font-bold uppercase text-[9px] block">Next Follow-up Due</span>
+                      <span className="font-bold text-rose-700">⏰ {singleLeadToTransfer.dueDateStr || "Pending Today"}</span>
+                    </div>
+                  </div>
+
+                  {singleLeadToTransfer.lastRemarkStr && (
+                    <div className="text-[11px] text-slate-600 bg-white/90 p-2 rounded-xl border border-rose-100 italic line-clamp-2">
+                      &ldquo;{singleLeadToTransfer.lastRemarkStr}&rdquo;
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* Searchable Lead Picker */
+                <div className="space-y-2 bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                      Search & Select Lead to Transfer <span className="text-rose-500">*</span>
+                    </label>
+                    <span className="text-[10px] text-slate-500 font-bold">
+                      {filteredSearchLeads.length} available
+                    </span>
+                  </div>
+
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={leadSearchQuery}
+                      onChange={(e) => setLeadSearchQuery(e.target.value)}
+                      placeholder="Type student name, mobile number, enquiry ID, or course..."
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-semibold text-slate-800 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100 transition-all bg-white"
+                      autoFocus
+                    />
+                  </div>
+
+                  <div className="max-h-48 overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-xl bg-white shadow-inner">
+                    {filteredSearchLeads.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-slate-400 font-medium">
+                        No pending leads found matching &quot;{leadSearchQuery}&quot;
+                      </div>
+                    ) : (
+                      filteredSearchLeads.slice(0, 35).map((l) => (
+                        <div
+                          key={l._id}
+                          onClick={() => setSingleLeadToTransfer(l)}
+                          className="p-2.5 hover:bg-rose-50/70 transition-colors cursor-pointer flex items-center justify-between gap-2 text-xs group"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-extrabold text-slate-800 group-hover:text-rose-700 truncate">
+                                {l.studentFullName || "Student"}
+                              </span>
+                              {l.enquiryId && (
+                                <span className="text-[9px] font-mono text-slate-400 bg-slate-100 px-1 py-0.5 rounded shrink-0">
+                                  {l.enquiryId}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
+                              <span>📞 {l.primaryPhoneMobile}</span>
+                              <span>•</span>
+                              <span className="truncate">{l.targetCourse || "Course"}</span>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="text-[10px] font-bold text-slate-600 block truncate max-w-[110px]">
+                              👤 {l.assignedCrmAdvisor || "Unassigned"}
+                            </span>
+                            <span className="text-[9px] font-semibold text-rose-600">
+                              {l.dueDateStr || "Due Today"}
+                            </span>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* MODE 2: SOURCE COUNSELLOR DROPDOWN (BULK BY ADVISOR) */}
+          {transferMode === "counsellor_pending" && (
+            <div className="space-y-1.5 bg-amber-50/60 p-3.5 rounded-2xl border border-amber-200">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-black text-amber-900 uppercase tracking-wider">
+                  Source Counsellor (Transfer From) *
+                </label>
+                {sourceAdvisorPendingCount > 0 && (
+                  <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">
+                    {sourceAdvisorPendingCount} pending lead(s)
+                  </span>
+                )}
+              </div>
+              <select
+                value={sourceCounsellor}
+                onChange={(e) => setSourceCounsellor(e.target.value)}
+                required
+                className="w-full text-xs font-bold text-slate-800 bg-white border border-amber-300 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 cursor-pointer"
+              >
+                <option value="">-- Select Current Counsellor --</option>
+                {allAdvisorsOnLeads.map((adv) => (
+                  <option key={adv} value={adv}>
+                    {adv} (All Pending Followups)
+                  </option>
+                ))}
+              </select>
+              <p className="text-[10px] text-amber-700 font-medium">
+                All uncompleted and pending follow-ups currently handled by this advisor will be reassigned.
+              </p>
+            </div>
+          )}
+
+          {/* MODE 3: BULK ALL PENDING SUMMARY */}
+          {transferMode === "all_pending" && (
+            <div className="p-3.5 bg-indigo-50/60 border border-indigo-200 rounded-2xl space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-base">📦</span>
+                <span className="text-xs font-black text-indigo-950 uppercase tracking-wider">
+                  Bulk Reassign All Pending Leads
+                </span>
+              </div>
+              <p className="text-xs text-indigo-700 font-medium">
+                Every pending follow-up across all counsellors for brand &ldquo;{userBrandScope || "All Branches"}&rdquo; ({availableLeadsPool.length} leads) will be reassigned in bulk to the target counsellor.
+              </p>
+            </div>
+          )}
+
+          {/* MODE 4: SELECTED LEADS PREVIEW LIST */}
           {transferMode === "selected" && selectedLeads.length > 0 && (
             <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 space-y-2">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-extrabold text-slate-700">
-                  {selectedLeads.length} Selected Lead{selectedLeads.length > 1 ? "s" : ""} to Reassign:
+                  {selectedLeads.length} Selected Lead{selectedLeads.length > 1 ? "s" : ""} to Reassign in Bulk:
                 </span>
                 <span className="text-[10px] font-mono font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
-                  Pending Status
+                  Bulk Selected
                 </span>
               </div>
               <div className="max-h-32 overflow-y-auto divide-y divide-slate-200/60 pr-1">
@@ -299,36 +583,11 @@ export default function TransferPendingFollowupModal({
             </div>
           )}
 
-          {/* Mode 2: Source Counsellor Dropdown */}
-          {transferMode === "counsellor_pending" && (
-            <div className="space-y-1.5 bg-amber-50/60 p-3.5 rounded-2xl border border-amber-200">
-              <label className="block text-xs font-black text-amber-900 uppercase tracking-wider">
-                Source Counsellor (Transfer From) *
-              </label>
-              <select
-                value={sourceCounsellor}
-                onChange={(e) => setSourceCounsellor(e.target.value)}
-                required
-                className="w-full text-xs font-bold text-slate-800 bg-white border border-amber-300 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 cursor-pointer"
-              >
-                <option value="">-- Select Current Counsellor --</option>
-                {allAdvisorsOnLeads.map((adv) => (
-                  <option key={adv} value={adv}>
-                    {adv} (All Pending Followups)
-                  </option>
-                ))}
-              </select>
-              <p className="text-[10px] text-amber-700 font-medium">
-                All uncompleted and pending follow-ups currently handled by this advisor will be reassigned.
-              </p>
-            </div>
-          )}
-
           {/* TARGET COUNSELLOR SELECTION DROPDOWN */}
           <div className="space-y-1.5 bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100">
             <div className="flex items-center justify-between">
               <label className="block text-xs font-black text-indigo-950 uppercase tracking-wider">
-                Target Counsellor (Transfer To) *
+                Target Counsellor (Transfer To) <span className="text-rose-500">*</span>
               </label>
               <span className="text-[10px] font-bold text-indigo-600 bg-white border border-indigo-200 px-2 py-0.5 rounded-md">
                 Brand: {userBrandScope || "All Branches"}
@@ -355,7 +614,7 @@ export default function TransferPendingFollowupModal({
               </select>
             )}
             <p className="text-[10px] text-indigo-700/80 font-medium">
-              The selected counsellor will immediately see these leads in their pending follow-up dashboard.
+              The selected counsellor will immediately see {transferMode === "single_lead" ? "this lead" : "these leads"} in their pending follow-up dashboard.
             </p>
           </div>
 
@@ -401,7 +660,7 @@ export default function TransferPendingFollowupModal({
           </div>
 
           {/* Footer Actions */}
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 shrink-0">
             <button
               type="button"
               onClick={onClose}
@@ -411,7 +670,7 @@ export default function TransferPendingFollowupModal({
             </button>
             <button
               type="submit"
-              disabled={isLoading || eligibleCounsellors.length === 0}
+              disabled={isLoading || eligibleCounsellors.length === 0 || (transferMode === "single_lead" && !singleLeadToTransfer)}
               className="flex items-center gap-2 px-5 py-2.5 text-xs font-black text-white bg-gradient-to-r from-rose-600 via-indigo-600 to-violet-600 hover:from-rose-700 hover:to-violet-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-md shadow-indigo-600/20 transition-all active:scale-95 cursor-pointer"
             >
               {isLoading && (
@@ -420,7 +679,15 @@ export default function TransferPendingFollowupModal({
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
               )}
-              <span>Confirm & Transfer Leads</span>
+              <span>
+                {transferMode === "single_lead"
+                  ? "Confirm & Transfer This Lead"
+                  : transferMode === "selected"
+                  ? `Confirm & Transfer ${selectedLeads.length} Leads`
+                  : transferMode === "counsellor_pending"
+                  ? "Confirm & Transfer Counsellor's Leads"
+                  : "Confirm & Transfer All Leads"}
+              </span>
             </button>
           </div>
         </form>

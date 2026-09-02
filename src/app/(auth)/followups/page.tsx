@@ -1942,6 +1942,17 @@ export default function FollowupPage() {
         isOpen={isTransferModalOpen}
         onClose={() => setIsTransferModalOpen(false)}
         selectedLeads={leadsForTransferModal}
+        allPendingLeads={processedEnquiryFollowups.map((rec) => ({
+          _id: rec._id,
+          enquiryId: rec.enquiryId,
+          studentFullName: rec.studentFullName,
+          primaryPhoneMobile: rec.primaryPhoneMobile,
+          targetCourse: rec.targetCourse,
+          targetBrand: rec.targetBrand,
+          assignedCrmAdvisor: rec.assignedCrmAdvisor,
+          dueDateStr: rec.dueDateStr,
+          lastRemarkStr: rec.lastRemarkStr,
+        }))}
         allCounsellors={eligibleCounsellors}
         allAdvisorsOnLeads={allCurrentAdvisors}
         userBrandScope={user?.brandScope}
