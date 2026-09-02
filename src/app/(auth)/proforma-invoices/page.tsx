@@ -15,6 +15,7 @@ interface ProformaInvoiceItem {
   grandTotal: number;
   status: "DRAFT" | "ISSUED" | "PAID" | "CANCELLED";
   createdBy?: string;
+  billingCycle?: string;
 }
 
 interface Stats {
@@ -42,6 +43,9 @@ export default function ProformaInvoicesPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [billingCycleFilter, setBillingCycleFilter] = useState("ALL");
+  const [customerFilter, setCustomerFilter] = useState("ALL");
+  const [customerList, setCustomerList] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
@@ -51,6 +55,8 @@ export default function ProformaInvoicesPage() {
       const query = new URLSearchParams({
         q: search,
         status: statusFilter,
+        billingCycle: billingCycleFilter,
+        customer: customerFilter,
         page: page.toString(),
         limit: "10",
       });
@@ -62,6 +68,12 @@ export default function ProformaInvoicesPage() {
         setProformaInvoices(data.data || []);
         if (data.stats) setStats(data.stats);
         if (data.pagination) setTotalPages(data.pagination.totalPages || 1);
+        if (Array.isArray(data.customers)) {
+          setCustomerList((prev) => {
+            const combined = Array.from(new Set([...prev, ...data.customers])).sort((a, b) => a.localeCompare(b));
+            return combined;
+          });
+        }
       }
     } catch (err) {
       console.error("Error loading proforma invoices:", err);
@@ -71,8 +83,27 @@ export default function ProformaInvoicesPage() {
   };
 
   useEffect(() => {
+    async function loadCustomers() {
+      try {
+        const res = await fetch("/api/quotations/customers");
+        const data = await res.json();
+        if (res.ok && data.success && Array.isArray(data.data)) {
+          const names: string[] = data.data.map((c: any) => c.name?.trim()).filter(Boolean);
+          setCustomerList((prev) => {
+            const combined = Array.from(new Set([...prev, ...names])).sort((a, b) => a.localeCompare(b));
+            return combined;
+          });
+        }
+      } catch (err) {
+        console.error("Error loading registered customers:", err);
+      }
+    }
+    loadCustomers();
+  }, []);
+
+  useEffect(() => {
     fetchProformaInvoices();
-  }, [search, statusFilter, page]);
+  }, [search, statusFilter, billingCycleFilter, customerFilter, page]);
 
   const handleDelete = async (id: string, num: string) => {
     if (!confirm(`Are you sure you want to delete Proforma Invoice ${num}?`)) return;
@@ -168,23 +199,88 @@ export default function ProformaInvoicesPage() {
             </div>
 
             {/* Filter & Search Bar */}
-            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm">
-              <div className="relative w-full md:w-80">
-                <input
-                  type="text"
-                  placeholder="Search PI #, Client Name, PO #..."
-                  value={search}
-                  onChange={(e) => {
-                    setSearch(e.target.value);
-                    setPage(1);
-                  }}
-                  className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800"
-                />
-                <span className="absolute left-3 top-2.5 text-slate-400 text-xs">🔍</span>
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 space-y-3.5 shadow-sm">
+              {/* Row 1: Search, Customer Filter & Billing Frequency Filter */}
+              <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+                <div className="relative flex-1 min-w-[220px] max-w-md">
+                  <input
+                    type="text"
+                    placeholder="Search PI #, Client Name, PO #..."
+                    value={search}
+                    onChange={(e) => {
+                      setSearch(e.target.value);
+                      setPage(1);
+                    }}
+                    className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800"
+                  />
+                  <span className="absolute left-3 top-2.5 text-slate-400 text-xs">🔍</span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2.5">
+                  {/* Client / Customer Filter Dropdown */}
+                  <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 shadow-xs">
+                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">👤 Client:</span>
+                    <select
+                      value={customerFilter}
+                      onChange={(e) => {
+                        setCustomerFilter(e.target.value);
+                        setPage(1);
+                      }}
+                      className="bg-transparent text-slate-800 font-bold text-xs py-1.5 focus:outline-none cursor-pointer max-w-[200px] truncate"
+                    >
+                      <option value="ALL">All Clients / Customers</option>
+                      {customerList.map((cust) => (
+                        <option key={cust} value={cust}>
+                          {cust}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Billing Frequency Dropdown Filter */}
+                  <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 shadow-xs">
+                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">🔄 Billing:</span>
+                    <select
+                      value={billingCycleFilter}
+                      onChange={(e) => {
+                        setBillingCycleFilter(e.target.value);
+                        setPage(1);
+                      }}
+                      className="bg-transparent text-slate-800 font-bold text-xs py-1.5 focus:outline-none cursor-pointer"
+                    >
+                      <option value="ALL">All Frequencies</option>
+                      <option value="ONE_TIME">One-Time / Fixed Price</option>
+                      <option value="MONTHLY">Monthly Recurring</option>
+                      <option value="QUARTERLY">Quarterly Billing</option>
+                      <option value="HALF_YEARLY">Half-Yearly (6 Months)</option>
+                      <option value="YEARLY">Yearly / Annual Contract</option>
+                      <option value="CUSTOM">Custom Schedule</option>
+                    </select>
+                  </div>
+
+                  {/* Reset Filters button */}
+                  {(search || statusFilter !== "ALL" || billingCycleFilter !== "ALL" || customerFilter !== "ALL") && (
+                    <button
+                      onClick={() => {
+                        setSearch("");
+                        setStatusFilter("ALL");
+                        setBillingCycleFilter("ALL");
+                        setCustomerFilter("ALL");
+                        setPage(1);
+                      }}
+                      className="px-2.5 py-1.5 text-[11px] font-extrabold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100/80 rounded-xl border border-rose-200/80 transition-all cursor-pointer flex items-center gap-1"
+                      title="Clear all filters"
+                    >
+                      ✕ Reset
+                    </button>
+                  )}
+                </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+              {/* Row 2: Status Filter Tabs */}
+              <div className="flex flex-wrap items-center justify-end gap-2.5 pt-2.5 border-t border-slate-100">
                 <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/60 text-xs font-bold text-slate-500">
+                  <span className="px-2 text-[10px] uppercase">Status:</span>
                   {["ALL", "ISSUED", "PAID", "DRAFT", "CANCELLED"].map((st) => (
                     <button
                       key={st}
@@ -237,8 +333,13 @@ export default function ProformaInvoicesPage() {
                     ) : (
                       proformaInvoices.map((pi) => (
                         <tr key={pi._id} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="px-4 py-3.5 font-bold text-slate-900 font-mono">
-                            {pi.piNumber}
+                          <td className="px-4 py-3.5 font-mono">
+                            <div className="font-bold text-slate-900">{pi.piNumber}</div>
+                            {pi.billingCycle && (
+                              <div className="text-[10px] text-slate-400 font-sans font-normal mt-0.5">
+                                Cycle: {pi.billingCycle}
+                              </div>
+                            )}
                           </td>
                           <td className="px-4 py-3.5 font-mono text-slate-500">
                             {pi.quotationNumber || "-"}

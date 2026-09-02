@@ -12,6 +12,8 @@ export async function GET(req: Request) {
     const companyId = searchParams.get("companyId") || "DEFAULT_COMPANY";
     const q = searchParams.get("q") || "";
     const status = searchParams.get("status") || "ALL";
+    const billingCycle = searchParams.get("billingCycle") || "ALL";
+    const customer = searchParams.get("customer") || "ALL";
     const page = parseInt(searchParams.get("page") || "1", 10);
     const limit = parseInt(searchParams.get("limit") || "10", 10);
 
@@ -19,6 +21,14 @@ export async function GET(req: Request) {
 
     if (status !== "ALL") {
       query.status = status;
+    }
+
+    if (billingCycle !== "ALL") {
+      query.billingCycle = billingCycle;
+    }
+
+    if (customer !== "ALL") {
+      query.customerName = { $regex: `^${customer.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, $options: "i" };
     }
 
     if (q) {
@@ -32,11 +42,18 @@ export async function GET(req: Request) {
 
     const skip = (page - 1) * limit;
 
-    const [proformaInvoices, totalCount, allPIsForStats] = await Promise.all([
+    const [proformaInvoices, totalCount, allPIsForStats, distinctCustomers] = await Promise.all([
       ProformaInvoice.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
       ProformaInvoice.countDocuments(query),
       ProformaInvoice.find({ companyId }).select("status grandTotal date createdAt").lean(),
+      ProformaInvoice.distinct("customerName", { companyId }),
     ]);
+
+    const cleanCustomers = (distinctCustomers || [])
+      .filter((c: any) => typeof c === "string" && c.trim().length > 0)
+      .map((c: string) => c.trim())
+      .filter((c: string, idx: number, arr: string[]) => arr.indexOf(c) === idx)
+      .sort((a: string, b: string) => a.localeCompare(b));
 
     let totalVal = 0;
     let currentMonthVal = 0;
@@ -84,6 +101,7 @@ export async function GET(req: Request) {
         totalPages: Math.ceil(totalCount / limit),
       },
       stats,
+      customers: cleanCustomers,
     });
   } catch (error: any) {
     console.error("Error fetching proforma invoices:", error);

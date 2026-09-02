@@ -12,6 +12,8 @@ export async function GET(req: Request) {
     const companyId = searchParams.get("companyId") || "DEFAULT_COMPANY";
     const q = searchParams.get("q") || "";
     const status = searchParams.get("status") || "ALL";
+    const billingCycle = searchParams.get("billingCycle") || "ALL";
+    const customer = searchParams.get("customer") || "ALL";
     const page = parseInt(searchParams.get("page") || "1", 10);
     const limit = parseInt(searchParams.get("limit") || "10", 10);
 
@@ -21,23 +23,50 @@ export async function GET(req: Request) {
       query.status = status;
     }
 
-    if (q) {
+    if (billingCycle !== "ALL") {
+      query.billingCycle = billingCycle;
+    }
+
+    if (customer !== "ALL") {
+      const escaped = customer.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       query.$or = [
+        { customerName: { $regex: `^${escaped}$`, $options: "i" } },
+        { supplierName: { $regex: `^${escaped}$`, $options: "i" } },
+      ];
+    }
+
+    if (q) {
+      const searchConditions = [
         { poNumber: { $regex: q, $options: "i" } },
         { quotationNumber: { $regex: q, $options: "i" } },
         { customerName: { $regex: q, $options: "i" } },
         { supplierName: { $regex: q, $options: "i" } },
         { supplierAddress: { $regex: q, $options: "i" } },
       ];
+      if (query.$or) {
+        query.$and = [{ $or: query.$or }, { $or: searchConditions }];
+        delete query.$or;
+      } else {
+        query.$or = searchConditions;
+      }
     }
 
     const skip = (page - 1) * limit;
 
-    const [purchaseOrders, totalCount, allPOsForStats] = await Promise.all([
+    const [purchaseOrders, totalCount, allPOsForStats, distinctCustomers, distinctSuppliers] = await Promise.all([
       PurchaseOrder.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
       PurchaseOrder.countDocuments(query),
       PurchaseOrder.find({ companyId }).select("status grandTotal date createdAt").lean(),
+      PurchaseOrder.distinct("customerName", { companyId }),
+      PurchaseOrder.distinct("supplierName", { companyId }),
     ]);
+
+    const combinedCusts = [...(distinctCustomers || []), ...(distinctSuppliers || [])];
+    const cleanCustomers = combinedCusts
+      .filter((c: any) => typeof c === "string" && c.trim().length > 0)
+      .map((c: string) => c.trim())
+      .filter((c: string, idx: number, arr: string[]) => arr.indexOf(c) === idx)
+      .sort((a: string, b: string) => a.localeCompare(b));
 
     let totalVal = 0;
     let currentMonthVal = 0;
@@ -85,6 +114,7 @@ export async function GET(req: Request) {
         totalPages: Math.ceil(totalCount / limit),
       },
       stats,
+      customers: cleanCustomers,
     });
   } catch (error: any) {
     console.error("Error fetching purchase orders:", error);
