@@ -250,7 +250,7 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
   }, [localLead]);
 
   const handleAddSubmit = async () => {
-    if (!taskDate || !taskTime || !taskRemarks) {
+    if (!taskDate || !taskRemarks) {
       return alert("Please fill all required fields.");
     }
     
@@ -444,9 +444,6 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
     }
     if (!nextFollowUpDate) {
       return alert("Please select Next Follow-up Date.");
-    }
-    if (!nextFollowUpTime) {
-      return alert("Please select Next Follow-up Time.");
     }
     if (!nextFollowUpPriority) {
       return alert("Please select Follow-up Priority.");
@@ -1318,7 +1315,7 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
               </div>
               
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-slate-500">Follow-up Time *</label>
+                <label className="text-xs font-bold text-slate-500">Follow-up Time</label>
                 <input value={taskTime} onChange={e => setTaskTime(e.target.value)} type="time" className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white" />
               </div>
 
@@ -1494,7 +1491,7 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
 
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-bold text-slate-500">
-                      Follow-up Time <span className="text-rose-500">*</span>
+                      Follow-up Time
                     </label>
                     <input
                       type="time"
