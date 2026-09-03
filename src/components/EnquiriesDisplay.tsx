@@ -645,77 +645,80 @@ export default function EnquiriesDisplay() {
 
         {/* Real Table */}
         <div className="overflow-x-auto flex-1">
-          <table className="w-full text-left text-xs border-collapse">
+          <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-50/50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider select-none">
-                <th className="py-3 px-6">Enquiry No</th>
-                <th className="py-3 px-6">Basic Details</th>
-                <th className="py-3 px-6">Course Requested</th>
-                <th className="py-3 px-6">Registered Brand</th>
-                <th className="py-3 px-6">Advisor</th>
-                <th className="py-3 px-6">Source</th>
-                <th className="py-3 px-6">Status</th>
-                <th className="py-3 px-6 text-right">Action</th>
+              <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[12.5px] font-bold text-slate-600 uppercase tracking-wider select-none">
+                <th className="py-3.5 px-5">Enquiry No</th>
+                <th className="py-3.5 px-5">Basic Details</th>
+                <th className="py-3.5 px-5">Course Requested</th>
+                <th className="py-3.5 px-5">Registered Brand</th>
+                <th className="py-3.5 px-5">Advisor</th>
+                <th className="py-3.5 px-5">Source</th>
+                <th className="py-3.5 px-5">Status</th>
+                <th className="py-3.5 px-5 text-right">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 font-semibold text-slate-600">
+            <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
               {isLoading ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-xs text-slate-500">Loading enquiries...</td>
+                  <td colSpan={8} className="py-10 text-center text-sm text-slate-500 font-medium">Loading enquiries...</td>
                 </tr>
               ) : filteredEnquiries.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-xs text-slate-500">No enquiries found.</td>
+                  <td colSpan={8} className="py-10 text-center text-sm text-slate-500 font-medium">No enquiries found.</td>
                 </tr>
               ) : (
                 filteredEnquiries.map((lead, idx) => (
                   <tr
                     key={lead._id || idx}
                     onClick={() => setSelectedLead(lead)}
-                    className="hover:bg-slate-50/40 transition-colors cursor-pointer group"
+                    className="hover:bg-slate-50/60 transition-colors cursor-pointer group"
                   >
                     {/* Enquiry No & Date */}
-                    <td className="py-4 px-6 text-slate-800 font-bold group-hover:text-indigo-600 transition-colors">
-                      <div className="font-mono">{lead.enquiryId}</div>
-                      <div className="text-[10px] text-slate-400 font-normal font-mono mt-0.5">
-                        📅 {lead.date || (lead.createdAt ? new Date(lead.createdAt).toISOString().split('T')[0] : "N/A")}
+                    <td className="py-3.5 px-5 text-slate-900 font-bold group-hover:text-indigo-600 transition-colors whitespace-nowrap">
+                      <div className="font-mono text-[14.5px] font-semibold text-slate-800 group-hover:text-indigo-600 tracking-tight">
+                        {lead.enquiryId}
+                      </div>
+                      <div className="text-[13px] text-slate-600 font-medium font-mono mt-1 flex items-center gap-1">
+                        <span>📅</span>
+                        <span>{lead.date || (lead.createdAt ? new Date(lead.createdAt).toISOString().split('T')[0] : "N/A")}</span>
                       </div>
                     </td>
 
                     {/* Basic Details */}
-                    <td className="py-4 px-6">
-                      <div className="font-bold text-slate-900">{lead.studentFullName}</div>
-                      <div className="text-[11px] text-slate-400 font-mono flex items-center gap-2 mt-0.5">
-                        <span>{lead.primaryPhoneMobile}</span>
+                    <td className="py-3.5 px-5">
+                      <div className="font-bold text-slate-900 text-[15.5px] tracking-tight">{lead.studentFullName}</div>
+                      <div className="text-[13.5px] text-slate-600 font-medium font-mono flex items-center gap-2 mt-1">
+                        <span className="text-slate-700 font-semibold">{lead.primaryPhoneMobile}</span>
                         {lead.emailAddress && (
                           <>
-                            <span>•</span>
-                            <span className="truncate max-w-[140px]">{lead.emailAddress}</span>
+                            <span className="text-slate-400">•</span>
+                            <span className="text-[13px] text-slate-500 font-normal truncate max-w-[170px]" title={lead.emailAddress}>{lead.emailAddress}</span>
                           </>
                         )}
                       </div>
                     </td>
 
                     {/* Course requested */}
-                    <td className="py-4 px-6 font-semibold text-slate-700">
+                    <td className="py-3.5 px-5 font-semibold text-slate-800 text-[14px] leading-snug">
                       {lead.isLookingForJob || lead.targetCourse === "Looking for Job" ? (
-                        <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 shadow-2xs">
+                        <span className="inline-flex items-center gap-1.5 text-[12.5px] font-bold px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs">
                           💼 Looking for Job
                         </span>
                       ) : (
-                        lead.targetCourse || "-"
+                        <span className="block max-w-[200px]">{lead.targetCourse || "-"}</span>
                       )}
                     </td>
 
                     {/* Brand */}
-                    <td className="py-4 px-6">
-                      <span className="inline-flex items-center text-[10px] font-bold bg-slate-100 text-slate-700 rounded-md px-2 py-0.5 border border-slate-200">
+                    <td className="py-3.5 px-5">
+                      <span className="inline-flex items-center text-[13px] font-bold bg-slate-100 text-slate-800 rounded-lg px-2.5 py-1 border border-slate-200 shadow-2xs whitespace-nowrap">
                         {lead.targetBrand || "Default Brand"}
                       </span>
                     </td>
 
                     {/* Advisor dropdown */}
-                    <td className="py-4 px-6">
+                    <td className="py-3.5 px-5">
                       <select
                         value={lead.assignedCrmAdvisor || ""}
                         onClick={(e) => e.stopPropagation()}
@@ -735,7 +738,7 @@ export default function EnquiriesDisplay() {
                             console.error("Failed to update advisor:", err);
                           }
                         }}
-                        className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-slate-600 focus:outline-none hover:border-indigo-300 transition-colors"
+                        className="text-[13.5px] font-semibold bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 hover:border-indigo-300 transition-all cursor-pointer shadow-2xs"
                       >
                         <option value="">Unassigned</option>
                         {getAdvisorsForBrand(lead.targetBrand).map((adv: any) => (
@@ -747,19 +750,19 @@ export default function EnquiriesDisplay() {
                     </td>
 
                     {/* Source */}
-                    <td className="py-4 px-6 text-slate-500">
-                      {lead.leadSource}
+                    <td className="py-3.5 px-5 text-slate-700 font-medium text-[14px]">
+                      {lead.leadSource || "Direct"}
                     </td>
 
                     {/* Status */}
-                    <td className="py-4 px-6">
-                      <span className="inline-flex items-center text-[9px] font-bold bg-blue-50 text-blue-600 rounded-md px-2 py-0.5 border border-blue-100 uppercase group-hover:bg-indigo-50 group-hover:text-indigo-600 group-hover:border-indigo-100 transition-colors">
+                    <td className="py-3.5 px-5">
+                      <span className="inline-flex items-center text-[12.5px] font-bold bg-blue-50 text-blue-700 rounded-lg px-2.5 py-0.5 border border-blue-200/80 uppercase tracking-wide group-hover:bg-indigo-50 group-hover:text-indigo-700 group-hover:border-indigo-200 transition-colors">
                         {lead.status}
                       </span>
                     </td>
 
                     {/* Action */}
-                    <td className="py-4 px-6 text-right" onClick={(e) => e.stopPropagation()}>
+                    <td className="py-3.5 px-5 text-right" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={async (e) => {
                           e.stopPropagation();
@@ -777,10 +780,10 @@ export default function EnquiriesDisplay() {
                             }
                           }
                         }}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
                         title="Delete Enquiry"
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" className="w-4 h-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" className="w-4.5 h-4.5">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
                         </svg>
                       </button>
