@@ -94,6 +94,28 @@ export default function PaymentBreakdownModal({
     }
   };
 
+  // Helper to dynamically resolve the authoritative company assignment from the student's admission record
+  const getResolvedCompany = (p: any): string => {
+    if ((p.paymentMode || "").trim().toLowerCase() === "cash") {
+      return p.company || "Cash";
+    }
+
+    const admComp = (p.admissionId?.companyAssigned || p.admissionId?.company || "").trim();
+    const isValidAdmComp =
+      admComp &&
+      admComp.toLowerCase() !== "cash" &&
+      admComp.toLowerCase() !== "unallocated" &&
+      admComp.toLowerCase() !== "cash (unallocated)" &&
+      admComp.toLowerCase() !== "auto" &&
+      admComp.toLowerCase() !== "select company...";
+
+    if (isValidAdmComp) {
+      return admComp;
+    }
+
+    return p.company || "N/A";
+  };
+
   const availableBrands = useMemo(() => {
     const brandsSet = new Set<string>();
     payments.forEach((p) => {
@@ -119,6 +141,7 @@ export default function PaymentBreakdownModal({
       const pBrand = (p.brand || p.admissionId?.brand || "").toLowerCase();
       const pCourse = (p.admissionId?.course || "").toLowerCase();
       const pMode = p.paymentMode || "";
+      const pCompany = getResolvedCompany(p).toLowerCase();
 
       if (selectedBrandFilter !== "All Brands" && pBrand !== selectedBrandFilter.toLowerCase()) {
         return false;
@@ -136,7 +159,8 @@ export default function PaymentBreakdownModal({
           receiptNo.includes(q) ||
           pBrand.includes(q) ||
           pCourse.includes(q) ||
-          pMode.toLowerCase().includes(q)
+          pMode.toLowerCase().includes(q) ||
+          pCompany.includes(q)
         );
       }
 
@@ -161,7 +185,7 @@ export default function PaymentBreakdownModal({
       p.amountReceived || 0,
       p.paymentMode || "N/A",
       p.paymentDate ? new Date(p.paymentDate).toLocaleDateString("en-IN") : (p.createdAt ? new Date(p.createdAt).toLocaleDateString("en-IN") : "N/A"),
-      p.company || "N/A"
+      getResolvedCompany(p)
     ]);
 
     const csvContent =
@@ -409,7 +433,7 @@ export default function PaymentBreakdownModal({
                         {/* Company / Remarks */}
                         <td className="py-3.5 px-4">
                           <span className="text-slate-600 text-xs block">
-                            {p.company || "N/A"}
+                            {getResolvedCompany(p)}
                           </span>
                           {p.remarks && (
                             <span className="text-[10px] text-slate-400 font-normal italic block truncate max-w-[150px]">

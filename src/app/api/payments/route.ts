@@ -134,7 +134,7 @@ export async function GET(req: Request) {
     const query = andConditions.length > 0 ? { $and: andConditions } : {};
 
     let payments = await Payment.find(query)
-      .populate("admissionId", "fullName admissionId brand course batch counsellor mobileNumber remainingBalance finalFee admissionDate companyAssigned")
+      .populate("admissionId", "fullName admissionId brand course batch counsellor mobileNumber remainingBalance finalFee admissionDate companyAssigned company")
       .sort({ createdAt: -1 })
       .lean();
 
