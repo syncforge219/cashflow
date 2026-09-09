@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Enquiry from "@/models/Enquiry";
 import Admission from "@/models/Admission";
+import { getUserFromCookies } from "@/lib/helper";
 
 function escapeRegex(str: string) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -10,11 +11,35 @@ function escapeRegex(str: string) {
 export async function GET(req: Request) {
   try {
     await dbConnect();
+    const user = await getUserFromCookies();
     const { searchParams } = new URL(req.url);
     const q = searchParams.get("q") || searchParams.get("mobile");
+    const paramBrand = searchParams.get("brand");
 
     if (!q || !q.trim()) {
       return NextResponse.json({ error: "Search query is required" }, { status: 400 });
+    }
+
+    const userBrand = (user?.brandScope || (user as any)?.brand || "").trim();
+    const isBrandRestricted = userBrand && userBrand !== "All Brands" && userBrand !== "All" && userBrand !== "*" && userBrand !== "global";
+
+    let allowedBrands: string[] | null = null;
+    if (isBrandRestricted) {
+      allowedBrands = userBrand.split(/[,/|]/).map((b: string) => b.trim()).filter(Boolean);
+    }
+
+    let brandMatchCondition: any = null;
+    if (allowedBrands && allowedBrands.length > 0) {
+      if (paramBrand && paramBrand !== "all" && paramBrand !== "All" && paramBrand !== "All Brands" && allowedBrands.some(b => b.toLowerCase() === paramBrand.trim().toLowerCase())) {
+        const brandRegex = new RegExp(`^${escapeRegex(paramBrand.trim())}$`, "i");
+        brandMatchCondition = { $or: [{ brand: brandRegex }, { targetBrand: brandRegex }] };
+      } else {
+        const regexArray = allowedBrands.map(b => new RegExp(`^${escapeRegex(b)}$`, "i"));
+        brandMatchCondition = { $or: [{ brand: { $in: regexArray } }, { targetBrand: { $in: regexArray } }] };
+      }
+    } else if (paramBrand && paramBrand !== "all" && paramBrand !== "All" && paramBrand !== "All Brands") {
+      const brandRegex = new RegExp(`^${escapeRegex(paramBrand.trim())}$`, "i");
+      brandMatchCondition = { $or: [{ brand: brandRegex }, { targetBrand: brandRegex }] };
     }
 
     const trimmedQ = q.trim();
@@ -28,13 +53,18 @@ export async function GET(req: Request) {
     const mobileSlice = cleanQ.length > 5 ? escapeRegex(cleanQ.slice(-10)) : safeCleanQ;
 
     // 1. Search in Admission records (Student Name & Student Mobile only)
-    const admissions = await Admission.find({
+    const admissionSearchQuery: any = {
       $or: [
         { fullName: regex },
         { mobileNumber: cleanRegex },
         { mobileNumber: { $regex: mobileSlice, $options: "i" } },
       ],
-    }).sort({ createdAt: -1 }).limit(50);
+    };
+    if (brandMatchCondition) {
+      admissionSearchQuery.$and = [brandMatchCondition];
+    }
+
+    const admissions = await Admission.find(admissionSearchQuery).sort({ createdAt: -1 }).limit(50);
 
     const formattedAdmissions = (admissions || []).map((admission: any) => ({
       ...admission.toObject(),
@@ -50,7 +80,7 @@ export async function GET(req: Request) {
     }));
 
     // 2. Search in Enquiry records (Active Prospects only - Student Name & Student Mobile only)
-    const enquiries = await Enquiry.find({
+    const enquirySearchQuery: any = {
       isAdmitted: { $ne: true },
       status: { $nin: ["Admitted", "Closed", "Lost", "Converted", "Admission"] },
       $or: [
@@ -58,7 +88,12 @@ export async function GET(req: Request) {
         { primaryPhoneMobile: cleanRegex },
         { primaryPhoneMobile: { $regex: mobileSlice, $options: "i" } },
       ],
-    }).sort({ createdAt: -1 }).limit(50);
+    };
+    if (brandMatchCondition) {
+      enquirySearchQuery.$and = [brandMatchCondition];
+    }
+
+    const enquiries = await Enquiry.find(enquirySearchQuery).sort({ createdAt: -1 }).limit(50);
 
     const formattedEnquiries = (enquiries || []).map((enquiry: any) => {
       let lastFollowUp = null;

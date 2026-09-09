@@ -555,7 +555,7 @@ export async function GET(req: Request) {
 
     let allowedBrands: string[] | null = null;
     if (isBrandRestricted) {
-      allowedBrands = userBrand.split(",").map((b: string) => b.trim()).filter(Boolean);
+      allowedBrands = userBrand.split(/[,/|]/).map((b: string) => b.trim()).filter(Boolean);
     }
 
     const query: any = {};
@@ -584,20 +584,28 @@ export async function GET(req: Request) {
 
     const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+    let brandMatchCondition: any = null;
     if (allowedBrands && allowedBrands.length > 0) {
       if (brand && brand !== "all" && brand !== "All" && brand !== "All Brands" && allowedBrands.some(b => b.toLowerCase() === brand!.toLowerCase())) {
-        query.brand = { $regex: new RegExp(`^${escapeRegExp(brand.trim())}$`, "i") };
+        const brandRegex = new RegExp(`^${escapeRegExp(brand.trim())}$`, "i");
+        brandMatchCondition = { $or: [{ brand: brandRegex }, { targetBrand: brandRegex }] };
       } else {
         const regexArray = allowedBrands.map(b => new RegExp(`^${escapeRegExp(b)}$`, "i"));
-        query.brand = { $in: regexArray };
+        brandMatchCondition = { $or: [{ brand: { $in: regexArray } }, { targetBrand: { $in: regexArray } }] };
       }
     } else if (brand && brand !== "all" && brand !== "All" && brand !== "All Brands") {
-      const brandList = brand.split(",").map(b => b.trim()).filter(Boolean);
+      const brandList = brand.split(/[,/|]/).map(b => b.trim()).filter(Boolean);
       if (brandList.length > 1) {
-        query.brand = { $in: brandList.map(b => new RegExp(`^${escapeRegExp(b)}$`, "i")) };
+        const regexArray = brandList.map(b => new RegExp(`^${escapeRegExp(b)}$`, "i"));
+        brandMatchCondition = { $or: [{ brand: { $in: regexArray } }, { targetBrand: { $in: regexArray } }] };
       } else if (brandList.length === 1) {
-        query.brand = { $regex: new RegExp(`^${escapeRegExp(brandList[0])}$`, "i") };
+        const brandRegex = new RegExp(`^${escapeRegExp(brandList[0])}$`, "i");
+        brandMatchCondition = { $or: [{ brand: brandRegex }, { targetBrand: brandRegex }] };
       }
+    }
+
+    if (brandMatchCondition) {
+      andConditions.push(brandMatchCondition);
     }
 
     const batchIdParam = searchParams.get("batchId");

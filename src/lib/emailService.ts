@@ -1100,3 +1100,449 @@ export async function sendLoginOtpEmail({ email, otp, userName }: { email: strin
     return { success: false, error: error.message };
   }
 }
+
+/**
+ * -------------------------------------------------------------------
+ * Pending Follow-ups Action Email to Centre Heads & Admin Alert
+ * -------------------------------------------------------------------
+ */
+export interface PendingFollowupsEmailOptions {
+  brand?: string;
+  targetLeadIds?: string[];
+  triggeredBy?: string;
+}
+
+export interface PendingLeadItem {
+  id: string;
+  enquiryId: string;
+  studentName: string;
+  phone: string;
+  course: string;
+  brand: string;
+  advisor: string;
+  dueDate: string;
+  daysOverdue: number;
+  lastRemark: string;
+  priority: string;
+}
+
+export async function sendPendingFollowupsReminderEmail(options: PendingFollowupsEmailOptions = {}) {
+  try {
+    await dbConnect();
+
+    const todayTime = new Date().setHours(0, 0, 0, 0);
+
+    // 1. Query potential pending leads
+    const query: any = {
+      status: {
+        $nin: [
+          "Admitted", "admitted",
+          "Lost", "lost",
+          "Do not follow up", "do not follow up", "Do Not Followup", "Do Not Follow Up",
+          "Completed", "completed",
+          "Cancelled", "cancelled"
+        ]
+      }
+    };
+
+    if (options.targetLeadIds && options.targetLeadIds.length > 0) {
+      query._id = { $in: options.targetLeadIds };
+    } else if (options.brand && options.brand !== "All" && options.brand !== "All Brands") {
+      const bRegex = new RegExp(`^${options.brand.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
+      query.$or = [{ targetBrand: bRegex }, { brand: bRegex }];
+    }
+
+    const rawLeads = await Enquiry.find(query).sort({ createdAt: -1 }).lean();
+
+    // 2. Filter strictly for overdue pending followups
+    const pendingLeads: PendingLeadItem[] = [];
+
+    for (const e of rawLeads as any[]) {
+      const rawFollowups = Array.isArray(e.followUps) ? e.followUps : [];
+      const isCompletedLead =
+        (e.status || "").toLowerCase().includes("completed") ||
+        (rawFollowups.length > 0 &&
+          rawFollowups.every(
+            (f: any) =>
+              f.isCompleted ||
+              (f.status || "").toLowerCase() === "completed" ||
+              (f.status || "").toLowerCase() === "cancelled"
+          ));
+
+      if (isCompletedLead) continue;
+
+      const activeFollowups = rawFollowups.filter(
+        (f: any) =>
+          !f.isCompleted &&
+          (f.status || "").toLowerCase() !== "completed" &&
+          (f.status || "").toLowerCase() !== "cancelled"
+      );
+
+      let dueDateStr = "";
+      let hasScheduled = false;
+
+      if (activeFollowups.length > 0 && activeFollowups[0].date) {
+        dueDateStr = activeFollowups[0].date;
+        hasScheduled = true;
+      } else if (e.nextFollowUpDate) {
+        dueDateStr = e.nextFollowUpDate;
+        hasScheduled = true;
+      } else if (e.followUpDate) {
+        dueDateStr = e.followUpDate;
+        hasScheduled = true;
+      }
+
+      if (!hasScheduled || !dueDateStr) continue;
+
+      const dueDateTime = new Date(dueDateStr).getTime();
+      if (isNaN(dueDateTime) || dueDateTime >= todayTime) continue; // Must be strictly past due
+
+      const daysOverdue = Math.max(1, Math.floor((todayTime - dueDateTime) / (1000 * 60 * 60 * 24)));
+      const lastRemark =
+        activeFollowups[0]?.remarks ||
+        rawFollowups[rawFollowups.length - 1]?.remarks ||
+        e.remarks ||
+        e.followUpNotes ||
+        "No previous discussion remark recorded";
+
+      pendingLeads.push({
+        id: String(e._id),
+        enquiryId: e.enquiryId || "ENQ-N/A",
+        studentName: e.studentFullName || "Student",
+        phone: e.primaryPhoneMobile || e.phone || "N/A",
+        course: e.targetCourse || e.course || "General Course",
+        brand: (e.targetBrand || e.brand || "General").trim(),
+        advisor: e.assignedCrmAdvisor || "Unassigned",
+        dueDate: dueDateStr,
+        daysOverdue,
+        lastRemark,
+        priority: e.priorityLevel || activeFollowups[0]?.priority || "Medium",
+      });
+    }
+
+    if (pendingLeads.length === 0) {
+      return {
+        success: true,
+        totalPendingLeads: 0,
+        emailsSent: [],
+        message: "No pending overdue follow-ups found to alert for."
+      };
+    }
+
+    // 3. Find Admin Emails
+    const adminRoles = ["admin", "super admin", "super_admin", "superadmin", "director", "cfo"];
+    const adminUsers = await User.find({
+      role: { $in: adminRoles.map((r) => new RegExp(`^${r}$`, "i")) }
+    }).select("name email").lean();
+
+    const adminEmails = Array.from(
+      new Set(
+        [
+          ...adminUsers.map((u: any) => (u.email || "").trim().toLowerCase()),
+          ADMIN_EMAIL.toLowerCase(),
+          SMTP_USER.toLowerCase()
+        ].filter(Boolean)
+      )
+    );
+
+    // 4. Group leads by Brand
+    const brandMap = new Map<string, PendingLeadItem[]>();
+    for (const lead of pendingLeads) {
+      const bKey = lead.brand || "General";
+      if (!brandMap.has(bKey)) brandMap.set(bKey, []);
+      brandMap.get(bKey)!.push(lead);
+    }
+
+    const appUrl = process.env.PUBLIC_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://lead2ledger.com";
+    const emailsSent: any[] = [];
+    const centreHeadRoles = [
+      "centre head", "center head", "centre-head", "center-head",
+      "branch head", "branch_head", "brand manager", "brand_manager",
+      "brand-manager", "centre manager", "center manager", "manager"
+    ];
+
+    // 5. Process each Brand
+    for (const [brandName, leads] of brandMap.entries()) {
+      leads.sort((a, b) => b.daysOverdue - a.daysOverdue);
+
+      // Find Centre Heads for this brand
+      const cleanBrand = brandName.toLowerCase().trim();
+      const brandRegex = new RegExp(cleanBrand.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+
+      const centreHeads = await User.find({
+        role: { $in: centreHeadRoles.map((r) => new RegExp(`^${r}$`, "i")) },
+        $or: [
+          { brandScope: { $regex: brandRegex } },
+          { brandScope: { $in: ["All", "All Brands", "global", "*", ""] } }
+        ]
+      }).select("name email role brandScope").lean();
+
+      const headEmails = Array.from(
+        new Set(
+          centreHeads
+            .map((h: any) => (h.email || "").trim().toLowerCase())
+            .filter((em: string) => em && em.includes("@"))
+        )
+      );
+
+      const headNames = centreHeads.map((h: any) => h.name).filter(Boolean).join(", ") || "Centre Head";
+
+      // Recipients for this brand:
+      // If Centre Heads found, send TO Centre Heads and CC Admins.
+      // If no Centre Head found for brand, send TO Admins with alert!
+      const toRecipients = headEmails.length > 0 ? headEmails : adminEmails;
+      const ccRecipients = headEmails.length > 0 ? adminEmails.filter((em) => !headEmails.includes(em)) : [];
+
+      // Calculate stats for this brand
+      const maxOverdueDays = Math.max(...leads.map((l) => l.daysOverdue));
+      const advisorMap: { [adv: string]: number } = {};
+      leads.forEach((l) => {
+        advisorMap[l.advisor] = (advisorMap[l.advisor] || 0) + 1;
+      });
+      const topAdvisors = Object.entries(advisorMap)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 4)
+        .map(([name, count]) => `${name} (${count})`)
+        .join(", ");
+
+      // Lead rows HTML (show first 30 leads in detail)
+      const displayLeads = leads.slice(0, 30);
+      const leadRowsHtml = displayLeads.map((l, idx) => {
+        const cleanPhone = l.phone.replace(/\D/g, "");
+        const waLink = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Hello ${l.studentName}, regarding your course inquiry for ${l.course}...`)}` : "";
+        const formattedDate = l.dueDate ? new Date(l.dueDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Overdue";
+
+        return `
+          <tr style="border-bottom: 1px solid #f1f5f9; ${idx % 2 === 1 ? "background-color: #fafbfc;" : ""}">
+            <td style="padding: 10px 12px; font-weight: 700; color: #0f172a;">
+              <div>${l.studentName}</div>
+              <div style="font-size: 11px; color: #64748b; font-family: monospace;">${l.enquiryId}</div>
+            </td>
+            <td style="padding: 10px 12px; color: #334155;">
+              <div>${l.phone}</div>
+              ${waLink ? `<a href="${waLink}" target="_blank" style="display: inline-block; font-size: 11px; color: #059669; font-weight: 700; text-decoration: none; margin-top: 2px;">💬 WhatsApp Chat</a>` : ""}
+            </td>
+            <td style="padding: 10px 12px; font-weight: 600; color: #1e293b;">${l.course}</td>
+            <td style="padding: 10px 12px; color: #475569; font-weight: 600;">${l.advisor}</td>
+            <td style="padding: 10px 12px; white-space: nowrap;">
+              <div style="font-weight: 700; color: #e11d48;">${formattedDate}</div>
+              <span style="display: inline-block; font-size: 10px; font-weight: 800; background: #ffe4e6; color: #be123c; padding: 2px 6px; border-radius: 4px; margin-top: 2px;">
+                ${l.daysOverdue} ${l.daysOverdue === 1 ? "day" : "days"} overdue
+              </span>
+            </td>
+            <td style="padding: 10px 12px; font-size: 12px; color: #64748b; font-style: italic; max-width: 220px;">
+              &ldquo;${l.lastRemark}&rdquo;
+            </td>
+          </tr>
+        `;
+      }).join("");
+
+      const extraLeadsNotice = leads.length > 30 ? `
+        <div style="padding: 12px; text-align: center; background: #f8fafc; font-size: 12px; color: #64748b; font-weight: 700; border-top: 1px dashed #cbd5e1;">
+          + ${leads.length - 30} more pending leads available in the CRM portal.
+        </div>
+      ` : "";
+
+      const subject = `🚨 URGENT: [${brandName}] Pending Follow-ups Action Required (${leads.length} Overdue Leads)`;
+
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>${subject}</title>
+        </head>
+        <body style="font-family: Arial, Helvetica, sans-serif; background-color: #f1f5f9; margin: 0; padding: 20px; color: #1e293b;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 780px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 6px 20px rgba(0,0,0,0.06);">
+            
+            <!-- Header Banner -->
+            <tr>
+              <td style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%); padding: 28px; color: #ffffff;">
+                <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td>
+                      <span style="background: #f43f5e; color: #ffffff; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; padding: 4px 10px; border-radius: 6px; display: inline-block; margin-bottom: 8px;">
+                        ⚠️ OVERDUE ACTION REQUIRED
+                      </span>
+                      <h1 style="margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.5px;">
+                        ${brandName} — Pending Follow-ups Alert
+                      </h1>
+                      <p style="margin: 6px 0 0 0; font-size: 13px; color: #cbd5e1;">
+                        Automated Executive Notification to Centre Heads & Administration
+                      </p>
+                    </td>
+                    <td align="right" valign="top" style="font-size: 32px;">
+                      📋
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Notice & Greeting -->
+            <tr>
+              <td style="padding: 24px;">
+                <p style="font-size: 15px; margin-top: 0; color: #0f172a; line-height: 1.5;">
+                  Dear <strong>${headNames}</strong>,
+                </p>
+                <p style="font-size: 14px; color: #334155; line-height: 1.6;">
+                  Our CRM has detected <strong>${leads.length} pending student follow-ups</strong> for brand <strong>${brandName}</strong> that are past their scheduled due date. Student inquiries not followed up within 24–48 hours experience a steep drop in admission conversion.
+                </p>
+                <p style="font-size: 14px; color: #334155; line-height: 1.6;">
+                  <strong>Action Required from Centre Head:</strong> Please immediately review these leads with your counsellors, verify calls are made, or transfer untouched leads to active counsellors via the Followup CRM.
+                </p>
+
+                <!-- KPI Metric Badges -->
+                <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 20px 0;">
+                  <tr>
+                    <td width="32%" style="background: #fff1f2; border: 1px solid #fecdd3; border-radius: 12px; padding: 14px; text-align: center;">
+                      <div style="font-size: 10px; font-weight: 800; color: #9f1239; text-transform: uppercase; letter-spacing: 0.5px;">Pending Overdue Leads</div>
+                      <div style="font-size: 26px; font-weight: 900; color: #e11d48; margin-top: 4px;">${leads.length}</div>
+                    </td>
+                    <td width="2%"></td>
+                    <td width="32%" style="background: #fef3c7; border: 1px solid #fde68a; border-radius: 12px; padding: 14px; text-align: center;">
+                      <div style="font-size: 10px; font-weight: 800; color: #92400e; text-transform: uppercase; letter-spacing: 0.5px;">Max Days Overdue</div>
+                      <div style="font-size: 26px; font-weight: 900; color: #d97706; margin-top: 4px;">${maxOverdueDays} days</div>
+                    </td>
+                    <td width="2%"></td>
+                    <td width="32%" style="background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 12px; padding: 14px; text-align: center;">
+                      <div style="font-size: 10px; font-weight: 800; color: #3730a3; text-transform: uppercase; letter-spacing: 0.5px;">Target Brand</div>
+                      <div style="font-size: 16px; font-weight: 900; color: #4338ca; margin-top: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${brandName}</div>
+                    </td>
+                  </tr>
+                </table>
+
+                ${topAdvisors ? `
+                  <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 16px; font-size: 12px; color: #475569; margin-bottom: 20px;">
+                    <strong style="color: #1e293b;">Advisors with Pending Leads:</strong> ${topAdvisors}
+                  </div>
+                ` : ""}
+
+                <!-- Table of Overdue Leads -->
+                <div style="border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; margin-bottom: 24px;">
+                  <div style="background: #f8fafc; padding: 12px 16px; border-bottom: 1px solid #e2e8f0; font-weight: 800; font-size: 12px; color: #1e293b; text-transform: uppercase; letter-spacing: 0.5px;">
+                    📝 Overdue Leads Requiring Follow-up (${displayLeads.length} of ${leads.length} shown)
+                  </div>
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size: 12px; border-collapse: collapse;">
+                    <thead>
+                      <tr style="background: #f1f5f9; text-align: left; color: #475569;">
+                        <th style="padding: 10px 12px; font-size: 11px; text-transform: uppercase;">Student</th>
+                        <th style="padding: 10px 12px; font-size: 11px; text-transform: uppercase;">Contact</th>
+                        <th style="padding: 10px 12px; font-size: 11px; text-transform: uppercase;">Course</th>
+                        <th style="padding: 10px 12px; font-size: 11px; text-transform: uppercase;">Counsellor</th>
+                        <th style="padding: 10px 12px; font-size: 11px; text-transform: uppercase;">Due Date</th>
+                        <th style="padding: 10px 12px; font-size: 11px; text-transform: uppercase;">Last Remark</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${leadRowsHtml}
+                    </tbody>
+                  </table>
+                  ${extraLeadsNotice}
+                </div>
+
+                <!-- Call to action button -->
+                <div style="text-align: center; margin: 28px 0;">
+                  <a href="${appUrl}/followups" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%); color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 12px; font-weight: 800; font-size: 14px; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);">
+                    🚀 Open Follow-up CRM & Take Action
+                  </a>
+                </div>
+
+                <!-- Footer Transparency Note -->
+                <div style="border-top: 1px solid #e2e8f0; padding-top: 16px; font-size: 11px; color: #64748b; line-height: 1.5;">
+                  <div><strong>Notice to Administration:</strong> This email was dispatched to Centre Heads (${toRecipients.join(", ")}). Admin team members have been notified in copy for full operational oversight.</div>
+                  ${options.triggeredBy ? `<div style="margin-top: 4px;">Triggered by: <strong>${options.triggeredBy}</strong> on ${new Date().toLocaleString("en-IN")}.</div>` : ""}
+                </div>
+              </td>
+            </tr>
+          </table>
+        </body>
+        </html>
+      `;
+
+      const mailOptions = {
+        from: `"Lead2Ledger Followups" <${SMTP_USER}>`,
+        to: toRecipients.join(", "),
+        cc: ccRecipients.length > 0 ? ccRecipients.join(", ") : undefined,
+        subject,
+        html: htmlContent,
+      };
+
+      const info = await transporter.sendMail(mailOptions);
+      console.log(`[EmailService] Pending followups reminder sent for brand "${brandName}" to [${toRecipients.join(", ")}] cc [${ccRecipients.join(", ")}]. MessageId: ${info.messageId}`);
+
+      emailsSent.push({
+        brand: brandName,
+        pendingCount: leads.length,
+        recipients: toRecipients,
+        ccRecipients,
+        messageId: info.messageId,
+      });
+    }
+
+    // 6. If multiple brands were alerted, send master overview to admin
+    if (brandMap.size > 1 && adminEmails.length > 0) {
+      const brandSummaryRows = Array.from(brandMap.entries()).map(([bName, bLeads]) => `
+        <tr style="border-bottom: 1px solid #e2e8f0;">
+          <td style="padding: 10px; font-weight: 700; color: #0f172a;">${bName}</td>
+          <td style="padding: 10px; font-weight: 800; color: #e11d48; text-align: center;">${bLeads.length}</td>
+          <td style="padding: 10px; color: #475569;">${emailsSent.find(s => s.brand === bName)?.recipients.join(", ") || "Admin Direct"}</td>
+          <td style="padding: 10px; color: #059669; font-weight: 700; text-align: center;">✓ Alert Sent</td>
+        </tr>
+      `).join("");
+
+      const adminDigestHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"></head>
+        <body style="font-family: Arial, sans-serif; background: #f8fafc; padding: 24px; color: #1e293b;">
+          <div style="max-width: 650px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; padding: 24px;">
+            <h2 style="color: #4338ca; margin-top: 0;">📊 Executive Multi-Brand Pending Follow-ups Summary</h2>
+            <p style="color: #475569; font-size: 14px;">
+              Overdue follow-up alert emails have been dispatched to all brand Centre Heads. Below is the multi-brand status overview:
+            </p>
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size: 13px; margin: 20px 0; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+              <thead>
+                <tr style="background: #f1f5f9; color: #475569; text-align: left;">
+                  <th style="padding: 10px;">Brand</th>
+                  <th style="padding: 10px; text-align: center;">Pending Leads</th>
+                  <th style="padding: 10px;">Centre Head Notified</th>
+                  <th style="padding: 10px; text-align: center;">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${brandSummaryRows}
+              </tbody>
+            </table>
+            <div style="background: #eef2ff; padding: 12px 16px; border-radius: 8px; font-size: 13px; color: #3730a3; font-weight: 700;">
+              Total Pending Leads Across All Brands: ${pendingLeads.length}
+            </div>
+            <div style="margin-top: 20px; text-align: center;">
+              <a href="${appUrl}/followups" style="background: #4f46e5; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 13px; display: inline-block;">View CRM Followups</a>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      await transporter.sendMail({
+        from: `"Lead2Ledger Executive" <${SMTP_USER}>`,
+        to: adminEmails.join(", "),
+        subject: `📊 Executive Summary: Pending Follow-ups Across Brands (${pendingLeads.length} Leads Overdue)`,
+        html: adminDigestHtml,
+      });
+    }
+
+    return {
+      success: true,
+      totalPendingLeads: pendingLeads.length,
+      brandsProcessed: Array.from(brandMap.keys()),
+      emailsSent,
+      message: `Successfully sent pending follow-up alerts for ${pendingLeads.length} lead(s) across ${brandMap.size} brand(s).`
+    };
+  } catch (error: any) {
+    console.error("[EmailService] Error in sendPendingFollowupsReminderEmail:", error);
+    return { success: false, error: error.message };
+  }
+}

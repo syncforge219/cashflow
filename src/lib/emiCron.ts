@@ -4,7 +4,7 @@ import { checkAndSendOverdueEmiReminders } from "@/lib/emiReminderService";
 import { checkAndSendBirthdayReminders } from "@/lib/birthdayReminderService";
 import { getDailyReportStats, getMonthlyReportStats } from "@/lib/dailyReportService";
 import { sendWhatsAppDailyReport, sendWhatsAppMonthlyReport } from "@/lib/msg91";
-import { sendMasterExcelReportEmail } from "@/lib/emailService";
+import { sendMasterExcelReportEmail, sendPendingFollowupsReminderEmail } from "@/lib/emailService";
 
 /**
  * Initialize automatic background cron workers for:
@@ -57,6 +57,18 @@ export function initEmiReminderCron() {
         (global as any).__birthdayCronLastFiredDate = istDateStr;
         console.log(`🎂 [BIRTHDAY CRON] Triggering 09:00 IST daily student birthday check (Date: ${istDateStr})...`);
         runBirthdayCheckSilently();
+      }
+
+      // -------------------------------------------------------------------
+      // TRIGGER 0.5: Daily Pending Follow-ups Check (At or after 10:30 IST / 10:30 AM)
+      // -------------------------------------------------------------------
+      const isPast1030 = istHour > 10 || (istHour === 10 && istMinute >= 30);
+      const lastPendingFollowupsDate = (global as any).__pendingFollowupsCronLastFiredDate;
+
+      if (isPast1030 && lastPendingFollowupsDate !== istDateStr) {
+        (global as any).__pendingFollowupsCronLastFiredDate = istDateStr;
+        console.log(`📋 [PENDING FOLLOWUPS CRON] Triggering 10:30 IST daily pending follow-ups check (Date: ${istDateStr})...`);
+        runPendingFollowupsReminderSilently();
       }
 
       // -------------------------------------------------------------------
@@ -242,5 +254,22 @@ async function runMonthlyReportSilently() {
     console.error("❌ [MONTHLY REPORT CRON] Background execution error:", err);
   } finally {
     isMonthlyReportRunning = false;
+  }
+}
+
+let isPendingFollowupsRunning = false;
+
+async function runPendingFollowupsReminderSilently() {
+  if (isPendingFollowupsRunning) return;
+  isPendingFollowupsRunning = true;
+  try {
+    const res = await sendPendingFollowupsReminderEmail({
+      triggeredBy: "Automated Daily 10:30 AM IST System Scheduler",
+    });
+    console.log(`✅ [PENDING FOLLOWUPS CRON] Dispatched reminders: ${res.totalPendingLeads} overdue leads processed across [${res.brandsProcessed?.join(", ") || "None"}].`);
+  } catch (err) {
+    console.error("❌ [PENDING FOLLOWUPS CRON] Background execution error:", err);
+  } finally {
+    isPendingFollowupsRunning = false;
   }
 }

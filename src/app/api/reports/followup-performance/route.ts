@@ -1,16 +1,37 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Enquiry from "@/models/Enquiry";
+import { getUserFromCookies } from "@/lib/helper";
 
 export async function GET(request: Request) {
   try {
     await dbConnect();
+    const user = await getUserFromCookies();
     const { searchParams } = new URL(request.url);
     const brand = searchParams.get("brand");
 
+    const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+    const userBrand = (user?.brandScope || (user as any)?.brand || "").trim();
+    const isBrandRestricted = userBrand && userBrand !== "All Brands" && userBrand !== "All" && userBrand !== "*" && userBrand !== "global";
+
+    let allowedBrands: string[] | null = null;
+    if (isBrandRestricted) {
+      allowedBrands = userBrand.split(/[,/|]/).map((b: string) => b.trim()).filter(Boolean);
+    }
+
     const query: any = {};
-    if (brand && brand !== "All" && brand !== "All Brands") {
-      query.targetBrand = { $regex: new RegExp(`^${brand.trim()}$`, "i") };
+    if (allowedBrands && allowedBrands.length > 0) {
+      if (brand && brand !== "All" && brand !== "All Brands" && brand !== "all" && allowedBrands.some(b => b.toLowerCase() === brand.trim().toLowerCase())) {
+        const brandRegex = new RegExp(`^${escapeRegExp(brand.trim())}$`, "i");
+        query.$or = [{ targetBrand: brandRegex }, { brand: brandRegex }];
+      } else {
+        const regexArray = allowedBrands.map(b => new RegExp(`^${escapeRegExp(b)}$`, "i"));
+        query.$or = [{ targetBrand: { $in: regexArray } }, { brand: { $in: regexArray } }];
+      }
+    } else if (brand && brand !== "All" && brand !== "All Brands" && brand !== "all") {
+      const brandRegex = new RegExp(`^${escapeRegExp(brand.trim())}$`, "i");
+      query.$or = [{ targetBrand: brandRegex }, { brand: brandRegex }];
     }
 
     const enquiries = await Enquiry.find(query).lean();

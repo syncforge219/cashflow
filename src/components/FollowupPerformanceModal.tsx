@@ -1,19 +1,65 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 
 interface FollowupPerformanceModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialBrand?: string;
+  userBrandScope?: string;
+  availableBrands?: string[];
 }
 
 export default function FollowupPerformanceModal({
   isOpen,
   onClose,
+  initialBrand = "All Brands",
+  userBrandScope = "",
+  availableBrands = [],
 }: FollowupPerformanceModalProps) {
   const [data, setData] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedBrand, setSelectedBrand] = useState("All Brands");
+  const [fetchedBrands, setFetchedBrands] = useState<string[]>([]);
+
+  // Parse user brand scope
+  const cleanScope = (userBrandScope || "").toLowerCase().trim();
+  const isUserRestricted = Boolean(cleanScope && !["all", "all brands", "global", "*"].includes(cleanScope));
+  const allowedBrands = isUserRestricted
+    ? cleanScope.split(/[,/|]/).map((b) => b.trim()).filter(Boolean)
+    : [];
+
+  const defaultBrand = () => {
+    if (initialBrand && initialBrand !== "All" && initialBrand !== "All Brands") return initialBrand;
+    if (isUserRestricted && allowedBrands.length > 0) return allowedBrands[0];
+    return "All Brands";
+  };
+
+  const [selectedBrand, setSelectedBrand] = useState<string>(defaultBrand());
+
+  useEffect(() => {
+    setSelectedBrand(defaultBrand());
+  }, [isOpen, initialBrand, userBrandScope]);
+
+  useEffect(() => {
+    if (isOpen && availableBrands.length === 0 && fetchedBrands.length === 0) {
+      fetch("/api/brands")
+        .then((res) => res.json())
+        .then((json) => {
+          if (json.success && Array.isArray(json.brands)) {
+            setFetchedBrands(json.brands.map((b: any) => b.name).filter(Boolean));
+          }
+        })
+        .catch(console.error);
+    }
+  }, [isOpen, availableBrands.length, fetchedBrands.length]);
+
+  const brandOptions = useMemo(() => {
+    const combined = Array.from(new Set([...(availableBrands || []), ...fetchedBrands]));
+    if (isUserRestricted && allowedBrands.length > 0) {
+      return combined.filter((b: string) => allowedBrands.some((ub) => b.toLowerCase().includes(ub) || ub.includes(b.toLowerCase())));
+    }
+    return combined;
+  }, [availableBrands, fetchedBrands, isUserRestricted, allowedBrands]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -21,7 +67,7 @@ export default function FollowupPerformanceModal({
     const fetchReport = async () => {
       setIsLoading(true);
       try {
-        const url = `/api/reports/followup-performance${selectedBrand !== "All Brands" ? `?brand=${encodeURIComponent(selectedBrand)}` : ""}`;
+        const url = `/api/reports/followup-performance${selectedBrand !== "All Brands" && selectedBrand !== "All" ? `?brand=${encodeURIComponent(selectedBrand)}` : ""}`;
         const res = await fetch(url);
         const json = await res.json();
         if (res.ok && json.success) {
@@ -76,11 +122,13 @@ export default function FollowupPerformanceModal({
             <select
               value={selectedBrand}
               onChange={(e) => setSelectedBrand(e.target.value)}
+              disabled={Boolean(isUserRestricted && allowedBrands.length <= 1)}
               className="bg-white border border-slate-300 rounded-xl px-3 py-1.5 font-bold outline-none cursor-pointer shadow-xs"
             >
-              <option value="All Brands">All Brands</option>
-              <option value="Cadd Mantra">Cadd Mantra</option>
-              <option value="Design Gateway">Design Gateway</option>
+              {!isUserRestricted && <option value="All Brands">All Brands</option>}
+              {brandOptions.map((b: string) => (
+                <option key={b} value={b}>{b}</option>
+              ))}
             </select>
           </div>
         </div>

@@ -44,12 +44,23 @@ export default function CounsellorEnquiriesDisplay() {
     targetDate.setDate(targetDate.getDate() - dateOffset);
     const targetDateString = targetDate.toDateString();
 
-    // 1. Counsellor Assigned Leads
+    // 1. Counsellor Assigned Leads (strictly isolated to counsellor's brand scope)
     const counsellorLeads = enquiries.filter((lead) => {
         if (!user) return false;
         const advisor = (lead.assignedCrmAdvisor || "").toLowerCase().trim();
         const currentUser = (user.name || "").toLowerCase().trim();
-        return advisor === currentUser;
+        if (advisor !== currentUser) return false;
+
+        const userScope = (user?.brandScope || "").toLowerCase().trim();
+        if (userScope && !["all", "all brands", "global", "*"].includes(userScope)) {
+            const userBrands = userScope.split(/[,/|]/).map((b) => b.trim()).filter(Boolean);
+            const leadBrand = (lead.targetBrand || lead.brand || "").toLowerCase().trim();
+            if (leadBrand && !userBrands.some((ub) => leadBrand === ub || leadBrand.includes(ub) || ub.includes(leadBrand))) {
+                return false;
+            }
+        }
+
+        return true;
     });
 
     // 2. Filter counsellor leads by active Date Preset

@@ -289,14 +289,40 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const paramBrand = searchParams.get("brand") || searchParams.get("targetBrand");
 
+    const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
     const userBrand = (user?.brandScope || (user as any)?.brand || "").trim();
     const isBrandRestricted = userBrand && userBrand !== "All Brands" && userBrand !== "All" && userBrand !== "*" && userBrand !== "global";
 
-    let query: any = {};
+    let allowedBrands: string[] | null = null;
     if (isBrandRestricted) {
-      query.targetBrand = { $regex: new RegExp(`^${userBrand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") };
-    } else if (paramBrand && paramBrand !== "All Brands" && paramBrand !== "All") {
-      query.targetBrand = { $regex: new RegExp(`^${paramBrand.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") };
+      allowedBrands = userBrand.split(/[,/|]/).map((b: string) => b.trim()).filter(Boolean);
+    }
+
+    let query: any = {};
+    if (allowedBrands && allowedBrands.length > 0) {
+      if (paramBrand && paramBrand !== "all" && paramBrand !== "All" && paramBrand !== "All Brands" && allowedBrands.some(b => b.toLowerCase() === paramBrand.trim().toLowerCase())) {
+        const brandRegex = new RegExp(`^${escapeRegExp(paramBrand.trim())}$`, "i");
+        query.$or = [{ targetBrand: brandRegex }, { brand: brandRegex }];
+      } else {
+        const regexArray = allowedBrands.map(b => new RegExp(`^${escapeRegExp(b)}$`, "i"));
+        query.$or = [
+          { targetBrand: { $in: regexArray } },
+          { brand: { $in: regexArray } }
+        ];
+      }
+    } else if (paramBrand && paramBrand !== "all" && paramBrand !== "All" && paramBrand !== "All Brands") {
+      const brandList = paramBrand.split(/[,/|]/).map((b: string) => b.trim()).filter(Boolean);
+      if (brandList.length > 1) {
+        const regexArray = brandList.map(b => new RegExp(`^${escapeRegExp(b)}$`, "i"));
+        query.$or = [
+          { targetBrand: { $in: regexArray } },
+          { brand: { $in: regexArray } }
+        ];
+      } else if (brandList.length === 1) {
+        const brandRegex = new RegExp(`^${escapeRegExp(brandList[0])}$`, "i");
+        query.$or = [{ targetBrand: brandRegex }, { brand: brandRegex }];
+      }
     }
 
     const enquiries = await Enquiry.find(query).sort({ createdAt: -1 });

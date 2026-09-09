@@ -76,23 +76,35 @@ export default function TransferPendingFollowupModal({
     });
   }, [allCounsellors, userBrands, isGlobalUser]);
 
-  // Combined pool of available pending leads
+  // Combined pool of available pending leads strictly isolated by brand scope
   const availableLeadsPool = useMemo(() => {
-    if (allPendingLeads && allPendingLeads.length > 0) return allPendingLeads;
-    if (fetchedLeads && fetchedLeads.length > 0) return fetchedLeads;
-    if (selectedLeads && selectedLeads.length > 0) return selectedLeads;
-    return [];
-  }, [allPendingLeads, fetchedLeads, selectedLeads]);
+    let rawPool: TransferLeadItem[] = [];
+    if (allPendingLeads && allPendingLeads.length > 0) rawPool = allPendingLeads;
+    else if (fetchedLeads && fetchedLeads.length > 0) rawPool = fetchedLeads;
+    else if (selectedLeads && selectedLeads.length > 0) rawPool = selectedLeads;
+
+    if (isGlobalUser) return rawPool;
+    return rawPool.filter((lead) => {
+      const bLower = (lead.targetBrand || "").toLowerCase().trim();
+      return userBrands.some((ub) => bLower === ub || bLower.includes(ub) || ub.includes(bLower));
+    });
+  }, [allPendingLeads, fetchedLeads, selectedLeads, isGlobalUser, userBrands]);
 
   // Fetch leads pool if not provided via props
   useEffect(() => {
     if (isOpen && allPendingLeads.length === 0 && fetchedLeads.length === 0) {
-      fetch("/api/enquiries")
+      const brandParam = !isGlobalUser && userBrands.length === 1 ? `?brand=${encodeURIComponent(userBrandScope)}` : "";
+      fetch(`/api/enquiries${brandParam}`)
         .then((res) => res.json())
         .then((data) => {
           if (data.success && Array.isArray(data.data)) {
             const mapped: TransferLeadItem[] = data.data
-              .filter((e: any) => !["Lost", "Admitted", "Do Not Call", "Do Not Followup", "Completed"].includes(e.status))
+              .filter((e: any) => {
+                if (["Lost", "Admitted", "Do Not Call", "Do Not Followup", "Completed"].includes(e.status)) return false;
+                if (isGlobalUser) return true;
+                const bLower = (e.targetBrand || e.brand || "").toLowerCase().trim();
+                return userBrands.some((ub) => bLower === ub || bLower.includes(ub) || ub.includes(bLower));
+              })
               .map((e: any) => ({
                 _id: e._id,
                 enquiryId: e.enquiryId || e.admissionId,
@@ -109,7 +121,7 @@ export default function TransferPendingFollowupModal({
         })
         .catch((err) => console.error("Error fetching leads for transfer modal:", err));
     }
-  }, [isOpen, allPendingLeads, fetchedLeads.length]);
+  }, [isOpen, allPendingLeads, fetchedLeads.length, isGlobalUser, userBrands, userBrandScope]);
 
   // Reset modal state on open
   useEffect(() => {

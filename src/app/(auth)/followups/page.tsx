@@ -155,13 +155,35 @@ export default function FollowupPage() {
     return `${y}-${m}-${day}`;
   };
 
-  // Filter Drawer / Modal State
-  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
-  const [advancedFilters, setAdvancedFilters] = useState<AdvancedSearchFilterState | null>(null);
+  // User Brand Scope Resolution
+  const userScopeRaw = (user?.brandScope || "").toLowerCase().trim();
+  const isUserBrandRestricted = Boolean(
+    userScopeRaw && !["all", "all brands", "global", "*"].includes(userScopeRaw)
+  );
+  const allowedUserBrands = useMemo(() => {
+    if (!isUserBrandRestricted) return [];
+    return userScopeRaw.split(/[,/|]/).map((b) => b.trim().toLowerCase()).filter(Boolean);
+  }, [userScopeRaw, isUserBrandRestricted]);
+
+  const [brandsList, setBrandsList] = useState<any[]>([]);
   const [filterBrand, setFilterBrand] = useState("All");
   const [filterAdvisor, setFilterAdvisor] = useState("All");
   const [filterCourse, setFilterCourse] = useState("All");
   const [filterStage, setFilterStage] = useState("All");
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [advancedFilters, setAdvancedFilters] = useState<any | null>(null);
+
+  // Load official brands from API
+  useEffect(() => {
+    fetch("/api/brands")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.brands)) {
+          setBrandsList(data.brands);
+        }
+      })
+      .catch((err) => console.error("Failed to load brands in followups:", err));
+  }, []);
 
   // Timeline & Performance Modals State
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
@@ -196,6 +218,8 @@ export default function FollowupPage() {
   const [quickTargetCounsellor, setQuickTargetCounsellor] = useState("");
   const [isTransferringQuick, setIsTransferringQuick] = useState(false);
   const [transferToastMessage, setTransferToastMessage] = useState("");
+  const [isSendingReminderEmail, setIsSendingReminderEmail] = useState(false);
+  const [reminderToastMessage, setReminderToastMessage] = useState("");
 
   const userRole = (user?.role || "").toLowerCase().trim();
   const isCentreHead =
@@ -335,7 +359,7 @@ export default function FollowupPage() {
 
   const handleOpenTransferModalForBulk = () => {
     if (selectedEnquiryIds.length > 0) {
-      const selectedRecords = processedEnquiryFollowups
+      const selectedRecords = filteredEnquiryRecords
         .filter((r) => selectedEnquiryIds.includes(r._id))
         .map((rec) => ({
           _id: rec._id,
@@ -355,13 +379,59 @@ export default function FollowupPage() {
     setIsTransferModalOpen(true);
   };
 
-  // Fetch Data
-  const fetchData = async () => {
+  const handleSendPendingFollowupsEmailAlert = async () => {
+    const brandName = filterBrand !== "All" && filterBrand !== "All Brands" ? filterBrand : (user?.brandScope || "All Brands");
+    const count = selectedEnquiryIds.length > 0 ? selectedEnquiryIds.length : enquiryCounts.pending;
+
+    if (count === 0) {
+      alert("No pending follow-up leads found to alert for.");
+      return;
+    }
+
+    const scopeNotice = selectedEnquiryIds.length > 0 
+      ? `Send reminder email for ${selectedEnquiryIds.length} selected pending lead(s)?`
+      : `Send reminder email for all ${count} pending overdue lead(s) of "${brandName}"?`;
+
+    const confirmMsg = `${scopeNotice}\n\n• Target Brand: ${brandName}\n• Centre Heads of this brand will receive an immediate action email.\n• Administration will be kept in the loop via CC/Digest.`;
+    if (!window.confirm(confirmMsg)) return;
+
+    setIsSendingReminderEmail(true);
+    try {
+      const res = await fetch("/api/followups/pending-reminder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          brand: filterBrand !== "All" && filterBrand !== "All Brands" ? filterBrand : undefined,
+          targetLeadIds: selectedEnquiryIds.length > 0 ? selectedEnquiryIds : undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        playChimeSound("success");
+        setReminderToastMessage(`✓ ${data.message || "Follow-up reminder emails dispatched to Centre Heads and Admin!"}`);
+        setTimeout(() => setReminderToastMessage(""), 6000);
+      } else {
+        alert(data.error || "Failed to send follow-up reminder email.");
+      }
+    } catch (err) {
+      console.error("Failed to send pending follow-up email alert:", err);
+      alert("Error sending pending follow-up email.");
+    } finally {
+      setIsSendingReminderEmail(false);
+    }
+  };
+
+  // Fetch Data with brand parameter
+  const fetchData = async (brandArg?: string) => {
     setIsLoading(true);
     try {
+      const activeB = brandArg !== undefined ? brandArg : filterBrand;
+      const bParam = activeB && activeB !== "All" && activeB !== "All Brands" ? `?brand=${encodeURIComponent(activeB)}` : "";
+
       const [enqRes, admRes] = await Promise.all([
-        fetch("/api/enquiries"),
-        fetch("/api/admissions"),
+        fetch(`/api/enquiries${bParam}`),
+        fetch(`/api/admissions${bParam}`),
       ]);
 
       const enqData = await enqRes.json();
@@ -382,7 +452,7 @@ export default function FollowupPage() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [filterBrand]);
 
   const handleToggleFollowupDone = async (rec: EnquiryFollowupRecord, isChecked: boolean) => {
     const newStatus = isChecked ? "Completed" : "Pending";
@@ -518,7 +588,7 @@ export default function FollowupPage() {
         currentCity: e.currentCity || "N/A",
         emailAddress: e.emailAddress || "",
         targetCourse: e.targetCourse || "General Program",
-        targetBrand: e.targetBrand || "Cadd Mantra",
+        targetBrand: (e.targetBrand || e.brand || "").trim(),
         assignedCrmAdvisor: e.assignedCrmAdvisor || "Unassigned",
         status: e.status || "New Lead",
         priorityLevel: e.priorityLevel || lastFollowup?.priority || "Medium",
@@ -539,7 +609,7 @@ export default function FollowupPage() {
     return list;
   }, [enquiries]);
 
-  // Filtered Enquiry Records based on Tab & Search & Advanced Filters
+  // Filtered Enquiry Records based on Tab & Search & Advanced Filters & Strict Brand Isolation
   const filteredEnquiryRecords = useMemo(() => {
     const todayStr = new Date().toISOString().split("T")[0];
     const todayTime = new Date(todayStr).getTime();
@@ -581,8 +651,21 @@ export default function FollowupPage() {
         }
       }
 
+      // 1. User Brand Scope Isolation: Users restricted to brand(s) can NEVER see records from other brands
+      const recBrandLower = (rec.targetBrand || "").toLowerCase().trim();
+      if (isUserBrandRestricted && allowedUserBrands.length > 0) {
+        const matchesUserBrand = allowedUserBrands.some(
+          (ub) => recBrandLower === ub || recBrandLower.includes(ub) || ub.includes(recBrandLower)
+        );
+        if (!matchesUserBrand) return false;
+      }
+
+      // 2. Interactive Brand Filter Dropdown
+      if (filterBrand !== "All" && filterBrand !== "All Brands" && recBrandLower !== filterBrand.toLowerCase().trim()) {
+        return false;
+      }
+
       // Advanced Modal Filters
-      if (filterBrand !== "All" && (rec.targetBrand || "").toLowerCase() !== filterBrand.toLowerCase()) return false;
       if (filterAdvisor !== "All" && (rec.assignedCrmAdvisor || "").toLowerCase() !== filterAdvisor.toLowerCase()) return false;
       if (filterCourse !== "All" && (rec.targetCourse || "").toLowerCase() !== filterCourse.toLowerCase()) return false;
       if (filterStage !== "All" && (rec.status || "").toLowerCase() !== filterStage.toLowerCase()) return false;
@@ -601,7 +684,7 @@ export default function FollowupPage() {
         }
         if (advancedFilters.status && advancedFilters.status.length > 0 && !advancedFilters.status.includes("All")) {
           const recSt = (rec.status || "").toLowerCase();
-          const matchSt = advancedFilters.status.some(st => recSt.includes(st.toLowerCase()) || (st === "Active" && !recSt.includes("lost")));
+          const matchSt = advancedFilters.status.some((st: string) => recSt.includes(st.toLowerCase()) || (st === "Active" && !recSt.includes("lost")));
           if (!matchSt) return false;
         }
         if (advancedFilters.enableFromDate && advancedFilters.fromDate) {
@@ -635,16 +718,39 @@ export default function FollowupPage() {
 
       return true;
     });
-  }, [processedEnquiryFollowups, enquiryTab, selectedNewLeadDate, searchQuery, filterBrand, filterAdvisor, filterCourse, filterStage, advancedFilters]);
+  }, [processedEnquiryFollowups, enquiryTab, selectedNewLeadDate, searchQuery, filterBrand, filterAdvisor, filterCourse, filterStage, advancedFilters, isUserBrandRestricted, allowedUserBrands, user?.name, user?.role]);
 
-  // Tab Counters for Enquiry Mode
+  // Tab Counters for Enquiry Mode strictly isolated by active Brand / Scope
   const enquiryCounts = useMemo(() => {
     const todayStr = new Date().toISOString().split("T")[0];
     const todayTime = new Date(todayStr).getTime();
+    const uName = (user?.name || "").trim().toLowerCase();
+    const uRole = (user?.role || "").trim().toLowerCase();
+    const isStaffOrAdmin = uRole.includes("admin") || uRole.includes("manager") || uRole.includes("head") || uRole.includes("cfo");
 
     let today = 0, newLeads = 0, pending = 0, upcoming = 0, donot = 0;
 
     processedEnquiryFollowups.forEach((rec) => {
+      // 1. User Brand Scope and Active Brand filter isolation for counts
+      const recBrandLower = (rec.targetBrand || "").toLowerCase().trim();
+      if (isUserBrandRestricted && allowedUserBrands.length > 0) {
+        const matchesUserBrand = allowedUserBrands.some(
+          (ub) => recBrandLower === ub || recBrandLower.includes(ub) || ub.includes(recBrandLower)
+        );
+        if (!matchesUserBrand) return;
+      }
+      if (filterBrand !== "All" && filterBrand !== "All Brands" && recBrandLower !== filterBrand.toLowerCase().trim()) {
+        return;
+      }
+
+      // 2. Counsellor Role Isolation
+      if (!isStaffOrAdmin && uName) {
+        const adv = (rec.assignedCrmAdvisor || "").trim().toLowerCase();
+        if (adv && adv !== "unassigned" && adv !== "n/a" && adv !== uName && !adv.includes(uName) && !uName.includes(adv)) {
+          return;
+        }
+      }
+
       const recTime = rec.dueDateStr ? new Date(rec.dueDateStr).getTime() : 0;
       const statusLower = (rec.status || "").toLowerCase();
       const createdDateStr = getLocalDateStr(rec.createdAt);
@@ -672,7 +778,7 @@ export default function FollowupPage() {
     });
 
     return { today, newLeads, pending, upcoming, donot };
-  }, [processedEnquiryFollowups, selectedNewLeadDate]);
+  }, [processedEnquiryFollowups, selectedNewLeadDate, isUserBrandRestricted, allowedUserBrands, filterBrand, user?.name, user?.role]);
 
   // -------------------------------------------------------------
   // PROCESSED FEES FOLLOWUPS DATA
@@ -686,6 +792,8 @@ export default function FollowupPage() {
         const emiPlan = Array.isArray(adm.customEmiPlan) ? adm.customEmiPlan : [];
         const unpaidInstallments = emiPlan.filter((plan: any) => !plan.isPaid);
 
+        const admBrand = (adm.brand || adm.targetBrand || "").trim();
+
         if (unpaidInstallments.length > 0) {
           unpaidInstallments.forEach((inst: any, idx: number) => {
             const feesDueDateStr = inst.dueDate ? new Date(inst.dueDate).toISOString().split("T")[0] : todayStr;
@@ -695,7 +803,7 @@ export default function FollowupPage() {
               fullName: adm.fullName || "Unnamed Student",
               mobileNumber: adm.mobileNumber || "N/A",
               counsellor: adm.counsellor || "Unassigned",
-              brand: adm.brand || "Cadd Mantra",
+              brand: admBrand,
               course: adm.course || "Program",
               remainingBalance: adm.remainingBalance || 0,
               followupDueDate: feesDueDateStr,
@@ -713,7 +821,7 @@ export default function FollowupPage() {
             fullName: adm.fullName || "Unnamed Student",
             mobileNumber: adm.mobileNumber || "N/A",
             counsellor: adm.counsellor || "Unassigned",
-            brand: adm.brand || "Cadd Mantra",
+            brand: admBrand,
             course: adm.course || "Program",
             remainingBalance: adm.remainingBalance || 0,
             followupDueDate: fallbackDueDate,
@@ -727,7 +835,7 @@ export default function FollowupPage() {
     return list;
   }, [admissions]);
 
-  // Filtered Fees Records
+  // Filtered Fees Records strictly isolated by active Brand / Scope
   const filteredFeesRecords = useMemo(() => {
     const todayStr = new Date().toISOString().split("T")[0];
     const todayTime = new Date(todayStr).getTime();
@@ -744,8 +852,21 @@ export default function FollowupPage() {
         if (recTime <= todayTime) return false;
       }
 
+      // 1. User Brand Scope Isolation
+      const recBrandLower = (rec.brand || "").toLowerCase().trim();
+      if (isUserBrandRestricted && allowedUserBrands.length > 0) {
+        const matchesUserBrand = allowedUserBrands.some(
+          (ub) => recBrandLower === ub || recBrandLower.includes(ub) || ub.includes(recBrandLower)
+        );
+        if (!matchesUserBrand) return false;
+      }
+
+      // 2. Brand Filter Dropdown
+      if (filterBrand !== "All" && filterBrand !== "All Brands" && recBrandLower !== filterBrand.toLowerCase().trim()) {
+        return false;
+      }
+
       // Advanced Filters
-      if (filterBrand !== "All" && (rec.brand || "").toLowerCase() !== filterBrand.toLowerCase()) return false;
       if (filterAdvisor !== "All" && (rec.counsellor || "").toLowerCase() !== filterAdvisor.toLowerCase()) return false;
       if (filterCourse !== "All" && (rec.course || "").toLowerCase() !== filterCourse.toLowerCase()) return false;
 
@@ -766,9 +887,9 @@ export default function FollowupPage() {
 
       return true;
     });
-  }, [processedFeesFollowups, feesTab, searchQuery, filterBrand, filterAdvisor, filterCourse]);
+  }, [processedFeesFollowups, feesTab, searchQuery, filterBrand, filterAdvisor, filterCourse, isUserBrandRestricted, allowedUserBrands]);
 
-  // Tab Counters for Fees Mode
+  // Tab Counters for Fees Mode strictly isolated by active Brand / Scope
   const feesCounts = useMemo(() => {
     const todayStr = new Date().toISOString().split("T")[0];
     const todayTime = new Date(todayStr).getTime();
@@ -776,6 +897,18 @@ export default function FollowupPage() {
     let today = 0, overdue = 0, upcoming = 0;
 
     processedFeesFollowups.forEach((rec) => {
+      // Brand Scope and Filter Brand isolation for fees counts
+      const recBrandLower = (rec.brand || "").toLowerCase().trim();
+      if (isUserBrandRestricted && allowedUserBrands.length > 0) {
+        const matchesUserBrand = allowedUserBrands.some(
+          (ub) => recBrandLower === ub || recBrandLower.includes(ub) || ub.includes(recBrandLower)
+        );
+        if (!matchesUserBrand) return;
+      }
+      if (filterBrand !== "All" && filterBrand !== "All Brands" && recBrandLower !== filterBrand.toLowerCase().trim()) {
+        return;
+      }
+
       const recTime = new Date(rec.feesDueDate).getTime();
       if (rec.feesDueDate === todayStr || recTime <= todayTime) {
         today++;
@@ -786,7 +919,7 @@ export default function FollowupPage() {
     });
 
     return { today, overdue, upcoming };
-  }, [processedFeesFollowups]);
+  }, [processedFeesFollowups, isUserBrandRestricted, allowedUserBrands, filterBrand]);
 
   // Handle Quick Add Followup Submit
   const handleQuickFollowupSubmit = async (e: React.FormEvent) => {
@@ -852,8 +985,58 @@ export default function FollowupPage() {
     return filteredFeesRecords.slice(startIndex, startIndex + itemsPerPage);
   }, [filteredFeesRecords, startIndex, itemsPerPage]);
 
-  // Unique Brand, Counsellor & Course lists for filter dropdowns
-  const uniqueBrands = useMemo(() => Array.from(new Set(enquiries.map(e => e.targetBrand).filter(Boolean))), [enquiries]);
+  // Available Brands list respecting user scope and official brand registry
+  const availableBrandOptions = useMemo(() => {
+    const list: string[] = [];
+    if (brandsList && brandsList.length > 0) {
+      brandsList.forEach((b: any) => {
+        const name = b.brandName || b.name;
+        if (name && !list.includes(name)) list.push(name);
+      });
+    }
+    enquiries.forEach((e: any) => {
+      const bName = e.targetBrand || e.brand;
+      if (bName && !list.includes(bName)) list.push(bName);
+    });
+    admissions.forEach((a: any) => {
+      const bName = a.brand || a.targetBrand;
+      if (bName && !list.includes(bName)) list.push(bName);
+    });
+
+    if (isUserBrandRestricted && allowedUserBrands.length > 0) {
+      return list.filter((bName) =>
+        allowedUserBrands.some(
+          (ub) =>
+            bName.toLowerCase().trim() === ub ||
+            bName.toLowerCase().includes(ub) ||
+            ub.includes(bName.toLowerCase().trim())
+        )
+      );
+    }
+    return list;
+  }, [brandsList, enquiries, admissions, isUserBrandRestricted, allowedUserBrands]);
+
+  // Set default filterBrand when user is restricted
+  useEffect(() => {
+    if (isUserBrandRestricted && allowedUserBrands.length > 0) {
+      const matched = availableBrandOptions.find((bName) =>
+        allowedUserBrands.some(
+          (ub) =>
+            bName.toLowerCase().trim() === ub ||
+            bName.toLowerCase().includes(ub) ||
+            ub.includes(bName.toLowerCase().trim())
+        )
+      );
+      if (matched) {
+        setFilterBrand(matched);
+      } else {
+        const first = allowedUserBrands[0];
+        setFilterBrand(first.charAt(0).toUpperCase() + first.slice(1));
+      }
+    }
+  }, [isUserBrandRestricted, allowedUserBrands, availableBrandOptions]);
+
+  const uniqueBrands = availableBrandOptions;
   const uniqueAdvisors = useMemo(() => Array.from(new Set(enquiries.map(e => e.assignedCrmAdvisor).filter(Boolean))), [enquiries]);
   const uniqueCourses = useMemo(() => Array.from(new Set(enquiries.map(e => e.targetCourse).filter(Boolean))), [enquiries]);
 
@@ -993,6 +1176,43 @@ export default function FollowupPage() {
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 absolute right-3 top-2.5 text-slate-400">
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.637 10.637z" />
             </svg>
+          </div>
+
+          {/* Active Brand Filter Dropdown */}
+          <div className="flex items-center gap-1.5 shrink-0 bg-slate-50 border border-slate-200/90 rounded-xl px-2.5 py-1 shadow-xs">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1">
+              <span>🏷️</span> Brand:
+            </span>
+            <select
+              id="followup-brand-filter"
+              value={filterBrand}
+              onChange={(e) => {
+                const selected = e.target.value;
+                setFilterBrand(selected);
+                setCurrentPage(1);
+                fetchData(selected);
+              }}
+              disabled={isUserBrandRestricted && allowedUserBrands.length <= 1}
+              className={`bg-transparent text-xs font-extrabold outline-none cursor-pointer ${
+                isUserBrandRestricted && allowedUserBrands.length <= 1
+                  ? "text-slate-500 cursor-not-allowed"
+                  : "text-slate-800 hover:text-indigo-600"
+              }`}
+              title={
+                isUserBrandRestricted && allowedUserBrands.length <= 1
+                  ? `Locked to assigned brand scope (${allowedUserBrands[0]})`
+                  : "Filter followups by brand"
+              }
+            >
+              {!isUserBrandRestricted && (
+                <option value="All">All Brands</option>
+              )}
+              {availableBrandOptions.map((brandName) => (
+                <option key={brandName} value={brandName}>
+                  {brandName}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="shrink-0 flex items-center gap-2">
@@ -1144,6 +1364,23 @@ export default function FollowupPage() {
                     )}
                   </button>
                 )}
+
+                {isCentreHead && (
+                  <button
+                    type="button"
+                    onClick={handleSendPendingFollowupsEmailAlert}
+                    disabled={isSendingReminderEmail || enquiryCounts.pending === 0}
+                    className="px-3.5 py-1.5 ml-2 bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-700 hover:to-rose-700 disabled:opacity-50 text-white font-black text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer shrink-0 active:scale-95"
+                    title="Send email alert to Centre Heads and inform Admin about overdue follow-ups"
+                  >
+                    <span>{isSendingReminderEmail ? "⏳ Dispatching Alert..." : "📧 Remind Centre Heads & Admin"}</span>
+                    {enquiryCounts.pending > 0 && (
+                      <span className="px-1.5 py-0.5 rounded-full bg-white text-rose-700 text-[10px] font-black">
+                        {enquiryCounts.pending}
+                      </span>
+                    )}
+                  </button>
+                )}
               </>
             ) : (
             <>
@@ -1253,6 +1490,23 @@ export default function FollowupPage() {
               <button
                 type="button"
                 onClick={() => setTransferToastMessage("")}
+                className="p-1 hover:bg-white/20 rounded-lg transition-colors cursor-pointer text-white font-bold"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {/* Reminder Email Toast Notification */}
+          {reminderToastMessage && (
+            <div className="bg-gradient-to-r from-indigo-600 to-violet-600 text-white px-4 py-2.5 rounded-2xl shadow-md font-bold text-xs flex items-center justify-between mb-3 shrink-0 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="flex items-center gap-2">
+                <span className="text-base">📧</span>
+                <span>{reminderToastMessage}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReminderToastMessage("")}
                 className="p-1 hover:bg-white/20 rounded-lg transition-colors cursor-pointer text-white font-bold"
               >
                 ✕
@@ -1395,9 +1649,16 @@ export default function FollowupPage() {
                                   </div>
                                 </div>
 
-                                <span className={`px-2 py-0.5 rounded-md border font-black text-[10px] uppercase shrink-0 ${priorityColor}`}>
-                                  {rec.priorityLevel || "Medium"}
-                                </span>
+                                <div className="flex flex-col items-end gap-1 shrink-0">
+                                  <span className={`px-2 py-0.5 rounded-md border font-black text-[10px] uppercase ${priorityColor}`}>
+                                    {rec.priorityLevel || "Medium"}
+                                  </span>
+                                  {rec.targetBrand && (
+                                    <span className="px-2 py-0.5 rounded-md bg-violet-50 border border-violet-200 text-violet-700 font-extrabold text-[9px] uppercase tracking-wider">
+                                      {rec.targetBrand}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
 
                               {/* Overdue / Escalated Status Pills */}
@@ -1533,6 +1794,7 @@ export default function FollowupPage() {
                         <th className="py-3 px-3 w-[70px] text-center min-w-[70px]">DONE ▾</th>
                         <th className="py-3 px-4 min-w-[125px]">DUE DATE ▾</th>
                         <th className="py-3 px-4 min-w-[100px]">PRIORITY ▾</th>
+                        <th className="py-3 px-4 min-w-[120px]">BRAND ▾</th>
                         <th className="py-3 px-4 min-w-[145px]">ENQUIRY/WALKIN DATE ▾</th>
                         <th className="py-3 px-4 min-w-[150px]">STUDENT ▾</th>
                         <th className="py-3 px-4 min-w-[140px]">STUDENT MOBILE NO ▾</th>
@@ -1549,11 +1811,11 @@ export default function FollowupPage() {
                     <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
                       {isLoading ? (
                         <tr>
-                          <td colSpan={isCentreHead ? 15 : 14} className="py-12 text-center text-slate-400">Loading enquiry follow-ups...</td>
+                          <td colSpan={isCentreHead ? 16 : 15} className="py-12 text-center text-slate-400">Loading enquiry follow-ups...</td>
                         </tr>
                       ) : paginatedEnquiryRecords.length === 0 ? (
                         <tr>
-                          <td colSpan={isCentreHead ? 15 : 14} className="py-12 text-center text-slate-400">No enquiry follow-up records found matching filters.</td>
+                          <td colSpan={isCentreHead ? 16 : 15} className="py-12 text-center text-slate-400">No enquiry follow-up records found matching filters.</td>
                         </tr>
                       ) : (
                         paginatedEnquiryRecords.map((rec: EnquiryFollowupRecord) => (
@@ -1626,6 +1888,11 @@ export default function FollowupPage() {
                               ) : (
                                 <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-700 font-black text-[10px]">🟡 MEDIUM</span>
                               )}
+                            </td>
+                            <td className="py-3.5 px-4 whitespace-nowrap">
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-violet-50 text-violet-700 border border-violet-200/80">
+                                {rec.targetBrand || "General"}
+                              </span>
                             </td>
                             <td className="py-3.5 px-4 text-slate-500 whitespace-nowrap">
                               {rec.createdAt ? new Date(rec.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "N/A"}
@@ -1731,9 +1998,16 @@ export default function FollowupPage() {
                                     </span>
                                   </div>
                                 </div>
-                                <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-black text-[10px]">
-                                  FEES DUE
-                                </span>
+                                <div className="flex flex-col items-end gap-1 shrink-0">
+                                  {rec.brand && (
+                                    <span className="px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 font-extrabold text-[9px] uppercase tracking-wider">
+                                      {rec.brand}
+                                    </span>
+                                  )}
+                                  <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-black text-[10px]">
+                                    FEES DUE
+                                  </span>
+                                </div>
                               </div>
 
                               <div className="bg-emerald-50/70 p-3 rounded-xl border border-emerald-100 space-y-1 text-xs">
@@ -1784,6 +2058,7 @@ export default function FollowupPage() {
                     <tr className="border-b border-slate-200 text-[10px] font-black text-slate-600 uppercase tracking-wider select-none">
                       <th className="py-3 px-4 min-w-[140px]">FOLLOWUP DUE DATE ▾</th>
                       <th className="py-3 px-4 min-w-[125px]">FEES DUE DATE ▾</th>
+                      <th className="py-3 px-4 min-w-[120px]">BRAND ▾</th>
                       <th className="py-3 px-4 min-w-[150px]">STUDENT ▾</th>
                       <th className="py-3 px-4 min-w-[140px]">STUDENT MOBILE NO ▾</th>
                       <th className="py-3 px-4 min-w-[120px]">ID CARD ▾</th>
@@ -1795,11 +2070,11 @@ export default function FollowupPage() {
                   <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
                     {isLoading ? (
                       <tr>
-                        <td colSpan={8} className="py-12 text-center text-slate-400">Loading fees follow-ups...</td>
+                        <td colSpan={9} className="py-12 text-center text-slate-400">Loading fees follow-ups...</td>
                       </tr>
                     ) : paginatedFeesRecords.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="py-12 text-center text-slate-400">No fees due follow-up records found matching filters.</td>
+                        <td colSpan={9} className="py-12 text-center text-slate-400">No fees due follow-up records found matching filters.</td>
                       </tr>
                     ) : (
                       paginatedFeesRecords.map((rec: FeesFollowupRecord, idx: number) => (
@@ -1809,6 +2084,11 @@ export default function FollowupPage() {
                           </td>
                           <td className="py-3.5 px-4 text-slate-500 whitespace-nowrap">
                             {new Date(rec.feesDueDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                          </td>
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+                              {rec.brand || "General"}
+                            </span>
                           </td>
                           <td className="py-3.5 px-4 font-extrabold text-slate-900 max-w-[170px] truncate" title={rec.fullName}>
                             {rec.fullName}
@@ -1890,7 +2170,9 @@ export default function FollowupPage() {
         }}
         onClear={() => {
           setAdvancedFilters(null);
-          setFilterBrand("All");
+          if (!isUserBrandRestricted) {
+            setFilterBrand("All");
+          }
           setFilterAdvisor("All");
           setFilterCourse("All");
           setFilterStage("All");
@@ -1917,6 +2199,9 @@ export default function FollowupPage() {
       <FollowupPerformanceModal
         isOpen={isPerformanceModalOpen}
         onClose={() => setIsPerformanceModalOpen(false)}
+        initialBrand={filterBrand !== "All" && filterBrand !== "All Brands" ? filterBrand : (user?.brandScope || "")}
+        userBrandScope={user?.brandScope}
+        availableBrands={availableBrandOptions}
       />
 
       {/* Full Student Lead Profile Drawer */}
@@ -1942,7 +2227,7 @@ export default function FollowupPage() {
         isOpen={isTransferModalOpen}
         onClose={() => setIsTransferModalOpen(false)}
         selectedLeads={leadsForTransferModal}
-        allPendingLeads={processedEnquiryFollowups.map((rec) => ({
+        allPendingLeads={filteredEnquiryRecords.map((rec) => ({
           _id: rec._id,
           enquiryId: rec.enquiryId,
           studentFullName: rec.studentFullName,
