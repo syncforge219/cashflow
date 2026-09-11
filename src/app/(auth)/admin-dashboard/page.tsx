@@ -238,7 +238,9 @@ export default function AdminDashboard() {
     },
     {
       name: filterLabel === "Today" ? "Today's Admissions" : "Admissions",
-      value: data?.kpis?.admissionsToday || 0,
+      value: filterLabel === "Today"
+        ? (data?.kpis?.rawAdmissionsToday ?? data?.kpis?.admissionsToday ?? 0)
+        : (data?.kpis?.admissions ?? data?.kpis?.totalAdmissions ?? data?.kpis?.admissionsTotal ?? data?.kpis?.admissionsToday ?? 0),
       trend: filterLabel === "Overall" ? "Overall" : filterLabel === "Today" ? "Today" : filterLabel,
       isGreen: true,
       borderAccent: "border-l-4 border-teal-500",
@@ -708,6 +710,7 @@ export default function AdminDashboard() {
             filterLabel={filterLabel}
             startDate={startDate}
             endDate={endDate}
+            brandScope={selectedBrand}
           />
 
           {/* DUAL-TIMELINE PERFORMANCE COMPARISON GRAPH */}
@@ -1428,20 +1431,13 @@ export default function AdminDashboard() {
           window.location.reload();
         }}
       />
-      <AdmissionBreakdownModal
-        isOpen={isAdmissionBreakdownOpen}
-        onClose={() => setIsAdmissionBreakdownOpen(false)}
-        filterLabel={filterLabel}
-        startDate={startDate}
-        endDate={endDate}
-      />
       <PaymentBreakdownModal
         isOpen={isPaymentBreakdownOpen}
         onClose={() => setIsPaymentBreakdownOpen(false)}
         filterLabel={filterLabel}
         startDate={startDate}
         endDate={endDate}
-        brandScope={user?.brandScope}
+        brandScope={selectedBrand && selectedBrand !== "All Brands" ? selectedBrand : user?.brandScope}
       />
     </div>
   );
