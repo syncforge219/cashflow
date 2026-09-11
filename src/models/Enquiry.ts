@@ -180,29 +180,34 @@ const EnquirySchema = new Schema(
   }
 );
 
-// Performance Indexes
+import { getNextSequence } from "@/lib/sequenceHelper";
+
+// Performance & Compound Indexes
+EnquirySchema.index({ targetBrand: 1, createdAt: -1 });
+EnquirySchema.index({ targetBrand: 1, status: 1, createdAt: -1 });
+EnquirySchema.index({ assignedCrmAdvisor: 1, status: 1 });
 EnquirySchema.index({ assignedCrmAdvisor: 1 });
 EnquirySchema.index({ status: 1 });
 EnquirySchema.index({ targetBrand: 1 });
 EnquirySchema.index({ createdAt: -1 });
 EnquirySchema.index({ primaryPhoneMobile: 1 });
 
-// Auto-generate enquiryId before saving if not present
+// Atomic Auto-generate enquiryId before saving if not present
 EnquirySchema.pre("save", async function () {
   if (!this.enquiryId) {
-    const lastEnquiry = await mongoose.models.Enquiry.findOne({
-      enquiryId: /^ENQ\d+$/
-    }).sort({ enquiryId: -1 });
+    this.enquiryId = await getNextSequence("enquiryId", "ENQ", 6, async () => {
+      const lastEnquiry = await mongoose.models.Enquiry.findOne({
+        enquiryId: /^ENQ\d+$/
+      }).sort({ enquiryId: -1 });
 
-    let nextNumber = 1;
-    if (lastEnquiry && lastEnquiry.enquiryId) {
-      const match = lastEnquiry.enquiryId.match(/^ENQ(\d+)$/);
-      if (match) {
-        nextNumber = parseInt(match[1], 10) + 1;
+      if (lastEnquiry && lastEnquiry.enquiryId) {
+        const match = lastEnquiry.enquiryId.match(/^ENQ(\d+)$/);
+        if (match) {
+          return parseInt(match[1], 10);
+        }
       }
-    }
-    
-    this.enquiryId = `ENQ${String(nextNumber).padStart(6, "0")}`;
+      return 0;
+    });
   }
 });
 

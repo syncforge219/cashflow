@@ -66,6 +66,11 @@ const NotificationSchema = new Schema(
   }
 );
 
+// Performance & Compound Indexes
+NotificationSchema.index({ targetRole: 1, read: 1, createdAt: -1 });
+NotificationSchema.index({ targetTeacherId: 1, read: 1, createdAt: -1 });
+NotificationSchema.index({ read: 1, createdAt: -1 });
+
 const Notification = mongoose.models.Notification || mongoose.model("Notification", NotificationSchema);
 
 export default Notification;

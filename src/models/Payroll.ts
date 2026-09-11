@@ -43,6 +43,12 @@ const PayrollSchema: Schema = new Schema(
   { timestamps: true }
 );
 
+// Performance & Compound Indexes
+PayrollSchema.index({ brand: 1, month: -1 });
+PayrollSchema.index({ company: 1, month: -1 });
+PayrollSchema.index({ month: -1, paymentStatus: 1 });
+PayrollSchema.index({ employeeName: 1 });
+
 if (mongoose.models.Payroll) {
   delete mongoose.models.Payroll;
 }

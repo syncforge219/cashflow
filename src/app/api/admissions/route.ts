@@ -699,9 +699,38 @@ export async function GET(req: Request) {
     if (targetStart && targetEnd) {
       enquiryQuery.createdAt = { $gte: targetStart, $lte: targetEnd };
     }
-    const rawEnquiriesCount = await Enquiry.countDocuments(enquiryQuery);
+    // Count unique prospective students by phone number so multiple enquiries for different courses are counted as 1 enquiry
+    const distinctPhones = await Enquiry.distinct("primaryPhoneMobile", enquiryQuery);
+    const rawEnquiriesCount = distinctPhones.filter((p: any) => p && String(p).trim()).length;
 
-    const admissions = await Admission.find(query).sort({ createdAt: -1 });
+    const pageParam = searchParams.get("page");
+    const limitParam = searchParams.get("limit");
+
+    if (pageParam || limitParam) {
+      const page = Math.max(1, parseInt(pageParam || "1", 10));
+      const limit = Math.max(1, parseInt(limitParam || "25", 10));
+      const skip = (page - 1) * limit;
+
+      const [admissions, total] = await Promise.all([
+        Admission.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+        Admission.countDocuments(query),
+      ]);
+      const totalEnquiries = Math.max(rawEnquiriesCount, total);
+
+      return NextResponse.json({
+        success: true,
+        data: admissions,
+        totalEnquiries,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        }
+      });
+    }
+
+    const admissions = await Admission.find(query).sort({ createdAt: -1 }).lean();
     const totalEnquiries = Math.max(rawEnquiriesCount, admissions.length);
 
     return NextResponse.json({ success: true, data: admissions, totalEnquiries });

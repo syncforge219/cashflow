@@ -6,12 +6,10 @@ import User from "@/models/User";
 import Admission from "@/models/Admission";
 import Counsellor from "@/models/Counsellor";
 import Enquiry from "@/models/Enquiry";
-import { runUppercaseDataMigration } from "@/lib/uppercaseMigration";
 
 export async function GET() {
   try {
     await dbConnect();
-    await runUppercaseDataMigration();
     const brands = await Brand.find({}).sort({ createdAt: -1 }).lean();
 
     const enrichedBrands = await Promise.all(brands.map(async (brand: any) => {

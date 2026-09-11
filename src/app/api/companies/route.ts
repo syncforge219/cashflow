@@ -5,12 +5,10 @@ import Brand from "@/models/Brand";
 import Payment from "@/models/Payment";
 import Admission from "@/models/Admission";
 import { getUserFromCookies } from "@/lib/helper";
-import { runUppercaseDataMigration } from "@/lib/uppercaseMigration";
 
 export async function GET(req: Request) {
   try {
     await dbConnect();
-    await runUppercaseDataMigration();
     const user = await getUserFromCookies();
 
     const { searchParams } = new URL(req.url);

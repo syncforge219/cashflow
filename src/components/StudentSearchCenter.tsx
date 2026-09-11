@@ -24,12 +24,16 @@ export default function StudentSearchCenter({ className = "" }: StudentSearchCen
   const [leadForAdmission, setLeadForAdmission] = useState<any | null>(null);
 
   const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
+    const cleanDigits = searchQuery.replace(/\D/g, "");
+    if (!cleanDigits || cleanDigits.length < 5) {
+      alert("Please enter a valid phone number with at least 5 digits.");
+      return;
+    }
     setIsSearching(true);
     setSearchResult(null);
     setShowFullAdmissionDetails(false);
     try {
-      const res = await fetch(`/api/admissions/search?q=${encodeURIComponent(searchQuery.trim())}`);
+      const res = await fetch(`/api/admissions/search?q=${encodeURIComponent(cleanDigits)}`);
       const data = await res.json();
       if (res.ok) {
         setSearchResult(data);
@@ -68,7 +72,7 @@ export default function StudentSearchCenter({ className = "" }: StudentSearchCen
 
         <div>
           <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 select-none">
-            SEARCH BY STUDENT NAME / PHONE NUMBER
+            SEARCH BY STUDENT PHONE NUMBER
           </label>
           <div className="flex gap-3">
             <div className="relative flex-1">
@@ -84,17 +88,17 @@ export default function StudentSearchCenter({ className = "" }: StudentSearchCen
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.637 10.637z"
+                    d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z"
                   />
                 </svg>
               </span>
               <input
-                type="text"
+                type="tel"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => setSearchQuery(e.target.value.replace(/[^\d+ -]/g, ""))}
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                placeholder="Enter mobile, name, parent name, email, or registration ID"
-                className="w-full bg-slate-50/70 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all placeholder:text-slate-400"
+                placeholder="Enter 10-digit mobile number (e.g. 9876543210)"
+                className="w-full bg-slate-50/70 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all placeholder:text-slate-400 font-mono"
               />
             </div>
             <button
@@ -298,9 +302,14 @@ export default function StudentSearchCenter({ className = "" }: StudentSearchCen
                             </svg>
                           </div>
                           <div>
-                            <h3 className={c("text-amber-900", "text-emerald-900") + " text-sm font-bold flex items-center gap-2"}>
+                            <h3 className={c("text-amber-900", "text-emerald-900") + " text-sm font-bold flex items-center gap-2 flex-wrap"}>
                               Active Enquiry Found
                               <span className={c("bg-amber-200 text-amber-800", "bg-emerald-200 text-emerald-800") + " text-[9px] px-2 py-0.5 rounded-md uppercase tracking-wider font-mono"}>{lead.enquiryId}</span>
+                              {lead.totalEnquiriesCombined > 1 && (
+                                <span className="bg-indigo-100 text-indigo-700 text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider">
+                                  {lead.totalEnquiriesCombined} Courses Enquired (Combined)
+                                </span>
+                              )}
                             </h3>
                             <p className={c("text-amber-700/80", "text-emerald-700/80") + " text-xs font-semibold"}>This prospect is registered in the sales pipeline.</p>
                           </div>

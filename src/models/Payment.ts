@@ -51,27 +51,36 @@ const PaymentSchema = new Schema(
   }
 );
 
-// Performance Indexes
+import { getNextSequence } from "@/lib/sequenceHelper";
+
+// Performance & Compound Indexes
+PaymentSchema.index({ admissionId: 1, paymentDate: -1 });
+PaymentSchema.index({ brand: 1, paymentDate: -1 });
+PaymentSchema.index({ company: 1, paymentDate: -1 });
+PaymentSchema.index({ paymentDate: -1 });
 PaymentSchema.index({ admissionId: 1 });
 PaymentSchema.index({ createdAt: -1 });
 
-// Auto-generate receiptNo before saving
+// Atomic Auto-generate receiptNo before saving
 PaymentSchema.pre("save", async function () {
   if (!this.receiptNo) {
     const currentYear = new Date().getFullYear();
-    const lastPayment = await mongoose.models.Payment.findOne({
-      receiptNo: new RegExp(`^REC-${currentYear}-`)
-    }).sort({ receiptNo: -1 });
+    const counterKey = `receiptNo_${currentYear}`;
+    const prefix = `REC-${currentYear}-`;
 
-    let nextNumber = 1;
-    if (lastPayment && lastPayment.receiptNo) {
-      const match = lastPayment.receiptNo.match(/-(\d+)$/);
-      if (match) {
-        nextNumber = parseInt(match[1], 10) + 1;
+    this.receiptNo = await getNextSequence(counterKey, prefix, 5, async () => {
+      const lastPayment = await mongoose.models.Payment.findOne({
+        receiptNo: new RegExp(`^REC-${currentYear}-`)
+      }).sort({ receiptNo: -1 });
+
+      if (lastPayment && lastPayment.receiptNo) {
+        const match = lastPayment.receiptNo.match(/-(\d+)$/);
+        if (match) {
+          return parseInt(match[1], 10);
+        }
       }
-    }
-    
-    this.receiptNo = `REC-${currentYear}-${String(nextNumber).padStart(5, "0")}`;
+      return 0;
+    });
   }
 });
 

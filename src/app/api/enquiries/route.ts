@@ -87,7 +87,7 @@ export async function POST(req: Request) {
             { targetCourses: { $in: coursesList } }
           ],
           primaryPhoneMobile: { $regex: cleanDigits }
-        });
+        }).select("_id").lean();
 
         if (existingEnquiry) {
           return NextResponse.json(
@@ -325,7 +325,36 @@ export async function GET(req: Request) {
       }
     }
 
-    const enquiries = await Enquiry.find(query).sort({ createdAt: -1 });
+    // Support pagination if requested, otherwise return all with .lean() for maximum speed
+    const pageParam = searchParams.get("page");
+    const limitParam = searchParams.get("limit");
+
+    if (pageParam || limitParam) {
+      const page = Math.max(1, parseInt(pageParam || "1", 10));
+      const limit = Math.max(1, parseInt(limitParam || "25", 10));
+      const skip = (page - 1) * limit;
+
+      const [enquiries, total] = await Promise.all([
+        Enquiry.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+        Enquiry.countDocuments(query),
+      ]);
+
+      return NextResponse.json(
+        {
+          success: true,
+          data: enquiries,
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
+          },
+        },
+        { status: 200 }
+      );
+    }
+
+    const enquiries = await Enquiry.find(query).sort({ createdAt: -1 }).lean();
 
     return NextResponse.json(
       { success: true, data: enquiries },

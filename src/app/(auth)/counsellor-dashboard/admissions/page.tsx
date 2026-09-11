@@ -131,11 +131,15 @@ export default function AdmissionHub() {
 
 
     const handleSearch = async () => {
-        if (!searchQuery) return;
+        const cleanDigits = searchQuery.replace(/\D/g, "");
+        if (!cleanDigits || cleanDigits.length < 5) {
+            alert("Please enter a valid phone number with at least 5 digits.");
+            return;
+        }
         setIsSearching(true);
         setSearchResult(null);
         try {
-            const res = await fetch(`/api/admissions/search?q=${encodeURIComponent(searchQuery)}`);
+            const res = await fetch(`/api/admissions/search?q=${encodeURIComponent(cleanDigits)}`);
             const data = await res.json();
             if (res.ok) {
                 setSearchResult(data);
@@ -176,21 +180,23 @@ export default function AdmissionHub() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             {/* Consolidated Search */}
                             <div className="md:col-span-2">
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Search by Name / Mobile / Parent Name / Email / ID</label>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
+                                    SEARCH BY STUDENT PHONE NUMBER
+                                </label>
                                 <div className="flex gap-3">
                                     <div className="relative flex-1">
                                         <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
                                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 text-slate-300">
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.637 10.637z" />
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
                                             </svg>
                                         </span>
                                         <input
-                                            type="text"
+                                            type="tel"
                                             value={searchQuery}
-                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            onChange={(e) => setSearchQuery(e.target.value.replace(/[^\d+ -]/g, ""))}
                                             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                                            placeholder="Enter mobile, name, parent name, email, or registration ID"
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all placeholder:text-slate-400"
+                                            placeholder="Enter 10-digit mobile number (e.g. 9876543210)"
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all placeholder:text-slate-400 font-mono"
                                         />
                                     </div>
                                     <button

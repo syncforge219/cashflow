@@ -43,31 +43,34 @@ export async function GET(req: Request) {
     }
 
     const trimmedQ = q.trim();
-    const cleanQ = trimmedQ.replace(/[\s-]/g, "");
+    const cleanDigits = trimmedQ.replace(/\D/g, "");
 
-    const safeQ = escapeRegex(trimmedQ);
-    const safeCleanQ = escapeRegex(cleanQ);
+    if (!cleanDigits || cleanDigits.length < 5) {
+      return NextResponse.json(
+        { error: "Please enter a valid phone number (at least 5 digits)." },
+        { status: 400 }
+      );
+    }
 
-    const regex = new RegExp(safeQ, "i");
-    const cleanRegex = new RegExp(safeCleanQ, "i");
-    const mobileSlice = cleanQ.length > 5 ? escapeRegex(cleanQ.slice(-10)) : safeCleanQ;
+    // Match on last 10 digits if more were provided (e.g. +91 prefix), or the full digits entered
+    const searchSlice = cleanDigits.length > 10 ? cleanDigits.slice(-10) : cleanDigits;
+    const phoneRegex = new RegExp(`${escapeRegex(searchSlice)}$`);
 
-    // 1. Search in Admission records (Student Name & Student Mobile only)
+    // 1. Search in Admission records by mobile number only (using indexed mobileNumber field)
     const admissionSearchQuery: any = {
-      $or: [
-        { fullName: regex },
-        { mobileNumber: cleanRegex },
-        { mobileNumber: { $regex: mobileSlice, $options: "i" } },
-      ],
+      mobileNumber: phoneRegex,
     };
     if (brandMatchCondition) {
       admissionSearchQuery.$and = [brandMatchCondition];
     }
 
-    const admissions = await Admission.find(admissionSearchQuery).sort({ createdAt: -1 }).limit(50);
+    const admissions = await Admission.find(admissionSearchQuery)
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
 
     const formattedAdmissions = (admissions || []).map((admission: any) => ({
-      ...admission.toObject(),
+      ...admission,
       studentName: admission.fullName,
       admissionNumber: admission.admissionId,
       feeStatus: Number(admission.remainingBalance) === 0 ? "Paid In Full" : "Pending Balance",
@@ -79,28 +82,82 @@ export async function GET(req: Request) {
       }),
     }));
 
-    // 2. Search in Enquiry records (Active Prospects only - Student Name & Student Mobile only)
+    // 2. Search in Enquiry records by phone number only (Active Prospects only)
     const enquirySearchQuery: any = {
       isAdmitted: { $ne: true },
       status: { $nin: ["Admitted", "Closed", "Lost", "Converted", "Admission"] },
-      $or: [
-        { studentFullName: regex },
-        { primaryPhoneMobile: cleanRegex },
-        { primaryPhoneMobile: { $regex: mobileSlice, $options: "i" } },
-      ],
+      primaryPhoneMobile: phoneRegex,
     };
     if (brandMatchCondition) {
       enquirySearchQuery.$and = [brandMatchCondition];
     }
 
-    const enquiries = await Enquiry.find(enquirySearchQuery).sort({ createdAt: -1 }).limit(50);
+    const enquiries = await Enquiry.find(enquirySearchQuery)
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
 
-    const formattedEnquiries = (enquiries || []).map((enquiry: any) => {
+    // 3. Consolidate & Group Enquiries by Phone Number
+    // Multiple enquiries with the same phone number for different courses are counted as ONE enquiry
+    const groupedEnquiriesMap = new Map<string, any>();
+
+    for (const enquiry of enquiries) {
+      const rawPhone = enquiry.primaryPhoneMobile || "";
+      const phoneKey = rawPhone.replace(/\D/g, "").slice(-10) || rawPhone.trim();
+
+      if (!groupedEnquiriesMap.has(phoneKey)) {
+        const courseSet = new Set<string>();
+        if (enquiry.targetCourse) {
+          enquiry.targetCourse.split(",").map((c: string) => c.trim()).filter(Boolean).forEach((c: string) => courseSet.add(c));
+        }
+        if (Array.isArray(enquiry.courses)) {
+          enquiry.courses.forEach((c: any) => c && courseSet.add(String(c).trim()));
+        }
+        if (Array.isArray(enquiry.targetCourses)) {
+          enquiry.targetCourses.forEach((c: any) => c && courseSet.add(String(c).trim()));
+        }
+
+        groupedEnquiriesMap.set(phoneKey, {
+          ...enquiry,
+          enquiryIds: [enquiry.enquiryId].filter(Boolean),
+          allCoursesSet: courseSet,
+          allFollowUps: Array.isArray(enquiry.followUps) ? [...enquiry.followUps] : [],
+          allEnquiries: [enquiry],
+        });
+      } else {
+        const existing = groupedEnquiriesMap.get(phoneKey);
+        // Merge courses from another enquiry with same phone number
+        if (enquiry.targetCourse) {
+          enquiry.targetCourse.split(",").map((c: string) => c.trim()).filter(Boolean).forEach((c: string) => existing.allCoursesSet.add(c));
+        }
+        if (Array.isArray(enquiry.courses)) {
+          enquiry.courses.forEach((c: any) => c && existing.allCoursesSet.add(String(c).trim()));
+        }
+        if (Array.isArray(enquiry.targetCourses)) {
+          enquiry.targetCourses.forEach((c: any) => c && existing.allCoursesSet.add(String(c).trim()));
+        }
+
+        if (enquiry.enquiryId && !existing.enquiryIds.includes(enquiry.enquiryId)) {
+          existing.enquiryIds.push(enquiry.enquiryId);
+        }
+
+        if (Array.isArray(enquiry.followUps)) {
+          existing.allFollowUps.push(...enquiry.followUps);
+        }
+
+        existing.allEnquiries.push(enquiry);
+      }
+    }
+
+    const formattedEnquiries = Array.from(groupedEnquiriesMap.values()).map((grouped: any) => {
+      const mergedCourses = Array.from(grouped.allCoursesSet).filter(Boolean);
+      const displayCourse = mergedCourses.length > 0 ? mergedCourses.join(", ") : grouped.targetCourse || "General Course";
+
       let lastFollowUp = null;
       let nextFollowUp = null;
 
-      if (enquiry.followUps && Array.isArray(enquiry.followUps) && enquiry.followUps.length > 0) {
-        const sortedFollowUps = [...enquiry.followUps].sort((a: any, b: any) => {
+      if (grouped.allFollowUps && grouped.allFollowUps.length > 0) {
+        const sortedFollowUps = [...grouped.allFollowUps].sort((a: any, b: any) => {
           const timeA = a.date && a.time ? new Date(`${a.date}T${a.time}`).getTime() : 0;
           const timeB = b.date && b.time ? new Date(`${b.date}T${b.time}`).getTime() : 0;
           return timeA - timeB;
@@ -121,9 +178,15 @@ export async function GET(req: Request) {
       }
 
       return {
-        ...enquiry.toObject(),
+        ...grouped,
+        enquiryId: grouped.enquiryIds.join(", "),
+        targetCourse: displayCourse,
+        courses: mergedCourses,
+        targetCourses: mergedCourses,
+        followUps: grouped.allFollowUps,
         lastFollowUp: lastFollowUp ? `${lastFollowUp.date} at ${lastFollowUp.time}` : "None",
         nextFollowUp: nextFollowUp ? `${nextFollowUp.date} at ${nextFollowUp.time}` : "None",
+        totalEnquiriesCombined: grouped.allEnquiries.length,
       };
     });
 

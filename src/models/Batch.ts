@@ -92,7 +92,11 @@ const BatchSchema = new Schema(
   }
 );
 
-// Performance Indexes
+import { getNextSequence } from "@/lib/sequenceHelper";
+
+// Performance & Compound Indexes
+BatchSchema.index({ brand: 1, status: 1 });
+BatchSchema.index({ teacherId: 1, status: 1 });
 BatchSchema.index({ batchId: 1 });
 BatchSchema.index({ brand: 1 });
 BatchSchema.index({ teacherId: 1 });
@@ -100,22 +104,22 @@ BatchSchema.index({ status: 1 });
 BatchSchema.index({ course: 1 });
 BatchSchema.index({ courses: 1 });
 
-// Auto-generate batchId
+// Atomic Auto-generate batchId
 BatchSchema.pre("save", async function () {
   if (!this.batchId) {
-    const lastBatch = await mongoose.models.Batch.findOne({
-      batchId: /^BAT\d+$/
-    }).sort({ batchId: -1 });
+    this.batchId = await getNextSequence("batchId", "BAT", 6, async () => {
+      const lastBatch = await mongoose.models.Batch.findOne({
+        batchId: /^BAT\d+$/
+      }).sort({ batchId: -1 });
 
-    let nextNumber = 1;
-    if (lastBatch && lastBatch.batchId) {
-      const match = lastBatch.batchId.match(/^BAT(\d+)$/);
-      if (match) {
-        nextNumber = parseInt(match[1], 10) + 1;
+      if (lastBatch && lastBatch.batchId) {
+        const match = lastBatch.batchId.match(/^BAT(\d+)$/);
+        if (match) {
+          return parseInt(match[1], 10);
+        }
       }
-    }
-    
-    this.batchId = `BAT${String(nextNumber).padStart(6, "0")}`;
+      return 0;
+    });
   }
 });
 

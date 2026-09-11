@@ -104,28 +104,33 @@ const AdmissionSchema = new Schema(
   }
 );
 
-// Performance Indexes
-AdmissionSchema.index({ counsellor: 1 });
-AdmissionSchema.index({ brand: 1 });
-AdmissionSchema.index({ createdAt: -1 });
-AdmissionSchema.index({ mobileNumber: 1 });
+import { getNextSequence } from "@/lib/sequenceHelper";
 
-// Auto-generate admissionId
+// Performance & Compound Indexes
+AdmissionSchema.index({ brand: 1, createdAt: -1 });
+AdmissionSchema.index({ brand: 1, admissionDate: -1 });
+AdmissionSchema.index({ counsellor: 1, createdAt: -1 });
+AdmissionSchema.index({ batchId: 1, createdAt: -1 });
+AdmissionSchema.index({ admissionDate: -1 });
+AdmissionSchema.index({ mobileNumber: 1 });
+AdmissionSchema.index({ createdAt: -1 });
+
+// Atomic Auto-generate admissionId
 AdmissionSchema.pre("save", async function () {
   if (!this.admissionId) {
-    const lastAdmission = await mongoose.models.Admission.findOne({
-      admissionId: /^ADM\d+$/
-    }).sort({ admissionId: -1 });
+    this.admissionId = await getNextSequence("admissionId", "ADM", 6, async () => {
+      const lastAdmission = await mongoose.models.Admission.findOne({
+        admissionId: /^ADM\d+$/
+      }).sort({ admissionId: -1 });
 
-    let nextNumber = 1;
-    if (lastAdmission && lastAdmission.admissionId) {
-      const match = lastAdmission.admissionId.match(/^ADM(\d+)$/);
-      if (match) {
-        nextNumber = parseInt(match[1], 10) + 1;
+      if (lastAdmission && lastAdmission.admissionId) {
+        const match = lastAdmission.admissionId.match(/^ADM(\d+)$/);
+        if (match) {
+          return parseInt(match[1], 10);
+        }
       }
-    }
-    
-    this.admissionId = `ADM${String(nextNumber).padStart(6, "0")}`;
+      return 0;
+    });
   }
 });
 

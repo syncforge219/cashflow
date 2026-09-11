@@ -43,6 +43,12 @@ const ExpenseSchema: Schema = new Schema(
   { timestamps: true }
 );
 
+// Performance & Compound Indexes
+ExpenseSchema.index({ brand: 1, expenseDate: -1, createdAt: -1 });
+ExpenseSchema.index({ company: 1, expenseDate: -1 });
+ExpenseSchema.index({ category: 1, expenseDate: -1 });
+ExpenseSchema.index({ expenseDate: -1 });
+
 if (mongoose.models.Expense) {
   delete mongoose.models.Expense;
 }

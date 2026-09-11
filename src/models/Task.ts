@@ -98,7 +98,10 @@ const TaskSchema = new Schema(
   }
 );
 
-// Performance Indexes
+// Performance & Compound Indexes
+TaskSchema.index({ status: 1, dueDate: 1 });
+TaskSchema.index({ assignedTo: 1, status: 1, dueDate: 1 });
+TaskSchema.index({ assignedTo: 1, dueDate: 1 });
 TaskSchema.index({ assignedTo: 1 });
 TaskSchema.index({ dueDate: 1 });
 TaskSchema.index({ status: 1 });
