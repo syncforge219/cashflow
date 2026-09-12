@@ -31,6 +31,10 @@ export async function PATCH(
     const { id } = await params;
     const body = await req.json();
 
+    if (body.date) {
+      body.date = new Date(body.date);
+    }
+
     const updated = await ProformaInvoice.findByIdAndUpdate(
       id,
       { $set: body },

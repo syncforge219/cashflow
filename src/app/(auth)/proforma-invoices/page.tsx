@@ -49,6 +49,11 @@ export default function ProformaInvoicesPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
+  // Date editing state
+  const [editingDateId, setEditingDateId] = useState<string | null>(null);
+  const [tempDate, setTempDate] = useState<string>("");
+  const [updatingDateId, setUpdatingDateId] = useState<string | null>(null);
+
   const fetchProformaInvoices = async () => {
     setLoading(true);
     try {
@@ -132,6 +137,46 @@ export default function ProformaInvoicesPage() {
       }
     } catch (err) {
       console.error("Error updating status:", err);
+    }
+  };
+
+  const handleStartEditDate = (pi: ProformaInvoiceItem) => {
+    setEditingDateId(pi._id);
+    if (pi.date) {
+      try {
+        const d = new Date(pi.date);
+        setTempDate(d.toISOString().split("T")[0]);
+      } catch {
+        setTempDate(new Date().toISOString().split("T")[0]);
+      }
+    } else {
+      setTempDate(new Date().toISOString().split("T")[0]);
+    }
+  };
+
+  const handleSaveDate = async (id: string) => {
+    if (!tempDate) return;
+    setUpdatingDateId(id);
+    try {
+      const res = await fetch(`/api/proforma-invoices/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: tempDate }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setProformaInvoices((prev) =>
+          prev.map((item) => (item._id === id ? { ...item, date: tempDate } : item))
+        );
+        setEditingDateId(null);
+      } else {
+        alert("Failed to update date: " + (data.error || "Server error"));
+      }
+    } catch (err: any) {
+      console.error("Error updating date:", err);
+      alert("Error updating date: " + err.message);
+    } finally {
+      setUpdatingDateId(null);
     }
   };
 
@@ -347,8 +392,50 @@ export default function ProformaInvoicesPage() {
                           <td className="px-4 py-3.5 font-bold text-slate-800">
                             {pi.customerName}
                           </td>
-                          <td className="px-4 py-3.5 text-slate-500 font-medium whitespace-nowrap">
-                            {pi.date ? new Date(pi.date).toLocaleDateString("en-IN") : "-"}
+                          <td className="px-4 py-3.5 whitespace-nowrap">
+                            {editingDateId === pi._id ? (
+                              <div className="flex items-center gap-1.5 bg-indigo-50/90 p-1.5 rounded-xl border border-indigo-200 shadow-sm">
+                                <input
+                                  type="date"
+                                  value={tempDate}
+                                  onChange={(e) => setTempDate(e.target.value)}
+                                  className="bg-white border border-slate-300 text-slate-900 font-bold text-xs rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 shadow-xs"
+                                  disabled={updatingDateId === pi._id}
+                                  autoFocus
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveDate(pi._id)}
+                                  disabled={updatingDateId === pi._id || !tempDate}
+                                  className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-lg shadow-xs cursor-pointer transition-colors disabled:opacity-50"
+                                  title="Save Date"
+                                >
+                                  {updatingDateId === pi._id ? "..." : "✓"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingDateId(null)}
+                                  disabled={updatingDateId === pi._id}
+                                  className="px-2 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-lg cursor-pointer transition-colors disabled:opacity-50"
+                                  title="Cancel"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ) : (
+                              <div
+                                onClick={() => handleStartEditDate(pi)}
+                                className="group inline-flex items-center gap-1.5 px-2 py-1 -ml-2 rounded-lg hover:bg-indigo-50/80 border border-transparent hover:border-indigo-200 transition-all cursor-pointer"
+                                title="Click to edit date"
+                              >
+                                <span className="text-slate-700 font-semibold font-mono text-xs">
+                                  {pi.date ? new Date(pi.date).toLocaleDateString("en-IN") : "-"}
+                                </span>
+                                <span className="text-[11px] text-indigo-500 opacity-60 group-hover:opacity-100 group-hover:scale-110 transition-all">
+                                  ✏️
+                                </span>
+                              </div>
+                            )}
                           </td>
                           <td className="px-4 py-3.5 text-right font-black text-emerald-600">
                             ₹{Number(pi.grandTotal || 0).toLocaleString("en-IN")}
@@ -370,6 +457,14 @@ export default function ProformaInvoicesPage() {
                           <td className="px-4 py-3.5 text-slate-500 text-[11px] font-medium">{pi.createdBy || "Admin"}</td>
                           <td className="px-4 py-3.5 text-right">
                             <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                onClick={() => handleStartEditDate(pi)}
+                                className="px-2 py-1 text-[11px] font-bold text-slate-600 hover:text-indigo-600 bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 rounded-lg transition-colors cursor-pointer"
+                                title="Edit Date"
+                              >
+                                📅 Edit Date
+                              </button>
+
                               <a
                                 href={`/api/proforma-invoices/${pi._id}/pdf`}
                                 target="_blank"
