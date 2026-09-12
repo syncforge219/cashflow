@@ -174,7 +174,7 @@ export async function GET(req: Request) {
     }
 
     const totalLeadsCalculated = Math.max(totalLeads + unlinkedUpgradesCount, admissionsCount);
-    const totalConvertedCalculated = convertedLeads + unlinkedUpgradesCount;
+    const totalConvertedCalculated = admissionsCount;
 
     // 2. Lead Pipeline Breakdown
     const pipelineStages = [

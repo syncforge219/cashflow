@@ -199,17 +199,17 @@ export async function POST(req: Request) {
       status: body.status || ("ISSUED" as const),
       createdBy: body.createdBy || "Admin",
 
-      // Snapshot company profile details
-      companyName: (profile as any)?.name || "SICCES PRIVATE LIMITED",
-      companyLogo: (profile as any)?.logo || "",
-      companyGstin: (profile as any)?.gstin || "",
-      companyCin: (profile as any)?.cin || "",
-      companyDescription: (profile as any)?.description || "",
-      companyAddress: (profile as any)?.address || "",
-      companyPhone: (profile as any)?.phone || "",
-      companyEmail: (profile as any)?.email || "",
-      companyWebsite: (profile as any)?.website || "",
-      companyWorksAddress: (profile as any)?.worksAddress || "",
+      // Snapshot company profile details (prefer user-customized details if passed)
+      companyName: body.companyName !== undefined && body.companyName !== "" ? body.companyName : ((profile as any)?.name || "SICCES PRIVATE LIMITED"),
+      companyLogo: body.companyLogo !== undefined ? body.companyLogo : ((profile as any)?.logo || ""),
+      companyGstin: body.companyGstin !== undefined ? body.companyGstin : ((profile as any)?.gstin || ""),
+      companyCin: body.companyCin !== undefined ? body.companyCin : ((profile as any)?.cin || ""),
+      companyDescription: body.companyDescription !== undefined ? body.companyDescription : ((profile as any)?.description || ""),
+      companyAddress: body.companyAddress !== undefined ? body.companyAddress : ((profile as any)?.address || ""),
+      companyPhone: body.companyPhone !== undefined ? body.companyPhone : ((profile as any)?.phone || ""),
+      companyEmail: body.companyEmail !== undefined ? body.companyEmail : ((profile as any)?.email || ""),
+      companyWebsite: body.companyWebsite !== undefined ? body.companyWebsite : ((profile as any)?.website || ""),
+      companyWorksAddress: body.companyWorksAddress !== undefined ? body.companyWorksAddress : ((profile as any)?.worksAddress || ""),
       authorizedSignatory: (profile as any)?.authorizedSignatory || "AUTHORISED SIGNATORY",
       signatureImage: (profile as any)?.signatureImage || "",
       stampImage: (profile as any)?.stampImage || "",
@@ -222,6 +222,66 @@ export async function POST(req: Request) {
     }, { status: 201 });
   } catch (error: any) {
     console.error("Error creating purchase order:", error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}
+
+export async function PUT(req: Request) {
+  try {
+    await dbConnect();
+    const body = await req.json();
+    const targetId = body.id || body._id;
+
+    if (!targetId) {
+      return NextResponse.json({ success: false, error: "Purchase Order ID is required for update" }, { status: 400 });
+    }
+
+    const updatePayload: any = {
+      ...(body.category && { category: body.category }),
+      ...(body.customCategoryName !== undefined && { customCategoryName: body.customCategoryName.trim() }),
+      ...(body.billingCycle && { billingCycle: body.billingCycle }),
+      ...(body.contractPeriod !== undefined && { contractPeriod: body.contractPeriod.trim() }),
+      ...(body.date && { date: new Date(body.date) }),
+      ...(body.validUntil && { validUntil: new Date(body.validUntil) }),
+      ...(body.poNumber !== undefined && { poNumber: body.poNumber.trim() }),
+      ...(body.customerName && { customerName: body.customerName.trim() }),
+      ...(body.supplierName !== undefined && { supplierName: body.supplierName.trim() }),
+      ...(body.consigneeInfo !== undefined && { consigneeInfo: body.consigneeInfo.trim() }),
+      ...(body.customerAddress !== undefined && { customerAddress: body.customerAddress.trim() }),
+      ...(body.customerGstin !== undefined && { customerGstin: body.customerGstin.trim().toUpperCase() }),
+      ...(body.deliveryLocation !== undefined && { deliveryLocation: body.deliveryLocation.trim() }),
+      ...(body.items && { items: body.items }),
+      ...(body.subtotal !== undefined && { subtotal: body.subtotal }),
+      ...(body.discount !== undefined && { discount: body.discount }),
+      ...(body.gstRate !== undefined && { gstRate: body.gstRate }),
+      ...(body.gstAmount !== undefined && { gstAmount: body.gstAmount }),
+      ...(body.transportCharges !== undefined && { transportCharges: body.transportCharges }),
+      ...(body.transportText !== undefined && { transportText: body.transportText }),
+      ...(body.additionalCharges !== undefined && { additionalCharges: body.additionalCharges }),
+      ...(body.grandTotal !== undefined && { grandTotal: body.grandTotal }),
+      ...(body.amountInWords !== undefined && { amountInWords: body.amountInWords }),
+      ...(body.termsAndConditions !== undefined && { termsAndConditions: body.termsAndConditions }),
+      ...(body.status && { status: body.status }),
+      ...(body.companyName !== undefined && { companyName: body.companyName }),
+      ...(body.companyLogo !== undefined && { companyLogo: body.companyLogo }),
+      ...(body.companyGstin !== undefined && { companyGstin: body.companyGstin }),
+      ...(body.companyCin !== undefined && { companyCin: body.companyCin }),
+      ...(body.companyDescription !== undefined && { companyDescription: body.companyDescription }),
+      ...(body.companyAddress !== undefined && { companyAddress: body.companyAddress }),
+      ...(body.companyPhone !== undefined && { companyPhone: body.companyPhone }),
+      ...(body.companyEmail !== undefined && { companyEmail: body.companyEmail }),
+      ...(body.companyWebsite !== undefined && { companyWebsite: body.companyWebsite }),
+    };
+
+    const updatedPO = await PurchaseOrder.findByIdAndUpdate(targetId, { $set: updatePayload }, { new: true });
+
+    return NextResponse.json({
+      success: true,
+      message: "Purchase Order updated successfully",
+      data: updatedPO,
+    });
+  } catch (error: any) {
+    console.error("Error updating purchase order:", error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

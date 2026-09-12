@@ -518,7 +518,7 @@ function generateQuotationHtml(quotation: any, profile: any): string {
       </div>
       <div class="header-main-flex">
         <div class="header-left">
-          ${profile?.logo ? `<img src="${profile.logo}" alt="Company Logo" class="header-logo-img" />` : `
+          ${(quotation.companyLogo || profile?.logo) ? `<img src="${quotation.companyLogo || profile.logo}" alt="Company Logo" class="header-logo-img" />` : `
             <svg width="55" height="55" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
               <polygon points="50,10 90,90 10,90" fill="#1a237e" stroke="#000" stroke-width="3"/>
               <text x="50" y="70" font-size="28" font-weight="bold" fill="#fff" text-anchor="middle">A</text>

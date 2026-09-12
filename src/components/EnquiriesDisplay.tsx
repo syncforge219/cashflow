@@ -53,7 +53,7 @@ export default function EnquiriesDisplay() {
 
   // 1. Date Filtered Enquiries (for Date Range Presets)
   const dateFilteredEnquiries = enquiries.filter((lead) => {
-    const rawDateVal = lead.date || lead.createdAt;
+    const rawDateVal = lead.createdAt || lead.date;
     if (!rawDateVal || dateFilterMode === "all") return true;
     const leadDate = new Date(rawDateVal);
     const now = new Date();
@@ -126,9 +126,19 @@ export default function EnquiriesDisplay() {
   };
 
   const [devNamesList, setDevNamesList] = useState<string[]>([]);
+  const [admissionsList, setAdmissionsList] = useState<any[]>([]);
 
   useEffect(() => {
     fetchEnquiries();
+
+    fetch("/api/admissions")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.data)) {
+          setAdmissionsList(data.data);
+        }
+      })
+      .catch(console.error);
 
     fetch("/api/counsellors")
       .then((res) => res.json())
@@ -263,15 +273,62 @@ export default function EnquiriesDisplay() {
     return acc;
   }, 0);
 
-  const admissionsConvertedCount = dateFilteredEnquiries.filter(
-    (e) => e.status === "Admission" || e.status === "Admitted" || e.status === "Converted"
-  ).length;
+  // Calculate official admissions for the period matching date & brand filters
+  const dateFilteredAdmissions = admissionsList.filter((adm) => {
+    const rawDateVal = adm.admissionDate || adm.createdAt;
+    if (!rawDateVal || dateFilterMode === "all") return true;
+    const admDate = new Date(rawDateVal);
+    const now = new Date();
+
+    if (dateFilterMode === "today") {
+      const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      const endToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      return admDate >= startToday && admDate <= endToday;
+    } else if (dateFilterMode === "week") {
+      const startWeek = new Date(now);
+      startWeek.setDate(startWeek.getDate() - 7);
+      startWeek.setHours(0, 0, 0, 0);
+      const endWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      return admDate >= startWeek && admDate <= endWeek;
+    } else if (dateFilterMode === "month") {
+      const startMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      const endMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      return admDate >= startMonth && admDate <= endMonth;
+    } else if (dateFilterMode === "year") {
+      const startYear = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
+      const endYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+      return admDate >= startYear && admDate <= endYear;
+    } else if (dateFilterMode === "custom") {
+      if (startDateFilter) {
+        const startCustom = new Date(startDateFilter);
+        startCustom.setHours(0, 0, 0, 0);
+        if (admDate < startCustom) return false;
+      }
+      if (endDateFilter) {
+        const endCustom = new Date(endDateFilter);
+        endCustom.setHours(23, 59, 59, 999);
+        if (admDate > endCustom) return false;
+      }
+      return true;
+    }
+    return true;
+  });
+
+  const finalAdmissions = dateFilteredAdmissions.filter((adm) => {
+    if (brandFilter && adm.brand !== brandFilter) return false;
+    return true;
+  });
+
+  const admissionsConvertedCount = finalAdmissions.length > 0
+    ? finalAdmissions.length
+    : dateFilteredEnquiries.filter((e) => e.status === "Admission" || e.status === "Admitted" || e.status === "Converted").length;
 
   const lostLeadsCount = dateFilteredEnquiries.filter(
     (e) => e.status === "Lost" || e.status === "Closed"
   ).length;
 
-  const conversionRateStr = totalPeriodEnquiries > 0 ? `${Math.min(100, Math.round((admissionsConvertedCount / totalPeriodEnquiries) * 100))}%` : "0%";
+  const rawRate = totalPeriodEnquiries > 0 ? (admissionsConvertedCount / totalPeriodEnquiries) * 100 : 0;
+  const conversionRateStr = totalPeriodEnquiries > 0 ? `${Math.min(100, Number(rawRate.toFixed(1)))}%` : "0%";
 
   const firstCardTitleMap: Record<string, string> = {
     today: "Today's Enquiries",

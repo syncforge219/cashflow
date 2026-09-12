@@ -74,8 +74,14 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
     address: string;
     description: string;
     bankName: string;
+    accountNumber: string;
+    ifsc: string;
+    branch: string;
     prefix: string;
     logo: string;
+    phone: string;
+    email: string;
+    website: string;
   }>({
     name: initialData?.companyName || "SICCES PRIVATE LIMITED",
     gstin: initialData?.companyGstin || "09AASCS4608K1ZP",
@@ -83,8 +89,14 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
     address: initialData?.companyAddress || "101, Vinayak Complex, Station Road, Jaipur",
     description: initialData?.companyDescription || "Providers of Software, Digital Marketing & Educational Services",
     bankName: initialData?.bankDetails?.bankName || "STATE BANK OF INDIA",
+    accountNumber: initialData?.bankDetails?.accountNumber || "61330464677",
+    ifsc: initialData?.bankDetails?.ifsc || initialData?.bankDetails?.rtgsCode || "SBIN0031792",
+    branch: initialData?.bankDetails?.branch || "SITAPURA IND. AREA JAIPUR",
     prefix: "SICCES",
     logo: initialData?.companyLogo || "",
+    phone: initialData?.companyPhone || "0141-4059826",
+    email: initialData?.companyEmail || "info@sicces.com",
+    website: initialData?.companyWebsite || "www.sicces.com",
   });
 
   // Form State
@@ -220,8 +232,14 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
               address: p.address || "101, Vinayak Complex, Station Road",
               description: p.description || "",
               bankName: p.bankDetails?.bankName || "STATE BANK OF INDIA",
+              accountNumber: p.bankDetails?.accountNumber || "",
+              ifsc: p.bankDetails?.ifsc || "",
+              branch: p.bankDetails?.branch || "",
               prefix: p.prefix && p.prefix !== "APPL" ? p.prefix : "SICCES",
               logo: p.logo || "",
+              phone: p.phone || "",
+              email: p.email || "",
+              website: p.website || "",
             });
             if (!initialData?.poNumber && p.prefix) {
               setPoNumber(`${p.prefix && p.prefix !== "APPL" ? p.prefix : "SICCES"}/2026-27`);
@@ -253,8 +271,14 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
                 address: (siccesComp.address && siccesComp.address !== "No listed street, No City, No State, PIN") ? siccesComp.address : (profData?.data?.address || "101, Vinayak Complex, Station Road"),
                 description: Array.isArray(siccesComp.brands) && siccesComp.brands.length > 0 ? `Providers for: ${siccesComp.brands.join(", ")}` : (profData?.data?.description || "Providers of Software, Digital Marketing & Educational Services"),
                 bankName: siccesComp.bank || profData?.data?.bankDetails?.bankName || "STATE BANK OF INDIA",
+                accountNumber: profData?.data?.bankDetails?.accountNumber || "61330464677",
+                ifsc: profData?.data?.bankDetails?.ifsc || "SBIN0031792",
+                branch: profData?.data?.bankDetails?.branch || "SITAPURA IND. AREA JAIPUR",
                 prefix: "SICCES",
                 logo: siccesComp.qrCodeUrl || profData?.data?.logo || "",
+                phone: profData?.data?.phone || "0141-4059826",
+                email: profData?.data?.email || "info@sicces.com",
+                website: profData?.data?.website || "www.sicces.com",
               });
               if (!initialData?.poNumber) {
                 setPoNumber("SICCES/2026-27");
@@ -268,11 +292,31 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
                 address: p.address || "101, Vinayak Complex, Station Road",
                 description: p.description || "",
                 bankName: p.bankDetails?.bankName || "STATE BANK OF INDIA",
+                accountNumber: p.bankDetails?.accountNumber || "",
+                ifsc: p.bankDetails?.ifsc || "",
+                branch: p.bankDetails?.branch || "",
                 prefix: p.prefix && p.prefix !== "APPL" ? p.prefix : "SICCES",
                 logo: p.logo || "",
+                phone: p.phone || "",
+                email: p.email || "",
+                website: p.website || "",
               });
               if (!initialData?.poNumber && p.prefix) {
                 setPoNumber(`${p.prefix && p.prefix !== "APPL" ? p.prefix : "SICCES"}/2026-27`);
+              }
+            }
+          } else {
+            // Edit Mode: detect whether current company matches a preset or is custom
+            if (initialData?.companyName) {
+              const matched = comps.find(
+                (c) =>
+                  c.name?.toLowerCase() === initialData.companyName?.toLowerCase() ||
+                  c.legalName?.toLowerCase() === initialData.companyName?.toLowerCase()
+              );
+              if (matched) {
+                setSelectedCompanyEntityId(matched._id);
+              } else {
+                setSelectedCompanyEntityId("OTHER");
               }
             }
           }
@@ -293,27 +337,61 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
           gstin: profile.gstin || "09AASCS4608K1ZP",
           cin: profile.cin || "",
           address: profile.address || "101, Vinayak Complex, Station Road",
-          description: profile.description || "",
+          description: profile.description || "Providers of Software, Digital Marketing & Educational Services",
           bankName: profile.bankDetails?.bankName || "STATE BANK OF INDIA",
+          accountNumber: profile.bankDetails?.accountNumber || "61330464677",
+          ifsc: profile.bankDetails?.ifsc || "SBIN0031792",
+          branch: profile.bankDetails?.branch || "SITAPURA IND. AREA JAIPUR",
           prefix: profile.prefix && profile.prefix !== "APPL" ? profile.prefix : "SICCES",
           logo: profile.logo || "",
+          phone: profile.phone || "0141-4059826",
+          email: profile.email || "info@sicces.com",
+          website: profile.website || "www.sicces.com",
         });
       }
       return;
     }
 
+    if (compId === "OTHER") {
+      setIssuingCompanyInfo({
+        name: "",
+        gstin: "",
+        cin: "",
+        address: "",
+        description: "",
+        bankName: "",
+        accountNumber: "",
+        ifsc: "",
+        branch: "",
+        prefix: "CUSTOM",
+        logo: "",
+        phone: "",
+        email: "",
+        website: "",
+      });
+      return;
+    }
+
     const found = companiesList.find((c) => c._id === compId);
     if (found) {
-      const generatedPrefix = found.name.toUpperCase().includes("SICCES") ? "SICCES" : found.name.substring(0, 4).toUpperCase();
+      const generatedPrefix = found.name.toUpperCase().includes("SICCES")
+        ? "SICCES"
+        : found.name.replace(/[^A-Za-z0-9]/g, "").substring(0, 4).toUpperCase();
       setIssuingCompanyInfo({
         name: found.legalName || found.name || "",
-        gstin: (found.gst && found.gst !== "Not Provided") ? found.gst : (profile?.gstin || "09AASCS4608K1ZP"),
-        cin: "",
-        address: (found.address && found.address !== "No listed street, No City, No State, PIN") ? found.address : (profile?.address || "101, Vinayak Complex, Station Road"),
-        description: Array.isArray(found.brands) && found.brands.length > 0 ? `Providers for: ${found.brands.join(", ")}` : (profile?.description || "Providers of Software, Digital Marketing & Educational Services"),
-        bankName: found.bank || "STATE BANK OF INDIA",
+        gstin: (found.gst && found.gst !== "Not Provided") ? found.gst : (profile?.gstin || ""),
+        cin: profile?.cin || "",
+        address: (found.address && found.address !== "No listed street, No City, No State, PIN") ? found.address : (profile?.address || ""),
+        description: Array.isArray(found.brands) && found.brands.length > 0 ? `Providers for: ${found.brands.join(", ")}` : (profile?.description || ""),
+        bankName: found.bank || profile?.bankDetails?.bankName || "STATE BANK OF INDIA",
+        accountNumber: profile?.bankDetails?.accountNumber || "",
+        ifsc: profile?.bankDetails?.ifsc || "",
+        branch: profile?.bankDetails?.branch || "",
         prefix: generatedPrefix,
         logo: found.qrCodeUrl || profile?.logo || "",
+        phone: profile?.phone || "",
+        email: profile?.email || "",
+        website: profile?.website || "",
       });
       if (found.name) {
         setPoNumber(`${generatedPrefix}/2026-27`);
@@ -727,6 +805,16 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
       companyAddress: issuingCompanyInfo.address,
       companyDescription: issuingCompanyInfo.description,
       companyLogo: issuingCompanyInfo.logo,
+      companyPhone: issuingCompanyInfo.phone || "",
+      companyEmail: issuingCompanyInfo.email || "",
+      companyWebsite: issuingCompanyInfo.website || "",
+      bankDetails: {
+        bankName: issuingCompanyInfo.bankName || "",
+        accountNumber: issuingCompanyInfo.accountNumber || "",
+        ifsc: issuingCompanyInfo.ifsc || "",
+        branch: issuingCompanyInfo.branch || "",
+        rtgsCode: issuingCompanyInfo.ifsc || "",
+      },
     };
 
     try {
@@ -857,56 +945,265 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
               </div>
             </div>
 
-            {companiesList.length > 0 && (
-              <div className="flex items-center gap-2 text-xs">
-                <span className="text-slate-500 font-bold">Select Issuing Company:</span>
-                <select
-                  value={selectedCompanyEntityId}
-                  onChange={(e) => handleSelectCompanyEntity(e.target.value)}
-                  className="bg-indigo-50/70 border border-indigo-200 text-indigo-900 font-extrabold rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer shadow-2xs"
-                >
-                  <option value="">-- Default Company Profile --</option>
-                  {companiesList.map((comp) => (
-                    <option key={comp._id} value={comp._id}>
-                      {comp.name} {comp.legalName && comp.legalName !== comp.name ? `(${comp.legalName})` : ""}
-                    </option>
-                  ))}
-                </select>
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-slate-600 font-bold">Company:</span>
+              <select
+                value={selectedCompanyEntityId}
+                onChange={(e) => handleSelectCompanyEntity(e.target.value)}
+                className="bg-indigo-50/80 border border-indigo-200 text-indigo-950 font-extrabold rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer shadow-2xs min-w-[200px]"
+              >
+                <option value="">-- Default Company Profile --</option>
+                {companiesList.map((comp) => (
+                  <option key={comp._id} value={comp._id}>
+                    {comp.name} {comp.legalName && comp.legalName !== comp.name ? `(${comp.legalName})` : ""}
+                  </option>
+                ))}
+                <option value="OTHER">✨ Other (Enter Custom Details)</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Mode Indicator Banner */}
+          <div className={`p-3 rounded-xl border text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 ${
+            selectedCompanyEntityId === "OTHER"
+              ? "bg-amber-50/80 border-amber-200 text-amber-900"
+              : "bg-indigo-50/50 border-indigo-100 text-indigo-900"
+          }`}>
+            <div className="flex items-center gap-2">
+              <span className="text-base">{selectedCompanyEntityId === "OTHER" ? "✍️" : "🏢"}</span>
+              <div>
+                <span className="font-extrabold">
+                  {selectedCompanyEntityId === "OTHER"
+                    ? "Custom Company Mode Active:"
+                    : `Active Profile: ${issuingCompanyInfo.name || "Default Company"}`}
+                </span>
+                <span className="text-[11px] opacity-80 block sm:inline sm:ml-2">
+                  {selectedCompanyEntityId === "OTHER"
+                    ? "Fill in all company details below. They will be saved with this quotation and printed on PDFs."
+                    : "You can modify any of the company information fields below specifically for this document."}
+                </span>
               </div>
+            </div>
+            {selectedCompanyEntityId === "OTHER" && (
+              <span className="px-2.5 py-0.5 rounded-md bg-amber-200/70 text-amber-900 text-[10px] font-black uppercase tracking-wider whitespace-nowrap">
+                Other / Custom
+              </span>
             )}
           </div>
 
-          {/* Seller Summary Card */}
-          <div className="bg-gradient-to-r from-slate-50 via-indigo-50/20 to-slate-50 border border-slate-200/80 rounded-2xl p-4 grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
-            <div>
-              <span className="text-[10px] font-extrabold uppercase text-slate-400 block tracking-wider mb-0.5">Issuing Seller Name</span>
-              <p className="font-black text-slate-900 text-sm">{issuingCompanyInfo.name || "SICCES PRIVATE LIMITED"}</p>
-              {issuingCompanyInfo.description && (
-                <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-1">{issuingCompanyInfo.description}</p>
-              )}
+          {/* Editable Company Fields Grid */}
+          <div className="space-y-4">
+            {/* Primary Details Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                  Company / Seller Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={issuingCompanyInfo.name}
+                  onChange={(e) => setIssuingCompanyInfo({ ...issuingCompanyInfo, name: e.target.value })}
+                  placeholder="e.g. SICCES PRIVATE LIMITED"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-bold rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                  Seller GSTIN
+                </label>
+                <input
+                  type="text"
+                  value={issuingCompanyInfo.gstin}
+                  onChange={(e) => setIssuingCompanyInfo({ ...issuingCompanyInfo, gstin: e.target.value.toUpperCase() })}
+                  placeholder="e.g. 09AASCS4608K1ZP"
+                  className="w-full bg-slate-50 border border-slate-200 text-cyan-800 font-mono font-bold rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                  CIN / Registration No.
+                </label>
+                <input
+                  type="text"
+                  value={issuingCompanyInfo.cin}
+                  onChange={(e) => setIssuingCompanyInfo({ ...issuingCompanyInfo, cin: e.target.value.toUpperCase() })}
+                  placeholder="e.g. U25209RJ1996PTC011513"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 font-mono text-xs rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                  Doc Prefix (PO/Quotation)
+                </label>
+                <input
+                  type="text"
+                  value={issuingCompanyInfo.prefix}
+                  onChange={(e) => {
+                    const p = e.target.value.toUpperCase();
+                    setIssuingCompanyInfo({ ...issuingCompanyInfo, prefix: p });
+                    if (!poNumber || poNumber.includes("/2026-27")) {
+                      setPoNumber(`${p}/2026-27`);
+                    }
+                  }}
+                  placeholder="e.g. SICCES"
+                  className="w-full bg-slate-50 border border-slate-200 text-indigo-700 font-mono font-black text-xs rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
             </div>
 
-            <div>
-              <span className="text-[10px] font-extrabold uppercase text-slate-400 block tracking-wider mb-0.5">Seller GSTIN & CIN</span>
-              <p className="font-mono font-extrabold text-cyan-700">{issuingCompanyInfo.gstin || "Not Provided"}</p>
-              <p className="text-[10px] text-slate-500 mt-0.5">{issuingCompanyInfo.cin ? `CIN: ${issuingCompanyInfo.cin}` : "CIN: -"}</p>
+            {/* Description & Address */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                  Line of Business / Services Description
+                </label>
+                <input
+                  type="text"
+                  value={issuingCompanyInfo.description}
+                  onChange={(e) => setIssuingCompanyInfo({ ...issuingCompanyInfo, description: e.target.value })}
+                  placeholder="e.g. Providers of Software, Digital Marketing & Educational Services"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                  Registered Office Address
+                </label>
+                <input
+                  type="text"
+                  value={issuingCompanyInfo.address}
+                  onChange={(e) => setIssuingCompanyInfo({ ...issuingCompanyInfo, address: e.target.value })}
+                  placeholder="e.g. 101, Vinayak Complex, Station Road, Jaipur"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
             </div>
 
-            <div>
-              <span className="text-[10px] font-extrabold uppercase text-slate-400 block tracking-wider mb-0.5">Registered Office Address</span>
-              <p className="font-semibold text-slate-700 leading-snug">{issuingCompanyInfo.address || "101, Vinayak Complex, Station Road, Jaipur"}</p>
+            {/* Contact & Branding */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                  Company Phone
+                </label>
+                <input
+                  type="text"
+                  value={issuingCompanyInfo.phone || ""}
+                  onChange={(e) => setIssuingCompanyInfo({ ...issuingCompanyInfo, phone: e.target.value })}
+                  placeholder="e.g. 0141-4059826"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                  Company Email
+                </label>
+                <input
+                  type="email"
+                  value={issuingCompanyInfo.email || ""}
+                  onChange={(e) => setIssuingCompanyInfo({ ...issuingCompanyInfo, email: e.target.value })}
+                  placeholder="e.g. info@company.com"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                  Company Website
+                </label>
+                <input
+                  type="text"
+                  value={issuingCompanyInfo.website || ""}
+                  onChange={(e) => setIssuingCompanyInfo({ ...issuingCompanyInfo, website: e.target.value })}
+                  placeholder="e.g. www.company.com"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                  Logo URL
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={issuingCompanyInfo.logo || ""}
+                    onChange={(e) => setIssuingCompanyInfo({ ...issuingCompanyInfo, logo: e.target.value })}
+                    placeholder="https://..."
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                  {issuingCompanyInfo.logo && (
+                    <img
+                      src={issuingCompanyInfo.logo}
+                      alt="Logo"
+                      className="h-8 w-8 object-contain rounded-lg border border-slate-200 bg-white shrink-0 p-0.5"
+                    />
+                  )}
+                </div>
+              </div>
             </div>
 
-            <div>
-              <span className="text-[10px] font-extrabold uppercase text-slate-400 block tracking-wider mb-0.5">Settlement Bank</span>
-              <p className="font-bold text-emerald-700">{issuingCompanyInfo.bankName || "STATE BANK OF INDIA"}</p>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-[10px] font-extrabold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-md">
-                  Prefix: {issuingCompanyInfo.prefix || "APPL"}
-                </span>
-                {issuingCompanyInfo.logo && (
-                  <img src={issuingCompanyInfo.logo} alt="Logo" className="h-5 object-contain" />
-                )}
+            {/* Bank Settlement Details */}
+            <div className="pt-2 border-t border-slate-100">
+              <span className="text-[10px] font-black uppercase text-indigo-600 block tracking-wider mb-2">
+                Settlement Bank Account Details
+              </span>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                    Bank Name
+                  </label>
+                  <input
+                    type="text"
+                    value={issuingCompanyInfo.bankName || ""}
+                    onChange={(e) => setIssuingCompanyInfo({ ...issuingCompanyInfo, bankName: e.target.value })}
+                    placeholder="e.g. STATE BANK OF INDIA"
+                    className="w-full bg-slate-50 border border-slate-200 text-emerald-800 font-bold rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                    Account Number
+                  </label>
+                  <input
+                    type="text"
+                    value={issuingCompanyInfo.accountNumber || ""}
+                    onChange={(e) => setIssuingCompanyInfo({ ...issuingCompanyInfo, accountNumber: e.target.value })}
+                    placeholder="e.g. 61330464677"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 font-mono font-bold rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                    IFSC / RTGS Code
+                  </label>
+                  <input
+                    type="text"
+                    value={issuingCompanyInfo.ifsc || ""}
+                    onChange={(e) => setIssuingCompanyInfo({ ...issuingCompanyInfo, ifsc: e.target.value.toUpperCase() })}
+                    placeholder="e.g. SBIN0031792"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 font-mono font-bold rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                    Branch Name / Location
+                  </label>
+                  <input
+                    type="text"
+                    value={issuingCompanyInfo.branch || ""}
+                    onChange={(e) => setIssuingCompanyInfo({ ...issuingCompanyInfo, branch: e.target.value })}
+                    placeholder="e.g. SITAPURA IND. AREA JAIPUR"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                </div>
               </div>
             </div>
           </div>

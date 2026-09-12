@@ -395,9 +395,9 @@ export async function GET(req: Request) {
     const profitMarginPct = displayRevenue > 0 ? ((netProfitNum / displayRevenue) * 100).toFixed(1) + "%" : "0%";
 
     const totalLeadsCalculated = Math.max(totalLeads, admissionsTotal);
-    const totalConvertedCalculated = Math.max(convertedLeadsCount, admissionsTotal);
+    const totalConvertedCalculated = admissionsTotal;
 
-    const rawConv = totalLeadsCalculated > 0 ? (totalConvertedCalculated / totalLeadsCalculated) * 100 : 0;
+    const rawConv = totalLeadsCalculated > 0 ? (admissionsTotal / totalLeadsCalculated) * 100 : 0;
     const conversionRate = Math.min(100, Math.max(0, Number(rawConv.toFixed(1)))).toFixed(1) + "%";
 
     const formatLakhsOrRupees = (amt: number) => {
