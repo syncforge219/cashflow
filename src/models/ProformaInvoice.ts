@@ -161,6 +161,7 @@ const ProformaInvoiceSchema = new Schema(
     authorizedSignatory: { type: String, default: "" },
     signatureImage: { type: String, default: "" },
     stampImage: { type: String, default: "" },
+    bankQrImage: { type: String, default: "" },
   },
   { timestamps: true }
 );

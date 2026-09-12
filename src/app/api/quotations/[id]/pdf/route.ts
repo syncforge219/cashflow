@@ -7,10 +7,10 @@ import { numberToIndianWords } from "@/lib/numberToWords";
 function generateQuotationHtml(quotation: any, profile: any): string {
   const dateStr = quotation.date
     ? new Date(quotation.date).toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      })
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    })
     : "";
 
   const companyName = quotation.companyName || profile?.name || "SICCES PRIVATE LIMITED";
@@ -51,9 +51,9 @@ function generateQuotationHtml(quotation: any, profile: any): string {
       const str = String(q).trim();
       const match = str.toLowerCase().match(/[\d.]+/);
       const parsedNum = match ? parseFloat(match[0]) : 0;
-      
+
       let qtyNum = parsedNum > 0 ? parsedNum : (derivedQty > 0 ? derivedQty : 1);
-      
+
       // If user typed only a number (e.g. "25") and specified a custom unit (e.g. "mt" or "seat/mo"), append unit if not already present
       let displayQty = str;
       if (/^\d+(\.\d+)?$/.test(str) && unit && !str.toLowerCase().includes(unit.toLowerCase())) {
@@ -77,7 +77,7 @@ function generateQuotationHtml(quotation: any, profile: any): string {
 
     // 4. Fallback: Parse quantity from description or name (e.g. "Two days...", "2 days...")
     const combinedText = `${item.name || ""} ${item.description || ""}`.toLowerCase();
-    
+
     const digitPattern = combinedText.match(/(\d+)\s*(day|days|hour|hours|month|months|year|years|seat|seats|unit|units|pc|pcs|kg|mtr|mt)/);
     if (digitPattern && parseFloat(digitPattern[1]) > 0) {
       const num = parseFloat(digitPattern[1]);
@@ -577,10 +577,10 @@ function generateQuotationHtml(quotation: any, profile: any): string {
       </thead>
       <tbody>
         ${items.map((item: any, index: number) => {
-          const { qtyNum, displayQty } = parseItemQty(item);
-          const rN = Number(item.rate) || 0;
-          const amtN = (Number(item.amount) > 0) ? Number(item.amount) : qtyNum * rN;
-          return `
+    const { qtyNum, displayQty } = parseItemQty(item);
+    const rN = Number(item.rate) || 0;
+    const amtN = (Number(item.amount) > 0) ? Number(item.amount) : qtyNum * rN;
+    return `
           <tr>
             <td class="text-center">${index + 1}</td>
             <td class="text-left font-bold">
@@ -592,7 +592,7 @@ function generateQuotationHtml(quotation: any, profile: any): string {
             <td class="text-center">₹${amtN.toLocaleString("en-IN")}</td>
           </tr>
         `;
-        }).join("")}
+  }).join("")}
 
         ${emptyRows.map(() => `
           <tr>
@@ -641,11 +641,21 @@ function generateQuotationHtml(quotation: any, profile: any): string {
       <div class="sig-col" style="${terms.length > 0 ? '' : 'width: 260px; border-left: 1px solid #000;'}">
         <div class="sig-company">FOR ${companyName}</div>
         <div class="stamp-container" style="position: relative; width: 140px; height: 95px; margin: 0 auto; display: flex; align-items: center; justify-content: center;">
-          ${profile?.stampImage ? `<img src="${profile.stampImage}" alt="Stamp Seal" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0.95;" />` : ''}
-          ${profile?.signatureImage ? `<img src="${profile.signatureImage}" alt="Signature" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; z-index: 2; mix-blend-mode: multiply;" />` : ''}
-          ${(!profile?.stampImage && !profile?.signatureImage) ? `<span style="color: #999; font-size: 9px;">[ OFFICIAL STAMP & SIGN ]</span>` : ''}
+          ${(() => {
+            const stamp = quotation.stampImage !== undefined
+              ? (quotation.stampImage && quotation.stampImage.trim() !== "" ? quotation.stampImage.trim() : "")
+              : (profile?.stampImage ? profile.stampImage.trim() : "");
+            const sign = quotation.signatureImage !== undefined
+              ? (quotation.signatureImage && quotation.signatureImage.trim() !== "" ? quotation.signatureImage.trim() : "")
+              : (profile?.signatureImage ? profile.signatureImage.trim() : "");
+
+            const stampHtml = stamp ? `<img src="${stamp}" alt="Stamp Seal" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0.95;" />` : "";
+            const signHtml = sign ? `<img src="${sign}" alt="Signature" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; z-index: 2; mix-blend-mode: multiply;" />` : "";
+
+            return `${stampHtml}${signHtml}`;
+          })()}
         </div>
-        <div class="sig-title">${profile?.authorizedSignatory || "AUTHORISED SIGNATORY"}</div>
+        <div class="sig-title">${quotation.authorizedSignatory || profile?.authorizedSignatory || "AUTHORISED SIGNATORY"}</div>
       </div>
     </div>
 
@@ -667,12 +677,17 @@ function generateQuotationHtml(quotation: any, profile: any): string {
             <div>${bankDetails.ifsc || bankDetails.rtgsCode || "SBIN0031792"}</div>
           </div>
         </div>
-        ${profile?.bankQrImage ? `
-        <div class="bank-qr-container">
-          <img src="${profile.bankQrImage}" class="bank-qr-img" alt="Bank Payment QR Code" />
-          <div class="bank-qr-label">Bank Payment QR</div>
-        </div>
-        ` : ""}
+        ${(() => {
+          const qrUrl = quotation.bankQrImage !== undefined
+            ? (quotation.bankQrImage && quotation.bankQrImage.trim() !== "" ? quotation.bankQrImage.trim() : "")
+            : (profile?.bankQrImage ? profile.bankQrImage.trim() : "");
+          return qrUrl ? `
+          <div class="bank-qr-container">
+            <img src="${qrUrl}" class="bank-qr-img" alt="Bank Payment QR Code" />
+            <div class="bank-qr-label">Bank Payment QR</div>
+          </div>
+          ` : "";
+        })()}
       </div>
     </div>
 

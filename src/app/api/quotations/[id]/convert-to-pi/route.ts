@@ -99,6 +99,7 @@ export async function POST(
       authorizedSignatory: quotation.authorizedSignatory || "AUTHORISED SIGNATORY",
       signatureImage: quotation.signatureImage || "",
       stampImage: quotation.stampImage || "",
+      bankQrImage: quotation.bankQrImage || "",
     };
 
     const newPI = await ProformaInvoice.create(piData);

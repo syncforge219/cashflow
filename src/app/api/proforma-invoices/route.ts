@@ -218,9 +218,10 @@ export async function POST(req: Request) {
       companyEmail: (profile as any)?.email || "",
       companyWebsite: (profile as any)?.website || "",
       companyWorksAddress: (profile as any)?.worksAddress || "",
-      authorizedSignatory: (profile as any)?.authorizedSignatory || "AUTHORISED SIGNATORY",
-      signatureImage: (profile as any)?.signatureImage || "",
-      stampImage: (profile as any)?.stampImage || "",
+      authorizedSignatory: body.authorizedSignatory !== undefined ? body.authorizedSignatory : ((profile as any)?.authorizedSignatory || "AUTHORISED SIGNATORY"),
+      signatureImage: body.signatureImage !== undefined ? body.signatureImage : ((profile as any)?.signatureImage || ""),
+      stampImage: body.stampImage !== undefined ? body.stampImage : ((profile as any)?.stampImage || ""),
+      bankQrImage: body.bankQrImage !== undefined ? body.bankQrImage : ((profile as any)?.bankQrImage || ""),
     });
 
     return NextResponse.json({

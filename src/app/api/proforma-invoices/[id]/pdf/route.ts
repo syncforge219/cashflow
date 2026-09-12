@@ -7,18 +7,18 @@ import { numberToIndianWords } from "@/lib/numberToWords";
 function generateProformaInvoiceHtml(pi: any, profile: any): string {
   const dateStr = pi.date
     ? new Date(pi.date).toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      })
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    })
     : "";
 
   const validUntilStr = pi.validUntil
     ? new Date(pi.validUntil).toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      })
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    })
     : "";
 
   const companyName = pi.companyName || profile?.name || "SICCES PRIVATE LIMITED";
@@ -42,7 +42,7 @@ function generateProformaInvoiceHtml(pi: any, profile: any): string {
       const str = String(q).trim();
       const match = str.toLowerCase().match(/[\d.]+/);
       const parsedNum = match ? parseFloat(match[0]) : 0;
-      
+
       let qtyNum = parsedNum > 0 ? parsedNum : (derivedQty > 0 ? derivedQty : 1);
       let displayQty = str;
       if (/^\d+(\.\d+)?$/.test(str) && unit && !str.toLowerCase().includes(unit.toLowerCase())) {
@@ -477,10 +477,10 @@ function generateProformaInvoiceHtml(pi: any, profile: any): string {
       </thead>
       <tbody>
         ${items.map((item: any, index: number) => {
-          const { qtyNum, displayQty } = parseItemQty(item);
-          const rN = Number(item.rate) || 0;
-          const amtN = (Number(item.amount) > 0) ? Number(item.amount) : qtyNum * rN;
-          return `
+    const { qtyNum, displayQty } = parseItemQty(item);
+    const rN = Number(item.rate) || 0;
+    const amtN = (Number(item.amount) > 0) ? Number(item.amount) : qtyNum * rN;
+    return `
           <tr>
             <td class="text-center">${index + 1}</td>
             <td class="text-left font-bold">
@@ -492,7 +492,7 @@ function generateProformaInvoiceHtml(pi: any, profile: any): string {
             <td class="text-center">₹${amtN.toLocaleString("en-IN")}</td>
           </tr>
         `;
-        }).join("")}
+  }).join("")}
 
         ${emptyRows.map(() => `
           <tr>
@@ -537,11 +537,21 @@ function generateProformaInvoiceHtml(pi: any, profile: any): string {
       <div class="sig-col" style="${terms.length > 0 ? '' : 'width: 260px; border-left: 1px solid #000;'}">
         <div class="sig-company">FOR ${companyName}</div>
         <div class="stamp-container" style="position: relative; width: 140px; height: 85px; margin: 0 auto; display: flex; align-items: center; justify-content: center;">
-          ${profile?.stampImage ? `<img src="${profile.stampImage}" alt="Stamp Seal" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0.95;" />` : ''}
-          ${profile?.signatureImage ? `<img src="${profile.signatureImage}" alt="Signature" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; z-index: 2; mix-blend-mode: multiply;" />` : ''}
-          ${(!profile?.stampImage && !profile?.signatureImage) ? `<span style="color: #999; font-size: 9px;">[ OFFICIAL STAMP & SIGN ]</span>` : ''}
+          ${(() => {
+            const stamp = pi.stampImage !== undefined
+              ? (pi.stampImage && pi.stampImage.trim() !== "" ? pi.stampImage.trim() : "")
+              : (profile?.stampImage ? profile.stampImage.trim() : "");
+            const sign = pi.signatureImage !== undefined
+              ? (pi.signatureImage && pi.signatureImage.trim() !== "" ? pi.signatureImage.trim() : "")
+              : (profile?.signatureImage ? profile.signatureImage.trim() : "");
+
+            const stampHtml = stamp ? `<img src="${stamp}" alt="Stamp Seal" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0.95;" />` : "";
+            const signHtml = sign ? `<img src="${sign}" alt="Signature" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; z-index: 2; mix-blend-mode: multiply;" />` : "";
+
+            return `${stampHtml}${signHtml}`;
+          })()}
         </div>
-        <div class="sig-title">${profile?.authorizedSignatory || "AUTHORISED SIGNATORY"}</div>
+        <div class="sig-title">${pi.authorizedSignatory || profile?.authorizedSignatory || "AUTHORISED SIGNATORY"}</div>
       </div>
     </div>
 
@@ -563,22 +573,17 @@ function generateProformaInvoiceHtml(pi: any, profile: any): string {
             <div>${bankDetails.ifsc || bankDetails.rtgsCode || "BKID0006805"}</div>
           </div>
         </div>
-        ${profile?.bankQrImage ? `
-        <div class="bank-qr-container">
-          <img src="${profile.bankQrImage}" class="bank-qr-img" alt="Bank Payment QR Code" />
-          <div class="bank-qr-label">BANK PAYMENT QR</div>
-        </div>
-        ` : `
-        <div class="bank-qr-container">
-          <svg class="bank-qr-img" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="100" height="100" fill="white"/>
-            <path d="M10 10h30v30H10zM60 10h30v30H60zM10 60h30v30H10z" fill="black"/>
-            <path d="M20 20h10v10H20zM70 20h10v10H70zM20 70h10v10H20z" fill="white"/>
-            <path d="M50 50h10v10H50zM70 50h20v10H70zM50 70h20v20H50zM80 80h10v10H80z" fill="black"/>
-          </svg>
-          <div class="bank-qr-label">BANK PAYMENT QR</div>
-        </div>
-        `}
+        ${(() => {
+          const qrUrl = pi.bankQrImage !== undefined
+            ? (pi.bankQrImage && pi.bankQrImage.trim() !== "" ? pi.bankQrImage.trim() : "")
+            : (profile?.bankQrImage ? profile.bankQrImage.trim() : "");
+          return qrUrl ? `
+          <div class="bank-qr-container">
+            <img src="${qrUrl}" class="bank-qr-img" alt="Bank Payment QR Code" />
+            <div class="bank-qr-label">BANK PAYMENT QR</div>
+          </div>
+          ` : "";
+        })()}
       </div>
     </div>
 

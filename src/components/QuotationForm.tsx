@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { numberToIndianWords } from "@/lib/numberToWords";
 import { useUser } from "@/app/component/context/user-context";
+import { compressImageFile } from "@/lib/imageCompressor";
 
 interface ItemRow {
   productId?: string;
@@ -79,6 +80,10 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
     branch: string;
     prefix: string;
     logo: string;
+    stampImage: string;
+    signatureImage: string;
+    bankQrImage: string;
+    authorizedSignatory: string;
     phone: string;
     email: string;
     website: string;
@@ -93,11 +98,62 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
     ifsc: initialData?.bankDetails?.ifsc || initialData?.bankDetails?.rtgsCode || "SBIN0031792",
     branch: initialData?.bankDetails?.branch || "SITAPURA IND. AREA JAIPUR",
     prefix: "SICCES",
-    logo: initialData?.companyLogo || "",
+    logo: initialData?.companyLogo !== undefined ? initialData.companyLogo : "/sicces-logo.png",
+    stampImage: initialData?.stampImage || "",
+    signatureImage: initialData?.signatureImage || "",
+    bankQrImage: initialData?.bankQrImage || "",
+    authorizedSignatory: initialData?.authorizedSignatory || "AUTHORISED SIGNATORY",
     phone: initialData?.companyPhone || "0141-4059826",
     email: initialData?.companyEmail || "info@sicces.com",
     website: initialData?.companyWebsite || "www.sicces.com",
   });
+
+  // File input refs for Company Assets (Logo, Stamp, Sign, Bank QR)
+  const logoFileInputRef = useRef<HTMLInputElement | null>(null);
+  const stampFileInputRef = useRef<HTMLInputElement | null>(null);
+  const signatureFileInputRef = useRef<HTMLInputElement | null>(null);
+  const bankQrFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // URL input toggles for each asset
+  const [assetUrlInputs, setAssetUrlInputs] = useState<{
+    logo: boolean;
+    stampImage: boolean;
+    signatureImage: boolean;
+    bankQrImage: boolean;
+  }>({
+    logo: false,
+    stampImage: false,
+    signatureImage: false,
+    bankQrImage: false,
+  });
+
+  // Expandable verification assets section for non-OTHER presets
+  const [showAssetsSection, setShowAssetsSection] = useState(false);
+
+  const handleAssetUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    field: "logo" | "stampImage" | "signatureImage" | "bankQrImage",
+    maxDim = 600
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const compressed = await compressImageFile(file, maxDim, 0.85);
+      setIssuingCompanyInfo((prev) => ({ ...prev, [field]: compressed }));
+    } catch (err) {
+      console.error(`Error compressing ${field}:`, err);
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === "string") {
+          setIssuingCompanyInfo((prev) => ({ ...prev, [field]: reader.result as string }));
+        }
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      e.target.value = "";
+    }
+  };
 
   // Form State
   const [category, setCategory] = useState<string>(initialData?.category || "PRODUCT");
@@ -176,16 +232,16 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
     initialData?.items && initialData.items.length > 0
       ? initialData.items
       : [
-          {
-            name: "Enterprise ERP SaaS Subscription",
-            description: "25 Active User Seats with Cloud Backups & Premium Support",
-            quantity: 25,
-            unit: "seat/mo",
-            rate: 1500,
-            gstRate: 18,
-            amount: 37500,
-          },
-        ]
+        {
+          name: "Enterprise ERP SaaS Subscription",
+          description: "25 Active User Seats with Cloud Backups & Premium Support",
+          quantity: 25,
+          unit: "seat/mo",
+          rate: 1500,
+          gstRate: 18,
+          amount: 37500,
+        },
+      ]
   );
 
   const [gstRate, setGstRate] = useState(initialData?.gstRate !== undefined ? initialData.gstRate : 18);
@@ -197,9 +253,9 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
     Array.isArray(initialData?.termsAndConditions)
       ? initialData.termsAndConditions
       : (categoryTermsPresets[category] || [
-          "GST CHARGE EXTRA",
-          "PAYMENT ADVANCE",
-        ])
+        "GST CHARGE EXTRA",
+        "PAYMENT ADVANCE",
+      ])
   );
 
   const [status, setStatus] = useState(initialData?.status || "DRAFT");
@@ -236,7 +292,11 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
               ifsc: p.bankDetails?.ifsc || "",
               branch: p.bankDetails?.branch || "",
               prefix: p.prefix && p.prefix !== "APPL" ? p.prefix : "SICCES",
-              logo: p.logo || "",
+              logo: p.logo || "/sicces-logo.png",
+              stampImage: p.stampImage || "",
+              signatureImage: p.signatureImage || "",
+              bankQrImage: p.bankQrImage || "",
+              authorizedSignatory: p.authorizedSignatory || "AUTHORISED SIGNATORY",
               phone: p.phone || "",
               email: p.email || "",
               website: p.website || "",
@@ -275,7 +335,11 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
                 ifsc: profData?.data?.bankDetails?.ifsc || "SBIN0031792",
                 branch: profData?.data?.bankDetails?.branch || "SITAPURA IND. AREA JAIPUR",
                 prefix: "SICCES",
-                logo: siccesComp.qrCodeUrl || profData?.data?.logo || "",
+                logo: profData?.data?.logo || "/sicces-logo.png",
+                stampImage: profData?.data?.stampImage || "",
+                signatureImage: profData?.data?.signatureImage || "",
+                bankQrImage: profData?.data?.bankQrImage || "",
+                authorizedSignatory: profData?.data?.authorizedSignatory || "AUTHORISED SIGNATORY",
                 phone: profData?.data?.phone || "0141-4059826",
                 email: profData?.data?.email || "info@sicces.com",
                 website: profData?.data?.website || "www.sicces.com",
@@ -296,7 +360,11 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
                 ifsc: p.bankDetails?.ifsc || "",
                 branch: p.bankDetails?.branch || "",
                 prefix: p.prefix && p.prefix !== "APPL" ? p.prefix : "SICCES",
-                logo: p.logo || "",
+                logo: p.logo || "/sicces-logo.png",
+                stampImage: p.stampImage || "",
+                signatureImage: p.signatureImage || "",
+                bankQrImage: p.bankQrImage || "",
+                authorizedSignatory: p.authorizedSignatory || "AUTHORISED SIGNATORY",
                 phone: p.phone || "",
                 email: p.email || "",
                 website: p.website || "",
@@ -343,7 +411,11 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
           ifsc: profile.bankDetails?.ifsc || "SBIN0031792",
           branch: profile.bankDetails?.branch || "SITAPURA IND. AREA JAIPUR",
           prefix: profile.prefix && profile.prefix !== "APPL" ? profile.prefix : "SICCES",
-          logo: profile.logo || "",
+          logo: profile.logo || "/sicces-logo.png",
+          stampImage: profile.stampImage || "",
+          signatureImage: profile.signatureImage || "",
+          bankQrImage: profile.bankQrImage || "",
+          authorizedSignatory: profile.authorizedSignatory || "AUTHORISED SIGNATORY",
           phone: profile.phone || "0141-4059826",
           email: profile.email || "info@sicces.com",
           website: profile.website || "www.sicces.com",
@@ -365,6 +437,10 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
         branch: "",
         prefix: "CUSTOM",
         logo: "",
+        stampImage: "",
+        signatureImage: "",
+        bankQrImage: "",
+        authorizedSignatory: "AUTHORISED SIGNATORY",
         phone: "",
         email: "",
         website: "",
@@ -388,7 +464,11 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
         ifsc: profile?.bankDetails?.ifsc || "",
         branch: profile?.bankDetails?.branch || "",
         prefix: generatedPrefix,
-        logo: found.qrCodeUrl || profile?.logo || "",
+        logo: found.name?.toUpperCase().includes("SICCES") ? "/sicces-logo.png" : (profile?.logo || ""),
+        stampImage: profile?.stampImage || "",
+        signatureImage: profile?.signatureImage || "",
+        bankQrImage: profile?.bankQrImage || "",
+        authorizedSignatory: profile?.authorizedSignatory || "AUTHORISED SIGNATORY",
         phone: profile?.phone || "",
         email: profile?.email || "",
         website: profile?.website || "",
@@ -805,6 +885,10 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
       companyAddress: issuingCompanyInfo.address,
       companyDescription: issuingCompanyInfo.description,
       companyLogo: issuingCompanyInfo.logo,
+      stampImage: issuingCompanyInfo.stampImage,
+      signatureImage: issuingCompanyInfo.signatureImage,
+      bankQrImage: issuingCompanyInfo.bankQrImage,
+      authorizedSignatory: issuingCompanyInfo.authorizedSignatory,
       companyPhone: issuingCompanyInfo.phone || "",
       companyEmail: issuingCompanyInfo.email || "",
       companyWebsite: issuingCompanyInfo.website || "",
@@ -854,8 +938,8 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
                   ? `✏️ Edit Purchase Order (${initialData?.poNumber})`
                   : "📦 Create New Purchase Order"
                 : isEdit
-                ? `✏️ Edit Quotation (${initialData?.quotationNumber})`
-                : "📝 Create New Quotation"}
+                  ? `✏️ Edit Quotation (${initialData?.quotationNumber})`
+                  : "📝 Create New Quotation"}
             </h2>
             <p className="text-xs text-slate-500 font-medium mt-1">
               Customizable for Software, Digital Marketing, Physical Goods & Services across Monthly, Quarterly, and Annual billing
@@ -897,11 +981,10 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
                       setTerms([...categoryTermsPresets[catKey]]);
                     }
                   }}
-                  className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between space-y-2 ${
-                    isActive
+                  className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between space-y-2 ${isActive
                       ? "bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-500/20 ring-2 ring-indigo-600/30"
                       : "bg-slate-50 hover:bg-slate-100/80 border-slate-200 text-slate-800"
-                  }`}
+                    }`}
                 >
                   <div className="text-2xl">{info.icon}</div>
                   <div>
@@ -964,11 +1047,10 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
           </div>
 
           {/* Mode Indicator Banner */}
-          <div className={`p-3 rounded-xl border text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 ${
-            selectedCompanyEntityId === "OTHER"
+          <div className={`p-3 rounded-xl border text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 ${selectedCompanyEntityId === "OTHER"
               ? "bg-amber-50/80 border-amber-200 text-amber-900"
               : "bg-indigo-50/50 border-indigo-100 text-indigo-900"
-          }`}>
+            }`}>
             <div className="flex items-center gap-2">
               <span className="text-base">{selectedCompanyEntityId === "OTHER" ? "✍️" : "🏢"}</span>
               <div>
@@ -1125,24 +1207,41 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
               </div>
 
               <div>
-                <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
-                  Logo URL
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={issuingCompanyInfo.logo || ""}
-                    onChange={(e) => setIssuingCompanyInfo({ ...issuingCompanyInfo, logo: e.target.value })}
-                    placeholder="https://..."
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                  />
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
+                    Company Logo
+                  </label>
                   {issuingCompanyInfo.logo && (
+                    <button
+                      type="button"
+                      onClick={() => setIssuingCompanyInfo((prev) => ({ ...prev, logo: "" }))}
+                      className="text-[10px] text-rose-600 hover:text-rose-800 font-bold hover:underline cursor-pointer"
+                      title="Leave logo blank"
+                    >
+                      ✕ Blank
+                    </button>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {issuingCompanyInfo.logo ? (
                     <img
                       src={issuingCompanyInfo.logo}
                       alt="Logo"
-                      className="h-8 w-8 object-contain rounded-lg border border-slate-200 bg-white shrink-0 p-0.5"
+                      className="h-9 w-9 object-contain rounded-xl border border-slate-200 bg-white p-1 shrink-0 shadow-2xs"
                     />
+                  ) : (
+                    <div className="h-9 w-9 rounded-xl border border-dashed border-slate-300 bg-slate-50 flex items-center justify-center text-slate-400 text-xs shrink-0">
+                      🏢
+                    </div>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => logoFileInputRef.current?.click()}
+                    className="flex-1 px-3 py-2 bg-indigo-50 hover:bg-indigo-100/80 text-indigo-700 font-bold rounded-xl border border-indigo-200 text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
+                  >
+                    <span>📤</span>
+                    <span>{issuingCompanyInfo.logo ? "Change" : "Upload"}</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -1205,6 +1304,475 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
                   />
                 </div>
               </div>
+            </div>
+
+            {/* Hidden File Inputs for 4 Verification & Branding Assets */}
+            <input
+              type="file"
+              ref={logoFileInputRef}
+              accept="image/png,image/jpeg,image/webp,image/svg+xml"
+              onChange={(e) => handleAssetUpload(e, "logo", 600)}
+              className="hidden"
+            />
+            <input
+              type="file"
+              ref={stampFileInputRef}
+              accept="image/png,image/jpeg,image/webp,image/svg+xml"
+              onChange={(e) => handleAssetUpload(e, "stampImage", 500)}
+              className="hidden"
+            />
+            <input
+              type="file"
+              ref={signatureFileInputRef}
+              accept="image/png,image/jpeg,image/webp,image/svg+xml"
+              onChange={(e) => handleAssetUpload(e, "signatureImage", 500)}
+              className="hidden"
+            />
+            <input
+              type="file"
+              ref={bankQrFileInputRef}
+              accept="image/png,image/jpeg,image/webp,image/svg+xml"
+              onChange={(e) => handleAssetUpload(e, "bankQrImage", 450)}
+              className="hidden"
+            />
+
+            {/* Custom Company Verification & Branding Assets Section */}
+            <div className={`pt-4 border-t ${selectedCompanyEntityId === "OTHER" ? "border-amber-300" : "border-slate-100"}`}>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">{selectedCompanyEntityId === "OTHER" ? "🛡️" : "🎨"}</span>
+                    <span className="text-xs font-black uppercase tracking-wider text-slate-800">
+                      Company Verification & Branding Assets
+                    </span>
+                    {selectedCompanyEntityId === "OTHER" && (
+                      <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 font-extrabold text-[10px] border border-amber-300 animate-pulse">
+                        Upload Required or Leave Blank
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    {selectedCompanyEntityId === "OTHER"
+                      ? "Upload the 4 verification assets for this custom company. Any asset left blank will be omitted cleanly from the document and PDF."
+                      : "Header logo, official seal stamp, digital signature, and payment QR code for this quotation."}
+                  </p>
+                </div>
+
+                {selectedCompanyEntityId !== "OTHER" && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAssetsSection((prev) => !prev)}
+                    className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer self-start sm:self-auto"
+                  >
+                    <span>{showAssetsSection ? "Hide Details" : "View / Customize All 4 Assets"}</span>
+                    <span>{showAssetsSection ? "▲" : "▼"}</span>
+                  </button>
+                )}
+              </div>
+
+              {(selectedCompanyEntityId === "OTHER" || showAssetsSection) && (
+                <div className="space-y-3">
+                  {/* Notice Banner */}
+                  <div className="p-3 bg-gradient-to-r from-amber-50/80 via-indigo-50/50 to-slate-50 border border-amber-200 rounded-xl text-xs flex items-start gap-2.5">
+                    <span className="text-amber-700 text-base shrink-0 mt-0.5">⚠️</span>
+                    <div className="space-y-1">
+                      <span className="font-extrabold text-slate-900 block">
+                        Custom Company Asset Upload Guide:
+                      </span>
+                      <p className="text-[11px] text-slate-600 leading-relaxed">
+                        Please upload your official files for each of the 4 sections below. If no file is uploaded or you click <span className="font-bold text-rose-600">✕ Leave Blank</span>, that section will be left completely blank on the generated quotation and PDF without any fallback watermark.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* 4 Assets Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    {/* 1. Company Header Logo */}
+                    <div className="p-3 rounded-xl border border-slate-200 bg-white shadow-2xs flex flex-col justify-between space-y-2.5">
+                      <div>
+                        <div className="flex items-center justify-between gap-1 mb-1">
+                          <span className="text-[10px] font-black uppercase text-slate-700 tracking-wider flex items-center gap-1">
+                            <span>🏢</span>
+                            <span>1. Header Logo</span>
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setAssetUrlInputs((prev) => ({ ...prev, logo: !prev.logo }))}
+                              className="text-[9px] text-indigo-600 hover:underline cursor-pointer font-bold"
+                            >
+                              {assetUrlInputs.logo ? "Upload" : "URL"}
+                            </button>
+                            {issuingCompanyInfo.logo && (
+                              <button
+                                type="button"
+                                onClick={() => setIssuingCompanyInfo((prev) => ({ ...prev, logo: "" }))}
+                                className="text-[9px] text-rose-600 hover:underline cursor-pointer font-bold"
+                                title="Leave logo space completely blank"
+                              >
+                                ✕ Blank
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-slate-400">
+                          Top-left header of quotation
+                        </p>
+                      </div>
+
+                      {/* Preview Box */}
+                      <div className="h-24 w-full rounded-lg border border-dashed border-slate-200 bg-slate-50/50 flex items-center justify-center p-2 overflow-hidden">
+                        {issuingCompanyInfo.logo ? (
+                          <img
+                            src={issuingCompanyInfo.logo}
+                            alt="Header Logo"
+                            className="max-h-full max-w-full object-contain"
+                          />
+                        ) : (
+                          <div className="text-center text-slate-400">
+                            <span className="block text-xl opacity-40">🏢</span>
+                            <span className="text-[10px] italic">Blank / No Logo</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Controls */}
+                      {assetUrlInputs.logo ? (
+                        <input
+                          type="text"
+                          value={issuingCompanyInfo.logo || ""}
+                          onChange={(e) => setIssuingCompanyInfo({ ...issuingCompanyInfo, logo: e.target.value })}
+                          placeholder="Paste Logo URL..."
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-2.5 py-1.5 text-xs focus:bg-white focus:outline-none"
+                        />
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => logoFileInputRef.current?.click()}
+                            className="flex-1 py-1.5 px-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-lg border border-indigo-200 text-[11px] cursor-pointer flex items-center justify-center gap-1 transition-colors"
+                          >
+                            <span>📤</span>
+                            <span>{issuingCompanyInfo.logo ? "Change Logo" : "Upload Logo"}</span>
+                          </button>
+                          {issuingCompanyInfo.logo && (
+                            <button
+                              type="button"
+                              onClick={() => setIssuingCompanyInfo((prev) => ({ ...prev, logo: "" }))}
+                              className="px-2 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold rounded-lg border border-rose-200 text-[11px] cursor-pointer"
+                              title="Leave blank"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Status */}
+                      <div className="text-[10px] flex items-center justify-between pt-1 border-t border-slate-100">
+                        <span className="text-slate-400">Header Left</span>
+                        {issuingCompanyInfo.logo ? (
+                          <span className="text-emerald-600 font-bold">✓ Attached</span>
+                        ) : (
+                          <span className="text-amber-600 font-medium italic">Leave Blank</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 2. Official Seal / Stamp */}
+                    <div className="p-3 rounded-xl border border-slate-200 bg-white shadow-2xs flex flex-col justify-between space-y-2.5">
+                      <div>
+                        <div className="flex items-center justify-between gap-1 mb-1">
+                          <span className="text-[10px] font-black uppercase text-slate-700 tracking-wider flex items-center gap-1">
+                            <span>🔴</span>
+                            <span>2. Seal / Stamp</span>
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setAssetUrlInputs((prev) => ({ ...prev, stampImage: !prev.stampImage }))}
+                              className="text-[9px] text-indigo-600 hover:underline cursor-pointer font-bold"
+                            >
+                              {assetUrlInputs.stampImage ? "Upload" : "URL"}
+                            </button>
+                            {issuingCompanyInfo.stampImage && (
+                              <button
+                                type="button"
+                                onClick={() => setIssuingCompanyInfo((prev) => ({ ...prev, stampImage: "" }))}
+                                className="text-[9px] text-rose-600 hover:underline cursor-pointer font-bold"
+                                title="Leave stamp space completely blank"
+                              >
+                                ✕ Blank
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-slate-400">
+                          Company round/oval stamp
+                        </p>
+                      </div>
+
+                      {/* Preview Box */}
+                      <div className="h-24 w-full rounded-lg border border-dashed border-slate-200 bg-slate-50/50 flex items-center justify-center p-2 overflow-hidden">
+                        {issuingCompanyInfo.stampImage ? (
+                          <img
+                            src={issuingCompanyInfo.stampImage}
+                            alt="Official Stamp"
+                            className="max-h-full max-w-full object-contain"
+                          />
+                        ) : (
+                          <div className="text-center text-slate-400">
+                            <span className="block text-xl opacity-40">🔴</span>
+                            <span className="text-[10px] italic">Blank / No Stamp</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Controls */}
+                      {assetUrlInputs.stampImage ? (
+                        <input
+                          type="text"
+                          value={issuingCompanyInfo.stampImage || ""}
+                          onChange={(e) => setIssuingCompanyInfo({ ...issuingCompanyInfo, stampImage: e.target.value })}
+                          placeholder="Paste Stamp URL..."
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-2.5 py-1.5 text-xs focus:bg-white focus:outline-none"
+                        />
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => stampFileInputRef.current?.click()}
+                            className="flex-1 py-1.5 px-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-lg border border-indigo-200 text-[11px] cursor-pointer flex items-center justify-center gap-1 transition-colors"
+                          >
+                            <span>📤</span>
+                            <span>{issuingCompanyInfo.stampImage ? "Change Stamp" : "Upload Stamp"}</span>
+                          </button>
+                          {issuingCompanyInfo.stampImage && (
+                            <button
+                              type="button"
+                              onClick={() => setIssuingCompanyInfo((prev) => ({ ...prev, stampImage: "" }))}
+                              className="px-2 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold rounded-lg border border-rose-200 text-[11px] cursor-pointer"
+                              title="Leave blank"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Status */}
+                      <div className="text-[10px] flex items-center justify-between pt-1 border-t border-slate-100">
+                        <span className="text-slate-400">Signature Box</span>
+                        {issuingCompanyInfo.stampImage ? (
+                          <span className="text-emerald-600 font-bold">✓ Attached</span>
+                        ) : (
+                          <span className="text-amber-600 font-medium italic">Leave Blank</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 3. Digital Signature (Sign) */}
+                    <div className="p-3 rounded-xl border border-slate-200 bg-white shadow-2xs flex flex-col justify-between space-y-2.5">
+                      <div>
+                        <div className="flex items-center justify-between gap-1 mb-1">
+                          <span className="text-[10px] font-black uppercase text-slate-700 tracking-wider flex items-center gap-1">
+                            <span>✍️</span>
+                            <span>3. Digital Signature</span>
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setAssetUrlInputs((prev) => ({ ...prev, signatureImage: !prev.signatureImage }))}
+                              className="text-[9px] text-indigo-600 hover:underline cursor-pointer font-bold"
+                            >
+                              {assetUrlInputs.signatureImage ? "Upload" : "URL"}
+                            </button>
+                            {issuingCompanyInfo.signatureImage && (
+                              <button
+                                type="button"
+                                onClick={() => setIssuingCompanyInfo((prev) => ({ ...prev, signatureImage: "" }))}
+                                className="text-[9px] text-rose-600 hover:underline cursor-pointer font-bold"
+                                title="Leave signature space completely blank"
+                              >
+                                ✕ Blank
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-slate-400">
+                          Sign over company stamp
+                        </p>
+                      </div>
+
+                      {/* Preview Box */}
+                      <div className="h-24 w-full rounded-lg border border-dashed border-slate-200 bg-slate-50/50 flex items-center justify-center p-2 overflow-hidden">
+                        {issuingCompanyInfo.signatureImage ? (
+                          <img
+                            src={issuingCompanyInfo.signatureImage}
+                            alt="Digital Signature"
+                            className="max-h-full max-w-full object-contain"
+                          />
+                        ) : (
+                          <div className="text-center text-slate-400">
+                            <span className="block text-xl opacity-40">✍️</span>
+                            <span className="text-[10px] italic">Blank / No Sign</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Controls */}
+                      {assetUrlInputs.signatureImage ? (
+                        <input
+                          type="text"
+                          value={issuingCompanyInfo.signatureImage || ""}
+                          onChange={(e) => setIssuingCompanyInfo({ ...issuingCompanyInfo, signatureImage: e.target.value })}
+                          placeholder="Paste Signature URL..."
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-2.5 py-1.5 text-xs focus:bg-white focus:outline-none"
+                        />
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => signatureFileInputRef.current?.click()}
+                            className="flex-1 py-1.5 px-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-lg border border-indigo-200 text-[11px] cursor-pointer flex items-center justify-center gap-1 transition-colors"
+                          >
+                            <span>📤</span>
+                            <span>{issuingCompanyInfo.signatureImage ? "Change Sign" : "Upload Sign"}</span>
+                          </button>
+                          {issuingCompanyInfo.signatureImage && (
+                            <button
+                              type="button"
+                              onClick={() => setIssuingCompanyInfo((prev) => ({ ...prev, signatureImage: "" }))}
+                              className="px-2 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold rounded-lg border border-rose-200 text-[11px] cursor-pointer"
+                              title="Leave blank"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Status */}
+                      <div className="text-[10px] flex items-center justify-between pt-1 border-t border-slate-100">
+                        <span className="text-slate-400">Signatory Line</span>
+                        {issuingCompanyInfo.signatureImage ? (
+                          <span className="text-emerald-600 font-bold">✓ Attached</span>
+                        ) : (
+                          <span className="text-amber-600 font-medium italic">Leave Blank</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 4. Bank Payment QR Code */}
+                    <div className="p-3 rounded-xl border border-slate-200 bg-white shadow-2xs flex flex-col justify-between space-y-2.5">
+                      <div>
+                        <div className="flex items-center justify-between gap-1 mb-1">
+                          <span className="text-[10px] font-black uppercase text-slate-700 tracking-wider flex items-center gap-1">
+                            <span>📱</span>
+                            <span>4. Bank Payment QR</span>
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setAssetUrlInputs((prev) => ({ ...prev, bankQrImage: !prev.bankQrImage }))}
+                              className="text-[9px] text-indigo-600 hover:underline cursor-pointer font-bold"
+                            >
+                              {assetUrlInputs.bankQrImage ? "Upload" : "URL"}
+                            </button>
+                            {issuingCompanyInfo.bankQrImage && (
+                              <button
+                                type="button"
+                                onClick={() => setIssuingCompanyInfo((prev) => ({ ...prev, bankQrImage: "" }))}
+                                className="text-[9px] text-rose-600 hover:underline cursor-pointer font-bold"
+                                title="Leave Bank QR Code completely blank"
+                              >
+                                ✕ Blank
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-slate-400">
+                          UPI / Payment QR in bank footer
+                        </p>
+                      </div>
+
+                      {/* Preview Box */}
+                      <div className="h-24 w-full rounded-lg border border-dashed border-slate-200 bg-slate-50/50 flex items-center justify-center p-2 overflow-hidden">
+                        {issuingCompanyInfo.bankQrImage ? (
+                          <img
+                            src={issuingCompanyInfo.bankQrImage}
+                            alt="Payment QR Code"
+                            className="max-h-full max-w-full object-contain"
+                          />
+                        ) : (
+                          <div className="text-center text-slate-400">
+                            <span className="block text-xl opacity-40">📱</span>
+                            <span className="text-[10px] italic">Blank / No QR</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Controls */}
+                      {assetUrlInputs.bankQrImage ? (
+                        <input
+                          type="text"
+                          value={issuingCompanyInfo.bankQrImage || ""}
+                          onChange={(e) => setIssuingCompanyInfo({ ...issuingCompanyInfo, bankQrImage: e.target.value })}
+                          placeholder="Paste QR URL..."
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-2.5 py-1.5 text-xs focus:bg-white focus:outline-none"
+                        />
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => bankQrFileInputRef.current?.click()}
+                            className="flex-1 py-1.5 px-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-lg border border-indigo-200 text-[11px] cursor-pointer flex items-center justify-center gap-1 transition-colors"
+                          >
+                            <span>📤</span>
+                            <span>{issuingCompanyInfo.bankQrImage ? "Change QR" : "Upload QR"}</span>
+                          </button>
+                          {issuingCompanyInfo.bankQrImage && (
+                            <button
+                              type="button"
+                              onClick={() => setIssuingCompanyInfo((prev) => ({ ...prev, bankQrImage: "" }))}
+                              className="px-2 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold rounded-lg border border-rose-200 text-[11px] cursor-pointer"
+                              title="Leave blank"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Status */}
+                      <div className="text-[10px] flex items-center justify-between pt-1 border-t border-slate-100">
+                        <span className="text-slate-400">Bank Footer</span>
+                        {issuingCompanyInfo.bankQrImage ? (
+                          <span className="text-emerald-600 font-bold">✓ Attached</span>
+                        ) : (
+                          <span className="text-amber-600 font-medium italic">Leave Blank</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Signatory Title Input */}
+                  <div className="pt-2 flex flex-col sm:flex-row sm:items-center gap-3">
+                    <div className="w-full sm:w-1/2">
+                      <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                        Authorised Signatory Designation / Title
+                      </label>
+                      <input
+                        type="text"
+                        value={issuingCompanyInfo.authorizedSignatory}
+                        onChange={(e) => setIssuingCompanyInfo({ ...issuingCompanyInfo, authorizedSignatory: e.target.value.toUpperCase() })}
+                        placeholder="e.g. AUTHORISED SIGNATORY or MANAGING DIRECTOR"
+                        className="w-full bg-slate-50 border border-slate-200 text-slate-800 font-bold rounded-xl px-3 py-1.5 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

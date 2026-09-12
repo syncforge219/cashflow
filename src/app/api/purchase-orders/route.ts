@@ -210,9 +210,10 @@ export async function POST(req: Request) {
       companyEmail: body.companyEmail !== undefined ? body.companyEmail : ((profile as any)?.email || ""),
       companyWebsite: body.companyWebsite !== undefined ? body.companyWebsite : ((profile as any)?.website || ""),
       companyWorksAddress: body.companyWorksAddress !== undefined ? body.companyWorksAddress : ((profile as any)?.worksAddress || ""),
-      authorizedSignatory: (profile as any)?.authorizedSignatory || "AUTHORISED SIGNATORY",
-      signatureImage: (profile as any)?.signatureImage || "",
-      stampImage: (profile as any)?.stampImage || "",
+      authorizedSignatory: body.authorizedSignatory !== undefined ? body.authorizedSignatory : ((profile as any)?.authorizedSignatory || "AUTHORISED SIGNATORY"),
+      signatureImage: body.signatureImage !== undefined ? body.signatureImage : ((profile as any)?.signatureImage || ""),
+      stampImage: body.stampImage !== undefined ? body.stampImage : ((profile as any)?.stampImage || ""),
+      bankQrImage: body.bankQrImage !== undefined ? body.bankQrImage : ((profile as any)?.bankQrImage || ""),
     });
 
     return NextResponse.json({
@@ -271,6 +272,10 @@ export async function PUT(req: Request) {
       ...(body.companyPhone !== undefined && { companyPhone: body.companyPhone }),
       ...(body.companyEmail !== undefined && { companyEmail: body.companyEmail }),
       ...(body.companyWebsite !== undefined && { companyWebsite: body.companyWebsite }),
+      ...(body.authorizedSignatory !== undefined && { authorizedSignatory: body.authorizedSignatory }),
+      ...(body.signatureImage !== undefined && { signatureImage: body.signatureImage }),
+      ...(body.stampImage !== undefined && { stampImage: body.stampImage }),
+      ...(body.bankQrImage !== undefined && { bankQrImage: body.bankQrImage }),
     };
 
     const updatedPO = await PurchaseOrder.findByIdAndUpdate(targetId, { $set: updatePayload }, { new: true });
