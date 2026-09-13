@@ -11,9 +11,10 @@ interface AddEnquiryModalProps {
   onClose: () => void;
   onSuccess?: () => void;
   defaultBrand?: string;
+  initialData?: any;
 }
 
-export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBrand }: AddEnquiryModalProps) {
+export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBrand, initialData }: AddEnquiryModalProps) {
   const { user } = useUser();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [counsellors, setCounsellors] = useState<any[]>([]);
@@ -30,14 +31,43 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
   const [isLookingForJob, setIsLookingForJob] = useState(false);
   const [isDemoScheduled, setIsDemoScheduled] = useState(false);
   const [isFollowUpScheduled, setIsFollowUpScheduled] = useState(false);
+  const [studentFullName, setStudentFullName] = useState("");
+  const [emailAddress, setEmailAddress] = useState("");
+  const [currentCity, setCurrentCity] = useState("");
   const [primaryPhone, setPrimaryPhone] = useState("+91 ");
   const [parentsPhone, setParentsPhone] = useState("+91 ");
   const [enquiryDate, setEnquiryDate] = useState<string>(new Date().toISOString().split("T")[0]);
 
   useEffect(() => {
     if (isOpen) {
-      setPrimaryPhone("+91 ");
-      setParentsPhone("+91 ");
+      if (initialData) {
+        setStudentFullName(initialData.studentFullName || "");
+        setEmailAddress(initialData.emailAddress || "");
+        setCurrentCity(initialData.currentCity || "");
+
+        if (initialData.primaryPhoneMobile) {
+          const raw = String(initialData.primaryPhoneMobile);
+          const digits = raw.replace(/^\+?91\s?/, "").replace(/\D/g, "").slice(0, 10);
+          setPrimaryPhone(digits ? "+91 " + digits : "+91 ");
+        } else {
+          setPrimaryPhone("+91 ");
+        }
+
+        if (initialData.parentsPhoneNumber) {
+          const raw = String(initialData.parentsPhoneNumber);
+          const digits = raw.replace(/^\+?91\s?/, "").replace(/\D/g, "").slice(0, 10);
+          setParentsPhone(digits ? "+91 " + digits : "+91 ");
+        } else {
+          setParentsPhone("+91 ");
+        }
+      } else {
+        setStudentFullName("");
+        setEmailAddress("");
+        setCurrentCity("");
+        setPrimaryPhone("+91 ");
+        setParentsPhone("+91 ");
+      }
+
       setEnquiryDate(new Date().toISOString().split("T")[0]);
       setIsFollowUpScheduled(false);
       setIsLookingForJob(false);
@@ -46,12 +76,16 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
       // Auto-select brand if defaultBrand or user's brandScope / brand is available
       const rawUserBrand = user?.brandScope || (user as any)?.brand || (user as any)?.targetBrand || "";
       const userBrand = (rawUserBrand && rawUserBrand !== "All Brands" && rawUserBrand !== "All" && rawUserBrand !== "*") ? rawUserBrand : "";
-      const initialBrand = (defaultBrand && defaultBrand !== "All Brands" && defaultBrand !== "All")
-        ? defaultBrand
-        : userBrand;
-      setSelectedBrand(initialBrand);
+      const initialBrand = initialData?.targetBrand || initialData?.brand || (
+        (defaultBrand && defaultBrand !== "All Brands" && defaultBrand !== "All")
+          ? defaultBrand
+          : userBrand
+      );
+      setSelectedBrand(initialBrand || "");
 
-      if (user?.name) {
+      if (initialData?.assignedCrmAdvisor) {
+        setSelectedAdvisor(initialData.assignedCrmAdvisor);
+      } else if (user?.name) {
         setSelectedAdvisor(user.name);
       } else {
         setSelectedAdvisor("");
@@ -102,7 +136,7 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
         })
         .catch(console.error);
     }
-  }, [isOpen, defaultBrand, user?.brandScope]);
+  }, [isOpen, defaultBrand, user?.brandScope, initialData]);
 
   const userRole = (user?.role || (user as any)?.crmRole || "").toLowerCase().trim();
   const isSuperAdmin =
@@ -336,12 +370,20 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
           {/* SECTION 1 */}
           <div>
             <h4 className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-4">Section 1: Demographics</h4>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">
                   Student Full Name <span className="text-rose-500">*</span>
                 </label>
-                <input name="studentFullName" type="text" required placeholder="e.g. Rahul Sharma" className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50" />
+                <input
+                  name="studentFullName"
+                  type="text"
+                  required
+                  value={studentFullName}
+                  onChange={(e) => setStudentFullName(e.target.value)}
+                  placeholder="e.g. Rahul Sharma"
+                  className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                />
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Primary Phone Mobile</label>
@@ -350,6 +392,17 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
                   type="tel" 
                   value={primaryPhone}
                   onChange={handlePrimaryPhoneChange}
+                  placeholder="e.g. +91 9876500000"
+                  className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50" 
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Parents Phone Number</label>
+                <input 
+                  name="parentsPhoneNumber" 
+                  type="tel" 
+                  value={parentsPhone}
+                  onChange={handleParentsPhoneChange}
                   placeholder="e.g. +91 9876500000"
                   className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50" 
                 />
@@ -369,11 +422,25 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Email Address</label>
-                <input name="emailAddress" type="email" placeholder="e.g. rahul@domain.com" className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50" />
+                <input
+                  name="emailAddress"
+                  type="email"
+                  value={emailAddress}
+                  onChange={(e) => setEmailAddress(e.target.value)}
+                  placeholder="e.g. rahul@domain.com"
+                  className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                />
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Current City</label>
-                <input name="currentCity" type="text" placeholder="e.g. New Delhi" className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50" />
+                <input
+                  name="currentCity"
+                  type="text"
+                  value={currentCity}
+                  onChange={(e) => setCurrentCity(e.target.value)}
+                  placeholder="e.g. New Delhi"
+                  className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                />
               </div>
             </div>
           </div>

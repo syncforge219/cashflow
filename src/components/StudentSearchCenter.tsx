@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import AddEnquiryModal from "./AddEnquiryModal";
+import EditEnquiryModal from "./EditEnquiryModal";
 import LeadProfile from "./LeadProfile";
 import AdmissionModal from "./AdmissionModal";
 
@@ -17,6 +18,9 @@ export default function StudentSearchCenter({ className = "" }: StudentSearchCen
 
   // Modals state
   const [isAddEnquiryOpen, setIsAddEnquiryOpen] = useState(false);
+  const [newEnquiryInitialData, setNewEnquiryInitialData] = useState<any | null>(null);
+  const [isEditEnquiryOpen, setIsEditEnquiryOpen] = useState(false);
+  const [enquiryToEdit, setEnquiryToEdit] = useState<any | null>(null);
   const [selectedLead, setSelectedLead] = useState<any | null>(null);
   const [openTaskModalOnLoad, setOpenTaskModalOnLoad] = useState(false);
   const [openDemoModalOnLoad, setOpenDemoModalOnLoad] = useState(false);
@@ -345,6 +349,52 @@ export default function StudentSearchCenter({ className = "" }: StudentSearchCen
                         </div>
                       </div>
 
+                      {/* Individual Enquiries breakdown if multiple courses are combined */}
+                      {lead.allEnquiries && lead.allEnquiries.length > 1 && (
+                        <div className="mb-4 p-4 bg-white/90 border border-amber-200/80 rounded-xl space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <p className="text-[10px] font-extrabold uppercase tracking-wider text-amber-800">
+                              Individual Registered Courses ({lead.allEnquiries.length})
+                            </p>
+                            <span className="text-[10px] text-amber-600 font-medium">Click "Modify" on any course to edit its details</span>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            {lead.allEnquiries.map((enq: any, idx: number) => (
+                              <div key={enq._id || idx} className="flex items-center justify-between p-3 bg-amber-50/70 hover:bg-amber-50 rounded-xl border border-amber-200/90 text-xs transition-colors shadow-2xs">
+                                <div>
+                                  <div className="flex items-center gap-1.5 mb-1">
+                                    <span className="font-mono font-bold text-amber-900 bg-amber-200/90 px-1.5 py-0.5 rounded text-[10px]">
+                                      {enq.enquiryId}
+                                    </span>
+                                    <span className="text-[10px] font-semibold text-slate-500">
+                                      {enq.targetBrand || enq.brand || "General"}
+                                    </span>
+                                  </div>
+                                  <p className="font-bold text-slate-800">
+                                    {enq.targetCourse || (Array.isArray(enq.courses) ? enq.courses.join(", ") : "General Course")}
+                                  </p>
+                                  <p className="text-[10px] text-slate-500 mt-0.5">
+                                    Status: <span className="font-semibold text-slate-700">{enq.status || "New"}</span> • Counsellor: <span className="font-semibold text-slate-700">{enq.assignedCrmAdvisor || "Unassigned"}</span>
+                                  </p>
+                                </div>
+                                <button
+                                  onClick={() => {
+                                    setEnquiryToEdit(enq);
+                                    setIsEditEnquiryOpen(true);
+                                  }}
+                                  className="text-xs font-bold text-amber-900 bg-white hover:bg-amber-100 px-3 py-1.5 rounded-lg border border-amber-300 transition-colors shadow-2xs cursor-pointer flex items-center gap-1 shrink-0 ml-3"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                                  </svg>
+                                  Modify
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       {!isAdmitted && (
                         <div className="flex flex-wrap items-center gap-3">
                           <button
@@ -352,6 +402,38 @@ export default function StudentSearchCenter({ className = "" }: StudentSearchCen
                             className={c("border-amber-200 hover:bg-amber-100 text-amber-700", "border-emerald-200 hover:bg-emerald-100 text-emerald-700") + " bg-white border text-xs font-bold px-4 py-2 rounded-xl transition-colors shadow-xs cursor-pointer"}
                           >
                             View Enquiry Details
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEnquiryToEdit(lead);
+                              setIsEditEnquiryOpen(true);
+                            }}
+                            className="bg-amber-100/90 hover:bg-amber-200 border border-amber-300 text-amber-900 text-xs font-bold px-4 py-2 rounded-xl transition-colors shadow-xs cursor-pointer flex items-center gap-1.5"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                            </svg>
+                            Modify Enquiry
+                          </button>
+                          <button
+                            onClick={() => {
+                              setNewEnquiryInitialData({
+                                studentFullName: lead.studentFullName,
+                                primaryPhoneMobile: lead.primaryPhoneMobile,
+                                parentsPhoneNumber: lead.parentsPhoneNumber,
+                                emailAddress: lead.emailAddress,
+                                currentCity: lead.currentCity,
+                                targetBrand: lead.targetBrand,
+                                assignedCrmAdvisor: lead.assignedCrmAdvisor,
+                              });
+                              setIsAddEnquiryOpen(true);
+                            }}
+                            className="bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-xs font-bold px-4 py-2 rounded-xl transition-colors shadow-xs cursor-pointer flex items-center gap-1.5"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                            </svg>
+                            + New Course Enquiry
                           </button>
                           <button
                             onClick={() => { setSelectedLead(lead); setOpenTaskModalOnLoad(true); setOpenDemoModalOnLoad(false); }}
@@ -385,9 +467,28 @@ export default function StudentSearchCenter({ className = "" }: StudentSearchCen
       {/* Modals */}
       <AddEnquiryModal
         isOpen={isAddEnquiryOpen}
-        onClose={() => setIsAddEnquiryOpen(false)}
+        onClose={() => {
+          setIsAddEnquiryOpen(false);
+          setNewEnquiryInitialData(null);
+        }}
         onSuccess={() => {
           setIsAddEnquiryOpen(false);
+          setNewEnquiryInitialData(null);
+          handleSearch();
+        }}
+        initialData={newEnquiryInitialData}
+      />
+
+      <EditEnquiryModal
+        isOpen={isEditEnquiryOpen}
+        onClose={() => {
+          setIsEditEnquiryOpen(false);
+          setEnquiryToEdit(null);
+        }}
+        lead={enquiryToEdit}
+        onSuccess={() => {
+          setIsEditEnquiryOpen(false);
+          setEnquiryToEdit(null);
           handleSearch();
         }}
       />

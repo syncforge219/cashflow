@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import LeadProfile from "@/components/LeadProfile";
+import EditEnquiryModal from "@/components/EditEnquiryModal";
 import AdmissionModal from "@/components/AdmissionModal";
 import AddEnquiryModal from "@/components/AddEnquiryModal";
 import AdmissionDetailModal from "@/components/AdmissionDetailModal";
@@ -18,6 +19,8 @@ export default function BrandManagerAdmissionHub() {
     const [searchResult, setSearchResult] = useState<{ stage: string; data: any; admissions?: any[]; enquiries?: any[] } | null>(null);
 
     // Modal States
+    const [isEditEnquiryOpen, setIsEditEnquiryOpen] = useState(false);
+    const [enquiryToEdit, setEnquiryToEdit] = useState<any | null>(null);
     const [selectedLead, setSelectedLead] = useState<any | null>(null);
     const [openTaskModalOnLoad, setOpenTaskModalOnLoad] = useState(false);
     const [openDemoModalOnLoad, setOpenDemoModalOnLoad] = useState(false);
@@ -551,6 +554,18 @@ export default function BrandManagerAdmissionHub() {
                                                                 }
                                                             >
                                                                 View Enquiry
+                                                            </button>
+                                                            <button
+                                                                onClick={() => {
+                                                                    setEnquiryToEdit(lead);
+                                                                    setIsEditEnquiryOpen(true);
+                                                                }}
+                                                                className="bg-amber-100/90 hover:bg-amber-200 border border-amber-300 text-amber-900 text-xs font-bold px-4 py-2 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
+                                                            >
+                                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                                                                </svg>
+                                                                Modify Enquiry
                                                             </button>
                                                             <button
                                                                 onClick={() => {
@@ -1088,6 +1103,20 @@ export default function BrandManagerAdmissionHub() {
                     fetchAdmissions();
                 }}
                 admissionId={selected360StudentId}
+            />
+
+            <EditEnquiryModal
+                isOpen={isEditEnquiryOpen}
+                onClose={() => {
+                    setIsEditEnquiryOpen(false);
+                    setEnquiryToEdit(null);
+                }}
+                lead={enquiryToEdit}
+                onSuccess={() => {
+                    setIsEditEnquiryOpen(false);
+                    setEnquiryToEdit(null);
+                    handleSearch();
+                }}
             />
         </div>
     );
