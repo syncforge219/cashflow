@@ -7,6 +7,7 @@ import LeadProfile from "./LeadProfile";
 import LeadSourceManagerModal from "./LeadSourceManagerModal";
 import { useUser } from "@/app/component/context/user-context";
 import ClientDirectoryLeadsTable from "./ClientDirectoryLeadsTable";
+import SourcePerformanceModal, { SourcePerformanceData } from "./SourcePerformanceModal";
 
 export default function CounsellorEnquiriesDisplay() {
     const { user } = useUser();
@@ -29,6 +30,9 @@ export default function CounsellorEnquiriesDisplay() {
     const [dateFilterMode, setDateFilterMode] = useState<"today" | "week" | "month" | "year" | "custom" | "all">("month");
     const [startDateFilter, setStartDateFilter] = useState("");
     const [endDateFilter, setEndDateFilter] = useState("");
+    const [admissionsList, setAdmissionsList] = useState<any[]>([]);
+    const [sourceViewMode, setSourceViewMode] = useState<"conversion" | "mix">("conversion");
+    const [isSourceMatrixOpen, setIsSourceMatrixOpen] = useState(false);
 
     useEffect(() => {
         const handler = setTimeout(() => {
@@ -136,6 +140,15 @@ export default function CounsellorEnquiriesDisplay() {
 
     useEffect(() => {
         fetchEnquiries();
+        fetch("/api/admissions")
+            .then((res) => res.json())
+            .then((data) => {
+                if (data.success && Array.isArray(data.data)) {
+                    setAdmissionsList(data.data);
+                }
+            })
+            .catch(console.error);
+
         fetch("/api/lead-sources")
             .then((res) => res.json())
             .then((data) => {
@@ -165,15 +178,136 @@ export default function CounsellorEnquiriesDisplay() {
         return acc + pendingTasks;
     }, 0);
 
-    const admissionsConvertedCount = counsellorDateFilteredLeads.filter(
-        (e) => e.status === "Admission" || e.status === "Admitted"
-    ).length;
+    // Pre-calculate admitted IDs and phone numbers from admissionsList
+    const admittedEnquiryIdSet = React.useMemo(() => {
+        const set = new Set<string>();
+        admissionsList.forEach((adm: any) => {
+            if (adm.enquiryId) set.add(String(adm.enquiryId));
+            if (adm._id) set.add(String(adm._id));
+        });
+        return set;
+    }, [admissionsList]);
+
+    const admittedPhoneSet = React.useMemo(() => {
+        const set = new Set<string>();
+        admissionsList.forEach((adm: any) => {
+            const p = String(adm.primaryPhoneMobile || adm.mobileNumber || "").replace(/\D/g, "").slice(-10);
+            if (p.length === 10) set.add(p);
+        });
+        return set;
+    }, [admissionsList]);
+
+    const isLeadConverted = (lead: any) => {
+        if (lead.isAdmitted === true) return true;
+        const s = (lead.status || "").toLowerCase().trim();
+        if (s === "admitted" || s === "converted" || s === "admission" || s === "enrolled") return true;
+        if (lead._id && admittedEnquiryIdSet.has(String(lead._id))) return true;
+        if (lead.enquiryId && admittedEnquiryIdSet.has(String(lead.enquiryId))) return true;
+        if (lead.primaryPhoneMobile) {
+            const clean = String(lead.primaryPhoneMobile).replace(/\D/g, "").slice(-10);
+            if (clean.length === 10 && admittedPhoneSet.has(clean)) return true;
+        }
+        return false;
+    };
+
+    const admissionsConvertedCount = counsellorDateFilteredLeads.filter(isLeadConverted).length;
 
     const lostLeadsCount = counsellorDateFilteredLeads.filter(
-        (e) => e.status === "Lost"
+        (e) => e.status === "Lost" || e.status === "Closed"
     ).length;
 
-    const conversionRate = totalPeriodCount > 0 ? Math.min(100, Math.round((admissionsConvertedCount / totalPeriodCount) * 100)) : 0;
+    const rawRate = totalPeriodCount > 0 ? (admissionsConvertedCount / totalPeriodCount) * 100 : 0;
+    const conversionRateStr = totalPeriodCount > 0 ? `${Math.min(100, Number(rawRate.toFixed(1)))}%` : "0%";
+    const conversionRate = totalPeriodCount > 0 ? Math.min(100, Math.round(rawRate)) : 0;
+
+    const enquiriesForSourceAnalysis = React.useMemo(() => {
+        if (sourceFilter) {
+            return counsellorDateFilteredLeads.filter((lead) => {
+                if (priorityFilter && lead.priorityLevel !== priorityFilter) return false;
+                if (statusFilter && lead.status !== statusFilter) return false;
+                return true;
+            });
+        }
+        return filteredEnquiries;
+    }, [sourceFilter, counsellorDateFilteredLeads, filteredEnquiries, priorityFilter, statusFilter]);
+
+    const VIBRANT_PALETTE = [
+        "#6366f1", "#3b82f6", "#06b6d4", "#10b981", "#f59e0b", "#f43f5e",
+        "#8b5cf6", "#d946ef", "#14b8a6", "#ec4899", "#0284c7", "#84cc16", "#a855f7"
+    ];
+
+    const getSourceColor = (sourceName: string, index: number): string => {
+        const s = (sourceName || "").toLowerCase().trim();
+        if (s.includes("google")) return "#6366f1";
+        if (s.includes("meta") || s.includes("facebook") || s.includes("fb") || s.includes("insta")) return "#3b82f6";
+        if (s.includes("ivr") || s.includes("telephonic") || s.includes("call") || s.includes("phone")) return "#8b5cf6";
+        if (s.includes("search") || s.includes("internet") || s.includes("site") || s.includes("website") || s.includes("online")) return "#06b6d4";
+        if (s.includes("walkin") || s.includes("walk-in") || s.includes("direct")) return "#10b981";
+        if (s.includes("justdial") || s.includes("just dial")) return "#f59e0b";
+        if (s.includes("whatsapp")) return "#059669";
+        if (s.includes("seminar")) return "#f43f5e";
+        if (s.includes("hoarding") || s.includes("banner")) return "#d946ef";
+        if (s.includes("reference") || s.includes("referral")) return "#ec4899";
+        return VIBRANT_PALETTE[index % VIBRANT_PALETTE.length];
+    };
+
+    const sourceMetrics: SourcePerformanceData[] = React.useMemo(() => {
+        const map: Record<string, SourcePerformanceData> = {};
+        const totalLeads = enquiriesForSourceAnalysis.length || 1;
+
+        enquiriesForSourceAnalysis.forEach((curr) => {
+            const source = (curr.leadSource && curr.leadSource.trim()) || "Direct Walkin";
+            if (!map[source]) {
+                map[source] = {
+                    source,
+                    total: 0,
+                    converted: 0,
+                    pending: 0,
+                    lost: 0,
+                    cvr: 0,
+                    cvrStr: "0.0%",
+                    mixPct: 0,
+                    color: getSourceColor(source, Object.keys(map).length),
+                };
+            }
+            map[source].total += 1;
+
+            const converted = isLeadConverted(curr);
+            if (converted) {
+                map[source].converted += 1;
+            } else {
+                const s = (curr.status || "").toLowerCase().trim();
+                if (s === "lost" || s === "closed") {
+                    map[source].lost += 1;
+                } else {
+                    map[source].pending += 1;
+                }
+            }
+        });
+
+        const list = Object.values(map).map((item) => {
+            const cvr = item.total > 0 ? (item.converted / item.total) * 100 : 0;
+            const mixPct = (item.total / totalLeads) * 100;
+            return {
+                ...item,
+                cvr: Number(cvr.toFixed(1)),
+                cvrStr: `${cvr.toFixed(1)}%`,
+                mixPct: Number(mixPct.toFixed(1)),
+            };
+        });
+
+        return list;
+    }, [enquiriesForSourceAnalysis, admittedEnquiryIdSet, admittedPhoneSet]);
+
+    const sortedSourceMetrics = React.useMemo(() => {
+        const list = [...sourceMetrics];
+        if (sourceViewMode === "conversion") {
+            list.sort((a, b) => b.cvr - a.cvr || b.converted - a.converted || b.total - a.total);
+        } else {
+            list.sort((a, b) => b.total - a.total);
+        }
+        return list;
+    }, [sourceMetrics, sourceViewMode]);
 
     const firstCardTitleMap: Record<string, string> = {
         today: "Today's Enquiries",
@@ -396,80 +530,124 @@ export default function CounsellorEnquiriesDisplay() {
                 {/* Lead Source Channels */}
                 <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs flex flex-col justify-between h-full">
                     <div>
-                        <div className="flex items-center justify-between">
-                            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider select-none">Lead Source Channels</h2>
-                            <span className="text-[10px] font-extrabold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100 select-none">
-                                Live Mix
-                            </span>
+                        <div className="flex items-center justify-between gap-2">
+                            <div>
+                                <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider select-none">Lead Source Channels</h2>
+                                <p className="text-[11px] font-medium text-slate-400 mt-0.5 select-none">
+                                    {sourceViewMode === "conversion"
+                                        ? "Channel conversion rate & admissions"
+                                        : "Marketing acquisition mix distribution"}
+                                </p>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 shrink-0">
+                                {/* View Toggle */}
+                                <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                                    <button
+                                        type="button"
+                                        onClick={() => setSourceViewMode("conversion")}
+                                        className={`px-2 py-1 text-[10px] font-bold rounded-md transition-all cursor-pointer ${
+                                            sourceViewMode === "conversion"
+                                                ? "bg-white text-emerald-700 shadow-xs font-black"
+                                                : "text-slate-500 hover:text-slate-800"
+                                        }`}
+                                        title="Show Conversion Rate from each source"
+                                    >
+                                        🎯 CVR %
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setSourceViewMode("mix")}
+                                        className={`px-2 py-1 text-[10px] font-bold rounded-md transition-all cursor-pointer ${
+                                            sourceViewMode === "mix"
+                                                ? "bg-white text-indigo-700 shadow-xs font-black"
+                                                : "text-slate-500 hover:text-slate-800"
+                                        }`}
+                                        title="Show Volume Mix from each source"
+                                    >
+                                        📊 Mix
+                                    </button>
+                                </div>
+
+                                {/* Matrix Modal Button */}
+                                <button
+                                    type="button"
+                                    onClick={() => setIsSourceMatrixOpen(true)}
+                                    className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 rounded-lg transition-all cursor-pointer"
+                                    title="Open Full Source Performance Matrix"
+                                >
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        strokeWidth={2}
+                                        stroke="currentColor"
+                                        className="w-3.5 h-3.5"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            d="M3.75 3v11.25A2.25 2.25 0 0 0 6 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0 1 18 16.5h-2.25m-7.5 0h7.5m-7.5 0-1 3m8.5-3 1 3m0 0 .5 1.5m-.5-1.5h-9.5m0 0-.5 1.5m.75-9 3-3 2.143 2.143L15.75 6"
+                                        />
+                                    </svg>
+                                </button>
+                            </div>
                         </div>
-                        <p className="text-[11px] font-medium text-slate-400 mt-0.5 select-none">Marketing acquisition mix distribution</p>
                     </div>
 
                     {(() => {
-                        const sourceStats = filteredEnquiries.reduce((acc, curr) => {
-                            const source = curr.leadSource || "Direct Walkin";
-                            acc[source] = (acc[source] || 0) + 1;
-                            return acc;
-                        }, {} as Record<string, number>);
-
-                        const totalSources = filteredEnquiries.length || 1;
-
-                        const VIBRANT_PALETTE = [
-                            "#6366f1", // Indigo
-                            "#3b82f6", // Royal Blue
-                            "#06b6d4", // Cyber Cyan
-                            "#10b981", // Emerald Green
-                            "#f59e0b", // Amber Orange
-                            "#f43f5e", // Rose Pink
-                            "#8b5cf6", // Purple
-                            "#d946ef", // Fuchsia
-                            "#14b8a6", // Teal
-                            "#ec4899", // Hot Pink
-                            "#0284c7", // Sky Blue
-                            "#84cc16", // Lime
-                            "#a855f7", // Bright Violet
-                        ];
-
-                        const getSourceColor = (sourceName: string, index: number): string => {
-                            const s = (sourceName || "").toLowerCase().trim();
-                            if (s.includes("google")) return "#6366f1";
-                            if (s.includes("meta") || s.includes("facebook") || s.includes("fb") || s.includes("insta")) return "#3b82f6";
-                            if (s.includes("ivr") || s.includes("telephonic") || s.includes("call") || s.includes("phone")) return "#8b5cf6";
-                            if (s.includes("search") || s.includes("internet") || s.includes("site") || s.includes("website") || s.includes("online")) return "#06b6d4";
-                            if (s.includes("walkin") || s.includes("walk-in") || s.includes("direct")) return "#10b981";
-                            if (s.includes("justdial") || s.includes("just dial")) return "#f59e0b";
-                            if (s.includes("whatsapp")) return "#059669";
-                            if (s.includes("seminar")) return "#f43f5e";
-                            if (s.includes("hoarding") || s.includes("banner")) return "#d946ef";
-                            if (s.includes("reference") || s.includes("referral")) return "#ec4899";
-                            return VIBRANT_PALETTE[index % VIBRANT_PALETTE.length];
-                        };
+                        const totalLeadsInSources = enquiriesForSourceAnalysis.length || 1;
+                        const totalConvertedInSources = sourceMetrics.reduce((acc, s) => acc + s.converted, 0);
 
                         let currentAngle = 0;
-                        const sourceEntries = Object.entries(sourceStats);
-                        const gradientStops = sourceEntries.map(([source, count], idx) => {
-                            const percentage = ((count as number) / totalSources) * 100;
-                            const color = getSourceColor(source, idx);
-                            const start = currentAngle;
-                            const end = currentAngle + percentage;
-                            currentAngle = end;
-                            return `${color} ${start}% ${end}%`;
-                        }).join(", ");
+                        const gradientStops = sortedSourceMetrics
+                            .map((item) => {
+                                const percentage =
+                                    sourceViewMode === "conversion" && totalConvertedInSources > 0
+                                        ? (item.converted / totalConvertedInSources) * 100
+                                        : item.mixPct;
+                                const start = currentAngle;
+                                const end = currentAngle + percentage;
+                                currentAngle = end;
+                                return `${item.color} ${start}% ${end}%`;
+                            })
+                            .join(", ");
 
                         return (
                             <>
                                 <div className="my-auto py-3 flex items-center justify-center">
-                                    {filteredEnquiries.length > 0 ? (
+                                    {enquiriesForSourceAnalysis.length > 0 ? (
                                         <div
                                             className="w-28 h-28 sm:w-32 sm:h-32 rounded-full shadow-md flex items-center justify-center relative transition-all"
                                             style={{
-                                                background: `conic-gradient(${gradientStops})`,
+                                                background:
+                                                    gradientStops.length > 0
+                                                        ? `conic-gradient(${gradientStops})`
+                                                        : "#e2e8f0",
                                             }}
                                         >
-                                            <div className="w-18 h-18 sm:w-20 sm:h-20 bg-white rounded-full shadow-inner flex flex-col items-center justify-center text-center border border-slate-50">
-                                                <span className="text-base sm:text-lg font-black text-slate-800 tracking-tight">{filteredEnquiries.length}</span>
-                                                <span className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase select-none">Total</span>
-                                            </div>
+                                            {sourceViewMode === "conversion" ? (
+                                                <div className="w-18 h-18 sm:w-20 sm:h-20 bg-white rounded-full shadow-inner flex flex-col items-center justify-center text-center border border-slate-50 px-1">
+                                                    <span className="text-sm sm:text-base font-black text-emerald-600 tracking-tight leading-tight">
+                                                        {conversionRateStr}
+                                                    </span>
+                                                    <span className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase select-none leading-tight">
+                                                        Avg CVR
+                                                    </span>
+                                                    <span className="text-[8px] font-semibold text-slate-400 select-none">
+                                                        {totalConvertedInSources}/{totalLeadsInSources}
+                                                    </span>
+                                                </div>
+                                            ) : (
+                                                <div className="w-18 h-18 sm:w-20 sm:h-20 bg-white rounded-full shadow-inner flex flex-col items-center justify-center text-center border border-slate-50">
+                                                    <span className="text-base sm:text-lg font-black text-slate-800 tracking-tight">
+                                                        {totalLeadsInSources}
+                                                    </span>
+                                                    <span className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase select-none">
+                                                        Total
+                                                    </span>
+                                                </div>
+                                            )}
                                         </div>
                                     ) : (
                                         <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full border-4 border-slate-100 flex items-center justify-center">
@@ -478,32 +656,116 @@ export default function CounsellorEnquiriesDisplay() {
                                     )}
                                 </div>
 
-                                <div className="space-y-2.5 pt-3 border-t border-slate-100 max-h-48 overflow-y-auto pr-1">
-                                    {sourceEntries.map(([source, count], idx) => {
-                                        const pct = Math.round(((count as number) / totalSources) * 100);
-                                        const color = getSourceColor(source, idx);
+                                <div className="space-y-2 pt-3 border-t border-slate-100 max-h-52 overflow-y-auto pr-1">
+                                    {sortedSourceMetrics.map((item) => {
+                                        const isSelected = sourceFilter === item.source;
                                         return (
-                                            <div key={source} className="space-y-1">
+                                            <div
+                                                key={item.source}
+                                                onClick={() => {
+                                                    if (isSelected) {
+                                                        setSourceFilter("");
+                                                    } else {
+                                                        setSourceFilter(item.source);
+                                                    }
+                                                }}
+                                                className={`p-2 rounded-xl border transition-all cursor-pointer space-y-1 ${
+                                                    isSelected
+                                                        ? "bg-indigo-50/70 border-indigo-200 shadow-2xs"
+                                                        : "border-transparent hover:border-slate-200/80 hover:bg-slate-50/80"
+                                                }`}
+                                                title={`Click to filter enquiries by ${item.source}`}
+                                            >
                                                 <div className="flex items-center justify-between text-xs">
                                                     <div className="flex items-center gap-2 min-w-0">
-                                                        <span className="h-2.5 w-2.5 rounded-full shrink-0 shadow-2xs" style={{ backgroundColor: color }}></span>
-                                                        <span className="font-semibold text-slate-700 truncate">{source}</span>
+                                                        <span
+                                                            className="h-2.5 w-2.5 rounded-full shrink-0 shadow-2xs"
+                                                            style={{ backgroundColor: item.color }}
+                                                        ></span>
+                                                        <span className="font-bold text-slate-800 truncate">{item.source}</span>
+                                                        {isSelected && (
+                                                            <span className="text-[9px] font-black text-indigo-600 bg-indigo-100 px-1 py-0.2 rounded">
+                                                                Filtered
+                                                            </span>
+                                                        )}
                                                     </div>
-                                                    <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                                                        <span className="font-extrabold text-slate-800">{pct}%</span>
-                                                        <span className="text-[10px] font-semibold text-slate-400">({String(count)})</span>
-                                                    </div>
+
+                                                    {sourceViewMode === "conversion" ? (
+                                                        <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                                                            <span
+                                                                className={`px-2 py-0.5 rounded-md text-[10px] font-black border tracking-tight ${
+                                                                    item.cvr >= 20
+                                                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                                                        : item.cvr >= 10
+                                                                        ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                                                                        : item.cvr > 0
+                                                                        ? "bg-amber-50 text-amber-700 border-amber-200"
+                                                                        : "bg-slate-50 text-slate-500 border-slate-200"
+                                                                }`}
+                                                            >
+                                                                {item.cvrStr} CVR
+                                                            </span>
+                                                            <span className="text-[10px] font-bold text-slate-400">
+                                                                ({item.converted}/{item.total})
+                                                            </span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                                                            <span className="font-extrabold text-slate-800">
+                                                                {Math.round(item.mixPct)}%
+                                                            </span>
+                                                            <span className="text-[10px] font-semibold text-slate-400">
+                                                                ({item.total})
+                                                            </span>
+                                                            <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-100">
+                                                                {item.cvrStr} CVR
+                                                            </span>
+                                                        </div>
+                                                    )}
                                                 </div>
+
+                                                {/* Progress Bar */}
                                                 <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
                                                     <div
                                                         className="h-full rounded-full transition-all duration-500"
-                                                        style={{ width: `${pct}%`, backgroundColor: color }}
+                                                        style={{
+                                                            width: `${
+                                                                sourceViewMode === "conversion"
+                                                                    ? Math.max(item.cvr > 0 ? 4 : 0, Math.min(100, item.cvr))
+                                                                    : Math.max(2, Math.min(100, item.mixPct))
+                                                            }%`,
+                                                            backgroundColor:
+                                                                sourceViewMode === "conversion"
+                                                                    ? item.cvr >= 20
+                                                                        ? "#10b981"
+                                                                        : item.cvr >= 10
+                                                                        ? "#6366f1"
+                                                                        : item.cvr > 0
+                                                                        ? "#06b6d4"
+                                                                        : "#cbd5e1"
+                                                                    : item.color,
+                                                        }}
                                                     ></div>
                                                 </div>
                                             </div>
                                         );
                                     })}
                                 </div>
+
+                                {sourceFilter && (
+                                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                                        <span className="text-slate-500 font-medium">
+                                            Filtered: <strong className="text-indigo-600 font-bold">{sourceFilter}</strong>
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setSourceFilter("")}
+                                            className="text-indigo-600 hover:text-indigo-800 font-bold cursor-pointer"
+                                        >
+                                            Clear Filter
+                                        </button>
+                                    </div>
+                                )}
                             </>
                         );
                     })()}
@@ -557,6 +819,17 @@ export default function CounsellorEnquiriesDisplay() {
                         return [...prev, { name: newSrc }];
                     });
                 }}
+            />
+
+            <SourcePerformanceModal
+                isOpen={isSourceMatrixOpen}
+                onClose={() => setIsSourceMatrixOpen(false)}
+                sources={sourceMetrics}
+                totalLeads={enquiriesForSourceAnalysis.length}
+                totalConverted={admissionsConvertedCount}
+                overallCvrStr={conversionRateStr}
+                activeSourceFilter={sourceFilter}
+                onSelectSource={(src) => setSourceFilter(src)}
             />
         </div>
     );
