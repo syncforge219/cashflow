@@ -20,7 +20,6 @@ function generatePurchaseOrderHtml(po: any, profile: any): string {
   const phone = po.companyPhone || profile?.phone || "0141-4059826";
   const email = po.companyEmail || profile?.email || "appl_jaipur@rediffmail.com";
   const website = po.companyWebsite || profile?.website || "www.aaramplastics.com";
-  const worksAddress = po.companyWorksAddress || profile?.worksAddress || "G-232, Sitapura Ind. Area, Tonk Road, JAIPUR - 302 022 (Raj.) Tel. : 0141-2771862";
 
   const parseItemQty = (item: any): { qtyNum: number; displayQty: string } => {
     const q = item.quantity;
@@ -369,16 +368,6 @@ function generatePurchaseOrderHtml(po: any, profile: any): string {
       margin-bottom: 4px;
     }
 
-    .footer-bar {
-      margin-top: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      font-size: 9px;
-      border-top: 1px solid #000;
-      padding-top: 4px;
-    }
 
     @media print {
       @page {
@@ -593,11 +582,6 @@ function generatePurchaseOrderHtml(po: any, profile: any): string {
     <!-- Computer Generated Note -->
     <div class="computer-note">
       This is a computer generated purchase order no signature is required
-    </div>
-
-    <!-- Footer Bar -->
-    <div class="footer-bar">
-      <div>Regd. Office & Works : ${worksAddress}</div>
     </div>
   </div>
 </body>

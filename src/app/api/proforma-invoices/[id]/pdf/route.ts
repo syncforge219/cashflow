@@ -28,7 +28,6 @@ function generateProformaInvoiceHtml(pi: any, profile: any): string {
   const phone = pi.companyPhone || profile?.phone || "0141-4059826";
   const email = pi.companyEmail || profile?.email || "appl_jaipur@rediffmail.com";
   const website = pi.companyWebsite || profile?.website || "www.aaramplastics.com";
-  const worksAddress = pi.companyWorksAddress || profile?.worksAddress || "G-232, Sitapura Ind. Area, Tonk Road, JAIPUR - 302 022 (Raj.) Tel. : 0141-2771862";
 
   const parseItemQty = (item: any): { qtyNum: number; displayQty: string } => {
     const q = item.quantity;
@@ -366,16 +365,7 @@ function generateProformaInvoiceHtml(pi: any, profile: any): string {
       letter-spacing: 0.5px;
     }
 
-    .footer-bar {
-      margin-top: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      font-size: 9px;
-      border-top: 1px solid #000;
-      padding-top: 5px;
-    }
+
 
     @media print {
       @page {
@@ -587,10 +577,6 @@ function generateProformaInvoiceHtml(pi: any, profile: any): string {
       </div>
     </div>
 
-    <!-- Footer Bar -->
-    <div class="footer-bar">
-      <div>Regd. Office & Works : ${worksAddress}</div>
-    </div>
   </div>
 </body>
 </html>`;

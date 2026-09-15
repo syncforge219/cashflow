@@ -22,7 +22,6 @@ function generateQuotationHtml(quotation: any, profile: any): string {
   const telefax = profile?.telefax || "0141-2370336";
   const email = quotation.companyEmail || profile?.email || "appl_jaipur@rediffmail.com";
   const website = quotation.companyWebsite || profile?.website || "www.aaramplastics.com";
-  const worksAddress = quotation.companyWorksAddress || profile?.worksAddress || "G-232, Sitapura Ind. Area, Tonk Road, JAIPUR - 302 022 (Raj.) Tel. : 0141-2771862";
   const isoTag = profile?.isoTag || "";
 
   const bankDetails = quotation.bankDetails || profile?.bankDetails || {
@@ -459,23 +458,7 @@ function generateQuotationHtml(quotation: any, profile: any): string {
       margin-bottom: 4px;
     }
 
-    /* Footer Bar */
-    .footer-bar {
-      margin-top: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      font-size: 9px;
-      border-top: 1px solid #000;
-      padding-top: 5px;
-    }
-    .iso-badge {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      font-weight: bold;
-    }
+
 
     @media print {
       @page {
@@ -694,11 +677,6 @@ function generateQuotationHtml(quotation: any, profile: any): string {
     <!-- Computer Generated Note -->
     <div class="computer-note">
       This is a computer generated quotation no signature is required
-    </div>
-
-    <!-- Footer Bar -->
-    <div class="footer-bar">
-      <div>Regd. Office & Works : ${worksAddress}</div>
     </div>
   </div>
 </body>
