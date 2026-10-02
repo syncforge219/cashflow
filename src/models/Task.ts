@@ -21,9 +21,17 @@ const TaskSchema = new Schema(
         "Batch Allocation",
         "Welcome Onboarding",
         "EMI Recovery",
+        "Fee Follow-up",
+        "Fee Followup",
+        "Follow-up",
         "General"
       ],
       default: "General",
+    },
+    linkedType: {
+      type: String,
+      enum: ["Enquiry", "Admission"],
+      index: true,
     },
     linkedStudentId: {
       type: String,
@@ -95,10 +103,13 @@ const TaskSchema = new Schema(
   },
   {
     timestamps: true,
+    autoIndex: process.env.NODE_ENV !== "production",
   }
 );
 
 // Performance & Compound Indexes
+TaskSchema.index({ linkedType: 1, status: 1 });
+TaskSchema.index({ linkedStudentId: 1 });
 TaskSchema.index({ status: 1, dueDate: 1 });
 TaskSchema.index({ assignedTo: 1, status: 1, dueDate: 1 });
 TaskSchema.index({ assignedTo: 1, dueDate: 1 });
@@ -107,7 +118,37 @@ TaskSchema.index({ dueDate: 1 });
 TaskSchema.index({ status: 1 });
 TaskSchema.index({ createdAt: -1 });
 
+// Auto-infer linkedType if not provided
+TaskSchema.pre("save", function () {
+  if (!this.linkedType) {
+    const sId = (this.linkedStudentId || "").trim().toUpperCase();
+    const eId = (this.linkedEnquiryId || "").trim().toUpperCase();
+    if (sId.startsWith("ADM")) {
+      this.linkedType = "Admission";
+    } else if (sId.startsWith("ENQ") || eId.startsWith("ENQ") || eId) {
+      this.linkedType = "Enquiry";
+    } else if (
+      [
+        "Document Collection",
+        "Fee Collection",
+        "Batch Allocation",
+        "Welcome Onboarding",
+        "EMI Recovery",
+        "Fee Follow-up",
+        "Fee Followup",
+      ].includes(this.taskType)
+    ) {
+      this.linkedType = "Admission";
+    } else if (["Lead Call", "Demo", "Follow-up"].includes(this.taskType)) {
+      this.linkedType = "Enquiry";
+    }
+  }
+});
+
 // Prevent mongoose model re-compilation error in Next.js development hot-reloads
-const Task = mongoose.models.Task || mongoose.model("Task", TaskSchema);
+if (mongoose.models.Task) {
+  delete mongoose.models.Task;
+}
+const Task = mongoose.model("Task", TaskSchema);
 
 export default Task;

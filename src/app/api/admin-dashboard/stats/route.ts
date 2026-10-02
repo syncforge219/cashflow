@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
 import Enquiry from "@/models/Enquiry";
 import Admission from "@/models/Admission";
@@ -6,10 +7,10 @@ import Payment from "@/models/Payment";
 import User from "@/models/User";
 import Company from "@/models/Company";
 import Brand from "@/models/Brand";
-import LostLeadCounter from "@/models/LostLeadCounter";
 import Payroll from "@/models/Payroll";
 import Expense from "@/models/Expense";
 import { getFinancialYearRange } from "@/lib/financialYearHelper";
+import { getCompanyPaymentRevenueMap } from "@/lib/companyRevenueHelper";
 
 
 export async function GET(req: Request) {
@@ -23,6 +24,16 @@ export async function GET(req: Request) {
 
     const isBrandFiltered = Boolean(brandParam && brandParam !== "All" && brandParam !== "All Brands");
     const brandRegex = isBrandFiltered && brandParam ? new RegExp(`^${brandParam.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')}$`, "i") : null;
+
+    let targetBrandId: any = null;
+    if (isBrandFiltered && brandParam) {
+      const brandDoc = (mongoose.Types.ObjectId.isValid(brandParam)
+        ? await Brand.findById(brandParam).lean()
+        : await Brand.findOne({ $or: [{ name: brandRegex }, { code: brandRegex }] }).lean()) as any;
+      if (brandDoc) {
+        targetBrandId = brandDoc._id;
+      }
+    }
 
     const now = new Date();
     const todayStr = now.toISOString().split("T")[0];
@@ -56,9 +67,21 @@ export async function GET(req: Request) {
     const dateRangeFilter = { $gte: targetStart, $lte: targetEnd };
     const stringDateFilter = { $gte: startStr, $lte: endStr };
 
+    const enquiryBrandMatch = isBrandFiltered
+      ? (targetBrandId ? { $or: [{ targetBrandId }, { targetBrand: brandRegex }] } : { targetBrand: brandRegex })
+      : {};
+
+    const admissionBrandMatch = isBrandFiltered
+      ? (targetBrandId ? { $or: [{ brandId: targetBrandId }, { brand: brandRegex }] } : { brand: brandRegex })
+      : {};
+
+    const paymentBrandMatch = isBrandFiltered
+      ? (targetBrandId ? { $or: [{ brandId: targetBrandId }, { brand: brandRegex }] } : { brand: brandRegex })
+      : {};
+
     const enquiryGlobalFilter: any = {
       ...globalFilter,
-      ...(isBrandFiltered && brandRegex ? { targetBrand: brandRegex } : {})
+      ...enquiryBrandMatch
     };
 
     const admissionGlobalFilter: any = {
@@ -68,7 +91,7 @@ export async function GET(req: Request) {
           { $and: [{ admissionDate: { $exists: false } }, { createdAt: dateRangeFilter }] }
         ]
       } : {}),
-      ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {})
+      ...admissionBrandMatch
     };
 
     const paymentGlobalFilter: any = {
@@ -78,7 +101,7 @@ export async function GET(req: Request) {
           { $and: [{ paymentDate: { $exists: false } }, { createdAt: dateRangeFilter }] }
         ]
       } : {}),
-      ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {})
+      ...paymentBrandMatch
     };
 
     const thirtyDaysAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29);
@@ -148,18 +171,25 @@ export async function GET(req: Request) {
     ] = await Promise.all([
       Enquiry.countDocuments(enquiryGlobalFilter),
       Enquiry.countDocuments({ ...enquiryGlobalFilter, $or: [{ isAdmitted: true }, { status: { $in: ["Admitted", "Admission", "Converted"] } }] }),
-      Enquiry.countDocuments({ createdAt: dateRangeFilter, status: "New", ...(isBrandFiltered && brandRegex ? { targetBrand: brandRegex } : {}) }),
-      Enquiry.countDocuments({ "followUps.date": stringDateFilter, ...(isBrandFiltered && brandRegex ? { targetBrand: brandRegex } : {}) }),
-      Enquiry.countDocuments({ createdAt: dateRangeFilter, leadSource: "Direct Walkin", ...(isBrandFiltered && brandRegex ? { targetBrand: brandRegex } : {}) }),
+      Enquiry.countDocuments({ createdAt: dateRangeFilter, status: "New", ...enquiryBrandMatch }),
+      Enquiry.countDocuments({ "followUps.date": stringDateFilter, ...enquiryBrandMatch }),
+      Enquiry.countDocuments({ createdAt: dateRangeFilter, leadSource: "Direct Walkin", ...enquiryBrandMatch }),
       Admission.countDocuments(admissionGlobalFilter),
       Admission.countDocuments({
         $or: [
           { admissionDate: { $gte: startOfDay, $lte: endOfDay } },
           { $and: [{ admissionDate: { $exists: false } }, { createdAt: { $gte: startOfDay, $lte: endOfDay } }] }
         ],
-        ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {})
+        ...admissionBrandMatch
       }),
-      LostLeadCounter.find({ date: { $gte: startStr, $lte: endStr } }).lean(),
+      Enquiry.countDocuments({
+        ...enquiryBrandMatch,
+        status: "Lost",
+        $or: [
+          { updatedAt: dateRangeFilter },
+          { createdAt: dateRangeFilter }
+        ]
+      }),
       Admission.countDocuments({ ...admissionGlobalFilter, remainingBalance: { $gt: 0 } }),
       Payment.find(paymentGlobalFilter).select("amountReceived createdAt paymentDate").lean(),
       Payment.find({
@@ -167,18 +197,18 @@ export async function GET(req: Request) {
           { paymentDate: { $gte: startOfDay, $lte: endOfDay } },
           { $and: [{ paymentDate: { $exists: false } }, { createdAt: { $gte: startOfDay, $lte: endOfDay } }] }
         ],
-        ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {})
+        ...paymentBrandMatch
       }).select("amountReceived").lean(),
       Payment.find(isFiltered ? paymentGlobalFilter : {
         $or: [
           { paymentDate: { $gte: firstDayOfMonth, $lte: endOfDay } },
           { $and: [{ paymentDate: { $exists: false } }, { createdAt: { $gte: firstDayOfMonth, $lte: endOfDay } }] }
         ],
-        ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {})
+        ...paymentBrandMatch
       }).select("amountReceived").lean(),
-      Admission.find({ remainingBalance: { $gt: 0 }, ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {}) }).select("fullName remainingBalance").lean(),
+      Admission.find({ remainingBalance: { $gt: 0 }, ...admissionBrandMatch }).select("fullName remainingBalance").lean(),
       Enquiry.countDocuments({
-        ...(isBrandFiltered && brandRegex ? { targetBrand: brandRegex } : {}),
+        ...enquiryBrandMatch,
         followUps: {
           $elemMatch: {
             date: stringDateFilter,
@@ -202,7 +232,7 @@ export async function GET(req: Request) {
 
       // Trend Aggregations (using +05:30 local timezone)
       Enquiry.aggregate([
-        { $match: { createdAt: { $gte: trendStart, $lte: trendEnd }, ...(isBrandFiltered && brandRegex ? { targetBrand: brandRegex } : {}) } },
+        { $match: { createdAt: { $gte: trendStart, $lte: trendEnd }, ...enquiryBrandMatch } },
         {
           $group: {
             _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: "+05:30" } },
@@ -217,7 +247,7 @@ export async function GET(req: Request) {
               { admissionDate: { $gte: trendStart, $lte: trendEnd } },
               { $and: [{ admissionDate: { $exists: false } }, { createdAt: { $gte: trendStart, $lte: trendEnd } }] }
             ],
-            ...(isBrandFiltered && brandRegex ? { brand: brandRegex } : {})
+            ...admissionBrandMatch
           }
         },
         {
@@ -228,7 +258,7 @@ export async function GET(req: Request) {
         }
       ]),
       Enquiry.aggregate([
-        ...(isBrandFiltered && brandRegex ? [{ $match: { targetBrand: brandRegex } }] : []),
+        ...(Object.keys(enquiryBrandMatch).length > 0 ? [{ $match: enquiryBrandMatch }] : []),
         { $unwind: "$followUps" },
         { $match: { "followUps.date": { $gte: trendStartStr, $lte: endStr } } },
         {
@@ -238,16 +268,36 @@ export async function GET(req: Request) {
           }
         }
       ]),
-      LostLeadCounter.find({ date: { $gte: trendStartStr, $lte: endStr } }).lean(),
+      Enquiry.aggregate([
+        {
+          $match: {
+            status: "Lost",
+            $or: [
+              { updatedAt: { $gte: trendStart, $lte: trendEnd } },
+              { createdAt: { $gte: trendStart, $lte: trendEnd } }
+            ],
+            ...enquiryBrandMatch
+          }
+        },
+        {
+          $group: {
+            _id: { $dateToString: { format: "%Y-%m-%d", date: { $ifNull: ["$updatedAt", "$createdAt"] }, timezone: "+05:30" } },
+            count: { $sum: 1 }
+          }
+        }
+      ]),
 
       // Counsellor data
-      User.find({ role: "counsellor" }).select("name").lean(),
-      Admission.find(admissionGlobalFilter).select("counsellor brand finalFee").lean(),
+      User.find({ role: "counsellor" }).select("_id name").lean(),
+      Admission.find(admissionGlobalFilter).select("counsellor counsellorId brand brandId finalFee").lean(),
       Enquiry.aggregate([
         { $match: enquiryGlobalFilter },
         {
           $group: {
-            _id: { $toLower: "$assignedCrmAdvisor" },
+            _id: {
+              advisorId: "$assignedCrmAdvisorId",
+              advisorName: { $toLower: "$assignedCrmAdvisor" }
+            },
             totalAssigned: { $sum: 1 },
             followupsCount: {
               $sum: { $cond: [{ $gt: [{ $size: { $ifNull: ["$followUps", []] } }, 0] }, 1, 0] }
@@ -257,12 +307,15 @@ export async function GET(req: Request) {
       ]),
 
       // Brand data
-      Brand.find().select("name").lean(),
+      Brand.find().select("_id name").lean(),
       Enquiry.aggregate([
         { $match: isFiltered ? { createdAt: dateRangeFilter } : {} },
         {
           $group: {
-            _id: { $toLower: "$targetBrand" },
+            _id: {
+              brandId: "$targetBrandId",
+              brandName: { $toLower: "$targetBrand" }
+            },
             count: { $sum: 1 }
           }
         }
@@ -272,14 +325,14 @@ export async function GET(req: Request) {
       Company.find().select("name legalName annualCapacityCap collectedRevenue currentFinancialYear").lean(),
 
       // Work Queue counts
-      Enquiry.countDocuments({ "followUps.date": { $lt: todayStr }, status: { $nin: ["Lost", "Admitted"] }, ...(isBrandFiltered && brandRegex ? { targetBrand: brandRegex } : {}) }),
-      Enquiry.countDocuments({ status: "Counselling Scheduled", ...(isBrandFiltered && brandRegex ? { targetBrand: brandRegex } : {}) }),
-      Enquiry.countDocuments({ status: "Negotiation", ...(isBrandFiltered && brandRegex ? { targetBrand: brandRegex } : {}) }),
+      Enquiry.countDocuments({ "followUps.date": { $lt: todayStr }, status: { $nin: ["Lost", "Admitted"] }, ...enquiryBrandMatch }),
+      Enquiry.countDocuments({ status: "Counselling Scheduled", ...enquiryBrandMatch }),
+      Enquiry.countDocuments({ status: "Negotiation", ...enquiryBrandMatch }),
 
       // Recent Activity & Table Data
-      Admission.find(isBrandFiltered && brandRegex ? { brand: brandRegex } : {}).select("counsellor fullName course createdAt").sort({ createdAt: -1 }).limit(3).lean(),
-      Enquiry.find(isBrandFiltered && brandRegex ? { targetBrand: brandRegex } : {}).select("leadSource studentFullName createdAt").sort({ createdAt: -1 }).limit(3).lean(),
-      Enquiry.find(enquiryGlobalFilter).select("enquiryId studentFullName targetCourse assignedCrmAdvisor status leadPriority").sort({ createdAt: -1 }).limit(10).lean(),
+      Admission.find(admissionBrandMatch).select("counsellor counsellorId fullName course createdAt").sort({ createdAt: -1 }).limit(3).lean(),
+      Enquiry.find(enquiryBrandMatch).select("leadSource studentFullName createdAt").sort({ createdAt: -1 }).limit(3).lean(),
+      Enquiry.find(enquiryGlobalFilter).select("enquiryId studentFullName targetCourse targetBrandId targetBrand assignedCrmAdvisor assignedCrmAdvisorId status leadPriority").sort({ createdAt: -1 }).limit(10).lean(),
 
       // Payroll & Expenses
       Payroll.find(isFiltered ? {
@@ -289,12 +342,15 @@ export async function GET(req: Request) {
           { $and: [{ paymentDate: { $exists: false } }, { createdAt: dateRangeFilter }] }
         ]
       } : {}).select("netSalary paymentStatus").lean(),
-      Expense.find(isFiltered ? {
-        $or: [
-          { expenseDate: dateRangeFilter },
-          { $and: [{ expenseDate: { $exists: false } }, { createdAt: dateRangeFilter }] }
-        ]
-      } : {}).select("amount category").lean(),
+      Expense.find({
+        ...(isFiltered ? {
+          $or: [
+            { expenseDate: dateRangeFilter },
+            { $and: [{ expenseDate: { $exists: false } }, { createdAt: dateRangeFilter }] }
+          ]
+        } : {}),
+        ...(isBrandFiltered ? (targetBrandId ? { $or: [{ brandId: targetBrandId }, { brand: brandRegex }] } : { brand: brandRegex }) : {})
+      }).select("amount category").lean(),
 
       // Course-wise aggregations
       Enquiry.aggregate([
@@ -416,7 +472,7 @@ export async function GET(req: Request) {
       admissionsTotal: admissionsTotal,
       admissionsToday: isFiltered && startStr === todayStr && endStr === todayStr ? admissionsToday : admissionsTotal,
       rawAdmissionsToday: admissionsToday,
-      lostLeadsToday: (Array.isArray(lostLeadsToday) ? lostLeadsToday : []).reduce((sum, item) => sum + (item.count || 0), 0),
+      lostLeadsToday: typeof lostLeadsToday === "number" ? lostLeadsToday : (Array.isArray(lostLeadsToday) ? lostLeadsToday : []).reduce((sum: number, item: any) => sum + (item.count || 0), 0),
       conversionRate,
       revenue: formatLakhsOrRupees(displayRevenue),
       rawRevenue: displayRevenue,
@@ -473,7 +529,7 @@ export async function GET(req: Request) {
     const enquiryTrendMap = new Map(thirtyDayEnquiryTrends.map((g: any) => [g._id, g.count]));
     const admissionTrendMap = new Map(thirtyDayAdmissionTrends.map((g: any) => [g._id, g.count]));
     const followupTrendMap = new Map(thirtyDayFollowupTrends.map((g: any) => [g._id, g.count]));
-    const lostLeadTrendMap = new Map(lostLeadTrends.map((l: any) => [l.date, l.count]));
+    const lostLeadTrendMap = new Map((lostLeadTrends || []).map((l: any) => [l._id || l.date, l.count]));
 
     const daysCount = isFiltered 
       ? Math.max(1, Math.min(31, Math.round((targetEnd.getTime() - targetStart.getTime()) / (1000 * 60 * 60 * 24))))
@@ -568,17 +624,22 @@ export async function GET(req: Request) {
     }
 
     // 5. Process Counsellor Performance (Dynamic list merging registered counsellors and active advisors)
-    const counsellorStatsMap = new Map(counsellorEnquiryStatsGroup.map((g: any) => [g._id, g]));
-    
-    // Combine names from User model and Enquiry/Admission data
-    const registeredNames = counsellors.map((c: any) => c.name || "").filter(Boolean);
-    const assignedAdvisorNames = Array.from(counsellorStatsMap.keys()).filter(Boolean);
+    const counsellorStatsMap = new Map();
+    counsellorEnquiryStatsGroup.forEach((g: any) => {
+      const advId = g._id?.advisorId ? String(g._id.advisorId) : null;
+      const advName = g._id?.advisorName || "";
+      if (advId) counsellorStatsMap.set(advId, g);
+      if (advName) counsellorStatsMap.set(advName, g);
+    });
+
+    const registeredUsers = counsellors.filter((c: any) => c.name);
+    const registeredNames = registeredUsers.map((c: any) => c.name || "").filter(Boolean);
+    const assignedAdvisorNames = counsellorEnquiryStatsGroup.map((g: any) => g._id?.advisorName).filter(Boolean);
     const admissionCounsellors = Array.from(new Set(admissionsList.map((a: any) => a.counsellor).filter(Boolean)));
     
     const allCounsellorNamesSet = new Set<string>();
     registeredNames.forEach((n: string) => allCounsellorNamesSet.add(n));
     assignedAdvisorNames.forEach((n: string) => {
-      // Find matching case or add
       const match = Array.from(allCounsellorNamesSet).find((existing) => existing.toLowerCase() === n.toLowerCase());
       if (!match) allCounsellorNamesSet.add(n);
     });
@@ -589,13 +650,17 @@ export async function GET(req: Request) {
 
     const counsellorPerformance = Array.from(allCounsellorNamesSet).map((cName: string) => {
       const lowerName = cName.toLowerCase();
+      const matchedUser = registeredUsers.find((u: any) => (u.name || "").toLowerCase() === lowerName);
+      const cUserId = matchedUser ? String(matchedUser._id) : null;
+
       const cAdmissions = admissionsList.filter((a: any) => 
-        a.counsellor && typeof a.counsellor === 'string' && a.counsellor.toLowerCase() === lowerName
+        (cUserId && a.counsellorId && String(a.counsellorId) === cUserId) ||
+        (a.counsellor && typeof a.counsellor === 'string' && a.counsellor.toLowerCase() === lowerName)
       );
       const admCount = cAdmissions.length;
       const revSum = cAdmissions.reduce((acc: number, cur: any) => acc + Number(cur.finalFee || 0), 0);
       
-      const stats = counsellorStatsMap.get(lowerName) || { totalAssigned: 0, followupsCount: 0 };
+      const stats = (cUserId && counsellorStatsMap.get(cUserId)) || counsellorStatsMap.get(lowerName) || { totalAssigned: 0, followupsCount: 0 };
       const totalAssignedEnquiries = stats.totalAssigned;
       const followupsCount = stats.followupsCount;
 
@@ -615,7 +680,14 @@ export async function GET(req: Request) {
     counsellorPerformance.sort((a: any, b: any) => b.admissions - a.admissions || b.rawRev - a.rawRev);
 
     // 6. Process Brand Performance (Dynamic)
-    const brandStatsMap = new Map(brandEnquiryStatsGroup.map((g: any) => [g._id, g.count]));
+    const brandStatsMap = new Map();
+    brandEnquiryStatsGroup.forEach((g: any) => {
+      const bId = g._id?.brandId ? String(g._id.brandId) : null;
+      const bName = g._id?.brandName || "";
+      if (bId) brandStatsMap.set(bId, g.count);
+      if (bName) brandStatsMap.set(bName, g.count);
+    });
+
     const registeredBrandNames = brands.map((b: any) => b.name || "").filter(Boolean);
     const admissionBrandNames = Array.from(new Set(admissionsList.map((a: any) => a.brand).filter(Boolean)));
 
@@ -628,13 +700,17 @@ export async function GET(req: Request) {
 
     const brandPerformance = Array.from(allBrandNamesSet).map((bName: string) => {
       const lowerBName = bName.toLowerCase();
+      const matchedBrand = brands.find((b: any) => (b.name || "").toLowerCase() === lowerBName);
+      const bBrandId = matchedBrand ? String(matchedBrand._id) : null;
+
       const bAdmissions = admissionsList.filter((a: any) => 
-        a.brand && typeof a.brand === 'string' && a.brand.toLowerCase() === lowerBName
+        (bBrandId && a.brandId && String(a.brandId) === bBrandId) ||
+        (a.brand && typeof a.brand === 'string' && a.brand.toLowerCase() === lowerBName)
       );
       const bAdmCount = bAdmissions.length;
       const bRevSum = bAdmissions.reduce((acc: number, cur: any) => acc + Number(cur.finalFee || 0), 0);
       
-      const bLeadsCount = brandStatsMap.get(lowerBName) || 0;
+      const bLeadsCount = (bBrandId && brandStatsMap.get(bBrandId)) || brandStatsMap.get(lowerBName) || 0;
 
       return {
         name: bName,
@@ -662,7 +738,10 @@ export async function GET(req: Request) {
       },
       {
         $group: {
-          _id: { $toUpper: { $trim: { input: "$companyAssigned" } } },
+          _id: {
+            companyId: "$companyId",
+            companyName: { $toUpper: { $trim: { input: "$companyAssigned" } } }
+          },
           totalCommittedFee: {
             $sum: {
               $cond: [
@@ -694,6 +773,8 @@ export async function GET(req: Request) {
         .replace(/INSTITUTE/g, "INSTITUE")
         .replace(/LLP/g, "");
 
+    const fyPaymentMap = await getCompanyPaymentRevenueMap({ label: currentFY, startDate: fyStart, endDate: fyEnd, startYear: 0, endYear: 0, displayLabel: "" });
+
     const companyUtilization = companies.map((c: any) => {
       const compName = (c.name || "").toUpperCase().trim();
       const compLegal = (c.legalName || compName).toUpperCase().trim();
@@ -701,15 +782,19 @@ export async function GET(req: Request) {
 
       let cycleCommitted = 0;
       admissionsByCompany.forEach((a: any) => {
-        if (!a._id || a._id === "CASH" || a._id === "UNALLOCATED" || a._id === "CASH (UNALLOCATED)") return;
-        if (a._id === compName || a._id === compLegal || normalizeKey(a._id) === cNorm) {
+        const aCompId = a._id?.companyId ? String(a._id.companyId) : null;
+        const aCompName = a._id?.companyName || "";
+        if (aCompName === "CASH" || aCompName === "UNALLOCATED" || aCompName === "CASH (UNALLOCATED)") return;
+        if (aCompId && String(c._id) === aCompId) {
+          cycleCommitted += Number(a.totalCommittedFee) || 0;
+        } else if (!aCompId && (aCompName === compName || aCompName === compLegal || normalizeKey(aCompName) === cNorm)) {
           cycleCommitted += Number(a.totalCommittedFee) || 0;
         }
       });
 
-      // If admission aggregate returned 0, fallback to stored c.collectedRevenue if it belongs to current FY or is legacy
-      if (cycleCommitted === 0 && (!c.currentFinancialYear || c.currentFinancialYear === currentFY)) {
-        cycleCommitted = Number(c.collectedRevenue || 0);
+      // If admission aggregate returned 0, fallback to computed payment revenue for this company in current FY
+      if (cycleCommitted === 0) {
+        cycleCommitted = fyPaymentMap.get(String(c._id)) || 0;
       }
 
       const cap = Number(c.annualCapacityCap || 1949999);

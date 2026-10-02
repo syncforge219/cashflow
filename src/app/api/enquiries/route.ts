@@ -3,9 +3,14 @@ import dbConnect from "@/lib/db";
 import Enquiry from "@/models/Enquiry";
 import Task from "@/models/Task";
 import User from "@/models/User";
+import Brand from "@/models/Brand";
+import mongoose from "mongoose";
 import { getUserFromCookies } from "@/lib/helper";
 import { sendWhatsAppDemoReminder, sendWhatsAppTeacherDemoAlert, sendWhatsAppWelcomeEnquiry, sendWhatsAppSuperAdminEnquiryAlert } from "@/lib/msg91";
 import { verifyRecaptchaToken } from "@/lib/recaptcha";
+import { syncEnquiryRefs } from "@/lib/referenceHelper";
+import { logAuditEntry } from "@/lib/auditLogger";
+import { validateDeletedAccess } from "@/lib/softDeleteAccess";
 
 export async function POST(req: Request) {
   try {
@@ -151,7 +156,25 @@ export async function POST(req: Request) {
       ];
     }
 
+    await syncEnquiryRefs(body);
     const newEnquiry = await Enquiry.create(body);
+
+    if (newEnquiry?._id) {
+      await logAuditEntry({
+        collectionName: "enquiries",
+        docId: newEnquiry._id,
+        action: "CREATE",
+        changedFields: [
+          { field: "studentFullName", oldValue: null, newValue: newEnquiry.studentFullName },
+          { field: "primaryPhoneMobile", oldValue: null, newValue: newEnquiry.primaryPhoneMobile },
+          { field: "targetBrand", oldValue: null, newValue: newEnquiry.targetBrand },
+          { field: "targetBrandId", oldValue: null, newValue: newEnquiry.targetBrandId },
+          { field: "assignedCrmAdvisor", oldValue: null, newValue: newEnquiry.assignedCrmAdvisor },
+          { field: "assignedCrmAdvisorId", oldValue: null, newValue: newEnquiry.assignedCrmAdvisorId },
+        ],
+        userId: (user as any)?._id,
+      });
+    }
 
     // AUTO WHATSAPP WELCOME ENQUIRY: Dispatch welcome_enquiry template upon lead creation
     try {
@@ -203,6 +226,7 @@ export async function POST(req: Request) {
         title: `Call Lead: ${newEnquiry.studentFullName}`,
         description: `Initial contact & course counseling call for ${newEnquiry.targetCourse || 'Program'}.`,
         taskType: "Lead Call",
+        linkedType: "Enquiry",
         linkedStudentName: newEnquiry.studentFullName,
         linkedEnquiryId: newEnquiry._id.toString(),
         assignedTo: newEnquiry.assignedCrmAdvisor || "Unassigned",
@@ -288,6 +312,12 @@ export async function GET(req: Request) {
     const user = await getUserFromCookies();
     const { searchParams } = new URL(req.url);
     const paramBrand = searchParams.get("brand") || searchParams.get("targetBrand");
+    const paramAdvisor = searchParams.get("advisor") || searchParams.get("counsellor") || searchParams.get("assignedCrmAdvisor");
+
+    const deletedAccess = validateDeletedAccess(user, searchParams);
+    if (deletedAccess.errorResponse) {
+      return deletedAccess.errorResponse;
+    }
 
     const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -300,29 +330,61 @@ export async function GET(req: Request) {
     }
 
     let query: any = {};
+    const andClauses: any[] = [];
+
+    if (deletedAccess.onlyDeleted) {
+      andClauses.push({ isDeleted: true });
+    }
+
+    let brandNamesToMatch: string[] = [];
     if (allowedBrands && allowedBrands.length > 0) {
       if (paramBrand && paramBrand !== "all" && paramBrand !== "All" && paramBrand !== "All Brands" && allowedBrands.some(b => b.toLowerCase() === paramBrand.trim().toLowerCase())) {
-        const brandRegex = new RegExp(`^${escapeRegExp(paramBrand.trim())}$`, "i");
-        query.$or = [{ targetBrand: brandRegex }, { brand: brandRegex }];
+        brandNamesToMatch = [paramBrand.trim()];
       } else {
-        const regexArray = allowedBrands.map(b => new RegExp(`^${escapeRegExp(b)}$`, "i"));
-        query.$or = [
-          { targetBrand: { $in: regexArray } },
-          { brand: { $in: regexArray } }
-        ];
+        brandNamesToMatch = allowedBrands;
       }
     } else if (paramBrand && paramBrand !== "all" && paramBrand !== "All" && paramBrand !== "All Brands") {
-      const brandList = paramBrand.split(/[,/|]/).map((b: string) => b.trim()).filter(Boolean);
-      if (brandList.length > 1) {
-        const regexArray = brandList.map(b => new RegExp(`^${escapeRegExp(b)}$`, "i"));
-        query.$or = [
-          { targetBrand: { $in: regexArray } },
-          { brand: { $in: regexArray } }
-        ];
-      } else if (brandList.length === 1) {
-        const brandRegex = new RegExp(`^${escapeRegExp(brandList[0])}$`, "i");
-        query.$or = [{ targetBrand: brandRegex }, { brand: brandRegex }];
+      brandNamesToMatch = paramBrand.split(/[,/|]/).map((b: string) => b.trim()).filter(Boolean);
+    }
+
+    if (brandNamesToMatch.length > 0) {
+      const brandRegexes = brandNamesToMatch.map(b => new RegExp(`^${escapeRegExp(b)}$`, "i"));
+      const brandDocs = await Brand.find({
+        $or: [
+          { name: { $in: brandRegexes } },
+          { code: { $in: brandRegexes } },
+          ...(brandNamesToMatch.filter(b => mongoose.Types.ObjectId.isValid(b)).map(b => ({ _id: b })))
+        ]
+      }).select("_id").lean();
+      const brandIds = brandDocs.map(b => b._id);
+
+      const brandConditions: any[] = [];
+      if (brandIds.length > 0) {
+        brandConditions.push({ targetBrandId: { $in: brandIds } });
       }
+      brandConditions.push(
+        { targetBrand: { $in: brandRegexes } },
+        { brand: { $in: brandRegexes } }
+      );
+      andClauses.push({ $or: brandConditions });
+    }
+
+    if (paramAdvisor && paramAdvisor !== "all" && paramAdvisor !== "All") {
+      const advRegex = new RegExp(`^${escapeRegExp(paramAdvisor.trim())}$`, "i");
+      const userDoc = (mongoose.Types.ObjectId.isValid(paramAdvisor)
+        ? await User.findById(paramAdvisor).lean()
+        : await User.findOne({ name: advRegex }).lean()) as any;
+      
+      const advisorConditions: any[] = [];
+      if (userDoc) {
+        advisorConditions.push({ assignedCrmAdvisorId: userDoc._id });
+      }
+      advisorConditions.push({ assignedCrmAdvisor: advRegex });
+      andClauses.push({ $or: advisorConditions });
+    }
+
+    if (andClauses.length > 0) {
+      query.$and = andClauses;
     }
 
     // Support pagination if requested, otherwise return all with .lean() for maximum speed

@@ -91,12 +91,18 @@ export async function POST(request: Request) {
     if (transferEnquiries) {
       const result = await Enquiry.updateMany(
         {
-          $or: nameOrEmailPatterns.map((pattern) => ({
-            assignedCrmAdvisor: pattern,
-          })),
+          $or: [
+            { assignedCrmAdvisorId: sourceUser._id },
+            ...nameOrEmailPatterns.map((pattern) => ({
+              assignedCrmAdvisor: pattern,
+            })),
+          ],
         },
         {
-          $set: { assignedCrmAdvisor: targetName },
+          $set: {
+            assignedCrmAdvisor: targetName,
+            assignedCrmAdvisorId: targetUser._id,
+          },
         }
       );
       enquiriesTransferred = result.modifiedCount || 0;
@@ -106,12 +112,18 @@ export async function POST(request: Request) {
     if (transferAdmissions) {
       const result = await Admission.updateMany(
         {
-          $or: nameOrEmailPatterns.map((pattern) => ({
-            counsellor: pattern,
-          })),
+          $or: [
+            { counsellorId: sourceUser._id },
+            ...nameOrEmailPatterns.map((pattern) => ({
+              counsellor: pattern,
+            })),
+          ],
         },
         {
-          $set: { counsellor: targetName },
+          $set: {
+            counsellor: targetName,
+            counsellorId: targetUser._id,
+          },
         }
       );
       admissionsTransferred = result.modifiedCount || 0;

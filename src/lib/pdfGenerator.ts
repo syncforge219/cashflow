@@ -1,5 +1,5 @@
-import { DailyBiReportData } from "./dailyBiService";
-import { MonthlyBiReportData } from "./monthlyBiService";
+import type { DailyBiReportData } from "./dailyBiService";
+import type { MonthlyBiReportData } from "./monthlyBiService";
 
 export interface ReceiptPdfData {
   receiptNo: string;

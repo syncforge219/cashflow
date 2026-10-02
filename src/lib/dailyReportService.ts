@@ -1,5 +1,5 @@
-import { getDailyBiReportData, DailyBiReportData } from "./dailyBiService";
-import { getMonthlyBiReportData, MonthlyBiReportData } from "./monthlyBiService";
+import { getDailyBiReportData, type DailyBiReportData } from "./dailyBiService";
+import { getMonthlyBiReportData, type MonthlyBiReportData } from "./monthlyBiService";
 
 export type DailyReportStats = DailyBiReportData;
 export type MonthlyReportStats = MonthlyBiReportData;

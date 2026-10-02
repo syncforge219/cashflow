@@ -14,16 +14,25 @@ const SessionSchema = new Schema(
       unique: true,
       index: true,
     },
+    token: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true,
+    },
     expiresAt: {
       type: Date,
       required: true,
-      index: { expires: 0 },
     },
   },
   {
     timestamps: true,
+    autoIndex: process.env.NODE_ENV !== "production",
   }
 );
+
+// TTL index on expiresAt: automatically expires sessions when expiresAt is reached
+SessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 if (mongoose.models && mongoose.models.Session) {
   delete (mongoose.models as any).Session;

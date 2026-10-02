@@ -9,11 +9,15 @@ import Brand from "@/models/Brand";
 import Task from "@/models/Task";
 import Batch from "@/models/Batch";
 import Course from "@/models/Course";
+import User from "@/models/User";
 import Notification from "@/models/Notification";
 import { getUserFromCookies } from "@/lib/helper";
 import { sendWhatsAppFeeReceipt, sendWhatsAppBrandWelcome, sendWhatsAppSuperAdminAdmissionAlert } from "@/lib/msg91";
 import { sendAdmissionConfirmationEmail } from "@/lib/emailService";
 import { getFinancialYear, getFinancialYearRange } from "@/lib/financialYearHelper";
+import { syncAdmissionRefs } from "@/lib/referenceHelper";
+import { logAuditEntry } from "@/lib/auditLogger";
+import { validateDeletedAccess } from "@/lib/softDeleteAccess";
 
 export async function POST(req: NextRequest) {
   try {
@@ -228,11 +232,17 @@ export async function POST(req: NextRequest) {
             : (Number(data.courseFee) > 0 ? Number(data.courseFee) : Number(data.amountReceivedToday));
 
           if (amountToBlock > 0) {
-            const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const compRegex = new RegExp(`^${escapeRegExp(finalCompany.trim())}$`, "i");
-            const targetComp = await Company.findOne({
-              $or: [{ name: { $regex: compRegex } }, { legalName: { $regex: compRegex } }]
-            }).session(session);
+            let targetComp = null;
+            if (data.companyId) {
+              targetComp = await Company.findById(data.companyId).session(session);
+            }
+            if (!targetComp) {
+              const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              const compRegex = new RegExp(`^${escapeRegExp(finalCompany.trim())}$`, "i");
+              targetComp = await Company.findOne({
+                $or: [{ name: { $regex: compRegex } }, { legalName: { $regex: compRegex } }]
+              }).session(session);
+            }
 
             if (targetComp) {
               const { label: currentFY } = getFinancialYearRange();
@@ -252,6 +262,7 @@ export async function POST(req: NextRequest) {
         }
 
         // B. Save Admission within transaction
+        await syncAdmissionRefs(data, session);
         admission = new Admission(data);
         await admission.save({ session });
 
@@ -288,8 +299,18 @@ export async function POST(req: NextRequest) {
           const enq = await Enquiry.findById(targetEnqId).session(session);
           if (enq) {
             if (enq.studentFullName && admission.fullName && enq.studentFullName.trim() !== admission.fullName.trim()) {
-              const userId = (user as any)?._id || (user as any)?.id || (user as any)?.email || "unknown";
-              console.info(`[AUDIT] Student name updated on enrolment from Enquiry | enquiryId: ${enq.enquiryId || enq._id} | admissionId: ${admission.admissionId} | Old Name: "${enq.studentFullName}" | New Name: "${admission.fullName.trim()}" | User ID: ${userId}`);
+              const userId = (user as any)?._id || (user as any)?.id || null;
+              await logAuditEntry({
+                collectionName: "enquiries",
+                docId: enq._id,
+                action: "UPDATE",
+                changedFields: [{
+                  field: "studentFullName",
+                  oldValue: enq.studentFullName,
+                  newValue: admission.fullName.trim()
+                }],
+                userId
+              });
             }
 
             cancelUncompletedFollowUps(enq);
@@ -301,6 +322,7 @@ export async function POST(req: NextRequest) {
                   isAdmitted: true,
                   actualAdmissionFee: Number(admission.finalFee || admission.courseFee || 0),
                   assignedCrmAdvisor: admission.counsellor || enq.assignedCrmAdvisor,
+                  assignedCrmAdvisorId: admission.counsellorId || enq.assignedCrmAdvisorId,
                   studentFullName: admission.fullName || enq.studentFullName,
                   followUps: enq.followUps
                 }
@@ -310,6 +332,23 @@ export async function POST(req: NextRequest) {
             matchedEnquiryIds.push(enq._id.toString());
           } else {
             console.warn(`[POST /api/admissions] Enquiry with _id ${data.enquiryId} not found; skipping enquiry update.`);
+          }
+
+          // Interim Cascade Bridge (Prompt 1 Extension - Req 5):
+          if (admission.studentId) {
+            const { syncPrompt1CascadeToStudent } = await import("@/lib/studentHelper");
+            await syncPrompt1CascadeToStudent(
+              admission.studentId,
+              {
+                fullName: admission.fullName,
+                mobileNumber: admission.mobileNumber,
+                email: admission.email,
+                city: admission.city,
+                parentName: admission.parentName || admission.parentsFullName,
+                parentPhone: admission.parentPhone || admission.parentsPhoneNumber,
+              },
+              session
+            );
           }
         } else {
           console.warn(`[POST /api/admissions] No enquiryId provided for admission ${admission.admissionId || "new"}; skipping enquiry update.`);
@@ -347,7 +386,9 @@ export async function POST(req: NextRequest) {
             paymentMode: data.paymentMode || "Cash",
             referenceNo: data.transactionNo || "N/A",
             company: finalCompany,
+            companyId: admission.companyId,
             brand: data.brand,
+            brandId: admission.brandId,
             paymentDate: admission.admissionDate ? new Date(admission.admissionDate) : (data.admissionDate ? new Date(data.admissionDate) : (data.paymentDate ? new Date(data.paymentDate) : new Date())),
             particulars: {
               courseFeeDue: 0,
@@ -372,6 +413,7 @@ export async function POST(req: NextRequest) {
             title: `Document Collection & Verification: ${admission.fullName}`,
             description: `Collect Govt ID proof, past marksheets, and passport photo for ${admission.course}.`,
             taskType: "Document Collection",
+            linkedType: "Admission",
             linkedStudentName: admission.fullName,
             linkedStudentId: admission._id.toString(),
             assignedTo: counsellorName,
@@ -388,6 +430,7 @@ export async function POST(req: NextRequest) {
             title: `First Installment Receipt & Ledger Sync: ${admission.fullName}`,
             description: `Ensure registration fee receipt is issued and ledger is verified.`,
             taskType: "Fee Collection",
+            linkedType: "Admission",
             linkedStudentName: admission.fullName,
             linkedStudentId: admission._id.toString(),
             assignedTo: counsellorName,
@@ -404,6 +447,7 @@ export async function POST(req: NextRequest) {
             title: `Batch Allocation & LMS Credentials: ${admission.fullName}`,
             description: `Assign batch timing in ERP and send LMS portal credentials.`,
             taskType: "Batch Allocation",
+            linkedType: "Admission",
             linkedStudentName: admission.fullName,
             linkedStudentId: admission._id.toString(),
             assignedTo: counsellorName,
@@ -420,6 +464,7 @@ export async function POST(req: NextRequest) {
             title: `Send Welcome Onboarding Package: ${admission.fullName}`,
             description: `Deliver official welcome onboarding handbook & WhatsApp package.`,
             taskType: "Welcome Onboarding",
+            linkedType: "Admission",
             linkedStudentName: admission.fullName,
             linkedStudentId: admission._id.toString(),
             assignedTo: counsellorName,
@@ -494,6 +539,12 @@ export async function GET(req: Request) {
     const filterParam = searchParams.get("filter");
     const batchParam = searchParams.get("batch");
     const companyParam = searchParams.get("company");
+    const counsellorParam = searchParams.get("counsellor") || searchParams.get("counsellorId");
+
+    const deletedAccess = validateDeletedAccess(user, searchParams);
+    if (deletedAccess.errorResponse) {
+      return deletedAccess.errorResponse;
+    }
 
     const userBrand = (user?.brandScope || (user as any)?.brand || "").trim();
     const isBrandRestricted = userBrand && userBrand !== "All Brands" && userBrand !== "All" && userBrand !== "*" && userBrand !== "global";
@@ -506,8 +557,32 @@ export async function GET(req: Request) {
     const query: any = {};
     const andConditions: any[] = [];
 
-    if (companyParam) {
-      query.companyAssigned = { $regex: new RegExp(`^${companyParam.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") };
+    if (deletedAccess.onlyDeleted) {
+      andConditions.push({ isDeleted: true });
+    }
+
+    if (companyParam && companyParam !== "all" && companyParam !== "All") {
+      const cRegex = new RegExp(`^${companyParam.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i");
+      const compDoc = (mongoose.Types.ObjectId.isValid(companyParam)
+        ? await Company.findById(companyParam).lean()
+        : await Company.findOne({ $or: [{ name: cRegex }, { legalName: cRegex }] }).lean()) as any;
+      if (compDoc) {
+        andConditions.push({ $or: [{ companyId: compDoc._id }, { companyAssigned: cRegex }] });
+      } else {
+        andConditions.push({ companyAssigned: cRegex });
+      }
+    }
+
+    if (counsellorParam && counsellorParam !== "all" && counsellorParam !== "All") {
+      const coRegex = new RegExp(`^${counsellorParam.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i");
+      const userDoc = (mongoose.Types.ObjectId.isValid(counsellorParam)
+        ? await User.findById(counsellorParam).lean()
+        : await User.findOne({ name: coRegex }).lean()) as any;
+      if (userDoc) {
+        andConditions.push({ $or: [{ counsellorId: userDoc._id }, { counsellor: coRegex }] });
+      } else {
+        andConditions.push({ counsellor: coRegex });
+      }
     }
 
     if (q) {
@@ -530,26 +605,35 @@ export async function GET(req: Request) {
     const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
     let brandMatchCondition: any = null;
+    let targetBrandStrings: string[] = [];
     if (allowedBrands && allowedBrands.length > 0) {
       if (brand && brand !== "all" && brand !== "All" && brand !== "All Brands" && allowedBrands.some(b => b.toLowerCase() === brand!.toLowerCase())) {
-        const brandRegex = new RegExp(`^${escapeRegExp(brand.trim())}$`, "i");
-        brandMatchCondition = { $or: [{ brand: brandRegex }, { targetBrand: brandRegex }] };
+        targetBrandStrings = [brand.trim()];
       } else {
-        const regexArray = allowedBrands.map(b => new RegExp(`^${escapeRegExp(b)}$`, "i"));
-        brandMatchCondition = { $or: [{ brand: { $in: regexArray } }, { targetBrand: { $in: regexArray } }] };
+        targetBrandStrings = allowedBrands;
       }
     } else if (brand && brand !== "all" && brand !== "All" && brand !== "All Brands") {
-      const brandList = brand.split(/[,/|]/).map(b => b.trim()).filter(Boolean);
-      if (brandList.length > 1) {
-        const regexArray = brandList.map(b => new RegExp(`^${escapeRegExp(b)}$`, "i"));
-        brandMatchCondition = { $or: [{ brand: { $in: regexArray } }, { targetBrand: { $in: regexArray } }] };
-      } else if (brandList.length === 1) {
-        const brandRegex = new RegExp(`^${escapeRegExp(brandList[0])}$`, "i");
-        brandMatchCondition = { $or: [{ brand: brandRegex }, { targetBrand: brandRegex }] };
-      }
+      targetBrandStrings = brand.split(/[,/|]/).map(b => b.trim()).filter(Boolean);
     }
 
-    if (brandMatchCondition) {
+    if (targetBrandStrings.length > 0) {
+      const regexArray = targetBrandStrings.map(b => new RegExp(`^${escapeRegExp(b)}$`, "i"));
+      const brandDocs = await Brand.find({
+        $or: [
+          { name: { $in: regexArray } },
+          { code: { $in: regexArray } },
+          { _id: { $in: targetBrandStrings.filter(s => mongoose.Types.ObjectId.isValid(s)) } }
+        ]
+      }).select("_id").lean();
+      const brandIds = brandDocs.map(b => b._id);
+
+      brandMatchCondition = {
+        $or: [
+          ...(brandIds.length > 0 ? [{ brandId: { $in: brandIds } }] : []),
+          { brand: { $in: regexArray } },
+          { targetBrand: { $in: regexArray } }
+        ]
+      };
       andConditions.push(brandMatchCondition);
     }
 

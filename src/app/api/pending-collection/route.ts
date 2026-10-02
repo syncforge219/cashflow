@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
 import Admission from "@/models/Admission";
 import Payment from "@/models/Payment";
@@ -8,7 +9,9 @@ import Course from "@/models/Course";
 import Batch from "@/models/Batch";
 import User from "@/models/User";
 import Brand from "@/models/Brand";
+import Company from "@/models/Company";
 import { getAuthenticatedUser } from "@/lib/auth";
+import { studentBalanceLookupStages } from "@/lib/studentBalanceService";
 
 export async function GET(req: Request) {
   try {
@@ -117,12 +120,22 @@ export async function GET(req: Request) {
           ? new RegExp(`^(${userBrands.map(escapeRegExp).join("|")})$`, "i")
           : new RegExp(`^${escapeRegExp(userBrands[0] || rawUserBrand)}$`, "i");
       }
-      query.brand = { $regex: activeBrandRegex };
-    } else {
-      if (brandFilter && brandFilter !== "All Brands" && brandFilter !== "all") {
-        activeBrandRegex = new RegExp(`^${escapeRegExp(brandFilter.trim())}$`, "i");
-        query.brand = { $regex: activeBrandRegex };
-      }
+    } else if (brandFilter && brandFilter !== "All Brands" && brandFilter !== "all") {
+      activeBrandRegex = new RegExp(`^${escapeRegExp(brandFilter.trim())}$`, "i");
+    }
+
+    let brandCondition: any = null;
+    if (activeBrandRegex) {
+      const brandDocs = await Brand.find({
+        $or: [{ name: { $regex: activeBrandRegex } }, { code: { $regex: activeBrandRegex } }]
+      }).select("_id").lean();
+      const brandIds = brandDocs.map(b => b._id);
+      brandCondition = {
+        $or: [
+          ...(brandIds.length > 0 ? [{ brandId: { $in: brandIds } }] : []),
+          { brand: { $regex: activeBrandRegex } }
+        ]
+      };
     }
 
     if (courseFilter && courseFilter !== "All Courses" && courseFilter !== "all") {
@@ -131,14 +144,49 @@ export async function GET(req: Request) {
     if (batchFilter && batchFilter !== "All Batches" && batchFilter !== "all") {
       query.batch = batchFilter.trim();
     }
+
+    let counsellorCondition: any = null;
     if (counsellorFilter && counsellorFilter !== "All Counsellors" && counsellorFilter !== "all") {
-      query.counsellor = { $regex: new RegExp(`^${escapeRegExp(counsellorFilter.trim())}$`, "i") };
-    }
-    if (companyFilter && companyFilter !== "All Companies" && companyFilter !== "all") {
-      query.companyAssigned = companyFilter.trim();
+      const cReg = new RegExp(`^${escapeRegExp(counsellorFilter.trim())}$`, "i");
+      const cUser = (mongoose.Types.ObjectId.isValid(counsellorFilter.trim())
+        ? await User.findById(counsellorFilter.trim()).lean()
+        : await User.findOne({ name: cReg }).lean()) as any;
+      counsellorCondition = {
+        $or: [
+          ...(cUser ? [{ counsellorId: cUser._id }] : []),
+          { counsellor: { $regex: cReg } }
+        ]
+      };
     }
 
-    const admissions = await Admission.find(query).lean();
+    let companyCondition: any = null;
+    if (companyFilter && companyFilter !== "All Companies" && companyFilter !== "all") {
+      const compReg = new RegExp(`^${escapeRegExp(companyFilter.trim())}$`, "i");
+      const compDoc = (mongoose.Types.ObjectId.isValid(companyFilter.trim())
+        ? await Company.findById(companyFilter.trim()).lean()
+        : await Company.findOne({ $or: [{ name: compReg }, { legalName: compReg }] }).lean()) as any;
+      companyCondition = {
+        $or: [
+          ...(compDoc ? [{ companyId: compDoc._id }] : []),
+          { companyAssigned: compReg }
+        ]
+      };
+    }
+
+    const andClauses: any[] = [];
+    if (brandCondition) andClauses.push(brandCondition);
+    if (counsellorCondition) andClauses.push(counsellorCondition);
+    if (companyCondition) andClauses.push(companyCondition);
+    if (andClauses.length > 0) {
+      query.$and = andClauses;
+    }
+
+    delete query.remainingBalance; // Remove pre-filter on stored field so pipeline computes true balance
+    const admissions = await Admission.aggregate([
+      { $match: query },
+      ...studentBalanceLookupStages(),
+      { $match: { remainingBalance: { $gt: 0 } } },
+    ]);
     const admissionIds = admissions.map((a: any) => a._id);
 
     // Fetch payments to find last payment date

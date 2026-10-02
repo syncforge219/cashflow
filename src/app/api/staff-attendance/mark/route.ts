@@ -6,6 +6,7 @@ import StaffAttendance from "@/models/StaffAttendance";
 import { getUserFromCookies } from "@/lib/helper";
 import { isWithinOfficeRadius } from "@/lib/locationVerification";
 import { compareFaceDescriptors } from "@/lib/faceVerification";
+import { getBiometricDescriptor } from "@/lib/biometricService";
 
 export async function POST(request: Request) {
   try {
@@ -59,8 +60,11 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if Face ID registered
-    if (!userDoc.isFaceRegistered || !userDoc.faceDescriptor || userDoc.faceDescriptor.length === 0) {
+    // Check if Face ID registered in biometric_profiles or on user document
+    const registeredBiometric = await getBiometricDescriptor(userDoc._id);
+    const hasFaceData = registeredBiometric || (Array.isArray(userDoc.faceDescriptor) && userDoc.faceDescriptor.length > 0);
+
+    if (!userDoc.isFaceRegistered || !hasFaceData) {
       return NextResponse.json(
         {
           success: false,
@@ -116,8 +120,13 @@ export async function POST(request: Request) {
       );
     }
 
-    // 4. Face ID Verification Check
-    const faceMatchResult = compareFaceDescriptors(liveFaceDescriptor, userDoc.faceDescriptor);
+    // 4. Face ID Verification Check (via encrypted BiometricProfile)
+    let faceMatchResult;
+    if (registeredBiometric) {
+      faceMatchResult = compareFaceDescriptors(liveFaceDescriptor, registeredBiometric);
+    } else {
+      faceMatchResult = compareFaceDescriptors(liveFaceDescriptor, userDoc.faceDescriptor);
+    }
 
     if (!faceMatchResult.isMatch) {
       return NextResponse.json(

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Course from "@/models/Course";
+import { syncCourseRefs } from "@/lib/referenceHelper";
 
 export async function DELETE(
   req: Request,
@@ -39,6 +40,7 @@ export async function PUT(
       return NextResponse.json({ success: false, error: "Missing ID parameter" }, { status: 400 });
     }
 
+    await syncCourseRefs(body);
     const updatedCourse = await Course.findByIdAndUpdate(id, body, { new: true });
     if (!updatedCourse) {
       return NextResponse.json({ success: false, error: "Course not found" }, { status: 404 });

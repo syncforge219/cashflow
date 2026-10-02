@@ -161,19 +161,19 @@ export async function GET(request: Request) {
         return false;
       };
 
-      // 1. Find matching Admissions
+      // 1. Find matching Admissions (matching counsellorId first, name fallback)
       const matchingAdmissions = admissions.filter((adm: any) =>
-        matchesCounsellor(adm.counsellor)
+        (adm.counsellorId && adm.counsellorId.toString() === cId) || matchesCounsellor(adm.counsellor)
       );
 
-      // 2. Find matching Admitted Enquiries
+      // 2. Find matching Admitted Enquiries (matching assignedCrmAdvisorId first, name fallback)
       const matchingAdmittedEnquiries = admittedEnquiries.filter((enq: any) =>
-        matchesCounsellor(enq.assignedCrmAdvisor)
+        (enq.assignedCrmAdvisorId && enq.assignedCrmAdvisorId.toString() === cId) || matchesCounsellor(enq.assignedCrmAdvisor)
       );
 
-      // 3. Find all assigned Enquiries
+      // 3. Find all assigned Enquiries (matching assignedCrmAdvisorId first, name fallback)
       const totalAssignedEnquiries = allEnquiries.filter((enq: any) =>
-        matchesCounsellor(enq.assignedCrmAdvisor)
+        (enq.assignedCrmAdvisorId && enq.assignedCrmAdvisorId.toString() === cId) || matchesCounsellor(enq.assignedCrmAdvisor)
       );
 
       const admissionRev = matchingAdmissions.reduce((sum: number, adm: any) => {

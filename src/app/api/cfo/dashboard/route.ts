@@ -21,28 +21,38 @@ export async function GET(req: Request) {
       Brand.find({}).sort({ name: 1 }).lean(),
     ]);
 
-    // Apply Brand & Company filters flexibly
+    // Apply Brand & Company filters flexibly (using brandId and companyId first)
+    const targetBrandDoc = selectedBrand !== "All Brands"
+      ? brands.find((b: any) => b.name === selectedBrand || String(b._id) === selectedBrand)
+      : null;
+    const targetBrandId = targetBrandDoc ? String(targetBrandDoc._id) : null;
+
+    const targetCompDoc = selectedCompany !== "All Companies"
+      ? companies.find((c: any) => c.name === selectedCompany || c.legalName === selectedCompany || String(c._id) === selectedCompany)
+      : null;
+    const targetCompId = targetCompDoc ? String(targetCompDoc._id) : null;
+
     const filteredExpenses = expenses.filter((e: any) => {
       const expBrand = e.brand || "All Brands";
       const expComp = e.company || "All Companies";
-      const matchBrand = selectedBrand === "All Brands" || expBrand === selectedBrand;
-      const matchCompany = selectedCompany === "All Companies" || expComp === selectedCompany;
+      const matchBrand = selectedBrand === "All Brands" || (targetBrandId && e.brandId && String(e.brandId) === targetBrandId) || expBrand === selectedBrand;
+      const matchCompany = selectedCompany === "All Companies" || (targetCompId && e.companyId && String(e.companyId) === targetCompId) || expComp === selectedCompany;
       return matchBrand && matchCompany;
     });
 
     const filteredPayments = payments.filter((p: any) => {
       const payBrand = p.brand || p.brandName || "All Brands";
       const payComp = p.company || p.companyAssigned || p.companyTag || "All Companies";
-      const matchBrand = selectedBrand === "All Brands" || payBrand === selectedBrand;
-      const matchCompany = selectedCompany === "All Companies" || payComp === selectedCompany;
+      const matchBrand = selectedBrand === "All Brands" || (targetBrandId && p.brandId && String(p.brandId) === targetBrandId) || payBrand === selectedBrand;
+      const matchCompany = selectedCompany === "All Companies" || (targetCompId && p.companyId && String(p.companyId) === targetCompId) || payComp === selectedCompany;
       return matchBrand && matchCompany;
     });
 
     const filteredAdmissions = admissions.filter((a: any) => {
       const admBrand = a.brand || a.brandName || "All Brands";
       const admComp = a.companyAssigned || a.company || a.companyTag || "All Companies";
-      const matchBrand = selectedBrand === "All Brands" || admBrand === selectedBrand;
-      const matchCompany = selectedCompany === "All Companies" || admComp === selectedCompany;
+      const matchBrand = selectedBrand === "All Brands" || (targetBrandId && a.brandId && String(a.brandId) === targetBrandId) || admBrand === selectedBrand;
+      const matchCompany = selectedCompany === "All Companies" || (targetCompId && a.companyId && String(a.companyId) === targetCompId) || admComp === selectedCompany;
       return matchBrand && matchCompany;
     });
 

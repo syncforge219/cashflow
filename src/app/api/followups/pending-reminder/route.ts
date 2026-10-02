@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import mongoose from "mongoose";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { sendPendingFollowupsReminderEmail } from "@/lib/emailService";
 import dbConnect from "@/lib/db";
 import Enquiry from "@/models/Enquiry";
+import Brand from "@/models/Brand";
 
 export async function POST(req: NextRequest) {
   try {
@@ -90,7 +92,14 @@ export async function GET(req: NextRequest) {
 
     if (brandParam && brandParam !== "All" && brandParam !== "All Brands") {
       const bRegex = new RegExp(`^${brandParam.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
-      query.$or = [{ targetBrand: bRegex }, { brand: bRegex }];
+      const brandDoc = (mongoose.Types.ObjectId.isValid(brandParam)
+        ? await Brand.findById(brandParam).lean()
+        : await Brand.findOne({ $or: [{ name: bRegex }, { code: bRegex }] }).lean()) as any;
+      if (brandDoc) {
+        query.$or = [{ targetBrandId: brandDoc._id }, { targetBrand: bRegex }, { brand: bRegex }];
+      } else {
+        query.$or = [{ targetBrand: bRegex }, { brand: bRegex }];
+      }
     }
 
     const rawLeads = await Enquiry.find(query).select("enquiryId studentFullName targetBrand brand followUps nextFollowUpDate followUpDate assignedCrmAdvisor status").lean();

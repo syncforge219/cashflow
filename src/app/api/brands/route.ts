@@ -30,7 +30,7 @@ export async function GET() {
 
       // 2. Admissions & Revenue
       const admissions = await Admission.find({ 
-        $or: [{ brand: brandRegex }, { targetBrand: brandRegex }] 
+        $or: [{ brandId: brand._id }, { brand: brandRegex }, { targetBrand: brandRegex }] 
       }).lean();
       
       let totalRevenue = 0;
@@ -40,7 +40,7 @@ export async function GET() {
 
       // Also check Enquiries with status Admitted
       const admittedEnquiries = await Enquiry.find({
-        $or: [{ targetBrand: brandRegex }, { brand: brandRegex }],
+        $or: [{ targetBrandId: brand._id }, { targetBrand: brandRegex }, { brand: brandRegex }],
         status: "Admitted"
       }).lean();
 
@@ -71,7 +71,7 @@ export async function GET() {
 
       // 5. Enquiries / CRM Leads & Performance Stats
       const enquiries = await Enquiry.find({
-        $or: [{ targetBrand: brandRegex }, { brand: brandRegex }]
+        $or: [{ targetBrandId: brand._id }, { targetBrand: brandRegex }, { brand: brandRegex }]
       }).lean();
 
       const totalEnquiries = enquiries.length;

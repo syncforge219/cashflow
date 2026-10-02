@@ -75,11 +75,10 @@ const UserSchema = new Schema(
       type: Boolean,
       default: false,
     },
-    faceDescriptor: [
-      {
-        type: Number,
-      },
-    ],
+    faceDescriptor: {
+      type: [Number],
+      select: false,
+    },
     faceRegisteredAt: {
       type: Date,
     },

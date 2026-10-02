@@ -3,9 +3,11 @@ import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
 import Batch from "@/models/Batch";
 import User from "@/models/User";
+import Brand from "@/models/Brand";
 import { getUserFromCookies } from "@/lib/helper";
 import { computeBatchStatus } from "@/lib/batchHelper";
 import { sortBatchesByTiming } from "@/lib/slotHelper";
+import { syncBatchRefs } from "@/lib/referenceHelper";
 
 export async function GET(request: Request) {
   try {
@@ -32,7 +34,15 @@ export async function GET(request: Request) {
 
     const query: any = {};
     if (brand && brand !== "All Brands" && brand !== "All") {
-      query.brand = { $regex: new RegExp(`^${brand.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") };
+      const bRegex = new RegExp(`^${brand.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i");
+      const brandDoc = (mongoose.Types.ObjectId.isValid(brand)
+        ? await Brand.findById(brand).lean()
+        : await Brand.findOne({ $or: [{ name: bRegex }, { code: bRegex }] }).lean()) as any;
+      if (brandDoc) {
+        query.$or = [{ brandId: brandDoc._id }, { brand: bRegex }];
+      } else {
+        query.brand = { $regex: bRegex };
+      }
     }
 
     if (teacherId) {
@@ -161,65 +171,41 @@ export async function GET(request: Request) {
         const bCustomId = b.batchId || "";
 
         const batchIdOrConditions: any[] = [];
+        if (b._id) batchIdOrConditions.push({ batchId: b._id });
         if (bIdStr) batchIdOrConditions.push({ batchId: bIdStr });
         if (bCustomId && bCustomId !== bIdStr) batchIdOrConditions.push({ batchId: bCustomId });
 
-        let enrolledInDb = 0;
+        let admittedStudents: any[] = [];
         if (batchIdOrConditions.length > 0) {
-          let enrolledAdmissions = await Admission.countDocuments({
+          admittedStudents = await Admission.find({
             $or: batchIdOrConditions
-          });
+          }).select("fullName studentFullName admissionId mobileNumber").lean();
 
-          if (enrolledAdmissions === 0 && b.batchName) {
+          if (admittedStudents.length === 0 && b.batchName) {
             const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const nameCount = await Batch.countDocuments({
               batchName: { $regex: new RegExp(`^${escapeRegExp(b.batchName.trim())}$`, "i") }
             });
 
-            // Only count legacy records if EXACTLY 1 batch exists with this name.
-            // If multiple batches share the name, do NOT guess or mutate.
             if (nameCount === 1) {
-              const legacyCount = await Admission.countDocuments({
+              const legacyAdmissions = await Admission.find({
                 batch: { $regex: new RegExp(`^${escapeRegExp(b.batchName.trim())}$`, "i") },
                 $or: [{ batchId: { $exists: false } }, { batchId: "" }, { batchId: null }]
-              });
-              if (legacyCount > 0) {
-                enrolledAdmissions = legacyCount;
+              }).select("fullName studentFullName admissionId mobileNumber").lean();
+              if (legacyAdmissions.length > 0) {
+                admittedStudents = legacyAdmissions;
               }
             }
           }
-
-          const enrolledEnquiries = await Enquiry.countDocuments({
-            $or: batchIdOrConditions
-          });
-
-          enrolledInDb = Math.max(enrolledAdmissions, enrolledEnquiries);
         }
 
-        const attLookupConditions: any[] = [];
-        if (bIdStr && mongoose.Types.ObjectId.isValid(bIdStr)) {
-          attLookupConditions.push({ batchId: new mongoose.Types.ObjectId(bIdStr) });
-        }
-        if (bCustomId) {
-          attLookupConditions.push({ batchId: bCustomId });
-        }
-
-        const latestAttendanceLog = attLookupConditions.length > 0
-          ? await Attendance.findOne({ $or: attLookupConditions }).sort({ date: -1 }).lean()
-          : null;
-
-        const logStudentCount = (latestAttendanceLog as any)?.totalStudents || 0;
-        const arrayCount = Array.isArray(b.students) ? b.students.length : 0;
-
-        (batches[i] as any).enrolledStudentsCount = Math.max(
-          enrolledInDb,
-          logStudentCount,
-          arrayCount,
-          Number(b.enrolledStudentsCount || b.studentsCount || 0)
-        );
+        const studentNames = admittedStudents.map((a: any) => a.fullName || a.studentFullName || a.admissionId);
+        (batches[i] as any).students = studentNames;
+        (batches[i] as any).enrolledCount = admittedStudents.length;
+        (batches[i] as any).enrolledStudentsCount = admittedStudents.length;
       }
     } catch (e) {
-      console.error("Error calculating batch student counts:", e);
+      console.error("Error calculating batch student counts from admissions:", e);
     }
 
     batches = sortBatchesByTiming(batches);
@@ -302,7 +288,7 @@ export async function POST(request: Request) {
 
     const initialStatus = computeBatchStatus(startDate, endDate);
 
-    const newBatch = await Batch.create({
+    const batchPayload: any = {
       batchId: finalBatchId,
       batchName: batchName.trim(),
       course: courseStr,
@@ -320,7 +306,10 @@ export async function POST(request: Request) {
       createdBy: createdBy || "System User",
       creatorRole: creatorRole || "super admin",
       status: initialStatus,
-    });
+    };
+    await syncBatchRefs(batchPayload);
+
+    const newBatch = await Batch.create(batchPayload);
 
     return NextResponse.json(
       {

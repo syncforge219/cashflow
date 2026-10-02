@@ -4,11 +4,21 @@ import PurchaseOrder from "@/models/PurchaseOrder";
 import QuotationProfile from "@/models/QuotationProfile";
 import { numberToIndianWords } from "@/lib/numberToWords";
 import { generatePurchaseOrderNumber } from "@/lib/purchaseOrderHelper";
+import { getUserFromCookies } from "@/lib/helper";
+import { logAuditEntry } from "@/lib/auditLogger";
+import { validateDeletedAccess } from "@/lib/softDeleteAccess";
 
 export async function GET(req: Request) {
   try {
     await dbConnect();
+    const user = await getUserFromCookies();
     const { searchParams } = new URL(req.url);
+
+    const deletedAccess = validateDeletedAccess(user, searchParams);
+    if (deletedAccess.errorResponse) {
+      return deletedAccess.errorResponse;
+    }
+
     const companyId = searchParams.get("companyId") || "DEFAULT_COMPANY";
     const q = searchParams.get("q") || "";
     const status = searchParams.get("status") || "ALL";
@@ -18,6 +28,9 @@ export async function GET(req: Request) {
     const limit = parseInt(searchParams.get("limit") || "10", 10);
 
     const query: any = { companyId };
+    if (deletedAccess.onlyDeleted) {
+      query.isDeleted = true;
+    }
 
     if (status !== "ALL") {
       query.status = status;
@@ -301,7 +314,25 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ success: false, error: "Purchase Order ID is required" }, { status: 400 });
     }
 
-    await PurchaseOrder.findByIdAndDelete(id);
+    const user = await getUserFromCookies();
+    const po = await PurchaseOrder.findById(id);
+    if (!po) {
+      return NextResponse.json({ success: false, error: "Purchase Order not found" }, { status: 404 });
+    }
+
+    po.isDeleted = true;
+    po.deletedAt = new Date();
+    po.deletedBy = (user as any)?._id || null;
+    await po.save();
+
+    await logAuditEntry({
+      collectionName: "purchase_orders",
+      docId: po._id,
+      action: "SOFT_DELETE",
+      changedFields: [{ field: "isDeleted", oldValue: false, newValue: true }],
+      userId: (user as any)?._id
+    });
+
     return NextResponse.json({ success: true, message: "Purchase Order deleted successfully" });
   } catch (error: any) {
     console.error("Error deleting purchase order:", error);

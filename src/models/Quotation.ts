@@ -1,4 +1,5 @@
 import mongoose, { Schema } from "mongoose";
+import { softDeletePlugin } from "@/lib/softDeletePlugin";
 
 const QuotationItemSchema = new Schema({
   productId: {
@@ -156,12 +157,27 @@ const QuotationSchema = new Schema(
     stampImage: { type: String, default: "" },
     bankQrImage: { type: String, default: "" },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    autoIndex: process.env.NODE_ENV !== "production",
+  }
 );
+
+import { generateQuotationNumber } from "@/lib/quotationHelper";
+
+// Pre-save hook: auto-generate quotationNumber using document's session if absent
+QuotationSchema.pre("save", async function () {
+  if (!this.quotationNumber) {
+    const session = this.$session();
+    this.quotationNumber = await generateQuotationNumber(this.companyId || "DEFAULT_COMPANY", this.date, session);
+  }
+});
 
 QuotationSchema.index({ companyId: 1, quotationNumber: 1 });
 QuotationSchema.index({ companyId: 1, status: 1 });
 QuotationSchema.index({ companyId: 1, date: -1 });
+
+QuotationSchema.plugin(softDeletePlugin);
 
 delete (mongoose.models as any).Quotation;
 const Quotation = mongoose.model("Quotation", QuotationSchema);

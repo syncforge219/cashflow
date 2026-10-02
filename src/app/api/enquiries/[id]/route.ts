@@ -5,6 +5,9 @@ import Admission from "@/models/Admission";
 import LostLeadCounter from "@/models/LostLeadCounter";
 import User from "@/models/User";
 import { sendWhatsAppTeacherDemoAlert, formatDDMMYYYY } from "@/lib/msg91";
+import { syncEnquiryRefs } from "@/lib/referenceHelper";
+import { getUserFromCookies } from "@/lib/helper";
+import { logAuditEntry, diffAndLogAudit } from "@/lib/auditLogger";
 
 export async function PATCH(
   req: Request,
@@ -90,6 +93,8 @@ export async function PATCH(
         );
       }
     }
+
+    await syncEnquiryRefs(updateQuery.$set || updateQuery);
 
     const updatedEnquiry = await Enquiry.findByIdAndUpdate(
       id,
@@ -196,7 +201,21 @@ export async function DELETE(
       }
     }
 
-    const deletedEnquiry = await Enquiry.findByIdAndDelete(id);
+    const user = await getUserFromCookies();
+    const userId = (user as any)?._id || null;
+
+    existingEnquiry.isDeleted = true;
+    existingEnquiry.deletedAt = new Date();
+    existingEnquiry.deletedBy = userId;
+    await existingEnquiry.save();
+
+    await logAuditEntry({
+      collectionName: "enquiries",
+      docId: existingEnquiry._id,
+      action: "SOFT_DELETE",
+      changedFields: [{ field: "isDeleted", oldValue: false, newValue: true }],
+      userId
+    });
 
     const { searchParams } = new URL(req.url);
     const isLostLead = searchParams.get('lostLead') === 'true';

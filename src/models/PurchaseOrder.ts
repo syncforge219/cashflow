@@ -1,4 +1,5 @@
 import mongoose, { Schema } from "mongoose";
+import { softDeletePlugin } from "@/lib/softDeletePlugin";
 
 const PurchaseOrderItemSchema = new Schema({
   productId: {
@@ -164,11 +165,26 @@ const PurchaseOrderSchema = new Schema(
     stampImage: { type: String, default: "" },
     bankQrImage: { type: String, default: "" },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    autoIndex: process.env.NODE_ENV !== "production",
+  }
 );
+
+import { generatePurchaseOrderNumber } from "@/lib/purchaseOrderHelper";
+
+// Pre-save hook: auto-generate poNumber using document's session if absent
+PurchaseOrderSchema.pre("save", async function () {
+  if (!this.poNumber) {
+    const session = this.$session();
+    this.poNumber = await generatePurchaseOrderNumber(this.companyId || "DEFAULT_COMPANY", this.date, session);
+  }
+});
 
 PurchaseOrderSchema.index({ companyId: 1, poNumber: 1 });
 PurchaseOrderSchema.index({ companyId: 1, date: -1 });
+
+PurchaseOrderSchema.plugin(softDeletePlugin);
 
 delete (mongoose.models as any).PurchaseOrder;
 const PurchaseOrder = mongoose.model("PurchaseOrder", PurchaseOrderSchema);

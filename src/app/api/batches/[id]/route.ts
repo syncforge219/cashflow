@@ -4,6 +4,7 @@ import dbConnect from "@/lib/db";
 import Batch from "@/models/Batch";
 import User from "@/models/User";
 import { computeBatchStatus } from "@/lib/batchHelper";
+import { syncBatchRefs } from "@/lib/referenceHelper";
 
 export async function GET(
   request: Request,
@@ -81,6 +82,8 @@ export async function PATCH(
     if (!explicitStatus || (explicitStatus !== "Cancelled" && (body.startDate !== undefined || body.endDate !== undefined))) {
       body.status = computeBatchStatus(effectiveStart, effectiveEnd, explicitStatus || oldBatch.status);
     }
+
+    await syncBatchRefs(body);
 
     const updatedBatch = await Batch.findByIdAndUpdate(oldBatch._id, body, {
       new: true,

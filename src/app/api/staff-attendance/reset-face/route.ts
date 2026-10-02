@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
 import { getUserFromCookies } from "@/lib/helper";
+import { eraseBiometricProfile } from "@/lib/biometricService";
 
 export async function POST(request: Request) {
   try {
@@ -28,15 +29,12 @@ export async function POST(request: Request) {
       );
     }
 
-    userDoc.isFaceRegistered = false;
-    userDoc.faceDescriptor = [];
-    userDoc.faceRegisteredAt = undefined;
-
-    await userDoc.save();
+    // Permanently erase biometric profile and clear User face fields
+    await eraseBiometricProfile(userDoc._id);
 
     return NextResponse.json({
       success: true,
-      message: `Face ID registration reset for ${userDoc.name}`,
+      message: `Face ID registration and biometric profile permanently erased for ${userDoc.name} (DPDP Act 2023 compliant).`,
     });
   } catch (error: any) {
     console.error("POST /api/staff-attendance/reset-face Error:", error);

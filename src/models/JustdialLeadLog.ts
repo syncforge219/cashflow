@@ -6,6 +6,7 @@ export interface IJustdialLeadLog extends Document {
   httpMethod: string;
   status: "SUCCESS" | "DUPLICATE" | "FAILED" | "UNAUTHORIZED";
   leadName?: string;
+  leadId?: string;
   mobile?: string;
   email?: string;
   category?: string;
@@ -46,6 +47,10 @@ const JustdialLeadLogSchema = new Schema<IJustdialLeadLog>(
     leadName: {
       type: String,
       default: "",
+      trim: true,
+    },
+    leadId: {
+      type: String,
       trim: true,
     },
     mobile: {
@@ -103,6 +108,16 @@ const JustdialLeadLogSchema = new Schema<IJustdialLeadLog>(
   },
   {
     timestamps: true,
+    autoIndex: process.env.NODE_ENV !== "production",
+  }
+);
+
+// Unique index on leadId with partial filter to allow documents without leadId
+JustdialLeadLogSchema.index(
+  { leadId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { leadId: { $exists: true, $type: "string" } },
   }
 );
 

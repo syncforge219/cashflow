@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "node:crypto";
 import dbConnect from "@/lib/db";
 import Enquiry from "@/models/Enquiry";
 import User from "@/models/User";
@@ -6,6 +7,7 @@ import Task from "@/models/Task";
 import JustdialConfig from "@/models/JustdialConfig";
 import JustdialLeadLog from "@/models/JustdialLeadLog";
 import { sendWhatsAppWelcomeEnquiry, sendWhatsAppSuperAdminEnquiryAlert } from "@/lib/msg91";
+import { decryptField } from "@/lib/encryption";
 
 // CORS Preflight handler
 export async function OPTIONS() {
@@ -15,7 +17,7 @@ export async function OPTIONS() {
       headers: {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization, x-api-key",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, x-api-key, x-justdial-signature, x-webhook-signature, x-hub-signature-256",
       },
     }
   );
@@ -24,9 +26,19 @@ export async function OPTIONS() {
 /**
  * Universal payload parser for Justdial Webhook/Push API
  */
-async function parseIncomingPayload(req: NextRequest): Promise<{ body: any; raw: any }> {
+async function parseIncomingPayload(req: NextRequest): Promise<{ body: any; raw: any; rawBodyText: string }> {
   let body: any = {};
+  let rawBodyText = "";
   const contentType = req.headers.get("content-type") || "";
+
+  // Capture clone of raw body text for HMAC signature verification
+  if (req.method !== "GET") {
+    try {
+      rawBodyText = await req.clone().text();
+    } catch {
+      rawBodyText = "";
+    }
+  }
 
   // 1. Check URL query parameters (GET or POST with query string)
   const searchParams = req.nextUrl.searchParams;
@@ -88,7 +100,7 @@ async function parseIncomingPayload(req: NextRequest): Promise<{ body: any; raw:
     }
   }
 
-  return { body, raw: body };
+  return { body, raw: body, rawBodyText };
 }
 
 /**
@@ -104,11 +116,11 @@ async function handleJustdialLead(req: NextRequest, isSimulation = false) {
 
   try {
     await dbConnect();
-    const { body, raw } = await parseIncomingPayload(req);
+    const { body, raw, rawBodyText } = await parseIncomingPayload(req);
     parsedData = raw;
 
-    // Load active Justdial configuration
-    let config = await JustdialConfig.findOne({}).lean();
+    // Load active Justdial configuration including encrypted credentials
+    let config = await JustdialConfig.findOne({}).select("+apiKey +webhookSecret +pullApiKey").lean();
     if (!config) {
       const created = await JustdialConfig.create({
         connectorType: "Justdial Lead Connector Push API",
@@ -129,7 +141,93 @@ async function handleJustdialLead(req: NextRequest, isSimulation = false) {
       config = created.toObject();
     }
 
-    // 1. API Key Validation (if required)
+    // 1. Webhook Secret Signature Validation (HMAC-SHA256)
+    const rawSecret = config.webhookSecret || process.env.JUSTDIAL_WEBHOOK_SECRET;
+    const webhookSecret = rawSecret ? (decryptField(rawSecret) || rawSecret).trim() : "";
+
+    const incomingSignature =
+      req.headers.get("x-justdial-signature") ||
+      req.headers.get("x-hub-signature-256") ||
+      req.headers.get("x-webhook-signature") ||
+      req.headers.get("x-signature") ||
+      body.signature ||
+      req.nextUrl.searchParams.get("signature") ||
+      "";
+
+    if (webhookSecret && !isSimulation) {
+      // Reject unsigned requests when webhookSecret is configured
+      if (!incomingSignature) {
+        await JustdialLeadLog.create({
+          timestamp: new Date(),
+          sourceType: "PUSH_WEBHOOK",
+          httpMethod: req.method,
+          status: "UNAUTHORIZED",
+          rawPayload: raw,
+          responseMessage: "Unauthorized: Missing webhook signature",
+          errorDetails: "Unsigned request rejected: Webhook secret is configured but no signature header was provided.",
+          ip: clientIp,
+        });
+
+        return NextResponse.json(
+          {
+            status: "ERROR",
+            code: 401,
+            message: "Unauthorized: Webhook signature is required (unsigned requests are rejected).",
+          },
+          {
+            status: 401,
+            headers: { "Access-Control-Allow-Origin": "*" },
+          }
+        );
+      }
+
+      // Compute expected HMAC-SHA256 signature
+      const payloadToSign = rawBodyText || JSON.stringify(body);
+      const cleanIncomingSig = incomingSignature.replace(/^sha256=/i, "").trim().toLowerCase();
+      const expectedSig = crypto
+        .createHmac("sha256", webhookSecret)
+        .update(payloadToSign)
+        .digest("hex")
+        .toLowerCase();
+
+      let isSigValid = false;
+      if (cleanIncomingSig.length === expectedSig.length) {
+        isSigValid = crypto.timingSafeEqual(
+          Buffer.from(cleanIncomingSig, "utf-8"),
+          Buffer.from(expectedSig, "utf-8")
+        );
+      }
+
+      if (!isSigValid) {
+        await JustdialLeadLog.create({
+          timestamp: new Date(),
+          sourceType: "PUSH_WEBHOOK",
+          httpMethod: req.method,
+          status: "UNAUTHORIZED",
+          rawPayload: raw,
+          responseMessage: "Unauthorized: Invalid webhook signature",
+          errorDetails: "HMAC-SHA256 signature verification failed against configured webhookSecret.",
+          ip: clientIp,
+        });
+
+        return NextResponse.json(
+          {
+            status: "ERROR",
+            code: 401,
+            message: "Unauthorized: Invalid webhook signature.",
+          },
+          {
+            status: 401,
+            headers: { "Access-Control-Allow-Origin": "*" },
+          }
+        );
+      }
+    }
+
+    // 2. API Key Validation (if required)
+    const rawApiKey = config.apiKey;
+    const configuredApiKey = rawApiKey ? (decryptField(rawApiKey) || rawApiKey).trim() : "";
+
     const incomingApiKey =
       body.apiKey ||
       body.api_key ||
@@ -140,8 +238,8 @@ async function handleJustdialLead(req: NextRequest, isSimulation = false) {
       req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ||
       "";
 
-    if (config.requireApiKey && config.apiKey && !isSimulation) {
-      if (incomingApiKey.trim() !== config.apiKey.trim()) {
+    if (config.requireApiKey && configuredApiKey && !isSimulation) {
+      if (incomingApiKey.trim() !== configuredApiKey) {
         await JustdialLeadLog.create({
           timestamp: new Date(),
           sourceType: "PUSH_WEBHOOK",

@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
 import Course from "@/models/Course";
+import Brand from "@/models/Brand";
 import { getUserFromCookies } from "@/lib/helper";
+import { syncCourseRefs } from "@/lib/referenceHelper";
 
 export async function GET(req: Request) {
   try {
@@ -14,12 +17,19 @@ export async function GET(req: Request) {
     const isBrandRestricted = userBrand && userBrand !== "All Brands" && userBrand !== "All" && userBrand !== "*" && userBrand !== "global";
 
     let query: any = {};
-    if (isBrandRestricted) {
-      query.brand = { $regex: new RegExp(`^${userBrand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") };
-    } else if (brandParam && brandParam !== "All Brands" && brandParam !== "All") {
-      const cleanParam = brandParam.trim().replace(/[^a-zA-Z0-9]/g, "");
-      const regexPattern = cleanParam.split("").join(".*");
-      query.brand = { $regex: new RegExp(regexPattern, "i") };
+    const brandToFilter = isBrandRestricted ? userBrand : (brandParam && brandParam !== "All Brands" && brandParam !== "All" ? brandParam : "");
+    if (brandToFilter) {
+      const bRegex = new RegExp(`^${brandToFilter.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i");
+      const brandDoc = (mongoose.Types.ObjectId.isValid(brandToFilter)
+        ? await Brand.findById(brandToFilter).lean()
+        : await Brand.findOne({ $or: [{ name: bRegex }, { code: bRegex }] }).lean()) as any;
+      if (brandDoc) {
+        query.$or = [{ brandId: brandDoc._id }, { brand: bRegex }];
+      } else {
+        const cleanParam = brandToFilter.trim().replace(/[^a-zA-Z0-9]/g, "");
+        const regexPattern = cleanParam.split("").join(".*");
+        query.brand = { $regex: new RegExp(regexPattern, "i") };
+      }
     }
 
     const courses = await Course.find(query).sort({ createdAt: -1 });
@@ -104,6 +114,7 @@ export async function POST(req: Request) {
       }
     }
 
+    await syncCourseRefs(body);
     const newCourse = await Course.create(body);
     return NextResponse.json(
       { success: true, data: newCourse, message: "Course created successfully" },

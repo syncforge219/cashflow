@@ -71,7 +71,7 @@ const QuotationProfileSchema = new Schema(
     bankDetails: {
       bankName: { type: String, default: "STATE BANK OF INDIA" },
       branch: { type: String, default: "SITAPURA IND. AREA JAIPUR" },
-      accountNumber: { type: String, default: "61330464677" },
+      accountNumber: { type: String, default: "61330464677", select: false },
       ifsc: { type: String, default: "SBIN0031792" },
       rtgsCode: { type: String, default: "SBIN0031792" },
     },
@@ -116,6 +116,27 @@ const QuotationProfileSchema = new Schema(
   },
   { timestamps: true }
 );
+
+import { encryptField } from "@/lib/encryption";
+
+QuotationProfileSchema.pre("save", async function () {
+  if (this.bankDetails && this.bankDetails.accountNumber && typeof this.bankDetails.accountNumber === "string") {
+    this.bankDetails.accountNumber = encryptField(this.bankDetails.accountNumber) || this.bankDetails.accountNumber;
+  }
+});
+
+QuotationProfileSchema.pre(["findOneAndUpdate", "updateOne"], async function () {
+  const update = this.getUpdate() as any;
+  if (update) {
+    const target = update.$set || update;
+    if (target.bankDetails && target.bankDetails.accountNumber && typeof target.bankDetails.accountNumber === "string") {
+      target.bankDetails.accountNumber = encryptField(target.bankDetails.accountNumber) || target.bankDetails.accountNumber;
+    }
+    if (target["bankDetails.accountNumber"] && typeof target["bankDetails.accountNumber"] === "string") {
+      target["bankDetails.accountNumber"] = encryptField(target["bankDetails.accountNumber"]) || target["bankDetails.accountNumber"];
+    }
+  }
+});
 
 delete (mongoose.models as any).QuotationProfile;
 const QuotationProfile = mongoose.model("QuotationProfile", QuotationProfileSchema);

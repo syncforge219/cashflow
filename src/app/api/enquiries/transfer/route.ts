@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
+import mongoose from "mongoose";
 import Enquiry from "@/models/Enquiry";
 import Task from "@/models/Task";
 import User from "@/models/User";
+import Brand from "@/models/Brand";
 import { getUserFromCookies } from "@/lib/helper";
 
 export async function POST(req: Request) {
@@ -16,6 +18,7 @@ export async function POST(req: Request) {
       targetAdvisor,
       targetAdvisorId,
       sourceAdvisor,
+      sourceAdvisorId,
       transferScope = "selected", // "selected" | "counsellor_pending" | "all_pending"
       transferRemarks,
       rescheduleDate,
@@ -33,7 +36,7 @@ export async function POST(req: Request) {
 
     // Verify target counsellor user if targetAdvisorId provided
     let targetUser: any = null;
-    if (targetAdvisorId) {
+    if (targetAdvisorId && mongoose.Types.ObjectId.isValid(targetAdvisorId)) {
       targetUser = await User.findById(targetAdvisorId).select("name email role brandScope");
     } else {
       targetUser = await User.findOne({
@@ -41,24 +44,63 @@ export async function POST(req: Request) {
       }).select("name email role brandScope");
     }
 
+    let sourceUser: any = null;
+    if (sourceAdvisorId && mongoose.Types.ObjectId.isValid(sourceAdvisorId)) {
+      sourceUser = await User.findById(sourceAdvisorId).lean();
+    } else if (sourceAdvisor) {
+      sourceUser = await User.findOne({
+        name: new RegExp(`^${sourceAdvisor.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"),
+      }).lean();
+    }
+
     // Determine brand scope filter from user or parameter
     const effectiveBrand = brandScope || currentUser?.brandScope || "";
     const isGlobalBrand = !effectiveBrand || ["all", "all brands", "global", "*"].includes(effectiveBrand.toLowerCase());
+
+    let brandDoc: any = null;
+    if (!isGlobalBrand) {
+      const bRegex = new RegExp(`^${effectiveBrand.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
+      brandDoc = (mongoose.Types.ObjectId.isValid(effectiveBrand)
+        ? await Brand.findById(effectiveBrand).lean()
+        : await Brand.findOne({ $or: [{ name: bRegex }, { code: bRegex }] }).lean()) as any;
+    }
 
     let query: any = {};
 
     if (transferScope === "selected" && Array.isArray(enquiryIds) && enquiryIds.length > 0) {
       query._id = { $in: enquiryIds };
-    } else if (transferScope === "counsellor_pending" && sourceAdvisor) {
-      query.assignedCrmAdvisor = new RegExp(`^${sourceAdvisor.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
+    } else if (transferScope === "counsellor_pending" && (sourceAdvisor || sourceUser)) {
+      const sRegex = sourceAdvisor ? new RegExp(`^${sourceAdvisor.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") : null;
+      if (sourceUser) {
+        query.$or = [{ assignedCrmAdvisorId: sourceUser._id }];
+        if (sRegex) query.$or.push({ assignedCrmAdvisor: sRegex });
+      } else if (sRegex) {
+        query.assignedCrmAdvisor = sRegex;
+      }
       query.status = { $nin: ["Lost", "Admitted", "Do Not Call", "Do Not Followup", "Completed"] };
       if (!isGlobalBrand) {
-        query.targetBrand = new RegExp(effectiveBrand.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+        const bRegex = new RegExp(effectiveBrand.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+        if (brandDoc) {
+          const brandClause = { $or: [{ targetBrandId: brandDoc._id }, { targetBrand: bRegex }] };
+          if (query.$or) {
+            query.$and = [{ $or: query.$or }, brandClause];
+            delete query.$or;
+          } else {
+            query.$or = brandClause.$or;
+          }
+        } else {
+          query.targetBrand = bRegex;
+        }
       }
     } else if (transferScope === "all_pending") {
       query.status = { $nin: ["Lost", "Admitted", "Do Not Call", "Do Not Followup", "Completed"] };
       if (!isGlobalBrand) {
-        query.targetBrand = new RegExp(effectiveBrand.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+        const bRegex = new RegExp(effectiveBrand.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+        if (brandDoc) {
+          query.$or = [{ targetBrandId: brandDoc._id }, { targetBrand: bRegex }];
+        } else {
+          query.targetBrand = bRegex;
+        }
       }
     } else if (Array.isArray(enquiryIds) && enquiryIds.length > 0) {
       query._id = { $in: enquiryIds };
@@ -90,6 +132,9 @@ export async function POST(req: Request) {
     for (const enq of matchingEnquiries) {
       const oldAdvisor = enq.assignedCrmAdvisor || "Unassigned";
       enq.assignedCrmAdvisor = cleanTargetAdvisor;
+      if (targetUser?._id) {
+        enq.assignedCrmAdvisorId = targetUser._id;
+      }
 
       // Update follow-up records
       if (!enq.followUps) {

@@ -35,11 +35,26 @@ const CompanySchema = new Schema(
       default: "Bank Of India",
       trim: true,
     },
+    bankDetails: {
+      bankName: { type: String, default: "" },
+      branch: { type: String, default: "" },
+      accountNumber: { type: String, default: "", select: false },
+      ifsc: { type: String, default: "" },
+      rtgsCode: { type: String, default: "" },
+    },
     annualCapacityCap: {
       type: Number,
       default: 1949999,
     },
+    annualCapacityCapPaise: {
+      type: Number,
+      default: 194999900,
+    },
     collectedRevenue: {
+      type: Number,
+      default: 0,
+    },
+    collectedRevenuePaise: {
       type: Number,
       default: 0,
     },
@@ -76,6 +91,8 @@ const CompanySchema = new Schema(
   }
 );
 
+import { encryptField } from "@/lib/encryption";
+
 CompanySchema.pre("save", async function () {
   if (this.name) {
     this.name = this.name.toUpperCase().trim();
@@ -86,6 +103,12 @@ CompanySchema.pre("save", async function () {
   if (Array.isArray(this.brands)) {
     this.brands = this.brands.map((b: string) => b.toUpperCase().trim());
   }
+
+  // Encrypt bankDetails.accountNumber at rest
+  if (this.bankDetails && this.bankDetails.accountNumber && typeof this.bankDetails.accountNumber === "string") {
+    this.bankDetails.accountNumber = encryptField(this.bankDetails.accountNumber) || this.bankDetails.accountNumber;
+  }
+
   if (!this.companyId) {
     const count = await mongoose.models.Company.countDocuments();
     this.companyId = `COMP-${Date.now()}${count + 1}`;
@@ -104,6 +127,19 @@ CompanySchema.pre("save", async function () {
     }
     
     this.uniqueId = `COMP${String(nextNumber).padStart(6, "0")}`;
+  }
+});
+
+CompanySchema.pre(["findOneAndUpdate", "updateOne"], async function () {
+  const update = this.getUpdate() as any;
+  if (update) {
+    const target = update.$set || update;
+    if (target.bankDetails && target.bankDetails.accountNumber && typeof target.bankDetails.accountNumber === "string") {
+      target.bankDetails.accountNumber = encryptField(target.bankDetails.accountNumber) || target.bankDetails.accountNumber;
+    }
+    if (target["bankDetails.accountNumber"] && typeof target["bankDetails.accountNumber"] === "string") {
+      target["bankDetails.accountNumber"] = encryptField(target["bankDetails.accountNumber"]) || target["bankDetails.accountNumber"];
+    }
   }
 });
 

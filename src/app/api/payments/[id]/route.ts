@@ -5,6 +5,9 @@ import Payment from "@/models/Payment";
 import Admission from "@/models/Admission";
 import Company from "@/models/Company";
 import { getFinancialYear, getFinancialYearRange } from "@/lib/financialYearHelper";
+import { recomputeAndStoreAdmissionBalance } from "@/lib/studentBalanceService";
+import { getUserFromCookies } from "@/lib/helper";
+import { logAuditEntry } from "@/lib/auditLogger";
 
 export async function GET(
   req: NextRequest,
@@ -49,7 +52,36 @@ export async function DELETE(
     const admissionId = payment.admissionId;
     const receiptNo = payment.receiptNo || "N/A";
 
-    await Payment.findByIdAndDelete(id);
+    const user = await getUserFromCookies();
+    const userId = (user as any)?._id || null;
+
+    // Delete payment and recompute admission balance inside transaction
+    let updatedAdmission: any = null;
+    const session = await mongoose.startSession();
+    await session.withTransaction(async () => {
+      payment.isDeleted = true;
+      payment.deletedAt = new Date();
+      payment.deletedBy = userId;
+      await payment.save({ session });
+
+      if (admissionId) {
+        await recomputeAndStoreAdmissionBalance(admissionId, session);
+        updatedAdmission = await Admission.findById(admissionId).session(session);
+
+        if (updatedAdmission && Array.isArray(updatedAdmission.customEmiPlan) && updatedAdmission.customEmiPlan.length > 0) {
+          const paidEmis = updatedAdmission.customEmiPlan.filter((emi: any) => emi.isPaid);
+          if (paidEmis.length > 0) {
+            const matchingEmi = paidEmis.reverse().find((emi: any) => Number(emi.amount) === deletedAmount) || paidEmis[0];
+            if (matchingEmi) {
+              matchingEmi.isPaid = false;
+              matchingEmi.paidDate = null;
+              await updatedAdmission.save({ session });
+            }
+          }
+        }
+      }
+    });
+    await session.endSession();
 
     // Reverse Company Collection if company is valid
     let reversedCompany = null;
@@ -66,9 +98,12 @@ export async function DELETE(
       const payFY = getFinancialYear(payDate);
       const { label: currentFY } = getFinancialYearRange();
 
-      const compDoc = await Company.findOne({
-        $or: [{ name: { $regex: compRegex } }, { legalName: { $regex: compRegex } }]
-      });
+      let compDoc = payment.companyId ? await Company.findById(payment.companyId) : null;
+      if (!compDoc) {
+        compDoc = await Company.findOne({
+          $or: [{ name: { $regex: compRegex } }, { legalName: { $regex: compRegex } }]
+        });
+      }
       if (compDoc) {
         if (compDoc.currentFinancialYear === payFY || (!compDoc.currentFinancialYear && payFY === currentFY)) {
           compDoc.collectedRevenue = Math.max(0, (compDoc.collectedRevenue || 0) - deletedAmount);
@@ -76,52 +111,13 @@ export async function DELETE(
         }
         reversedCompany = compDoc.name;
       }
-    }
-
-    // Recalculate student admission record
-    let updatedAdmission: any = null;
-    if (admissionId) {
-      const admission = await Admission.findById(admissionId);
-      if (admission) {
-        const remainingPayments = await Payment.find({ admissionId: admission._id });
-        const newTotalPaid = remainingPayments.reduce(
-          (sum: number, p: any) => sum + (Number(p.amountReceived) || 0),
-          0
-        );
-
-        const totalAgreedFee = Number(admission.finalFee) > 0
-          ? Number(admission.finalFee)
-          : (Number(admission.courseFee) || 0);
-
-        admission.remainingBalance = Math.max(0, totalAgreedFee - newTotalPaid);
-
-        if (remainingPayments.length === 0) {
-          admission.amountReceivedToday = 0;
-          admission.registrationAmount = 0;
-        } else {
-          if (Number(admission.registrationAmount) > newTotalPaid) {
-            admission.registrationAmount = newTotalPaid;
-          }
-          if (Number(admission.amountReceivedToday) > newTotalPaid) {
-            admission.amountReceivedToday = newTotalPaid;
-          }
-        }
-
-        if (Array.isArray(admission.customEmiPlan) && admission.customEmiPlan.length > 0) {
-          const paidEmis = admission.customEmiPlan.filter((emi: any) => emi.isPaid);
-          if (paidEmis.length > 0) {
-            const matchingEmi = paidEmis.reverse().find((emi: any) => Number(emi.amount) === deletedAmount) || paidEmis[0];
-            if (matchingEmi) {
-              matchingEmi.isPaid = false;
-              matchingEmi.paidDate = null;
-            }
-          }
-        }
-
-        await admission.save();
-        updatedAdmission = admission;
-      }
-    }
+    await logAuditEntry({
+      collectionName: "payments",
+      docId: payment._id,
+      action: "SOFT_DELETE",
+      changedFields: [{ field: "isDeleted", oldValue: false, newValue: true }],
+      userId
+    });
 
     return NextResponse.json({
       success: true,

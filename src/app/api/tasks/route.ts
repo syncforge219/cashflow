@@ -19,8 +19,17 @@ export async function GET(req: Request) {
       query.assignedTo = { $regex: new RegExp(assignedTo, "i") };
     }
 
+    const now = new Date();
+
     if (status && status !== "All") {
-      query.status = status;
+      if (status === "Overdue") {
+        query.$or = [
+          { status: "Overdue" },
+          { status: { $in: ["Pending", "In Progress"] }, dueDate: { $lt: now } }
+        ];
+      } else {
+        query.status = status;
+      }
     }
 
     if (priority && priority !== "All") {
@@ -39,19 +48,20 @@ export async function GET(req: Request) {
       ];
     }
 
-    // Auto update overdue tasks
-    const now = new Date();
-    await Task.updateMany(
-      {
-        status: { $in: ["Pending", "In Progress"] },
-        dueDate: { $lt: now }
-      },
-      {
-        $set: { status: "Overdue" }
-      }
-    );
+    // Derive overdue status dynamically at query time without database mutations
+    const rawTasks = await Task.find(query).sort({ dueDate: 1, createdAt: -1 }).lean();
 
-    const tasks = await Task.find(query).sort({ dueDate: 1, createdAt: -1 }).lean();
+    const tasks = rawTasks.map((t: any) => {
+      const isOverdue =
+        t.status === "Overdue" ||
+        ((t.status === "Pending" || t.status === "In Progress") && t.dueDate && new Date(t.dueDate) < now);
+
+      return {
+        ...t,
+        status: isOverdue ? "Overdue" : t.status,
+        isOverdue: Boolean(isOverdue),
+      };
+    });
 
     return NextResponse.json({
       success: true,
@@ -79,6 +89,7 @@ export async function POST(req: Request) {
       linkedStudentName,
       linkedStudentId,
       linkedEnquiryId,
+      linkedType,
       assignedTo,
       assignedRole = "counsellor",
       priority = "Medium",
@@ -97,6 +108,7 @@ export async function POST(req: Request) {
       title,
       description,
       taskType,
+      linkedType,
       linkedStudentName,
       linkedStudentId,
       linkedEnquiryId,

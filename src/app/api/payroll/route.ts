@@ -1,17 +1,30 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Payroll from "@/models/Payroll";
+import { getUserFromCookies } from "@/lib/helper";
+import { logAuditEntry } from "@/lib/auditLogger";
+import { validateDeletedAccess } from "@/lib/softDeleteAccess";
 
 export async function GET(req: Request) {
   try {
     await dbConnect();
+    const user = await getUserFromCookies();
     const { searchParams } = new URL(req.url);
+
+    const deletedAccess = validateDeletedAccess(user, searchParams);
+    if (deletedAccess.errorResponse) {
+      return deletedAccess.errorResponse;
+    }
+
     const month = searchParams.get("month");
     const search = searchParams.get("search");
     const brand = searchParams.get("brand");
     const company = searchParams.get("company");
 
     const query: any = {};
+    if (deletedAccess.onlyDeleted) {
+      query.isDeleted = true;
+    }
     if (month) query.month = month;
     if (brand && brand !== "All" && brand !== "All Brands") {
       query.brand = brand;
@@ -123,7 +136,25 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ success: false, message: "ID parameter required" }, { status: 400 });
     }
 
-    await Payroll.findByIdAndDelete(id);
+    const user = await getUserFromCookies();
+    const payroll = await Payroll.findById(id);
+    if (!payroll) {
+      return NextResponse.json({ success: false, message: "Payroll entry not found" }, { status: 404 });
+    }
+
+    payroll.isDeleted = true;
+    payroll.deletedAt = new Date();
+    payroll.deletedBy = (user as any)?._id || null;
+    await payroll.save();
+
+    await logAuditEntry({
+      collectionName: "payroll",
+      docId: payroll._id,
+      action: "SOFT_DELETE",
+      changedFields: [{ field: "isDeleted", oldValue: false, newValue: true }],
+      userId: (user as any)?._id
+    });
+
     return NextResponse.json({ success: true, message: "Payroll entry deleted successfully" });
   } catch (error: any) {
     console.error("Error in DELETE /api/payroll:", error);

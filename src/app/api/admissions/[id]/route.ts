@@ -10,6 +10,9 @@ import Enquiry from "@/models/Enquiry";
 import Notification from "@/models/Notification";
 import { getUserFromCookies } from "@/lib/helper";
 import { getFinancialYear, getFinancialYearRange } from "@/lib/financialYearHelper";
+import { syncAdmissionRefs } from "@/lib/referenceHelper";
+import { getStudentBalance } from "@/lib/studentBalanceService";
+import { logAuditEntry, diffAndLogAudit } from "@/lib/auditLogger";
 
 export async function GET(
   req: Request,
@@ -74,6 +77,16 @@ export async function GET(
       studentName: (admission as any).fullName || p.studentName,
       originalIssuedName: p.studentName,
     }));
+
+    // Authoritatively compute true balance from payment collection
+    try {
+      const balanceInfo = await getStudentBalance(admission._id);
+      (admission as any).remainingBalance = balanceInfo.remainingBalance;
+      (admission as any).amountReceivedToday = balanceInfo.totalPaid;
+    } catch (balErr) {
+      console.warn("[Admissions API] getStudentBalance notice:", balErr);
+    }
+
     const tasks = await Task.find({
       $or: [
         { linkedStudentId: id },
@@ -238,22 +251,14 @@ export async function PUT(
     }
 
     let assignedBatchName = body.batch !== undefined ? body.batch.trim() : existingDoc.batch;
-    let assignedBatchId = body.batchId !== undefined ? body.batchId.trim() : existingDoc.batchId;
+    let assignedBatchId = body.batchId !== undefined ? body.batchId : existingDoc.batchId;
 
     if (body.batch === "Unassigned" || body.batch === "General Batch" || body.batch === "" || body.batch === null || body.batchId === "" || body.batchId === null) {
       assignedBatchName = "Unassigned";
-      assignedBatchId = "";
-
-      try {
-        const Batch = (await import("@/models/Batch")).default;
-        await Batch.updateMany(
-          {},
-          { $pull: { students: { $in: [existingDoc.admissionId, existingDoc._id.toString(), existingDoc.fullName] } } }
-        );
-      } catch (_) {}
-    } else if (body.batchId && body.batchId.trim()) {
+      assignedBatchId = null;
+    } else if (body.batchId && String(body.batchId).trim()) {
       const Batch = (await import("@/models/Batch")).default;
-      const trimmedBId = body.batchId.trim();
+      const trimmedBId = String(body.batchId).trim();
       const bQuery: any[] = [{ batchId: trimmedBId }];
       if (mongoose.Types.ObjectId.isValid(trimmedBId)) {
         bQuery.push({ _id: new mongoose.Types.ObjectId(trimmedBId) });
@@ -261,13 +266,13 @@ export async function PUT(
       const batchDoc = await Batch.findOne({ $or: bQuery }).lean();
       if (batchDoc) {
         assignedBatchName = batchDoc.batchName;
-        assignedBatchId = batchDoc.batchId || batchDoc._id.toString();
+        assignedBatchId = batchDoc._id;
       }
     } else if (body.batch && body.batch !== "Unassigned" && body.batch !== "General Batch") {
       const Batch = (await import("@/models/Batch")).default;
       const matchingBatches = await Batch.find({ batchName: body.batch.trim() }).lean();
       if (matchingBatches.length === 1) {
-        assignedBatchId = matchingBatches[0].batchId || matchingBatches[0]._id.toString();
+        assignedBatchId = matchingBatches[0]._id;
         assignedBatchName = matchingBatches[0].batchName;
       }
     }
@@ -288,7 +293,7 @@ export async function PUT(
       });
     }
 
-    const updatePayload = {
+    const updatePayload: any = {
       fullName: body.fullName !== undefined ? body.fullName.trim() : existingDoc.fullName,
       mobileNumber: body.mobileNumber !== undefined ? body.mobileNumber.trim() : existingDoc.mobileNumber,
       email: body.email !== undefined ? body.email.trim() : existingDoc.email,
@@ -343,12 +348,31 @@ export async function PUT(
       };
     }
 
-    // 5. Audit log student name changes before applying write
+    // 5. Audit log student name changes and sensitive fields before applying write
     const isNameChanging = body.fullName !== undefined && body.fullName.trim() !== (existingDoc.fullName || "").trim();
     if (isNameChanging) {
-      const userId = (user as any)?._id || (user as any)?.id || (user as any)?.email || "unknown";
-      console.info(`[AUDIT] Student name updated for admissionId: ${existingDoc.admissionId || existingDoc._id} | Old Name: "${existingDoc.fullName}" | New Name: "${body.fullName.trim()}" | User ID: ${userId}`);
+      const userId = (user as any)?._id || (user as any)?.id || null;
+      await logAuditEntry({
+        collectionName: "admissions",
+        docId: existingDoc._id,
+        action: "UPDATE",
+        changedFields: [{
+          field: "fullName",
+          oldValue: existingDoc.fullName,
+          newValue: body.fullName.trim()
+        }],
+        userId
+      });
     }
+
+    await diffAndLogAudit({
+      collectionName: "admissions",
+      docId: existingDoc._id,
+      action: "UPDATE",
+      oldDoc: typeof existingDoc.toObject === "function" ? existingDoc.toObject() : existingDoc,
+      newDoc: { ...(typeof existingDoc.toObject === "function" ? existingDoc.toObject() : existingDoc), ...updatePayload },
+      userId: (user as any)?._id
+    });
 
     // Re-balance company collected revenue parameters if company assigned or final fee changes
     const oldCompany = (existingDoc.companyAssigned || "").trim();
@@ -373,8 +397,12 @@ export async function PUT(
         if (isOldValidComp && isNewValidComp && oldCompany.toLowerCase() === newCompany.toLowerCase()) {
           const feeDiff = newFee - oldFee;
           if (feeDiff !== 0) {
-            const compRegex = new RegExp(`^${escapeRegExp(newCompany)}$`, "i");
-            const comp = await Company.findOne({ $or: [{ name: { $regex: compRegex } }, { legalName: { $regex: compRegex } }] }).session(session);
+            const compTargetId = updatePayload.companyId || existingDoc.companyId;
+            let comp = compTargetId ? await Company.findById(compTargetId).session(session) : null;
+            if (!comp) {
+              const compRegex = new RegExp(`^${escapeRegExp(newCompany)}$`, "i");
+              comp = await Company.findOne({ $or: [{ name: { $regex: compRegex } }, { legalName: { $regex: compRegex } }] }).session(session);
+            }
             if (comp) {
               if (comp.currentFinancialYear === admFY || (!comp.currentFinancialYear && admFY === currentFY)) {
                 comp.collectedRevenue = Math.max(0, (comp.collectedRevenue || 0) + feeDiff);
@@ -385,16 +413,22 @@ export async function PUT(
           }
         } else {
           if (isOldValidComp && oldFee > 0) {
-            const oldCompRegex = new RegExp(`^${escapeRegExp(oldCompany)}$`, "i");
-            const oldComp = await Company.findOne({ $or: [{ name: { $regex: oldCompRegex } }, { legalName: { $regex: oldCompRegex } }] }).session(session);
+            let oldComp = existingDoc.companyId ? await Company.findById(existingDoc.companyId).session(session) : null;
+            if (!oldComp) {
+              const oldCompRegex = new RegExp(`^${escapeRegExp(oldCompany)}$`, "i");
+              oldComp = await Company.findOne({ $or: [{ name: { $regex: oldCompRegex } }, { legalName: { $regex: oldCompRegex } }] }).session(session);
+            }
             if (oldComp && (oldComp.currentFinancialYear === admFY || (!oldComp.currentFinancialYear && admFY === currentFY))) {
               oldComp.collectedRevenue = Math.max(0, (oldComp.collectedRevenue || 0) - oldFee);
               await oldComp.save({ session });
             }
           }
           if (isNewValidComp && newFee > 0) {
-            const newCompRegex = new RegExp(`^${escapeRegExp(newCompany)}$`, "i");
-            const newComp = await Company.findOne({ $or: [{ name: { $regex: newCompRegex } }, { legalName: { $regex: newCompRegex } }] }).session(session);
+            let newComp = updatePayload.companyId ? await Company.findById(updatePayload.companyId).session(session) : null;
+            if (!newComp) {
+              const newCompRegex = new RegExp(`^${escapeRegExp(newCompany)}$`, "i");
+              newComp = await Company.findOne({ $or: [{ name: { $regex: newCompRegex } }, { legalName: { $regex: newCompRegex } }] }).session(session);
+            }
             if (newComp) {
               if (newComp.currentFinancialYear === admFY) {
                 newComp.collectedRevenue = (newComp.collectedRevenue || 0) + newFee;
@@ -409,6 +443,7 @@ export async function PUT(
         }
 
         // A. Admission write inside transaction
+        await syncAdmissionRefs(updatePayload, session);
         updatedDoc = await Admission.findOneAndUpdate({ _id: existingDoc._id }, updatePayload, { new: true, session });
 
         // B. Reconcile registration payment date and particulars if registration amount changed.
@@ -427,7 +462,9 @@ export async function PUT(
             }
           }
           if (updatedDoc?.brand) firstPayment.brand = updatedDoc.brand;
+          if (updatedDoc?.brandId) firstPayment.brandId = updatedDoc.brandId;
           if (updatedDoc?.companyAssigned) firstPayment.company = updatedDoc.companyAssigned;
+          if (updatedDoc?.companyId) firstPayment.companyId = updatedDoc.companyId;
           await firstPayment.save({ session });
         } else if (effectiveRegAmt > 0) {
           const newRegPayment = new Payment({
@@ -437,7 +474,9 @@ export async function PUT(
             paymentMode: updatedDoc?.paymentMode || existingDoc.paymentMode || "Cash",
             referenceNo: updatedDoc?.transactionNo || existingDoc.transactionNo || "N/A",
             company: updatedDoc?.companyAssigned || existingDoc.companyAssigned || "Cash",
+            companyId: updatedDoc?.companyId || existingDoc.companyId,
             brand: updatedDoc?.brand || existingDoc.brand || "Cadd Mantra",
+            brandId: updatedDoc?.brandId || existingDoc.brandId,
             paymentDate: currentAdmDate,
             particulars: {
               courseFeeDue: 0,
@@ -460,6 +499,10 @@ export async function PUT(
           if (updatedDoc?.fullName) enqUpdatePayload.studentFullName = updatedDoc.fullName;
           if (updatedDoc?.mobileNumber) enqUpdatePayload.primaryPhoneMobile = updatedDoc.mobileNumber;
           if (updatedDoc?.email) enqUpdatePayload.emailAddress = updatedDoc.email;
+          if (updatedDoc?.counsellor) enqUpdatePayload.assignedCrmAdvisor = updatedDoc.counsellor;
+          if (updatedDoc?.counsellorId) enqUpdatePayload.assignedCrmAdvisorId = updatedDoc.counsellorId;
+          if (updatedDoc?.brand) enqUpdatePayload.targetBrand = updatedDoc.brand;
+          if (updatedDoc?.brandId) enqUpdatePayload.targetBrandId = updatedDoc.brandId;
           if (updatedDoc?.parentName || updatedDoc?.parentsFullName) {
             enqUpdatePayload.parentsFullName = updatedDoc.parentName || updatedDoc.parentsFullName;
           }
@@ -493,6 +536,27 @@ export async function PUT(
             },
             { $set: { linkedStudentName: updatedDoc.fullName } },
             { session }
+          );
+        }
+
+        // E. Interim Cascade Bridge (Prompt 1 Extension - Req 5):
+        // Until Phase 4 is complete, updates to Admission must also update the linked Student record.
+        const targetStudentId = updatedDoc?.studentId || existingDoc?.studentId;
+        if (targetStudentId) {
+          const { syncPrompt1CascadeToStudent } = await import("@/lib/studentHelper");
+          await syncPrompt1CascadeToStudent(
+            targetStudentId,
+            {
+              fullName: updatedDoc?.fullName,
+              mobileNumber: updatedDoc?.mobileNumber,
+              email: updatedDoc?.email,
+              city: updatedDoc?.city,
+              parentName: updatedDoc?.parentName,
+              parentsFullName: updatedDoc?.parentsFullName,
+              parentPhone: updatedDoc?.parentPhone,
+              parentsPhoneNumber: updatedDoc?.parentsPhoneNumber,
+            },
+            session
           );
         }
       });
@@ -554,7 +618,7 @@ export async function DELETE(
       return NextResponse.json({ success: false, message: "Student record not found or already deleted" }, { status: 404 });
     }
 
-    // 1. Delete associated Payment Receipts
+    // 1. Soft delete associated Payment Receipts
     const paymentDeleteConditions: any[] = [
       { admissionId: admission._id },
       { studentName: admission.fullName },
@@ -563,7 +627,10 @@ export async function DELETE(
     if (id && mongoose.Types.ObjectId.isValid(id) && id !== admission._id.toString()) {
       paymentDeleteConditions.push({ admissionId: new mongoose.Types.ObjectId(id) });
     }
-    await Payment.deleteMany({ $or: paymentDeleteConditions });
+    await Payment.updateMany(
+      { $or: paymentDeleteConditions },
+      { $set: { isDeleted: true, deletedAt: new Date(), deletedBy: (user as any)?._id || null } }
+    );
 
     // 2. Delete associated Tasks (SOP tasks, followups, EMI reminders)
     await Task.deleteMany({
@@ -638,8 +705,19 @@ export async function DELETE(
       await Notification.deleteMany({ message: { $regex: nameRegex } });
     }
 
-    // 7. Delete main Admission record
-    await Admission.findOneAndDelete(admFilter);
+    // 7. Soft delete main Admission record
+    admission.isDeleted = true;
+    admission.deletedAt = new Date();
+    admission.deletedBy = (user as any)?._id || null;
+    await admission.save();
+
+    await logAuditEntry({
+      collectionName: "admissions",
+      docId: admission._id,
+      action: "SOFT_DELETE",
+      changedFields: [{ field: "isDeleted", oldValue: false, newValue: true }],
+      userId: (user as any)?._id
+    });
 
     return NextResponse.json({ success: true, message: "Student record and all associated payments, tasks, attendance, and receipts deleted successfully." });
   } catch (error: any) {

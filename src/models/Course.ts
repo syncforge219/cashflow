@@ -18,6 +18,10 @@ const CourseSchema = new Schema(
       required: [true, "Brand is required"],
       trim: true,
     },
+    brandId: {
+      type: Schema.Types.ObjectId,
+      ref: "Brand",
+    },
     category: {
       type: String,
       required: [true, "Category is required"],
@@ -54,9 +58,29 @@ const CourseSchema = new Schema(
   }
 );
 
+import { syncCourseRefs } from "@/lib/referenceHelper";
+
+CourseSchema.index({ brandId: 1, status: 1 });
+CourseSchema.index({ brandId: 1 });
+
+CourseSchema.pre("save", async function () {
+  const session = this.$session?.();
+  await syncCourseRefs(this, session);
+});
+
+CourseSchema.pre(["findOneAndUpdate", "updateOne"], async function () {
+  const update = this.getUpdate() as any;
+  if (update) {
+    const session = this.getOptions()?.session;
+    const target = update.$set || update;
+    await syncCourseRefs(target, session);
+  }
+});
+
 if (mongoose.models.Course) {
   delete mongoose.models.Course;
 }
 const Course = mongoose.model("Course", CourseSchema);
 
 export default Course;
+

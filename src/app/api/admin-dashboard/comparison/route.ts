@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
 import Enquiry from "@/models/Enquiry";
 import Admission from "@/models/Admission";
 import Payment from "@/models/Payment";
 import Expense from "@/models/Expense";
+import Brand from "@/models/Brand";
 
 export async function GET(req: Request) {
   try {
@@ -27,6 +29,16 @@ export async function GET(req: Request) {
             "i"
           )
         : null;
+
+    let targetBrandId: any = null;
+    if (isBrandFiltered && brandParam) {
+      const brandDoc = (mongoose.Types.ObjectId.isValid(brandParam)
+        ? await Brand.findById(brandParam).lean()
+        : await Brand.findOne({ $or: [{ name: brandRegex }, { code: brandRegex }] }).lean()) as any;
+      if (brandDoc) {
+        targetBrandId = brandDoc._id;
+      }
+    }
 
     const now = new Date();
 
@@ -110,22 +122,22 @@ export async function GET(req: Request) {
 
       const enquiryFilter: any = {
         createdAt: dateFilter,
-        ...(brandRegex ? { targetBrand: brandRegex } : {}),
+        ...(isBrandFiltered ? (targetBrandId ? { $or: [{ targetBrandId }, { targetBrand: brandRegex }] } : { targetBrand: brandRegex }) : {}),
       };
 
       const admissionFilter: any = {
         createdAt: dateFilter,
-        ...(brandRegex ? { brand: brandRegex } : {}),
+        ...(isBrandFiltered ? (targetBrandId ? { $or: [{ brandId: targetBrandId }, { brand: brandRegex }] } : { brand: brandRegex }) : {}),
       };
 
       const paymentFilter: any = {
         createdAt: dateFilter,
-        ...(brandRegex ? { brand: brandRegex } : {}),
+        ...(isBrandFiltered ? (targetBrandId ? { $or: [{ brandId: targetBrandId }, { brand: brandRegex }] } : { brand: brandRegex }) : {}),
       };
 
       const expenseFilter: any = {
         expenseDate: dateFilter,
-        ...(brandRegex ? { brand: brandRegex } : {}),
+        ...(isBrandFiltered ? (targetBrandId ? { $or: [{ brandId: targetBrandId }, { brand: brandRegex }] } : { brand: brandRegex }) : {}),
       };
 
       const [leadsList, admissionsList, paymentsList, expensesList] = await Promise.all([

@@ -4,6 +4,7 @@ import dbConnect from "@/lib/db";
 import User from "@/models/User";
 import Session from "@/models/Session";
 import { verifyJWT } from "@/lib/jwt";
+import { setRequestContextUser } from "@/lib/requestContext";
 
 export const SESSION_COOKIE_NAME = "token";
 export const SESSION_DURATION_SECONDS = 3600 * 24 * 365 * 10; // 10 years persistent login duration
@@ -57,7 +58,16 @@ export async function getRawSessionToken(): Promise<string | null> {
 }
 
 /**
+ * Computes SHA-256 hash of a session token for secure storage at rest.
+ */
+export function hashSessionToken(token: string): string {
+  if (!token) return "";
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+/**
  * Creates a new database session for the given user ID.
+ * Stores only the SHA-256 hash in the database while returning the raw token to the client.
  * Invalidates old sessions for the user to prevent session fixation.
  */
 export async function createSession(userId: string, expiresInSeconds: number = SESSION_DURATION_SECONDS) {
@@ -66,31 +76,37 @@ export async function createSession(userId: string, expiresInSeconds: number = S
   // Clean up any pre-existing sessions for this user (session fixation prevention)
   await Session.deleteMany({ userId });
 
-  // Generate high-entropy random session identifier
-  const sessionToken = crypto.randomBytes(32).toString("hex");
+  // Generate high-entropy random session identifier (sent to client)
+  const rawSessionToken = crypto.randomBytes(32).toString("hex");
+  const tokenHash = hashSessionToken(rawSessionToken);
   const expiresAt = new Date(Date.now() + expiresInSeconds * 1000);
 
   const newSession = await Session.create({
     userId,
-    sessionToken,
+    sessionToken: tokenHash,
+    token: tokenHash,
     expiresAt,
   });
 
   return {
-    sessionToken,
+    sessionToken: rawSessionToken,
+    token: rawSessionToken,
     expiresAt,
     session: newSession,
   };
 }
 
 /**
- * Destroys/invalidates a session by deleting it from MongoDB.
+ * Destroys/invalidates a session by deleting its SHA-256 hash from MongoDB.
  */
 export async function destroySession(sessionToken?: string | null) {
   if (!sessionToken) return;
   try {
     await dbConnect();
-    await Session.deleteOne({ sessionToken });
+    const tokenHash = hashSessionToken(sessionToken);
+    await Session.deleteOne({
+      $or: [{ sessionToken: tokenHash }, { token: tokenHash }, { sessionToken }],
+    });
   } catch (error) {
     console.error("Error destroying session:", error);
   }
@@ -98,6 +114,7 @@ export async function destroySession(sessionToken?: string | null) {
 
 /**
  * Validates session token and returns the authenticated User document and Session.
+ * Compares SHA-256 hash of the incoming token against the stored hash.
  */
 export async function getAuthenticatedUserAndSession(): Promise<{
   user: AuthenticatedUser | null;
@@ -111,8 +128,11 @@ export async function getAuthenticatedUserAndSession(): Promise<{
 
     await dbConnect();
 
-    // 1. Try finding database session by token
-    let dbSession = await Session.findOne({ sessionToken: token });
+    // 1. Find database session by SHA-256 hash (with fallback to legacy plain token)
+    const tokenHash = hashSessionToken(token);
+    let dbSession = await Session.findOne({
+      $or: [{ sessionToken: tokenHash }, { token: tokenHash }, { sessionToken: token }],
+    });
 
     if (dbSession) {
       // Check expiration
@@ -136,6 +156,7 @@ export async function getAuthenticatedUserAndSession(): Promise<{
         ...(dbUser as any),
         id: dbUser._id.toString(),
       };
+      setRequestContextUser(normalizedUser);
 
       return { user: normalizedUser, session: dbSession };
     }
@@ -153,6 +174,7 @@ export async function getAuthenticatedUserAndSession(): Promise<{
             ...(dbUser as any),
             id: dbUser._id.toString(),
           };
+          setRequestContextUser(normalizedUser);
           return { user: normalizedUser, session: newSession };
         }
       }
@@ -176,3 +198,5 @@ export async function getAuthenticatedUser(): Promise<AuthenticatedUser | null> 
   const { user } = await getAuthenticatedUserAndSession();
   return user;
 }
+
+export const getUserFromCookies = getAuthenticatedUser;

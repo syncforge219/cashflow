@@ -1,4 +1,5 @@
 import mongoose, { Schema } from "mongoose";
+import { encryptField } from "@/lib/encryption";
 
 const SoftwareSchema = new Schema(
   {
@@ -11,6 +12,11 @@ const SoftwareSchema = new Schema(
       type: String,
       trim: true,
       default: "",
+    },
+    licenseKey: {
+      type: String,
+      trim: true,
+      select: false,
     },
     techUsed: [
       {
@@ -38,6 +44,23 @@ const SoftwareSchema = new Schema(
     timestamps: true,
   }
 );
+
+// Automatically encrypt licenseKey at rest before save
+SoftwareSchema.pre("save", async function () {
+  if (this.licenseKey && typeof this.licenseKey === "string") {
+    this.licenseKey = encryptField(this.licenseKey) || this.licenseKey;
+  }
+});
+
+SoftwareSchema.pre(["findOneAndUpdate", "updateOne"], async function () {
+  const update = this.getUpdate() as any;
+  if (update) {
+    const target = update.$set || update;
+    if (target.licenseKey && typeof target.licenseKey === "string") {
+      target.licenseKey = encryptField(target.licenseKey) || target.licenseKey;
+    }
+  }
+});
 
 if (mongoose.models && mongoose.models.Software) {
   delete (mongoose.models as any).Software;

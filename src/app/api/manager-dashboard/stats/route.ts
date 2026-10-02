@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
 import Enquiry from "@/models/Enquiry";
 import Admission from "@/models/Admission";
 import Payment from "@/models/Payment";
 import User from "@/models/User";
 import Company from "@/models/Company";
+import Brand from "@/models/Brand";
 import { getUserFromCookies } from "@/lib/helper";
 
 export async function GET(req: Request) {
@@ -65,30 +67,51 @@ export async function GET(req: Request) {
     const admissionQuery: any = {};
     const companyQuery: any = {};
 
-    if (allowedBrands) {
-      if (filterByBrand && allowedBrands.some(b => b.toLowerCase() === selectedBrand!.toLowerCase())) {
-        enquiryQuery.targetBrand = { $regex: new RegExp(`^${selectedBrand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
-        admissionQuery.brand = { $regex: new RegExp(`^${selectedBrand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
-        companyQuery.brand = { $regex: new RegExp(`^${selectedBrand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
-      } else {
-        const regexArray = allowedBrands.map(b => new RegExp(`^${b.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'));
-        enquiryQuery.targetBrand = { $in: regexArray };
-        admissionQuery.brand = { $in: regexArray };
-        companyQuery.brand = { $in: regexArray };
-      }
-    } else if (filterByBrand) {
-      enquiryQuery.targetBrand = { $regex: new RegExp(`^${selectedBrand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
-      admissionQuery.brand = { $regex: new RegExp(`^${selectedBrand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
-      companyQuery.brand = { $regex: new RegExp(`^${selectedBrand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
+    const effectiveBrands = filterByBrand
+      ? (allowedBrands && !allowedBrands.some(b => b.toLowerCase() === selectedBrand!.toLowerCase()) ? allowedBrands : [selectedBrand!])
+      : (allowedBrands || []);
+
+    let brandIds: any[] = [];
+    let regexArray: RegExp[] = [];
+
+    if (effectiveBrands.length > 0) {
+      const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      regexArray = effectiveBrands.map((b: any) => new RegExp(`^${escapeRegExp(String(b).trim())}$`, 'i'));
+      const brandDocs = await Brand.find({
+        $or: [
+          { name: { $in: regexArray } },
+          { code: { $in: regexArray } },
+          { _id: { $in: effectiveBrands.filter((b: any) => mongoose.Types.ObjectId.isValid(b)) } }
+        ]
+      }).select("_id").lean();
+      brandIds = brandDocs.map((b: any) => b._id);
+
+      enquiryQuery.$or = [
+        ...(brandIds.length > 0 ? [{ targetBrandId: { $in: brandIds } }] : []),
+        { targetBrand: { $in: regexArray } }
+      ];
+      admissionQuery.$or = [
+        ...(brandIds.length > 0 ? [{ brandId: { $in: brandIds } }] : []),
+        { brand: { $in: regexArray } }
+      ];
+      companyQuery.$or = [
+        { brand: { $in: regexArray } }
+      ];
     }
 
     if (isFiltered) {
       enquiryQuery.createdAt = dateRangeFilter;
-      admissionQuery.$or = [
+      const admDateOr = [
         { admissionDate: dateRangeFilter },
         { $and: [{ admissionDate: { $exists: false } }, { createdAt: dateRangeFilter }] },
         { $and: [{ admissionDate: null }, { createdAt: dateRangeFilter }] }
       ];
+      if (admissionQuery.$or) {
+        admissionQuery.$and = [{ $or: admissionQuery.$or }, { $or: admDateOr }];
+        delete admissionQuery.$or;
+      } else {
+        admissionQuery.$or = admDateOr;
+      }
     }
 
     // 1. KPI Calculations
@@ -118,15 +141,17 @@ export async function GET(req: Request) {
 
     // Total collections from Payment model
     const paymentQuery: any = {};
-    const effectiveBrands = filterByBrand ? [selectedBrand!] : allowedBrands;
 
     if (effectiveBrands && effectiveBrands.length > 0) {
-      const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regexArray = effectiveBrands.map((b) => new RegExp(`^${escapeRegExp(b.trim())}$`, "i"));
-      const brandAdmissions = await Admission.find({ brand: { $in: regexArray } }).select("_id").lean();
+      const brandAdmissions = await Admission.find(
+        brandIds.length > 0
+          ? { $or: [{ brandId: { $in: brandIds } }, { brand: { $in: regexArray } }] }
+          : { brand: { $in: regexArray } }
+      ).select("_id").lean();
       const brandAdmissionIds = brandAdmissions.map((a: any) => a._id);
 
       paymentQuery.$or = [
+        ...(brandIds.length > 0 ? [{ brandId: { $in: brandIds } }] : []),
         { brand: { $in: regexArray } },
         { admissionId: { $in: brandAdmissionIds } }
       ];
@@ -231,7 +256,7 @@ export async function GET(req: Request) {
       delete dayAdmissionQuery.createdAt;
       delete dayAdmissionQuery.$or;
 
-      const [dayNewLeads, dayAdmissions, dayLostDoc] = await Promise.all([
+      const [dayNewLeads, dayAdmissions, dayLostCount] = await Promise.all([
         Enquiry.countDocuments({ ...dayEnquiryQuery, createdAt: { $gte: dayStart, $lte: dayEnd } }),
         Admission.countDocuments({
           ...dayAdmissionQuery,
@@ -241,14 +266,21 @@ export async function GET(req: Request) {
             { $and: [{ admissionDate: null }, { createdAt: { $gte: dayStart, $lte: dayEnd } }] }
           ]
         }),
-        import("@/models/LostLeadCounter").then((m) => m.default.findOne({ date: dayStr }).lean())
+        Enquiry.countDocuments({
+          ...dayEnquiryQuery,
+          status: "Lost",
+          $or: [
+            { updatedAt: { $gte: dayStart, $lte: dayEnd } },
+            { createdAt: { $gte: dayStart, $lte: dayEnd } }
+          ]
+        })
       ]);
 
       trendDays.push({
         dateLabel: dayLabel,
         newLeads: dayNewLeads,
         admissions: dayAdmissions,
-        lostLeads: dayLostDoc ? dayLostDoc.count : 0
+        lostLeads: dayLostCount
       });
 
       curDate.setDate(curDate.getDate() + 1);
@@ -276,14 +308,18 @@ export async function GET(req: Request) {
       counsellors.map(async (c: any, index) => {
         const cName = c.name;
         const cAdmissions = admissionsList.filter((a: any) => 
-          (a.counsellor || "").trim().toLowerCase() === (cName || "").trim().toLowerCase()
+          (a.counsellorId && String(a.counsellorId) === String(c._id)) ||
+          ((a.counsellor || "").trim().toLowerCase() === (cName || "").trim().toLowerCase())
         );
         const admCount = cAdmissions.length;
         const revSum = cAdmissions.reduce((acc: number, cur: any) => acc + Number(cur.finalFee || 0), 0);
         
         const totalAssignedEnquiries = await Enquiry.countDocuments({
           ...enquiryQuery,
-          assignedCrmAdvisor: cName
+          $or: [
+            { assignedCrmAdvisorId: c._id },
+            { assignedCrmAdvisor: cName }
+          ]
         });
 
         const convRate = totalAssignedEnquiries > 0 

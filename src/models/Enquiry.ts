@@ -1,10 +1,17 @@
 import mongoose, { Schema } from "mongoose";
+import { softDeletePlugin } from "@/lib/softDeletePlugin";
 
 const EnquirySchema = new Schema(
   {
     enquiryId: {
       type: String,
       unique: true,
+    },
+    studentId: {
+      type: Schema.Types.ObjectId,
+      ref: "Student",
+      index: true,
+      default: null,
     },
     date: {
       type: String,
@@ -38,6 +45,10 @@ const EnquirySchema = new Schema(
     targetBrand: {
       type: String,
     },
+    targetBrandId: {
+      type: Schema.Types.ObjectId,
+      ref: "Brand",
+    },
     targetCourse: {
       type: String,
       trim: true,
@@ -60,6 +71,10 @@ const EnquirySchema = new Schema(
     },
     assignedCrmAdvisor: {
       type: String,
+    },
+    assignedCrmAdvisorId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
     },
     leadSource: {
       type: String,
@@ -183,6 +198,11 @@ const EnquirySchema = new Schema(
 import { getNextSequence } from "@/lib/sequenceHelper";
 
 // Performance & Compound Indexes
+EnquirySchema.index({ targetBrandId: 1, createdAt: -1 });
+EnquirySchema.index({ targetBrandId: 1, status: 1, createdAt: -1 });
+EnquirySchema.index({ assignedCrmAdvisorId: 1, status: 1 });
+EnquirySchema.index({ targetBrandId: 1 });
+EnquirySchema.index({ assignedCrmAdvisorId: 1 });
 EnquirySchema.index({ targetBrand: 1, createdAt: -1 });
 EnquirySchema.index({ targetBrand: 1, status: 1, createdAt: -1 });
 EnquirySchema.index({ assignedCrmAdvisor: 1, status: 1 });
@@ -192,24 +212,55 @@ EnquirySchema.index({ targetBrand: 1 });
 EnquirySchema.index({ createdAt: -1 });
 EnquirySchema.index({ primaryPhoneMobile: 1 });
 
-// Atomic Auto-generate enquiryId before saving if not present
-EnquirySchema.pre("save", async function () {
-  if (!this.enquiryId) {
-    this.enquiryId = await getNextSequence("enquiryId", "ENQ", 6, async () => {
-      const lastEnquiry = await mongoose.models.Enquiry.findOne({
-        enquiryId: /^ENQ\d+$/
-      }).sort({ enquiryId: -1 });
+import { syncEnquiryRefs } from "@/lib/referenceHelper";
+import { findOrCreateStudentForEnquiry } from "@/lib/studentHelper";
 
-      if (lastEnquiry && lastEnquiry.enquiryId) {
-        const match = lastEnquiry.enquiryId.match(/^ENQ(\d+)$/);
-        if (match) {
-          return parseInt(match[1], 10);
+// Atomic Auto-generate enquiryId before saving if not present using document's transaction session
+EnquirySchema.pre("save", async function () {
+  const session = this.$session();
+
+  // Dual-write synchronization between strings and ObjectIds
+  await syncEnquiryRefs(this, session);
+
+  if (this.isNew && !this.studentId) {
+    this.studentId = await findOrCreateStudentForEnquiry(this, session);
+  }
+
+  if (!this.enquiryId) {
+    this.enquiryId = await getNextSequence(
+      "enquiryId",
+      "ENQ",
+      6,
+      async () => {
+        const query = mongoose.models.Enquiry.findOne({
+          enquiryId: /^ENQ\d+$/
+        }).sort({ enquiryId: -1 });
+        if (session) query.session(session);
+        const lastEnquiry = await query;
+
+        if (lastEnquiry && lastEnquiry.enquiryId) {
+          const match = lastEnquiry.enquiryId.match(/^ENQ(\d+)$/);
+          if (match) {
+            return parseInt(match[1], 10);
+          }
         }
-      }
-      return 0;
-    });
+        return 0;
+      },
+      session
+    );
   }
 });
+
+EnquirySchema.pre(["findOneAndUpdate", "updateOne"], async function () {
+  const update = this.getUpdate() as any;
+  if (update) {
+    const session = this.getOptions()?.session;
+    const target = update.$set || update;
+    await syncEnquiryRefs(target, session);
+  }
+});
+
+EnquirySchema.plugin(softDeletePlugin);
 
 // Clear the mongoose model if it already exists to fix Next.js HMR caching old hooks
 if (mongoose.models.Enquiry) {
@@ -218,3 +269,4 @@ if (mongoose.models.Enquiry) {
 const Enquiry = mongoose.model("Enquiry", EnquirySchema);
 
 export default Enquiry;
+

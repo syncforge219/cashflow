@@ -3,6 +3,7 @@ import dbConnect from "@/lib/db";
 import Enquiry from "@/models/Enquiry";
 import Admission from "@/models/Admission";
 import { getUserFromCookies } from "@/lib/helper";
+import { studentBalanceLookupStages } from "@/lib/studentBalanceService";
 
 function escapeRegex(str: string) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -64,10 +65,12 @@ export async function GET(req: Request) {
       admissionSearchQuery.$and = [brandMatchCondition];
     }
 
-    const admissions = await Admission.find(admissionSearchQuery)
-      .sort({ createdAt: -1 })
-      .limit(50)
-      .lean();
+    const admissions = await Admission.aggregate([
+      { $match: admissionSearchQuery },
+      { $sort: { createdAt: -1 } },
+      { $limit: 50 },
+      ...studentBalanceLookupStages(),
+    ]);
 
     const formattedAdmissions = (admissions || []).map((admission: any) => ({
       ...admission,

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
+import mongoose from "mongoose";
 import Expense from "@/models/Expense";
+import Brand from "@/models/Brand";
+import Company from "@/models/Company";
 import { getUserFromCookies } from "@/lib/helper";
 import { generateExpensePdfBuffer } from "@/lib/pdfGenerator";
 
@@ -32,16 +35,33 @@ export async function GET(req: NextRequest) {
     }
 
     const query: any = {};
+    const andClauses: any[] = [];
     const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
     if (category && category !== "All") {
       query.category = { $regex: new RegExp(`^${escapeRegExp(category.trim())}$`, "i") };
     }
     if (brand && brand !== "All" && brand !== "All Brands") {
-      query.brand = { $regex: new RegExp(`^${escapeRegExp(brand.trim())}$`, "i") };
+      const bRegex = new RegExp(`^${escapeRegExp(brand.trim())}$`, "i");
+      const brandDoc = (mongoose.Types.ObjectId.isValid(brand)
+        ? await Brand.findById(brand).lean()
+        : await Brand.findOne({ $or: [{ name: bRegex }, { code: bRegex }] }).lean()) as any;
+      if (brandDoc) {
+        andClauses.push({ $or: [{ brandId: brandDoc._id }, { brand: bRegex }] });
+      } else {
+        andClauses.push({ brand: bRegex });
+      }
     }
     if (company && company !== "All" && company !== "All Companies") {
-      query.company = { $regex: new RegExp(`^${escapeRegExp(company.trim())}$`, "i") };
+      const cRegex = new RegExp(`^${escapeRegExp(company.trim())}$`, "i");
+      const compDoc = (mongoose.Types.ObjectId.isValid(company)
+        ? await Company.findById(company).lean()
+        : await Company.findOne({ $or: [{ name: cRegex }, { legalName: cRegex }] }).lean()) as any;
+      if (compDoc) {
+        andClauses.push({ $or: [{ companyId: compDoc._id }, { company: cRegex }] });
+      } else {
+        andClauses.push({ company: cRegex });
+      }
     }
     if (startDate || endDate) {
       query.expenseDate = {};
@@ -67,6 +87,10 @@ export async function GET(req: NextRequest) {
         { paymentMode: sRegex },
         { bank: sRegex },
       ];
+    }
+
+    if (andClauses.length > 0) {
+      query.$and = andClauses;
     }
 
     const expenses = await Expense.find(query).sort({ expenseDate: -1, createdAt: -1 }).lean();

@@ -10,6 +10,10 @@ import { getUserFromCookies } from "@/lib/helper";
 import { sendWhatsAppFeeReceipt, sendWhatsAppCompanyCapacityAlert, sendWhatsAppCompanyLimit80Alert } from "@/lib/msg91";
 import { sendFeePaymentReceiptEmail } from "@/lib/emailService";
 import { getFinancialYear, getFinancialYearRange } from "@/lib/financialYearHelper";
+import { getCompanyPaymentRevenueMap, getCompanyFyRevenue } from "@/lib/companyRevenueHelper";
+import { getStudentBalance, recomputeAndStoreAdmissionBalance } from "@/lib/studentBalanceService";
+import { logAuditEntry } from "@/lib/auditLogger";
+import { validateDeletedAccess } from "@/lib/softDeleteAccess";
 
 let paymentsReconciled = false;
 
@@ -19,6 +23,11 @@ export async function GET(req: Request) {
 
     const user = await getUserFromCookies();
     const { searchParams } = new URL(req.url);
+    const deletedAccess = validateDeletedAccess(user, searchParams);
+    if (deletedAccess.errorResponse) {
+      return deletedAccess.errorResponse;
+    }
+
     const admissionId = searchParams.get("admissionId");
     const brandParam = searchParams.get("brand");
     const companyParam = searchParams.get("company");
@@ -30,6 +39,10 @@ export async function GET(req: Request) {
     const isBrandRestricted = userBrand && userBrand !== "All Brands" && userBrand !== "All" && userBrand !== "*" && userBrand !== "global";
 
     const andConditions: any[] = [];
+
+    if (deletedAccess.onlyDeleted) {
+      andConditions.push({ isDeleted: true });
+    }
 
     if (admissionId) {
       if (mongoose.Types.ObjectId.isValid(admissionId)) {
@@ -49,13 +62,21 @@ export async function GET(req: Request) {
       const cleanComp = companyParam.trim();
       const compRegex = new RegExp(`^${escapeRegExp(cleanComp)}$`, "i");
 
-      const compAdmissions = await Admission.find({
-        companyAssigned: compRegex
-      }).select("_id").lean();
+      const compDoc = mongoose.Types.ObjectId.isValid(cleanComp)
+        ? await Company.findById(cleanComp).lean()
+        : await Company.findOne({ $or: [{ name: compRegex }, { legalName: compRegex }] }).lean();
+      const compId = compDoc?._id;
+
+      const compAdmissions = await Admission.find(
+        compId
+          ? { $or: [{ companyId: compId }, { companyAssigned: compRegex }] }
+          : { companyAssigned: compRegex }
+      ).select("_id").lean();
       const compAdmissionIds = compAdmissions.map((a: any) => a._id);
 
       andConditions.push({
         $or: [
+          ...(compId ? [{ companyId: compId }] : []),
           { company: compRegex },
           ...(compAdmissionIds.length > 0 ? [{ admissionId: { $in: compAdmissionIds } }] : [])
         ]
@@ -69,11 +90,26 @@ export async function GET(req: Request) {
       const targetBrandsArr = targetBrand.split(",").map((b: string) => b.trim()).filter(Boolean);
       const regexArray = targetBrandsArr.map((b: string) => new RegExp(`^${escapeRegExp(b)}$`, "i"));
 
-      const brandAdmissions = await Admission.find({ brand: { $in: regexArray } }).select("_id").lean();
+      const brandDocs = await Brand.find({
+        $or: [
+          { name: { $in: regexArray } },
+          { code: { $in: regexArray } },
+          { _id: { $in: targetBrandsArr.filter((b: any) => mongoose.Types.ObjectId.isValid(b)) } }
+        ]
+      }).select("_id").lean();
+      const brandIds = brandDocs.map(b => b._id);
+
+      const brandAdmissions = await Admission.find({
+        $or: [
+          ...(brandIds.length > 0 ? [{ brandId: { $in: brandIds } }] : []),
+          { brand: { $in: regexArray } }
+        ]
+      }).select("_id").lean();
       const brandAdmissionIds = brandAdmissions.map((a: any) => a._id);
 
       andConditions.push({
         $or: [
+          ...(brandIds.length > 0 ? [{ brandId: { $in: brandIds } }] : []),
           { brand: { $in: regexArray } },
           { admissionId: { $in: brandAdmissionIds } }
         ]
@@ -139,7 +175,9 @@ export async function GET(req: Request) {
     const query = andConditions.length > 0 ? { $and: andConditions } : {};
 
     let payments = await Payment.find(query)
-      .populate("admissionId", "fullName admissionId brand course batch counsellor mobileNumber remainingBalance finalFee admissionDate companyAssigned company")
+      .populate("admissionId", "fullName admissionId brand brandId course batch counsellor counsellorId mobileNumber remainingBalance finalFee admissionDate companyAssigned companyId company")
+      .populate("brandId", "name code")
+      .populate("companyId", "name legalName")
       .sort({ createdAt: -1 })
       .lean();
 
@@ -242,10 +280,11 @@ export async function POST(req: Request) {
           });
 
           if (availableCompanies.length > 0) {
-            const { label: currentFY } = getFinancialYearRange();
+            const fyRange = getFinancialYearRange();
+            const fyRevenueMap = await getCompanyPaymentRevenueMap(fyRange);
             const getRemCap = (c: any) => {
               const cap = Number(c.annualCapacityCap || 1949999);
-              const collected = c.currentFinancialYear === currentFY ? Number(c.collectedRevenue || 0) : 0;
+              const collected = fyRevenueMap.get(String(c._id)) || 0;
               return Math.max(0, cap - collected);
             };
 
@@ -278,8 +317,11 @@ export async function POST(req: Request) {
         // If changing company or allocating company for the first time
         if (oldCompany && oldCompany !== "Cash" && oldCompany !== "Unallocated" && oldCompany !== "Cash (Unallocated)") {
           // Unblock full fee from old company
-          const oldCompRegex = new RegExp(`^${escapeRegExp(oldCompany)}$`, "i");
-          const oldComp = await Company.findOne({ $or: [{ name: { $regex: oldCompRegex } }, { legalName: { $regex: oldCompRegex } }] });
+          let oldComp = admission.companyId ? await Company.findById(admission.companyId) : null;
+          if (!oldComp) {
+            const oldCompRegex = new RegExp(`^${escapeRegExp(oldCompany)}$`, "i");
+            oldComp = await Company.findOne({ $or: [{ name: { $regex: oldCompRegex } }, { legalName: { $regex: oldCompRegex } }] });
+          }
           if (oldComp && (oldComp.currentFinancialYear === admFY || (!oldComp.currentFinancialYear && admFY === currentFY))) {
             oldComp.collectedRevenue = Math.max(0, (oldComp.collectedRevenue || 0) - studentFullFee);
             await oldComp.save();
@@ -287,8 +329,12 @@ export async function POST(req: Request) {
         }
 
         // Block full fee in new company for current financial year
-        const compRegex = new RegExp(`^${escapeRegExp(finalCompany.trim())}$`, "i");
-        let updatedComp = await Company.findOne({ $or: [{ name: { $regex: compRegex } }, { legalName: { $regex: compRegex } }] });
+        const targetNewCompanyId = body.companyId || admission.companyId;
+        let updatedComp = targetNewCompanyId ? await Company.findById(targetNewCompanyId) : null;
+        if (!updatedComp) {
+          const compRegex = new RegExp(`^${escapeRegExp(finalCompany.trim())}$`, "i");
+          updatedComp = await Company.findOne({ $or: [{ name: { $regex: compRegex } }, { legalName: { $regex: compRegex } }] });
+        }
         if (updatedComp) {
           if (updatedComp.currentFinancialYear === admFY) {
             updatedComp.collectedRevenue = (updatedComp.collectedRevenue || 0) + studentFullFee;
@@ -332,59 +378,87 @@ export async function POST(req: Request) {
       admission.companyAssigned = finalCompany;
     }
 
-    // 2. Create the payment record
-    const payment = new Payment({
-      admissionId: admission._id,
-      studentName: admission.fullName,
-      amountReceived: Number(amountReceived),
-      paymentMode,
-      referenceNo,
-      remarks,
-      company: finalCompany,
-      brand: admission.brand,
-      particulars,
-    });
-    await payment.save();
+    // 2. Create the payment record & recompute admission balance inside transaction
+    const session = await mongoose.startSession();
+    let payment: any;
+    let newBalance = 0;
 
-    // 3. Update the admission balance, settle custom EMI plan installments, and update pending collection tasks
-    const receivedAmt = Number(amountReceived);
-    const newBalance = Math.max(0, admission.remainingBalance - receivedAmt);
-    admission.remainingBalance = newBalance;
+    await session.withTransaction(async () => {
+      payment = new Payment({
+        admissionId: admission._id,
+        studentName: admission.fullName,
+        amountReceived: Number(amountReceived),
+        paymentMode,
+        referenceNo,
+        remarks,
+        company: finalCompany,
+        companyId: admission.companyId,
+        brand: admission.brand,
+        brandId: admission.brandId,
+        particulars,
+      });
+      await payment.save({ session });
 
-    if (body.isDownpayment || particulars?.isDownpayment || particulars?.paymentCategory === "Down Payment" || (remarks && remarks.toLowerCase().includes("down payment"))) {
-      admission.downpaymentAmount = (Number(admission.downpaymentAmount) || 0) + receivedAmt;
-    }
+      // 3. Recompute balance strictly from payment aggregation inside transaction
+      const balanceResult = await getStudentBalance(admission._id, session);
+      newBalance = balanceResult.remainingBalance;
+      admission.remainingBalance = newBalance;
+      admission.amountReceivedToday = balanceResult.totalPaid;
 
-    // Synchronize custom EMI plan installments
-    if (Array.isArray(admission.customEmiPlan) && admission.customEmiPlan.length > 0) {
-      if (newBalance === 0) {
-        // Full fee paid off - mark all installments as paid
-        admission.customEmiPlan.forEach((item: any) => {
-          item.isPaid = true;
-          if (!item.paidDate) item.paidDate = new Date();
-        });
-      } else if (receivedAmt > 0) {
-        // Apply received payment chronologically against unpaid installments
-        let creditRemaining = receivedAmt;
-        for (const item of admission.customEmiPlan) {
-          if (creditRemaining <= 0) break;
-          if (!item.isPaid) {
-            const itemAmt = Number(item.amount) || 0;
-            if (creditRemaining >= itemAmt) {
-              item.isPaid = true;
-              item.paidDate = new Date();
-              creditRemaining -= itemAmt;
-            } else {
-              // Partial payment on this installment: reduce remaining amount due for this installment
-              item.amount = Math.max(0, itemAmt - creditRemaining);
-              creditRemaining = 0;
+      const receivedAmt = Number(amountReceived);
+      if (body.isDownpayment || particulars?.isDownpayment || particulars?.paymentCategory === "Down Payment" || (remarks && remarks.toLowerCase().includes("down payment"))) {
+        admission.downpaymentAmount = (Number(admission.downpaymentAmount) || 0) + receivedAmt;
+      }
+
+      // Synchronize custom EMI plan installments
+      if (Array.isArray(admission.customEmiPlan) && admission.customEmiPlan.length > 0) {
+        if (newBalance === 0) {
+          // Full fee paid off - mark all installments as paid
+          admission.customEmiPlan.forEach((item: any) => {
+            item.isPaid = true;
+            if (!item.paidDate) item.paidDate = new Date();
+          });
+        } else if (receivedAmt > 0) {
+          // Apply received payment chronologically against unpaid installments
+          let creditRemaining = receivedAmt;
+          for (const item of admission.customEmiPlan) {
+            if (creditRemaining <= 0) break;
+            if (!item.isPaid) {
+              const itemAmt = Number(item.amount) || 0;
+              if (creditRemaining >= itemAmt) {
+                item.isPaid = true;
+                item.paidDate = new Date();
+                creditRemaining -= itemAmt;
+              } else {
+                // Partial payment on this installment: reduce remaining amount due for this installment
+                item.amount = Math.max(0, itemAmt - creditRemaining);
+                creditRemaining = 0;
+              }
             }
           }
         }
       }
-    }
 
-    await admission.save();
+      await admission.save({ session });
+    });
+    await session.endSession();
+
+    if (payment?._id) {
+      await logAuditEntry({
+        collectionName: "payments",
+        docId: payment._id,
+        action: "CREATE",
+        changedFields: [
+          { field: "amountReceived", oldValue: null, newValue: payment.amountReceived },
+          { field: "paymentMode", oldValue: null, newValue: payment.paymentMode },
+          { field: "company", oldValue: null, newValue: payment.company },
+          { field: "companyId", oldValue: null, newValue: payment.companyId },
+          { field: "brand", oldValue: null, newValue: payment.brand },
+          { field: "brandId", oldValue: null, newValue: payment.brandId },
+        ],
+        userId: (user as any)?._id,
+      });
+    }
 
     // Auto-complete open fee follow-up tasks if remaining balance is fully cleared
     if (newBalance === 0) {
@@ -495,18 +569,18 @@ export async function PATCH(req: Request) {
       existingPayment.amountReceived = Number(body.amountReceived);
     }
 
-    await existingPayment.save();
+    const session = await mongoose.startSession();
+    await session.withTransaction(async () => {
+      await existingPayment.save({ session });
 
-    // Sync admission remaining balance if amount changed
-    const newAmount = Number(existingPayment.amountReceived) || 0;
-    const diff = newAmount - oldAmount;
-    if (diff !== 0 && existingPayment.admissionId) {
-      const admission = await Admission.findById(existingPayment.admissionId);
-      if (admission) {
-        admission.remainingBalance = Math.max(0, (Number(admission.remainingBalance) || 0) - diff);
-        await admission.save();
+      // Sync admission remaining balance if amount changed
+      const newAmount = Number(existingPayment.amountReceived) || 0;
+      const diff = newAmount - oldAmount;
+      if (diff !== 0 && existingPayment.admissionId) {
+        await recomputeAndStoreAdmissionBalance(existingPayment.admissionId, session);
       }
-    }
+    });
+    await session.endSession();
 
     return NextResponse.json({
       success: true,
@@ -554,8 +628,37 @@ export async function DELETE(req: Request) {
     const admissionId = payment.admissionId;
     const receiptNo = payment.receiptNo || "N/A";
 
-    // 1. Delete the Payment record
-    await Payment.findByIdAndDelete(id);
+    const user = await getUserFromCookies();
+    const userId = (user as any)?._id || null;
+
+    // 1. Soft delete payment & recompute admission balance inside transaction
+    let updatedAdmission: any = null;
+    const session = await mongoose.startSession();
+    await session.withTransaction(async () => {
+      payment.isDeleted = true;
+      payment.deletedAt = new Date();
+      payment.deletedBy = userId;
+      await payment.save({ session });
+
+      if (admissionId) {
+        await recomputeAndStoreAdmissionBalance(admissionId, session);
+        updatedAdmission = await Admission.findById(admissionId).session(session);
+
+        // If student has custom EMI plan, unmark the corresponding EMI installment
+        if (updatedAdmission && Array.isArray(updatedAdmission.customEmiPlan) && updatedAdmission.customEmiPlan.length > 0) {
+          const paidEmis = updatedAdmission.customEmiPlan.filter((emi: any) => emi.isPaid);
+          if (paidEmis.length > 0) {
+            const matchingEmi = paidEmis.reverse().find((emi: any) => Number(emi.amount) === deletedAmount) || paidEmis[0];
+            if (matchingEmi) {
+              matchingEmi.isPaid = false;
+              matchingEmi.paidDate = null;
+              await updatedAdmission.save({ session });
+            }
+          }
+        }
+      }
+    });
+    await session.endSession();
 
     // 2. Reverse Company Collection if company is valid
     let reversedCompany = null;
@@ -581,56 +684,13 @@ export async function DELETE(req: Request) {
           await compDoc.save();
         }
         reversedCompany = compDoc.name;
-      }
-    }
-
-    // 3. Recalculate and update student admission record
-    let updatedAdmission: any = null;
-    if (admissionId) {
-      const admission = await Admission.findById(admissionId);
-      if (admission) {
-        // Query all remaining payments for this student
-        const remainingPayments = await Payment.find({ admissionId: admission._id });
-        const newTotalPaid = remainingPayments.reduce(
-          (sum: number, p: any) => sum + (Number(p.amountReceived) || 0),
-          0
-        );
-
-        const totalAgreedFee = Number(admission.finalFee) > 0
-          ? Number(admission.finalFee)
-          : (Number(admission.courseFee) || 0);
-
-        admission.remainingBalance = Math.max(0, totalAgreedFee - newTotalPaid);
-
-        // If no payments remain or if deleted payment affected registrationAmount
-        if (remainingPayments.length === 0) {
-          admission.amountReceivedToday = 0;
-          admission.registrationAmount = 0;
-        } else {
-          if (Number(admission.registrationAmount) > newTotalPaid) {
-            admission.registrationAmount = newTotalPaid;
-          }
-          if (Number(admission.amountReceivedToday) > newTotalPaid) {
-            admission.amountReceivedToday = newTotalPaid;
-          }
-        }
-
-        // If student has custom EMI plan, unmark the corresponding EMI installment
-        if (Array.isArray(admission.customEmiPlan) && admission.customEmiPlan.length > 0) {
-          const paidEmis = admission.customEmiPlan.filter((emi: any) => emi.isPaid);
-          if (paidEmis.length > 0) {
-            const matchingEmi = paidEmis.reverse().find((emi: any) => Number(emi.amount) === deletedAmount) || paidEmis[0];
-            if (matchingEmi) {
-              matchingEmi.isPaid = false;
-              matchingEmi.paidDate = null;
-            }
-          }
-        }
-
-        await admission.save();
-        updatedAdmission = admission;
-      }
-    }
+    await logAuditEntry({
+      collectionName: "payments",
+      docId: payment._id,
+      action: "SOFT_DELETE",
+      changedFields: [{ field: "isDeleted", oldValue: false, newValue: true }],
+      userId
+    });
 
     return NextResponse.json({
       success: true,

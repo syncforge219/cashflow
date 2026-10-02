@@ -1,4 +1,5 @@
 import mongoose, { Schema } from "mongoose";
+import { softDeletePlugin } from "@/lib/softDeletePlugin";
 
 const ProformaInvoiceItemSchema = new Schema({
   productId: {
@@ -163,11 +164,26 @@ const ProformaInvoiceSchema = new Schema(
     stampImage: { type: String, default: "" },
     bankQrImage: { type: String, default: "" },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    autoIndex: process.env.NODE_ENV !== "production",
+  }
 );
+
+import { generateProformaInvoiceNumber } from "@/lib/proformaInvoiceHelper";
+
+// Pre-save hook: auto-generate piNumber using document's session if absent
+ProformaInvoiceSchema.pre("save", async function () {
+  if (!this.piNumber) {
+    const session = this.$session();
+    this.piNumber = await generateProformaInvoiceNumber(this.companyId || "DEFAULT_COMPANY", this.date, session);
+  }
+});
 
 ProformaInvoiceSchema.index({ companyId: 1, piNumber: 1 });
 ProformaInvoiceSchema.index({ companyId: 1, date: -1 });
+
+ProformaInvoiceSchema.plugin(softDeletePlugin);
 
 delete (mongoose.models as any).ProformaInvoice;
 const ProformaInvoice = mongoose.model("ProformaInvoice", ProformaInvoiceSchema);

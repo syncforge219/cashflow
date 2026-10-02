@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from "mongoose";
+import { softDeletePlugin } from "@/lib/softDeletePlugin";
 
 export interface IPayroll extends Document {
   employeeName: string;
@@ -48,6 +49,8 @@ PayrollSchema.index({ brand: 1, month: -1 });
 PayrollSchema.index({ company: 1, month: -1 });
 PayrollSchema.index({ month: -1, paymentStatus: 1 });
 PayrollSchema.index({ employeeName: 1 });
+
+PayrollSchema.plugin(softDeletePlugin);
 
 if (mongoose.models.Payroll) {
   delete mongoose.models.Payroll;

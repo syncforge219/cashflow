@@ -134,20 +134,22 @@ export async function PATCH(req: Request) {
       );
     }
 
-    if (action) {
+    if (action === "Approved" || action === "Rejected") {
       notif.status = action;
+      if (notif.admissionId) {
+        const admFilter = mongoose.Types.ObjectId.isValid(notif.admissionId)
+          ? { _id: notif.admissionId }
+          : { admissionId: notif.admissionId };
+        await Admission.findOneAndUpdate(admFilter, {
+          $set: { discountApprovalStatus: action }
+        });
+      }
+    } else if (action === "Read" || !notif.status || notif.status === "Unread") {
+      notif.status = "Read";
     }
+
     notif.read = true;
     await notif.save();
-
-    if (notif.admissionId && action) {
-      const admFilter = mongoose.Types.ObjectId.isValid(notif.admissionId)
-        ? { _id: notif.admissionId }
-        : { admissionId: notif.admissionId };
-      await Admission.findOneAndUpdate(admFilter, {
-        $set: { discountApprovalStatus: action }
-      });
-    }
 
     return NextResponse.json({
       success: true,

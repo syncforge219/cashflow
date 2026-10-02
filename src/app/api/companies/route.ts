@@ -73,7 +73,10 @@ export async function GET(req: Request) {
       ...(Object.keys(paymentDateMatch).length > 0 ? [{ $match: paymentDateMatch }] : []),
       {
         $group: {
-          _id: { $toUpper: { $trim: { input: "$company" } } },
+          _id: {
+            companyId: "$companyId",
+            companyName: { $toUpper: { $trim: { input: "$company" } } }
+          },
           totalActualCollected: { $sum: "$amountReceived" }
         }
       }
@@ -84,7 +87,10 @@ export async function GET(req: Request) {
       ...(Object.keys(admissionDateMatch).length > 0 ? [{ $match: admissionDateMatch }] : []),
       {
         $group: {
-          _id: { $toUpper: { $trim: { input: "$companyAssigned" } } },
+          _id: {
+            companyId: "$companyId",
+            companyName: { $toUpper: { $trim: { input: "$companyAssigned" } } }
+          },
           totalCommittedFee: {
             $sum: {
               $cond: [
@@ -134,20 +140,28 @@ export async function GET(req: Request) {
       ]);
       if (company.brand) finalBrandsSet.add(String(company.brand).toUpperCase().trim());
 
-      // Find actual collected payments for this company in current cycle
+      // Find actual collected payments for this company in current cycle (matching companyId first, name string fallback)
       let actualCollected = 0;
       paymentsByCompany.forEach((p: any) => {
-        if (!p._id || p._id === "CASH" || p._id === "UNALLOCATED" || p._id === "CASH (UNALLOCATED)") return;
-        if (p._id === companyName || p._id === companyLegalName || normalizeKey(p._id) === cNorm) {
+        const pCompId = p._id?.companyId ? String(p._id.companyId) : null;
+        const pCompName = p._id?.companyName || "";
+        if (pCompName === "CASH" || pCompName === "UNALLOCATED" || pCompName === "CASH (UNALLOCATED)") return;
+        if (pCompId && String(company._id) === pCompId) {
+          actualCollected += Number(p.totalActualCollected) || 0;
+        } else if (!pCompId && (pCompName === companyName || pCompName === companyLegalName || normalizeKey(pCompName) === cNorm)) {
           actualCollected += Number(p.totalActualCollected) || 0;
         }
       });
 
-      // Find committed/blocked fees for this company in current cycle
+      // Find committed/blocked fees for this company in current cycle (matching companyId first, name string fallback)
       let blockedAmount = 0;
       admissionsByCompany.forEach((a: any) => {
-        if (!a._id || a._id === "CASH" || a._id === "UNALLOCATED" || a._id === "CASH (UNALLOCATED)") return;
-        if (a._id === companyName || a._id === companyLegalName || normalizeKey(a._id) === cNorm) {
+        const aCompId = a._id?.companyId ? String(a._id.companyId) : null;
+        const aCompName = a._id?.companyName || "";
+        if (aCompName === "CASH" || aCompName === "UNALLOCATED" || aCompName === "CASH (UNALLOCATED)") return;
+        if (aCompId && String(company._id) === aCompId) {
+          blockedAmount += Number(a.totalCommittedFee) || 0;
+        } else if (!aCompId && (aCompName === companyName || aCompName === companyLegalName || normalizeKey(aCompName) === cNorm)) {
           blockedAmount += Number(a.totalCommittedFee) || 0;
         }
       });
@@ -156,14 +170,14 @@ export async function GET(req: Request) {
       const remainingCapacity = Math.max(0, cap - blockedAmount);
       const capacityPercentage = cap > 0 ? Number(((blockedAmount / cap) * 100).toFixed(1)) : 0;
 
-      // Keep Company.collectedRevenue and currentFinancialYear updated in database for current cycle
+      // Keep Company.collectedRevenue synchronized with actual payments collected in current cycle
       if (isCurrentCycle && company._id) {
-        if (company.currentFinancialYear !== fyRange.label || company.collectedRevenue !== blockedAmount) {
+        if (company.currentFinancialYear !== fyRange.label || company.collectedRevenue !== actualCollected) {
           Company.updateOne(
             { _id: company._id },
             {
               $set: {
-                collectedRevenue: blockedAmount,
+                collectedRevenue: actualCollected,
                 currentFinancialYear: fyRange.label,
                 ...(company.currentFinancialYear !== fyRange.label ? { alerted80Percent: capacityPercentage >= 80 } : {})
               }
@@ -178,7 +192,7 @@ export async function GET(req: Request) {
         legalName: companyLegalName,
         brands: Array.from(finalBrandsSet),
         annualCapacityCap: cap,
-        collectedRevenue: blockedAmount, // Reflects the current financial year cycle (1 Apr - 31 Mar)
+        collectedRevenue: actualCollected, // Computed from actual payments in financial year (1 Apr - 31 Mar)
         actualCollected,
         blockedAmount,
         remainingCapacity,

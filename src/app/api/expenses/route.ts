@@ -1,13 +1,25 @@
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
 import Expense from "@/models/Expense";
+import Brand from "@/models/Brand";
+import Company from "@/models/Company";
 import { getUserFromCookies } from "@/lib/helper";
+import { syncExpenseRefs } from "@/lib/referenceHelper";
+import { logAuditEntry } from "@/lib/auditLogger";
+import { validateDeletedAccess } from "@/lib/softDeleteAccess";
 
 export async function GET(req: Request) {
   try {
     await dbConnect();
     const user = await getUserFromCookies();
     const { searchParams } = new URL(req.url);
+
+    const deletedAccess = validateDeletedAccess(user, searchParams);
+    if (deletedAccess.errorResponse) {
+      return deletedAccess.errorResponse;
+    }
+
     const category = searchParams.get("category");
     let brand = searchParams.get("brand");
     const company = searchParams.get("company");
@@ -23,6 +35,11 @@ export async function GET(req: Request) {
     }
 
     const query: any = {};
+    const andClauses: any[] = [];
+
+    if (deletedAccess.onlyDeleted) {
+      andClauses.push({ isDeleted: true });
+    }
 
     const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -31,11 +48,27 @@ export async function GET(req: Request) {
     }
 
     if (brand && brand !== "All" && brand !== "All Brands") {
-      query.brand = { $regex: new RegExp(`^${escapeRegExp(brand.trim())}$`, "i") };
+      const bRegex = new RegExp(`^${escapeRegExp(brand.trim())}$`, "i");
+      const brandDoc = (mongoose.Types.ObjectId.isValid(brand)
+        ? await Brand.findById(brand).lean()
+        : await Brand.findOne({ $or: [{ name: bRegex }, { code: bRegex }] }).lean()) as any;
+      if (brandDoc) {
+        andClauses.push({ $or: [{ brandId: brandDoc._id }, { brand: bRegex }] });
+      } else {
+        andClauses.push({ brand: bRegex });
+      }
     }
 
     if (company && company !== "All" && company !== "All Companies") {
-      query.company = { $regex: new RegExp(`^${escapeRegExp(company.trim())}$`, "i") };
+      const cRegex = new RegExp(`^${escapeRegExp(company.trim())}$`, "i");
+      const compDoc = (mongoose.Types.ObjectId.isValid(company)
+        ? await Company.findById(company).lean()
+        : await Company.findOne({ $or: [{ name: cRegex }, { legalName: cRegex }] }).lean()) as any;
+      if (compDoc) {
+        andClauses.push({ $or: [{ companyId: compDoc._id }, { company: cRegex }] });
+      } else {
+        andClauses.push({ company: cRegex });
+      }
     }
 
     if (startDate || endDate) {
@@ -63,6 +96,10 @@ export async function GET(req: Request) {
         { paymentMode: sRegex },
         { bank: sRegex },
       ];
+    }
+
+    if (andClauses.length > 0) {
+      query.$and = andClauses;
     }
 
     const expenses = await Expense.find(query).sort({ expenseDate: -1, createdAt: -1 }).lean();
@@ -116,7 +153,7 @@ export async function POST(req: Request) {
       else nextRecDate.setMonth(nextRecDate.getMonth() + 1); // Monthly default
     }
 
-    const expense = await Expense.create({
+    const expenseData: any = {
       title,
       category: category || "Misc",
       amount: Number(amount) || 0,
@@ -131,7 +168,9 @@ export async function POST(req: Request) {
       recurringFrequency: recurringFrequency || "Monthly",
       nextRecurringDate: nextRecDate,
       remarks: remarks || "",
-    });
+    };
+    await syncExpenseRefs(expenseData);
+    const expense = await Expense.create(expenseData);
 
     return NextResponse.json({ success: true, data: expense }, { status: 201 });
   } catch (error: any) {
@@ -183,24 +222,27 @@ export async function PUT(req: Request) {
       else nextRecDate.setMonth(nextRecDate.getMonth() + 1);
     }
 
+    const updatePayload: any = {
+      title,
+      category: category || "Misc",
+      amount: Number(amount) || 0,
+      expenseDate: eDate,
+      paymentMode: paymentMode || "UPI",
+      brand: brand || "All Brands",
+      company: company || "All Companies",
+      bank: bank || "",
+      expenseType: expenseType || "variable",
+      recordedBy: recordedBy || "Admin",
+      isRecurring: Boolean(isRecurring),
+      recurringFrequency: recurringFrequency || "Monthly",
+      nextRecurringDate: nextRecDate,
+      remarks: remarks || "",
+    };
+    await syncExpenseRefs(updatePayload);
+
     const updatedExpense = await Expense.findByIdAndUpdate(
       targetId,
-      {
-        title,
-        category: category || "Misc",
-        amount: Number(amount) || 0,
-        expenseDate: eDate,
-        paymentMode: paymentMode || "UPI",
-        brand: brand || "All Brands",
-        company: company || "All Companies",
-        bank: bank || "",
-        expenseType: expenseType || "variable",
-        recordedBy: recordedBy || "Admin",
-        isRecurring: Boolean(isRecurring),
-        recurringFrequency: recurringFrequency || "Monthly",
-        nextRecurringDate: nextRecDate,
-        remarks: remarks || "",
-      },
+      updatePayload,
       { new: true }
     );
 
@@ -228,7 +270,25 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ success: false, message: "ID parameter required" }, { status: 400 });
     }
 
-    await Expense.findByIdAndDelete(id);
+    const user = await getUserFromCookies();
+    const expense = await Expense.findById(id);
+    if (!expense) {
+      return NextResponse.json({ success: false, message: "Expense not found" }, { status: 404 });
+    }
+
+    expense.isDeleted = true;
+    expense.deletedAt = new Date();
+    expense.deletedBy = (user as any)?._id || null;
+    await expense.save();
+
+    await logAuditEntry({
+      collectionName: "expenses",
+      docId: expense._id,
+      action: "SOFT_DELETE",
+      changedFields: [{ field: "isDeleted", oldValue: false, newValue: true }],
+      userId: (user as any)?._id
+    });
+
     return NextResponse.json({ success: true, message: "Expense deleted successfully" });
   } catch (error: any) {
     console.error("Error in DELETE /api/expenses:", error);

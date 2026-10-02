@@ -6,7 +6,6 @@ const BatchSchema = new Schema(
       type: String,
       unique: true,
       sparse: true,
-      index: true,
     },
     batchName: {
       type: String,
@@ -41,6 +40,10 @@ const BatchSchema = new Schema(
       type: String,
       required: [true, "Brand scope is required"],
       trim: true,
+    },
+    brandId: {
+      type: Schema.Types.ObjectId,
+      ref: "Brand",
     },
     startDate: {
       type: Date,
@@ -86,40 +89,72 @@ const BatchSchema = new Schema(
       type: String,
       trim: true,
     },
+    students: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
   },
   {
     timestamps: true,
+    autoIndex: process.env.NODE_ENV !== "production",
   }
 );
 
 import { getNextSequence } from "@/lib/sequenceHelper";
 
 // Performance & Compound Indexes
+BatchSchema.index({ brandId: 1, status: 1 });
+BatchSchema.index({ brandId: 1 });
 BatchSchema.index({ brand: 1, status: 1 });
 BatchSchema.index({ teacherId: 1, status: 1 });
-BatchSchema.index({ batchId: 1 });
 BatchSchema.index({ brand: 1 });
 BatchSchema.index({ teacherId: 1 });
 BatchSchema.index({ status: 1 });
 BatchSchema.index({ course: 1 });
 BatchSchema.index({ courses: 1 });
 
-// Atomic Auto-generate batchId
-BatchSchema.pre("save", async function () {
-  if (!this.batchId) {
-    this.batchId = await getNextSequence("batchId", "BAT", 6, async () => {
-      const lastBatch = await mongoose.models.Batch.findOne({
-        batchId: /^BAT\d+$/
-      }).sort({ batchId: -1 });
+import { syncBatchRefs } from "@/lib/referenceHelper";
 
-      if (lastBatch && lastBatch.batchId) {
-        const match = lastBatch.batchId.match(/^BAT(\d+)$/);
-        if (match) {
-          return parseInt(match[1], 10);
+// Atomic Auto-generate batchId using document's transaction session
+BatchSchema.pre("save", async function () {
+  const session = this.$session();
+
+  // Dual-write synchronization between strings and ObjectIds
+  await syncBatchRefs(this, session);
+
+  if (!this.batchId) {
+    this.batchId = await getNextSequence(
+      "batchId",
+      "BAT",
+      6,
+      async () => {
+        const query = mongoose.models.Batch.findOne({
+          batchId: /^BAT\d+$/
+        }).sort({ batchId: -1 });
+        if (session) query.session(session);
+        const lastBatch = await query;
+
+        if (lastBatch && lastBatch.batchId) {
+          const match = lastBatch.batchId.match(/^BAT(\d+)$/);
+          if (match) {
+            return parseInt(match[1], 10);
+          }
         }
-      }
-      return 0;
-    });
+        return 0;
+      },
+      session
+    );
+  }
+});
+
+BatchSchema.pre(["findOneAndUpdate", "updateOne"], async function () {
+  const update = this.getUpdate() as any;
+  if (update) {
+    const session = this.getOptions()?.session;
+    const target = update.$set || update;
+    await syncBatchRefs(target, session);
   }
 });
 
@@ -130,3 +165,4 @@ if (mongoose.models.Batch) {
 const Batch = mongoose.model("Batch", BatchSchema);
 
 export default Batch;
+

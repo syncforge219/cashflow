@@ -1,6 +1,10 @@
 import mongoose from "mongoose";
 import dns from "node:dns";
 import { initEmiReminderCron } from "./emiCron";
+import { applyGlobalAuditContextPlugin } from "./auditContextPlugin";
+
+// Ensure global Mongoose plugin is applied to all schemas
+applyGlobalAuditContextPlugin();
 
 let cached = (global as any).mongoose;
 
@@ -66,11 +70,15 @@ async function dbConnect() {
     return cached.conn;
   }
 
+  // Disable automatic index builds on startup in production
+  mongoose.set("autoIndex", process.env.NODE_ENV !== "production");
+
   if (!cached.promise || mongoose.connection.readyState === 0) {
     const opts = {
       bufferCommands: true,
       serverSelectionTimeoutMS: 5000,
       family: 4,
+      autoIndex: process.env.NODE_ENV !== "production",
     };
 
     cached.promise = (async () => {

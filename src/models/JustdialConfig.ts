@@ -43,6 +43,13 @@ const JustdialConfigSchema = new Schema(
       type: String,
       default: "JD-CF-API-KEY-984729103847",
       trim: true,
+      select: false,
+    },
+    webhookSecret: {
+      type: String,
+      default: "",
+      trim: true,
+      select: false,
     },
     requireApiKey: {
       type: Boolean,
@@ -78,6 +85,7 @@ const JustdialConfigSchema = new Schema(
       type: String,
       default: "",
       trim: true,
+      select: false,
     },
     pullApiMobile: {
       type: String,
@@ -104,6 +112,37 @@ const JustdialConfigSchema = new Schema(
     timestamps: true,
   }
 );
+
+import { encryptField } from "@/lib/encryption";
+
+// Automatically encrypt secrets at rest before save
+JustdialConfigSchema.pre("save", async function () {
+  if (this.apiKey && typeof this.apiKey === "string") {
+    this.apiKey = encryptField(this.apiKey) || this.apiKey;
+  }
+  if (this.webhookSecret && typeof this.webhookSecret === "string") {
+    this.webhookSecret = encryptField(this.webhookSecret) || this.webhookSecret;
+  }
+  if (this.pullApiKey && typeof this.pullApiKey === "string") {
+    this.pullApiKey = encryptField(this.pullApiKey) || this.pullApiKey;
+  }
+});
+
+JustdialConfigSchema.pre(["findOneAndUpdate", "updateOne"], async function () {
+  const update = this.getUpdate() as any;
+  if (update) {
+    const target = update.$set || update;
+    if (target.apiKey && typeof target.apiKey === "string") {
+      target.apiKey = encryptField(target.apiKey) || target.apiKey;
+    }
+    if (target.webhookSecret && typeof target.webhookSecret === "string") {
+      target.webhookSecret = encryptField(target.webhookSecret) || target.webhookSecret;
+    }
+    if (target.pullApiKey && typeof target.pullApiKey === "string") {
+      target.pullApiKey = encryptField(target.pullApiKey) || target.pullApiKey;
+    }
+  }
+});
 
 if (mongoose.models.JustdialConfig) {
   delete mongoose.models.JustdialConfig;
