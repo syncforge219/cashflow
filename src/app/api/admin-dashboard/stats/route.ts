@@ -269,7 +269,7 @@ export async function GET(req: Request) {
       ]),
 
       // Companies data (including financial year tracking)
-      Company.find().select("name annualCapacityCap collectedRevenue currentFinancialYear").lean(),
+      Company.find().select("name legalName annualCapacityCap collectedRevenue currentFinancialYear").lean(),
 
       // Work Queue counts
       Enquiry.countDocuments({ "followUps.date": { $lt: todayStr }, status: { $nin: ["Lost", "Admitted"] }, ...(isBrandFiltered && brandRegex ? { targetBrand: brandRegex } : {}) }),
@@ -647,16 +647,78 @@ export async function GET(req: Request) {
     brandPerformance.sort((a: any, b: any) => b.admissions - a.admissions);
 
     // 7. Process Company Limit & Utilization (1st April - 31st March Cycle)
-    const { label: currentFY } = getFinancialYearRange();
+    const { label: currentFY, startDate: fyStart, endDate: fyEnd } = getFinancialYearRange();
+
+    // Aggregate admissions committed in current financial year
+    const admissionsByCompany = await Admission.aggregate([
+      {
+        $match: {
+          $or: [
+            { admissionDate: { $gte: fyStart, $lte: fyEnd } },
+            { $and: [{ admissionDate: { $exists: false } }, { createdAt: { $gte: fyStart, $lte: fyEnd } }] },
+            { $and: [{ admissionDate: null }, { createdAt: { $gte: fyStart, $lte: fyEnd } }] }
+          ]
+        }
+      },
+      {
+        $group: {
+          _id: { $toUpper: { $trim: { input: "$companyAssigned" } } },
+          totalCommittedFee: {
+            $sum: {
+              $cond: [
+                { $gt: ["$finalFee", 0] },
+                "$finalFee",
+                {
+                  $cond: [
+                    { $gt: ["$courseFee", 0] },
+                    "$courseFee",
+                    { $ifNull: ["$registrationAmount", 0] }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      }
+    ]);
+
+    const normalizeKey = (n: string) =>
+      (n || "")
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, "")
+        .replace(/PRIVATELIMITED/g, "PVTLTD")
+        .replace(/PVTLIMITED/g, "PVTLTD")
+        .replace(/LIMITED/g, "LTD")
+        .replace(/SERVICES/g, "")
+        .replace(/GATEEWAY/g, "GATEWAY")
+        .replace(/INSTITUTE/g, "INSTITUE")
+        .replace(/LLP/g, "");
+
     const companyUtilization = companies.map((c: any) => {
+      const compName = (c.name || "").toUpperCase().trim();
+      const compLegal = (c.legalName || compName).toUpperCase().trim();
+      const cNorm = normalizeKey(compName);
+
+      let cycleCommitted = 0;
+      admissionsByCompany.forEach((a: any) => {
+        if (!a._id || a._id === "CASH" || a._id === "UNALLOCATED" || a._id === "CASH (UNALLOCATED)") return;
+        if (a._id === compName || a._id === compLegal || normalizeKey(a._id) === cNorm) {
+          cycleCommitted += Number(a.totalCommittedFee) || 0;
+        }
+      });
+
+      // If admission aggregate returned 0, fallback to stored c.collectedRevenue if it belongs to current FY or is legacy
+      if (cycleCommitted === 0 && (!c.currentFinancialYear || c.currentFinancialYear === currentFY)) {
+        cycleCommitted = Number(c.collectedRevenue || 0);
+      }
+
       const cap = Number(c.annualCapacityCap || 1949999);
-      const collected = c.currentFinancialYear === currentFY ? Number(c.collectedRevenue || 0) : 0;
-      const usedPct = cap > 0 ? ((collected / cap) * 100).toFixed(1) + "%" : "0%";
-      const remaining = Math.max(0, cap - collected);
+      const usedPct = cap > 0 ? ((cycleCommitted / cap) * 100).toFixed(1) + "%" : "0%";
+      const remaining = Math.max(0, cap - cycleCommitted);
 
       return {
         name: c.name,
-        collection: `₹${(collected / 100000).toFixed(2)} L`,
+        collection: `₹${(cycleCommitted / 100000).toFixed(2)} L`,
         usedPct,
         remaining: `₹${(remaining / 100000).toFixed(2)} L`,
         financialYear: currentFY,
