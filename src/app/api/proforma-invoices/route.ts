@@ -259,7 +259,7 @@ export async function DELETE(req: Request) {
     }
 
     const user = await getUserFromCookies();
-    const pi = await ProformaInvoice.findById(id);
+    const pi: any = await ProformaInvoice.findById(id);
     if (!pi) {
       return NextResponse.json({ success: false, error: "Proforma Invoice not found" }, { status: 404 });
     }

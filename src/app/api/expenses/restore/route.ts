@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: "Expense ID required" }, { status: 400 });
     }
 
-    const expense = await Expense.findById(id, null, { includeDeleted: true });
+    const expense: any = await Expense.findById(id, null, { includeDeleted: true });
     if (!expense) {
       return NextResponse.json({ success: false, message: "Expense not found" }, { status: 404 });
     }

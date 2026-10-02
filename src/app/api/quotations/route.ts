@@ -420,7 +420,7 @@ export async function DELETE(req: Request) {
     }
 
     const user = await getUserFromCookies();
-    const quotation = await Quotation.findById(id);
+    const quotation: any = await Quotation.findById(id);
     if (!quotation) {
       return NextResponse.json({ success: false, error: "Quotation not found" }, { status: 404 });
     }

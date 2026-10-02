@@ -271,7 +271,7 @@ export async function DELETE(req: Request) {
     }
 
     const user = await getUserFromCookies();
-    const expense = await Expense.findById(id);
+    const expense: any = await Expense.findById(id);
     if (!expense) {
       return NextResponse.json({ success: false, message: "Expense not found" }, { status: 404 });
     }

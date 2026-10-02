@@ -137,7 +137,7 @@ export async function DELETE(req: Request) {
     }
 
     const user = await getUserFromCookies();
-    const payroll = await Payroll.findById(id);
+    const payroll: any = await Payroll.findById(id);
     if (!payroll) {
       return NextResponse.json({ success: false, message: "Payroll entry not found" }, { status: 404 });
     }

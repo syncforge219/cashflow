@@ -27,7 +27,7 @@ export async function POST(
     }
 
     const enqFilter = mongoose.Types.ObjectId.isValid(id) ? { _id: id } : { enquiryId: id };
-    const enquiry = await Enquiry.findOne(enqFilter, null, { includeDeleted: true });
+    const enquiry: any = await Enquiry.findOne(enqFilter, null, { includeDeleted: true });
 
     if (!enquiry) {
       return NextResponse.json({ success: false, message: "Enquiry record not found" }, { status: 404 });

@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: "Quotation ID required" }, { status: 400 });
     }
 
-    const quotation = await Quotation.findById(id, null, { includeDeleted: true });
+    const quotation: any = await Quotation.findById(id, null, { includeDeleted: true });
     if (!quotation) {
       return NextResponse.json({ success: false, message: "Quotation not found" }, { status: 404 });
     }

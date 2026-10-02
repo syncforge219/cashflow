@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: "Proforma Invoice ID required" }, { status: 400 });
     }
 
-    const pi = await ProformaInvoice.findById(id, null, { includeDeleted: true });
+    const pi: any = await ProformaInvoice.findById(id, null, { includeDeleted: true });
     if (!pi) {
       return NextResponse.json({ success: false, message: "Proforma Invoice not found" }, { status: 404 });
     }

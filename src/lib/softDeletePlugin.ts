@@ -40,7 +40,7 @@ export function softDeletePlugin(schema: Schema) {
   // Pre-query hooks to filter out soft-deleted records
   const queryOps = ["find", "findOne", "findOneAndUpdate", "countDocuments", "distinct"] as const;
 
-  schema.pre(queryOps, function (this: any) {
+  schema.pre(queryOps as any, function (this: any) {
     const options = typeof this.getOptions === "function" ? this.getOptions() : {};
     if (options && options.includeDeleted === true) {
       return;

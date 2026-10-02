@@ -456,9 +456,19 @@ export async function PUT(
           firstPayment.paymentDate = currentAdmDate;
           if (effectiveRegAmt > 0) {
             if (!firstPayment.particulars) {
-              firstPayment.particulars = { courseFeeDue: 0, registrationFeeDue: effectiveRegAmt, materialFeeDue: 0, examFeeDue: 0 };
+              firstPayment.particulars = {
+                courseFeeDue: 0,
+                courseFeeDuePaise: 0,
+                registrationFeeDue: effectiveRegAmt,
+                registrationFeeDuePaise: Math.round(effectiveRegAmt * 100),
+                materialFeeDue: 0,
+                materialFeeDuePaise: 0,
+                examFeeDue: 0,
+                examFeeDuePaise: 0,
+              };
             } else {
               firstPayment.particulars.registrationFeeDue = effectiveRegAmt;
+              (firstPayment.particulars as any).registrationFeeDuePaise = Math.round(effectiveRegAmt * 100);
             }
           }
           if (updatedDoc?.brand) firstPayment.brand = updatedDoc.brand;
@@ -706,9 +716,9 @@ export async function DELETE(
     }
 
     // 7. Soft delete main Admission record
-    admission.isDeleted = true;
-    admission.deletedAt = new Date();
-    admission.deletedBy = (user as any)?._id || null;
+    (admission as any).isDeleted = true;
+    (admission as any).deletedAt = new Date();
+    (admission as any).deletedBy = (user as any)?._id || null;
     await admission.save();
 
     await logAuditEntry({

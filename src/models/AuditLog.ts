@@ -6,15 +6,16 @@ export interface IAuditChange {
   newValue: any;
 }
 
-export interface IAuditLog extends Document {
+export interface IAuditLog {
+  _id?: any;
   collection: string;
   docId: any;
   action: "CREATE" | "UPDATE" | "DELETE" | "RESTORE" | "SOFT_DELETE" | string;
   changedFields: IAuditChange[];
   userId?: mongoose.Types.ObjectId | null;
   at: Date;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 const AuditLogSchema: Schema = new Schema(

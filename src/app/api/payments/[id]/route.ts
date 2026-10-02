@@ -42,7 +42,7 @@ export async function DELETE(
       return NextResponse.json({ success: false, message: "Payment ID required" }, { status: 400 });
     }
 
-    const payment = await Payment.findById(id);
+    const payment: any = await Payment.findById(id);
     if (!payment) {
       return NextResponse.json({ success: false, message: "Payment not found" }, { status: 404 });
     }
@@ -111,6 +111,8 @@ export async function DELETE(
         }
         reversedCompany = compDoc.name;
       }
+    }
+
     await logAuditEntry({
       collectionName: "payments",
       docId: payment._id,

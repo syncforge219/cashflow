@@ -210,6 +210,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     await dbConnect();
+    const user = await getUserFromCookies();
     const body = await req.json();
 
     const { admissionId, amountReceived, paymentMode, referenceNo, remarks, company, particulars } = body;
@@ -615,7 +616,7 @@ export async function DELETE(req: Request) {
       );
     }
 
-    const payment = await Payment.findById(id);
+    const payment: any = await Payment.findById(id);
     if (!payment) {
       return NextResponse.json(
         { success: false, message: "Payment record not found." },
@@ -684,6 +685,9 @@ export async function DELETE(req: Request) {
           await compDoc.save();
         }
         reversedCompany = compDoc.name;
+      }
+    }
+
     await logAuditEntry({
       collectionName: "payments",
       docId: payment._id,

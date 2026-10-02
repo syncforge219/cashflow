@@ -27,7 +27,7 @@ export async function POST(
       );
     }
 
-    const payment = await Payment.findById(id, null, { includeDeleted: true });
+    const payment: any = await Payment.findById(id, null, { includeDeleted: true });
     if (!payment) {
       return NextResponse.json({ success: false, message: "Payment not found" }, { status: 404 });
     }

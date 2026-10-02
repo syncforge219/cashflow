@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: "Purchase Order ID required" }, { status: 400 });
     }
 
-    const po = await PurchaseOrder.findById(id, null, { includeDeleted: true });
+    const po: any = await PurchaseOrder.findById(id, null, { includeDeleted: true });
     if (!po) {
       return NextResponse.json({ success: false, message: "Purchase Order not found" }, { status: 404 });
     }

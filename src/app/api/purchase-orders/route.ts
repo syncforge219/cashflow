@@ -315,7 +315,7 @@ export async function DELETE(req: Request) {
     }
 
     const user = await getUserFromCookies();
-    const po = await PurchaseOrder.findById(id);
+    const po: any = await PurchaseOrder.findById(id);
     if (!po) {
       return NextResponse.json({ success: false, error: "Purchase Order not found" }, { status: 404 });
     }

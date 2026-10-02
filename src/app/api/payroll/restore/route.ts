@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: "Payroll ID required" }, { status: 400 });
     }
 
-    const payroll = await Payroll.findById(id, null, { includeDeleted: true });
+    const payroll: any = await Payroll.findById(id, null, { includeDeleted: true });
     if (!payroll) {
       return NextResponse.json({ success: false, message: "Payroll record not found" }, { status: 404 });
     }

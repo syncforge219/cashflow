@@ -28,7 +28,7 @@ export async function POST(
     }
 
     const admFilter = mongoose.Types.ObjectId.isValid(id) ? { _id: id } : { admissionId: id };
-    const admission = await Admission.findOne(admFilter, null, { includeDeleted: true });
+    const admission: any = await Admission.findOne(admFilter, null, { includeDeleted: true });
 
     if (!admission) {
       return NextResponse.json({ success: false, message: "Student record not found" }, { status: 404 });

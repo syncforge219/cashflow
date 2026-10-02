@@ -109,7 +109,7 @@ export async function runBackfillMoneyPaise(apply: boolean = false) {
     let needsUpdate = false;
 
     for (const { rupee, paise } of admissionMoneyFields) {
-      const val = adm[rupee];
+      const val = (adm as any)[rupee];
       if (val !== undefined && val !== null) {
         const numVal = Number(val);
         if (!isNaN(numVal)) {
@@ -122,7 +122,7 @@ export async function runBackfillMoneyPaise(apply: boolean = false) {
             });
           }
           const expectedPaise = Math.round(numVal * 100);
-          if (adm[paise] === undefined || adm[paise] !== expectedPaise) {
+          if ((adm as any)[paise] === undefined || (adm as any)[paise] !== expectedPaise) {
             updateDoc[paise] = expectedPaise;
             needsUpdate = true;
           }

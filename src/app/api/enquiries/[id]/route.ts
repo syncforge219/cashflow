@@ -204,9 +204,9 @@ export async function DELETE(
     const user = await getUserFromCookies();
     const userId = (user as any)?._id || null;
 
-    existingEnquiry.isDeleted = true;
-    existingEnquiry.deletedAt = new Date();
-    existingEnquiry.deletedBy = userId;
+    (existingEnquiry as any).isDeleted = true;
+    (existingEnquiry as any).deletedAt = new Date();
+    (existingEnquiry as any).deletedBy = userId;
     await existingEnquiry.save();
 
     await logAuditEntry({
