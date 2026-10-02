@@ -1,3 +1,30 @@
+name: Deploy to Hostinger VPS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy Application
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check SSH Port Reachability
+        run: |
+          TARGET_HOST="${{ secrets.HOST }}"
+          TARGET_PORT="${{ secrets.PORT || '22' }}"
+
+          echo "🔍 Testing TCP connectivity to Host: $TARGET_HOST on Port: $TARGET_PORT..."
+
+          if nc -z -w 10 "$TARGET_HOST" "$TARGET_PORT"; then
+            echo "✅ Server $TARGET_HOST is reachable on port $TARGET_PORT."
+          else
+            echo "❌ ERROR: Cannot establish TCP connection to $TARGET_HOST:$TARGET_PORT"
+            exit 1
+          fi
+
       - name: Prepare SSH key
         shell: bash
         env:
