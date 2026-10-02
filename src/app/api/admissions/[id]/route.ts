@@ -69,7 +69,11 @@ export async function GET(
       }
     }
 
-    const payments = [...rawPayments].reverse();
+    const payments = [...rawPayments].reverse().map((p: any) => ({
+      ...p,
+      studentName: (admission as any).fullName || p.studentName,
+      originalIssuedName: p.studentName,
+    }));
     const tasks = await Task.find({
       $or: [
         { linkedStudentId: id },
@@ -339,7 +343,14 @@ export async function PUT(
       };
     }
 
-    // Re-balance company collected revenue if company assigned or final fee changes
+    // 5. Audit log student name changes before applying write
+    const isNameChanging = body.fullName !== undefined && body.fullName.trim() !== (existingDoc.fullName || "").trim();
+    if (isNameChanging) {
+      const userId = (user as any)?._id || (user as any)?.id || (user as any)?.email || "unknown";
+      console.info(`[AUDIT] Student name updated for admissionId: ${existingDoc.admissionId || existingDoc._id} | Old Name: "${existingDoc.fullName}" | New Name: "${body.fullName.trim()}" | User ID: ${userId}`);
+    }
+
+    // Re-balance company collected revenue parameters if company assigned or final fee changes
     const oldCompany = (existingDoc.companyAssigned || "").trim();
     const newCompany = (updatePayload.companyAssigned || "").trim();
 
@@ -352,87 +363,141 @@ export async function PUT(
     const admFY = getFinancialYear(effectiveAdmDate);
     const { label: currentFY } = getFinancialYearRange();
 
-    if (isOldValidComp && isNewValidComp && oldCompany.toLowerCase() === newCompany.toLowerCase()) {
-      const feeDiff = newFee - oldFee;
-      if (feeDiff !== 0) {
-        const compRegex = new RegExp(`^${escapeRegExp(newCompany)}$`, "i");
-        const comp = await Company.findOne({ $or: [{ name: { $regex: compRegex } }, { legalName: { $regex: compRegex } }] });
-        if (comp) {
-          if (comp.currentFinancialYear === admFY || (!comp.currentFinancialYear && admFY === currentFY)) {
-            comp.collectedRevenue = Math.max(0, (comp.collectedRevenue || 0) + feeDiff);
-            comp.currentFinancialYear = admFY;
-            await comp.save();
-          }
-        }
-      }
-    } else {
-      if (isOldValidComp && oldFee > 0) {
-        const oldCompRegex = new RegExp(`^${escapeRegExp(oldCompany)}$`, "i");
-        const oldComp = await Company.findOne({ $or: [{ name: { $regex: oldCompRegex } }, { legalName: { $regex: oldCompRegex } }] });
-        if (oldComp && (oldComp.currentFinancialYear === admFY || (!oldComp.currentFinancialYear && admFY === currentFY))) {
-          oldComp.collectedRevenue = Math.max(0, (oldComp.collectedRevenue || 0) - oldFee);
-          await oldComp.save();
-        }
-      }
-      if (isNewValidComp && newFee > 0) {
-        const newCompRegex = new RegExp(`^${escapeRegExp(newCompany)}$`, "i");
-        const newComp = await Company.findOne({ $or: [{ name: { $regex: newCompRegex } }, { legalName: { $regex: newCompRegex } }] });
-        if (newComp) {
-          if (newComp.currentFinancialYear === admFY) {
-            newComp.collectedRevenue = (newComp.collectedRevenue || 0) + newFee;
-          } else if (admFY === currentFY) {
-            newComp.currentFinancialYear = currentFY;
-            newComp.collectedRevenue = newFee;
-            newComp.alerted80Percent = false;
-          }
-          await newComp.save();
-        }
-      }
-    }
+    // 4. Wrap admission write, company update, enquiry update, and task updates in a single MongoDB transaction
+    const session = await mongoose.startSession();
+    let updatedDoc: any = null;
 
-    const updatedDoc = await Admission.findOneAndUpdate({ _id: existingDoc._id }, updatePayload, { new: true });
-
-    // Synchronize initial registration Payment record so registration fee belongs to the admission month
     try {
-      const effectiveAdmDate = updatedDoc?.admissionDate ? new Date(updatedDoc.admissionDate) : (existingDoc.admissionDate ? new Date(existingDoc.admissionDate) : new Date());
-      const effectiveRegAmt = Number(updatedDoc?.registrationAmount !== undefined ? updatedDoc.registrationAmount : (updatedDoc?.amountReceivedToday || 0));
-
-      const firstPayment = await Payment.findOne({ admissionId: existingDoc._id }).sort({ createdAt: 1 });
-      if (firstPayment) {
-        firstPayment.paymentDate = effectiveAdmDate;
-        if (effectiveRegAmt > 0) {
-          if (!firstPayment.particulars) {
-            firstPayment.particulars = { courseFeeDue: 0, registrationFeeDue: effectiveRegAmt, materialFeeDue: 0, examFeeDue: 0 };
-          } else {
-            firstPayment.particulars.registrationFeeDue = effectiveRegAmt;
+      await session.withTransaction(async () => {
+        // Re-balance company capacity if needed
+        if (isOldValidComp && isNewValidComp && oldCompany.toLowerCase() === newCompany.toLowerCase()) {
+          const feeDiff = newFee - oldFee;
+          if (feeDiff !== 0) {
+            const compRegex = new RegExp(`^${escapeRegExp(newCompany)}$`, "i");
+            const comp = await Company.findOne({ $or: [{ name: { $regex: compRegex } }, { legalName: { $regex: compRegex } }] }).session(session);
+            if (comp) {
+              if (comp.currentFinancialYear === admFY || (!comp.currentFinancialYear && admFY === currentFY)) {
+                comp.collectedRevenue = Math.max(0, (comp.collectedRevenue || 0) + feeDiff);
+                comp.currentFinancialYear = admFY;
+                await comp.save({ session });
+              }
+            }
+          }
+        } else {
+          if (isOldValidComp && oldFee > 0) {
+            const oldCompRegex = new RegExp(`^${escapeRegExp(oldCompany)}$`, "i");
+            const oldComp = await Company.findOne({ $or: [{ name: { $regex: oldCompRegex } }, { legalName: { $regex: oldCompRegex } }] }).session(session);
+            if (oldComp && (oldComp.currentFinancialYear === admFY || (!oldComp.currentFinancialYear && admFY === currentFY))) {
+              oldComp.collectedRevenue = Math.max(0, (oldComp.collectedRevenue || 0) - oldFee);
+              await oldComp.save({ session });
+            }
+          }
+          if (isNewValidComp && newFee > 0) {
+            const newCompRegex = new RegExp(`^${escapeRegExp(newCompany)}$`, "i");
+            const newComp = await Company.findOne({ $or: [{ name: { $regex: newCompRegex } }, { legalName: { $regex: newCompRegex } }] }).session(session);
+            if (newComp) {
+              if (newComp.currentFinancialYear === admFY) {
+                newComp.collectedRevenue = (newComp.collectedRevenue || 0) + newFee;
+              } else if (admFY === currentFY) {
+                newComp.currentFinancialYear = currentFY;
+                newComp.collectedRevenue = newFee;
+                newComp.alerted80Percent = false;
+              }
+              await newComp.save({ session });
+            }
           }
         }
-        if (updatedDoc?.fullName) firstPayment.studentName = updatedDoc.fullName;
-        if (updatedDoc?.brand) firstPayment.brand = updatedDoc.brand;
-        if (updatedDoc?.companyAssigned) firstPayment.company = updatedDoc.companyAssigned;
-        await firstPayment.save();
-      } else if (effectiveRegAmt > 0) {
-        const newRegPayment = new Payment({
-          admissionId: existingDoc._id,
-          studentName: updatedDoc?.fullName || existingDoc.fullName,
-          amountReceived: effectiveRegAmt,
-          paymentMode: updatedDoc?.paymentMode || existingDoc.paymentMode || "Cash",
-          referenceNo: updatedDoc?.transactionNo || existingDoc.transactionNo || "N/A",
-          company: updatedDoc?.companyAssigned || existingDoc.companyAssigned || "Cash",
-          brand: updatedDoc?.brand || existingDoc.brand || "Cadd Mantra",
-          paymentDate: effectiveAdmDate,
-          particulars: {
-            courseFeeDue: 0,
-            registrationFeeDue: effectiveRegAmt,
-            materialFeeDue: 0,
-            examFeeDue: 0,
-          },
-          remarks: "Initial registration payment upon admission",
-        });
-        await newRegPayment.save();
-      }
-    } catch (syncPayErr) {
-      console.error("Error synchronizing registration payment with admission date:", syncPayErr);
+
+        // A. Admission write inside transaction
+        updatedDoc = await Admission.findOneAndUpdate({ _id: existingDoc._id }, updatePayload, { new: true, session });
+
+        // B. Reconcile registration payment date and particulars if registration amount changed.
+        // NOTE: We do NOT update Payment.studentName (receipts are financial records that keep name as issued).
+        const currentAdmDate = updatedDoc?.admissionDate ? new Date(updatedDoc.admissionDate) : (existingDoc.admissionDate ? new Date(existingDoc.admissionDate) : new Date());
+        const effectiveRegAmt = Number(updatedDoc?.registrationAmount !== undefined ? updatedDoc.registrationAmount : (updatedDoc?.amountReceivedToday || 0));
+
+        const firstPayment = await Payment.findOne({ admissionId: existingDoc._id }).sort({ createdAt: 1 }).session(session);
+        if (firstPayment) {
+          firstPayment.paymentDate = currentAdmDate;
+          if (effectiveRegAmt > 0) {
+            if (!firstPayment.particulars) {
+              firstPayment.particulars = { courseFeeDue: 0, registrationFeeDue: effectiveRegAmt, materialFeeDue: 0, examFeeDue: 0 };
+            } else {
+              firstPayment.particulars.registrationFeeDue = effectiveRegAmt;
+            }
+          }
+          if (updatedDoc?.brand) firstPayment.brand = updatedDoc.brand;
+          if (updatedDoc?.companyAssigned) firstPayment.company = updatedDoc.companyAssigned;
+          await firstPayment.save({ session });
+        } else if (effectiveRegAmt > 0) {
+          const newRegPayment = new Payment({
+            admissionId: existingDoc._id,
+            studentName: existingDoc.fullName, // Keep original name as issued
+            amountReceived: effectiveRegAmt,
+            paymentMode: updatedDoc?.paymentMode || existingDoc.paymentMode || "Cash",
+            referenceNo: updatedDoc?.transactionNo || existingDoc.transactionNo || "N/A",
+            company: updatedDoc?.companyAssigned || existingDoc.companyAssigned || "Cash",
+            brand: updatedDoc?.brand || existingDoc.brand || "Cadd Mantra",
+            paymentDate: currentAdmDate,
+            particulars: {
+              courseFeeDue: 0,
+              registrationFeeDue: effectiveRegAmt,
+              materialFeeDue: 0,
+              examFeeDue: 0,
+            },
+            remarks: "Initial registration payment upon admission",
+          });
+          await newRegPayment.save({ session });
+        }
+
+        // C. Synchronize linked Enquiry:
+        // 1. Remove mobile-number fallback. Only cascade to enquiry linked by Admission.enquiryId (exact _id match).
+        // 2. If enquiryId is missing, do not update any enquiry — log a warning instead.
+        // 3. Use Enquiry.updateOne since an admission links to exactly one enquiry.
+        const targetEnquiryId = updatedDoc?.enquiryId || existingDoc?.enquiryId;
+        if (targetEnquiryId && mongoose.Types.ObjectId.isValid(String(targetEnquiryId))) {
+          const enqUpdatePayload: any = {};
+          if (updatedDoc?.fullName) enqUpdatePayload.studentFullName = updatedDoc.fullName;
+          if (updatedDoc?.mobileNumber) enqUpdatePayload.primaryPhoneMobile = updatedDoc.mobileNumber;
+          if (updatedDoc?.email) enqUpdatePayload.emailAddress = updatedDoc.email;
+          if (updatedDoc?.parentName || updatedDoc?.parentsFullName) {
+            enqUpdatePayload.parentsFullName = updatedDoc.parentName || updatedDoc.parentsFullName;
+          }
+          if (updatedDoc?.parentPhone || updatedDoc?.parentsPhoneNumber) {
+            enqUpdatePayload.parentsPhoneNumber = updatedDoc.parentPhone || updatedDoc.parentsPhoneNumber;
+          }
+          if (updatedDoc?.city && updatedDoc.city !== "N/A") {
+            enqUpdatePayload.currentCity = updatedDoc.city;
+          }
+
+          if (Object.keys(enqUpdatePayload).length > 0) {
+            await Enquiry.updateOne(
+              { _id: new mongoose.Types.ObjectId(String(targetEnquiryId)) },
+              { $set: enqUpdatePayload },
+              { session }
+            );
+          }
+        } else {
+          console.warn(`[PUT /api/admissions/${id}] Admission has no linked enquiryId; skipping enquiry update.`);
+        }
+
+        // D. Synchronize Task linked student name inside transaction
+        if (updatedDoc?.fullName) {
+          await Task.updateMany(
+            {
+              $or: [
+                { linkedStudentId: existingDoc._id.toString() },
+                { linkedStudentId: existingDoc.admissionId },
+                { linkedStudentName: existingDoc.fullName }
+              ]
+            },
+            { $set: { linkedStudentName: updatedDoc.fullName } },
+            { session }
+          );
+        }
+      });
+    } finally {
+      await session.endSession();
     }
 
     return NextResponse.json({

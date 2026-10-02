@@ -152,6 +152,13 @@ export async function GET(req: Request) {
       });
     }
 
+    // Anywhere the UI shows a payment list for a student, display the current name by joining/populating via admissionId
+    payments = payments.map((p: any) => ({
+      ...p,
+      originalIssuedName: p.studentName,
+      studentName: p.admissionId?.fullName || p.studentName,
+    }));
+
     return NextResponse.json({ success: true, data: payments });
   } catch (error: any) {
     console.error("Error fetching payments:", error);

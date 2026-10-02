@@ -156,35 +156,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Update Ledger (block entire student fee in company collectedRevenue for the active 1st April - 31st March cycle)
-    if (finalCompany && finalCompany !== "Cash" && finalCompany !== "Unallocated" && finalCompany !== "Cash (Unallocated)") {
-      const amountToBlock = Number(data.finalFee) > 0
-        ? Number(data.finalFee)
-        : (Number(data.courseFee) > 0 ? Number(data.courseFee) : Number(data.amountReceivedToday));
-
-      if (amountToBlock > 0) {
-        const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const compRegex = new RegExp(`^${escapeRegExp(finalCompany.trim())}$`, "i");
-        const targetComp = await Company.findOne({
-          $or: [{ name: { $regex: compRegex } }, { legalName: { $regex: compRegex } }]
-        });
-
-        if (targetComp) {
-          const { label: currentFY } = getFinancialYearRange();
-          const admDate = data.admissionDate ? new Date(data.admissionDate) : new Date();
-          const admFY = getFinancialYear(admDate);
-
-          if (targetComp.currentFinancialYear === admFY) {
-            targetComp.collectedRevenue = (targetComp.collectedRevenue || 0) + amountToBlock;
-          } else if (admFY === currentFY) {
-            targetComp.currentFinancialYear = currentFY;
-            targetComp.collectedRevenue = amountToBlock;
-            targetComp.alerted80Percent = false;
-          }
-          await targetComp.save();
-        }
-      }
-    }
 
     // Course Wise Max Discount Limit Validation & Notification Trigger
     const courseDoc = await Course.findOne({
@@ -219,36 +190,12 @@ export async function POST(req: NextRequest) {
       data.isUpgrade = false;
     }
 
-    const admission = new Admission(data);
-    await admission.save();
-
-    // Trigger Notification for Admin if discount exceeds max limit
-    if (totalDiscountGiven > maxAllowedLimit) {
-      try {
-        await Notification.create({
-          title: `Discount Approval Request: ${admission.fullName}`,
-          message: `${admission.counsellor || 'Counsellor'} offered ₹${totalDiscountGiven.toLocaleString('en-IN')} discount on ${admission.course} (Max allowed limit: ₹${maxAllowedLimit.toLocaleString('en-IN')}). Admin approval required.`,
-          type: "discount_approval",
-          admissionId: admission._id.toString(),
-          studentFullName: admission.fullName,
-          courseName: admission.course,
-          requestedDiscount: totalDiscountGiven,
-          maxAllowedDiscount: maxAllowedLimit,
-          requestedBy: admission.counsellor || "Staff",
-          status: "Pending",
-          read: false
-        });
-      } catch (notifErr) {
-        console.error("Failed creating Notification:", notifErr);
-      }
-    }
-
     // Helper to cancel uncompleted follow-ups & sync counsellor name to enquiry
     const cancelUncompletedFollowUps = (enquiryDoc: any) => {
       enquiryDoc.status = "Admitted";
       enquiryDoc.isAdmitted = true;
-      if (admission.counsellor) {
-        enquiryDoc.assignedCrmAdvisor = admission.counsellor;
+      if (data.counsellor) {
+        enquiryDoc.assignedCrmAdvisor = data.counsellor;
       }
 
       if (enquiryDoc.followUps && Array.isArray(enquiryDoc.followUps)) {
@@ -265,250 +212,230 @@ export async function POST(req: NextRequest) {
       }
     };
 
+    let admission: any = null;
+    let initialPaymentObj: any = null;
     const matchedEnquiryIds: string[] = [];
 
-    // Automatically update original enquiry status to Admitted & cancel all pending follow-ups
-    if (data.enquiryId) {
-      const enqFilter = mongoose.Types.ObjectId.isValid(data.enquiryId)
-        ? { _id: data.enquiryId }
-        : { enquiryId: data.enquiryId };
+    // 4. Wrap the admission write, company ledger, enquiry update, task updates, and initial payment in a single MongoDB transaction
+    const session = await mongoose.startSession();
 
-      const enqs = await Enquiry.find(enqFilter);
-      for (const enq of enqs) {
-        cancelUncompletedFollowUps(enq);
-        (enq as any).actualAdmissionFee = Number(admission.finalFee || admission.courseFee || 0);
-        (enq as any).status = "Admitted";
-        (enq as any).isAdmitted = true;
-        await enq.save();
-        matchedEnquiryIds.push(enq._id.toString());
-      }
-    }
+    try {
+      await session.withTransaction(async () => {
+        // A. Update Ledger (block entire student fee in company collectedRevenue for active cycle) inside transaction
+        if (finalCompany && finalCompany !== "Cash" && finalCompany !== "Unallocated" && finalCompany !== "Cash (Unallocated)") {
+          const amountToBlock = Number(data.finalFee) > 0
+            ? Number(data.finalFee)
+            : (Number(data.courseFee) > 0 ? Number(data.courseFee) : Number(data.amountReceivedToday));
 
-    if (data.mobileNumber) {
-      const cleanDigits = String(data.mobileNumber).replace(/\D/g, "").slice(-10);
-      if (cleanDigits.length === 10) {
-        const queryFilter: any = {
-          primaryPhoneMobile: { $regex: cleanDigits },
-          status: { $nin: ["Admitted", "Closed", "Lost", "Converted"] },
-        };
-        if (data.course) {
-          queryFilter.targetCourse = data.course;
+          if (amountToBlock > 0) {
+            const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const compRegex = new RegExp(`^${escapeRegExp(finalCompany.trim())}$`, "i");
+            const targetComp = await Company.findOne({
+              $or: [{ name: { $regex: compRegex } }, { legalName: { $regex: compRegex } }]
+            }).session(session);
+
+            if (targetComp) {
+              const { label: currentFY } = getFinancialYearRange();
+              const admDate = data.admissionDate ? new Date(data.admissionDate) : new Date();
+              const admFY = getFinancialYear(admDate);
+
+              if (targetComp.currentFinancialYear === admFY) {
+                targetComp.collectedRevenue = (targetComp.collectedRevenue || 0) + amountToBlock;
+              } else if (admFY === currentFY) {
+                targetComp.currentFinancialYear = currentFY;
+                targetComp.collectedRevenue = amountToBlock;
+                targetComp.alerted80Percent = false;
+              }
+              await targetComp.save({ session });
+            }
+          }
         }
 
-        const matchingEnquiries = await Enquiry.find(queryFilter);
-        for (const enq of matchingEnquiries) {
-          cancelUncompletedFollowUps(enq);
-          (enq as any).actualAdmissionFee = Number(admission.finalFee || admission.courseFee || 0);
-          (enq as any).status = "Admitted";
-          (enq as any).isAdmitted = true;
-          await enq.save();
-          if (!matchedEnquiryIds.includes(enq._id.toString())) {
+        // B. Save Admission within transaction
+        admission = new Admission(data);
+        await admission.save({ session });
+
+        // C. Trigger Notification inside transaction if discount exceeds max limit
+        if (totalDiscountGiven > maxAllowedLimit) {
+          try {
+            await Notification.create([
+              {
+                title: `Discount Approval Request: ${admission.fullName}`,
+                message: `${admission.counsellor || 'Counsellor'} offered ₹${totalDiscountGiven.toLocaleString('en-IN')} discount on ${admission.course} (Max allowed limit: ₹${maxAllowedLimit.toLocaleString('en-IN')}). Admin approval required.`,
+                type: "discount_approval",
+                admissionId: admission._id.toString(),
+                studentFullName: admission.fullName,
+                courseName: admission.course,
+                requestedDiscount: totalDiscountGiven,
+                maxAllowedDiscount: maxAllowedLimit,
+                requestedBy: admission.counsellor || "Staff",
+                status: "Pending",
+                read: false
+              }
+            ], { session });
+          } catch (notifErr) {
+            console.error("Failed creating Notification:", notifErr);
+          }
+        }
+
+        // D. Enquiry cascade (Req 1, 2, 5):
+        // 1. Remove mobile-number fallback. Only cascade to enquiry linked by Admission.enquiryId (exact _id match).
+        // 2. If enquiryId is missing, do not update any enquiry — log a warning instead.
+        // 3. Enquiry.updateOne since an admission links to exactly one enquiry.
+        // 4. Before changing a name, record the old and new values.
+        if (data.enquiryId && mongoose.Types.ObjectId.isValid(String(data.enquiryId))) {
+          const targetEnqId = new mongoose.Types.ObjectId(String(data.enquiryId));
+          const enq = await Enquiry.findById(targetEnqId).session(session);
+          if (enq) {
+            if (enq.studentFullName && admission.fullName && enq.studentFullName.trim() !== admission.fullName.trim()) {
+              const userId = (user as any)?._id || (user as any)?.id || (user as any)?.email || "unknown";
+              console.info(`[AUDIT] Student name updated on enrolment from Enquiry | enquiryId: ${enq.enquiryId || enq._id} | admissionId: ${admission.admissionId} | Old Name: "${enq.studentFullName}" | New Name: "${admission.fullName.trim()}" | User ID: ${userId}`);
+            }
+
+            cancelUncompletedFollowUps(enq);
+            await Enquiry.updateOne(
+              { _id: targetEnqId },
+              {
+                $set: {
+                  status: "Admitted",
+                  isAdmitted: true,
+                  actualAdmissionFee: Number(admission.finalFee || admission.courseFee || 0),
+                  assignedCrmAdvisor: admission.counsellor || enq.assignedCrmAdvisor,
+                  studentFullName: admission.fullName || enq.studentFullName,
+                  followUps: enq.followUps
+                }
+              },
+              { session }
+            );
             matchedEnquiryIds.push(enq._id.toString());
+          } else {
+            console.warn(`[POST /api/admissions] Enquiry with _id ${data.enquiryId} not found; skipping enquiry update.`);
           }
+        } else {
+          console.warn(`[POST /api/admissions] No enquiryId provided for admission ${admission.admissionId || "new"}; skipping enquiry update.`);
         }
-      }
-    }
 
-    // Direct Admission: If no matching lead exists, automatically create a Lead/Enquiry with exact same details
-    if (matchedEnquiryIds.length === 0) {
-      try {
-        const directEnquiry = new Enquiry({
-          studentFullName: admission.fullName,
-          primaryPhoneMobile: admission.mobileNumber,
-          parentsFullName: admission.parentName || admission.parentsFullName,
-          parentsPhoneNumber: admission.parentPhone || admission.parentsPhoneNumber,
-          emailAddress: admission.email,
-          currentCity: admission.city,
-          targetBrand: admission.brand,
-          targetCourse: admission.course,
-          assignedCrmAdvisor: admission.counsellor || data.counsellor || "Counsellor",
-          leadSource: "Direct Admission / Walk-in",
-          expectedCourseFee: `₹${Number(admission.finalFee || admission.courseFee || 0).toLocaleString('en-IN')}`,
-          priorityLevel: "High",
-          status: "Admitted",
-          remarks: `Direct admission created by ${admission.counsellor || 'Counsellor'}`
-        });
-        await directEnquiry.save();
-        matchedEnquiryIds.push(directEnquiry._id.toString());
-      } catch (enqCreateErr) {
-        console.error("Failed to auto-create Lead for Direct Admission:", enqCreateErr);
-      }
-    }
+        // E. Cancel/close any pending lead call tasks for this student/enquiry inside transaction
+        if (matchedEnquiryIds.length > 0 || admission.fullName) {
+          await Task.updateMany(
+            {
+              $or: [
+                { linkedEnquiryId: { $in: matchedEnquiryIds } },
+                { linkedStudentId: admission._id.toString() },
+                { linkedStudentName: admission.fullName }
+              ],
+              taskType: { $in: ["Lead Call", "Demo", "General"] },
+              status: { $in: ["Pending", "In Progress"] }
+            },
+            {
+              $set: {
+                status: "Completed",
+                completedAt: new Date()
+              }
+            },
+            { session }
+          );
+        }
 
-    // Cancel/close any pending lead call tasks for this student/enquiry
-    if (matchedEnquiryIds.length > 0 || admission.fullName) {
-      await Task.updateMany(
-        {
-          $or: [
-            { linkedEnquiryId: { $in: matchedEnquiryIds } },
-            { linkedStudentId: admission._id.toString() },
-            { linkedStudentName: admission.fullName }
-          ],
-          taskType: { $in: ["Lead Call", "Demo", "General"] },
-          status: { $in: ["Pending", "In Progress"] }
-        },
-        {
-          $set: {
-            status: "Completed",
-            completedAt: new Date()
+        // F. Generate initial Payment record inside transaction
+        const initialCollectedAmount = Number(data.amountReceivedToday !== undefined ? data.amountReceivedToday : data.registrationAmount) || 0;
+        if (initialCollectedAmount > 0) {
+          const initialPayment = new Payment({
+            admissionId: admission._id,
+            studentName: admission.fullName, // Name as issued
+            amountReceived: initialCollectedAmount,
+            paymentMode: data.paymentMode || "Cash",
+            referenceNo: data.transactionNo || "N/A",
+            company: finalCompany,
+            brand: data.brand,
+            paymentDate: admission.admissionDate ? new Date(admission.admissionDate) : (data.admissionDate ? new Date(data.admissionDate) : (data.paymentDate ? new Date(data.paymentDate) : new Date())),
+            particulars: {
+              courseFeeDue: 0,
+              registrationFeeDue: Number(data.registrationAmount || data.amountReceivedToday || initialCollectedAmount),
+              materialFeeDue: 0,
+              examFeeDue: 0
+            },
+            remarks: "Initial registration payment upon admission"
+          });
+          initialPaymentObj = await initialPayment.save({ session });
+        }
+
+        // G. AUTO TASK ENGINE: Generate 4 SOP Tasks inside transaction
+        const due24h = new Date();
+        due24h.setDate(due24h.getDate() + 1);
+        const due48h = new Date();
+        due48h.setDate(due48h.getDate() + 2);
+        const counsellorName = admission.counsellor || user?.name || "Unassigned";
+
+        await Task.create([
+          {
+            title: `Document Collection & Verification: ${admission.fullName}`,
+            description: `Collect Govt ID proof, past marksheets, and passport photo for ${admission.course}.`,
+            taskType: "Document Collection",
+            linkedStudentName: admission.fullName,
+            linkedStudentId: admission._id.toString(),
+            assignedTo: counsellorName,
+            priority: "High",
+            status: "Pending",
+            dueDate: due24h,
+            checklist: [
+              { text: "Verify Aadhaar / Govt Identity Card", isCompleted: false },
+              { text: "Upload educational marksheets & photo", isCompleted: false }
+            ],
+            autoTriggerSource: "Auto Event: New Admission SOP Step 1"
+          },
+          {
+            title: `First Installment Receipt & Ledger Sync: ${admission.fullName}`,
+            description: `Ensure registration fee receipt is issued and ledger is verified.`,
+            taskType: "Fee Collection",
+            linkedStudentName: admission.fullName,
+            linkedStudentId: admission._id.toString(),
+            assignedTo: counsellorName,
+            priority: "High",
+            status: "Pending",
+            dueDate: due24h,
+            checklist: [
+              { text: "Confirm payment credit in bank/ledger", isCompleted: true },
+              { text: "Generate official PDF payment receipt", isCompleted: true }
+            ],
+            autoTriggerSource: "Auto Event: New Admission SOP Step 2"
+          },
+          {
+            title: `Batch Allocation & LMS Credentials: ${admission.fullName}`,
+            description: `Assign batch timing in ERP and send LMS portal credentials.`,
+            taskType: "Batch Allocation",
+            linkedStudentName: admission.fullName,
+            linkedStudentId: admission._id.toString(),
+            assignedTo: counsellorName,
+            priority: "Medium",
+            status: "Pending",
+            dueDate: due48h,
+            checklist: [
+              { text: "Allocate batch schedule in ERP Engine", isCompleted: false },
+              { text: "Create student LMS portal account", isCompleted: false }
+            ],
+            autoTriggerSource: "Auto Event: New Admission SOP Step 3"
+          },
+          {
+            title: `Send Welcome Onboarding Package: ${admission.fullName}`,
+            description: `Deliver official welcome onboarding handbook & WhatsApp package.`,
+            taskType: "Welcome Onboarding",
+            linkedStudentName: admission.fullName,
+            linkedStudentId: admission._id.toString(),
+            assignedTo: counsellorName,
+            priority: "Medium",
+            status: "Pending",
+            dueDate: due48h,
+            checklist: [
+              { text: "Send Welcome WhatsApp message & student handbook", isCompleted: false },
+              { text: "Add student to official batch WhatsApp group", isCompleted: false }
+            ],
+            autoTriggerSource: "Auto Event: New Admission SOP Step 4"
           }
-        }
-      );
-    }
-
-    // Automatically generate a Payment record for the actual initial payment collected during admission (Registration Fee collected today)
-    let initialPaymentObj = null;
-    const initialCollectedAmount = Number(data.amountReceivedToday !== undefined ? data.amountReceivedToday : data.registrationAmount) || 0;
-
-    if (initialCollectedAmount > 0) {
-      const initialPayment = new Payment({
-        admissionId: admission._id,
-        studentName: admission.fullName,
-        amountReceived: initialCollectedAmount,
-        paymentMode: data.paymentMode || "Cash",
-        referenceNo: data.transactionNo || "N/A",
-        company: finalCompany,
-        brand: data.brand,
-        // Ensure initial registration payment is counted in the admission month (use admissionDate as authoritative payment date)
-        paymentDate: admission.admissionDate ? new Date(admission.admissionDate) : (data.admissionDate ? new Date(data.admissionDate) : (data.paymentDate ? new Date(data.paymentDate) : new Date())),
-        particulars: {
-          courseFeeDue: 0,
-          registrationFeeDue: Number(data.registrationAmount || data.amountReceivedToday || initialCollectedAmount),
-          materialFeeDue: 0,
-          examFeeDue: 0
-        },
-        remarks: "Initial registration payment upon admission"
+        ], { session });
       });
-      initialPaymentObj = await initialPayment.save();
-
-      // Trigger MSG91 WhatsApp Fee Receipt notification (ONLY if admission date is today's date)
-      try {
-        const todayIST = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-        const admDateObj = admission.admissionDate
-          ? new Date(admission.admissionDate)
-          : (data.admissionDate ? new Date(data.admissionDate) : new Date());
-        const admDateIST = admDateObj.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-        const isTodayAdmission = admDateIST === todayIST;
-
-        if (admission.mobileNumber && isTodayAdmission) {
-          sendWhatsAppFeeReceipt({
-            studentName: admission.fullName,
-            mobileNumber: admission.mobileNumber,
-            courseName: admission.course,
-            amountPaid: initialPaymentObj.amountReceived || Number(data.amountReceivedToday) || initialCollectedAmount,
-            paymentDate: new Date(initialPaymentObj.createdAt || Date.now()).toLocaleDateString("en-IN"),
-            receiptNo: initialPaymentObj.receiptNo,
-          }).catch((err) => console.error("Async MSG91 WhatsApp Error:", err));
-        } else if (!isTodayAdmission) {
-          console.log(`[Admission API] Skipping WhatsApp fee receipt: admissionDate (${admDateIST}) is not today (${todayIST})`);
-        }
-      } catch (waErr) {
-        console.error("Failed to trigger WhatsApp receipt:", waErr);
-      }
-    }
-
-    // Trigger MSG91 WhatsApp Outbound Alert ONLY to Super Admin for New Admission (template: admission_msg)
-    try {
-      const nowIST = new Date();
-      const istDate = nowIST.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
-      const istTime = nowIST.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" });
-
-      sendWhatsAppSuperAdminAdmissionAlert({
-        studentName: admission.fullName,
-        admissionNumber: admission.admissionId || admission._id?.toString(),
-        courseName: admission.course,
-        brandName: admission.brand,
-        batchName: admission.batch || data.batch || "Regular Batch",
-        counsellorName: admission.counsellor || data.counsellor || "Advisor",
-        amountPaid: initialCollectedAmount,
-        registrationAmount: Number(data.registrationAmount || 0),
-        downpaymentAmount: Number(data.downpaymentAmount || 0),
-        paymentMode: data.paymentMode || "Cash",
-        date: istDate,
-        time: istTime,
-      }).catch((err) => console.error("Async Super Admin Admission Alert WhatsApp Error:", err));
-    } catch (waErr) {
-      console.error("Failed to trigger Super Admin WhatsApp admission alert:", waErr);
-    }
-
-    // AUTO TASK ENGINE: Generate 4 SOP Tasks for Admission Onboarding
-    try {
-      const due24h = new Date();
-      due24h.setDate(due24h.getDate() + 1);
-
-      const due48h = new Date();
-      due48h.setDate(due48h.getDate() + 2);
-
-      const counsellorName = admission.counsellor || user?.name || "Unassigned";
-
-      await Task.create([
-        {
-          title: `Document Collection & Verification: ${admission.fullName}`,
-          description: `Collect Govt ID proof, past marksheets, and passport photo for ${admission.course}.`,
-          taskType: "Document Collection",
-          linkedStudentName: admission.fullName,
-          linkedStudentId: admission._id.toString(),
-          assignedTo: counsellorName,
-          priority: "High",
-          status: "Pending",
-          dueDate: due24h,
-          checklist: [
-            { text: "Verify Aadhaar / Govt Identity Card", isCompleted: false },
-            { text: "Upload educational marksheets & photo", isCompleted: false }
-          ],
-          autoTriggerSource: "Auto Event: New Admission SOP Step 1"
-        },
-        {
-          title: `First Installment Receipt & Ledger Sync: ${admission.fullName}`,
-          description: `Ensure registration fee receipt is issued and ledger is verified.`,
-          taskType: "Fee Collection",
-          linkedStudentName: admission.fullName,
-          linkedStudentId: admission._id.toString(),
-          assignedTo: counsellorName,
-          priority: "High",
-          status: "Pending",
-          dueDate: due24h,
-          checklist: [
-            { text: "Confirm payment credit in bank/ledger", isCompleted: true },
-            { text: "Generate official PDF payment receipt", isCompleted: true }
-          ],
-          autoTriggerSource: "Auto Event: New Admission SOP Step 2"
-        },
-        {
-          title: `Batch Allocation & LMS Credentials: ${admission.fullName}`,
-          description: `Assign batch timing in ERP and send LMS portal credentials.`,
-          taskType: "Batch Allocation",
-          linkedStudentName: admission.fullName,
-          linkedStudentId: admission._id.toString(),
-          assignedTo: counsellorName,
-          priority: "Medium",
-          status: "Pending",
-          dueDate: due48h,
-          checklist: [
-            { text: "Allocate batch schedule in ERP Engine", isCompleted: false },
-            { text: "Create student LMS portal account", isCompleted: false }
-          ],
-          autoTriggerSource: "Auto Event: New Admission SOP Step 3"
-        },
-        {
-          title: `Send Welcome Onboarding Package: ${admission.fullName}`,
-          description: `Deliver official welcome onboarding handbook & WhatsApp package.`,
-          taskType: "Welcome Onboarding",
-          linkedStudentName: admission.fullName,
-          linkedStudentId: admission._id.toString(),
-          assignedTo: counsellorName,
-          priority: "Medium",
-          status: "Pending",
-          dueDate: due48h,
-          checklist: [
-            { text: "Send Welcome WhatsApp message & student handbook", isCompleted: false },
-            { text: "Add student to official batch WhatsApp group", isCompleted: false }
-          ],
-          autoTriggerSource: "Auto Event: New Admission SOP Step 4"
-        }
-      ]);
-    } catch (taskErr) {
-      console.error("Auto task SOP generation failed on admission:", taskErr);
+    } finally {
+      await session.endSession();
     }
 
     // Trigger Admission Confirmation Email directly to Student's Email
