@@ -1,42 +1,27 @@
-name: Deploy to Hostinger VPS
-
-on:
-  push:
-    branches:
-      - main
-
-jobs:
-  deploy:
-    name: Deploy Application
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Check SSH Port Reachability
+      - name: Prepare SSH key
+        shell: bash
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
-          TARGET_HOST="${{ secrets.HOST }}"
-          TARGET_PORT="${{ secrets.PORT || '22' }}"
+          set -euo pipefail
 
-          echo "🔍 Testing TCP connectivity to Host: $TARGET_HOST on Port: $TARGET_PORT..."
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$RUNNER_TEMP/cashflow_deploy"
 
-          if nc -z -w 10 "$TARGET_HOST" "$TARGET_PORT"; then
-            echo "✅ Server $TARGET_HOST is reachable on port $TARGET_PORT."
-          else
-            echo "❌ ERROR: Cannot establish TCP connection to $TARGET_HOST:$TARGET_PORT"
-            echo "👉 Please check the following in Hostinger Control Panel & VPS:"
-            echo "   1. Ensure VPS is running and server is online."
-            echo "   2. Check Firewall / UFW allows inbound TCP on port $TARGET_PORT."
-            echo "   3. Verify repository secret HOST is public IP."
-            exit 1
-          fi
+          chmod 600 "$RUNNER_TEMP/cashflow_deploy"
+
+          echo "Validating SSH private key..."
+
+          ssh-keygen -y -f "$RUNNER_TEMP/cashflow_deploy" > /dev/null
+
+          echo "✅ SSH private key is valid."
 
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          key_path: ${{ runner.temp }}/cashflow_deploy
           port: ${{ secrets.PORT || '22' }}
-
           timeout: 120s
           command_timeout: 30m
           debug: true
@@ -89,9 +74,11 @@ jobs:
 
             echo "🔧 Configuring Nginx client_max_body_size..."
             sudo sed -i 's/client_max_body_size.*/client_max_body_size 50M;/g' /etc/nginx/nginx.conf /etc/nginx/conf.d/*.conf /etc/nginx/sites-available/* 2>/dev/null || true
+
             if ! grep -q "client_max_body_size" /etc/nginx/nginx.conf 2>/dev/null; then
               sudo sed -i '/http {/a \    client_max_body_size 50M;' /etc/nginx/nginx.conf 2>/dev/null || true
             fi
+
             sudo systemctl reload nginx 2>/dev/null || true
 
             echo "📋 PM2 Status:"
