@@ -11,106 +11,202 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # ============================================================
+      # 1. Check that the VPS SSH port is reachable
+      # ============================================================
       - name: Check SSH Port Reachability
+        shell: bash
         run: |
+          set -euo pipefail
+
           TARGET_HOST="${{ secrets.HOST }}"
           TARGET_PORT="${{ secrets.PORT || '22' }}"
 
-          echo "🔍 Testing TCP connectivity to Host: $TARGET_HOST on Port: $TARGET_PORT..."
+          echo "🔍 Testing TCP connectivity to $TARGET_HOST:$TARGET_PORT..."
 
           if nc -z -w 10 "$TARGET_HOST" "$TARGET_PORT"; then
             echo "✅ Server $TARGET_HOST is reachable on port $TARGET_PORT."
           else
-            echo "❌ ERROR: Cannot establish TCP connection to $TARGET_HOST:$TARGET_PORT"
+            echo "❌ Cannot establish TCP connection to $TARGET_HOST:$TARGET_PORT"
+            echo "Please check:"
+            echo "  1. VPS is running"
+            echo "  2. SSH port is correct"
+            echo "  3. VPS firewall allows SSH"
+            echo "  4. HOST secret contains the VPS public IP"
             exit 1
           fi
 
-      - name: Prepare SSH key
+      # ============================================================
+      # 2. Create SSH private-key file from GitHub Secret
+      # ============================================================
+      - name: Prepare SSH Key
         shell: bash
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
           set -euo pipefail
 
-          printf '%s\n' "$SSH_PRIVATE_KEY" > "$RUNNER_TEMP/cashflow_deploy"
+          KEY_FILE="$RUNNER_TEMP/cashflow_deploy"
 
-          chmod 600 "$RUNNER_TEMP/cashflow_deploy"
+          echo "🔐 Creating temporary SSH key..."
 
-          echo "Validating SSH private key..."
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$KEY_FILE"
 
-          ssh-keygen -y -f "$RUNNER_TEMP/cashflow_deploy" > /dev/null
+          chmod 600 "$KEY_FILE"
+
+          echo "🔍 Validating SSH private key..."
+
+          ssh-keygen -y -f "$KEY_FILE" > "$RUNNER_TEMP/cashflow_deploy.pub"
 
           echo "✅ SSH private key is valid."
 
+          echo "🔑 SSH key fingerprint:"
+          ssh-keygen -lf "$RUNNER_TEMP/cashflow_deploy.pub"
+
+      # ============================================================
+      # 3. Connect to VPS using native OpenSSH
+      # ============================================================
       - name: Deploy over SSH
-        uses: appleboy/ssh-action@v1.2.2
-        with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USERNAME }}
-          key_path: ${{ runner.temp }}/cashflow_deploy
-          port: ${{ secrets.PORT || '22' }}
-          timeout: 120s
-          command_timeout: 30m
-          debug: true
+        shell: bash
+        env:
+          HOST: ${{ secrets.HOST }}
+          USERNAME: ${{ secrets.USERNAME }}
+          PORT: ${{ secrets.PORT || '22' }}
+        run: |
+          set -euo pipefail
 
-          script: |
-            set -e
+          KEY_FILE="$RUNNER_TEMP/cashflow_deploy"
 
-            echo "========================================="
-            echo "🚀 Starting Deployment"
-            echo "========================================="
+          echo "========================================="
+          echo "🚀 Connecting to VPS"
+          echo "========================================="
 
-            echo "🖥️ Server:"
-            hostname
+          echo "Host: $HOST"
+          echo "Username: $USERNAME"
+          echo "Port: $PORT"
 
-            echo "📅 Time:"
-            date
+          ssh \
+            -i "$KEY_FILE" \
+            -p "$PORT" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=30 \
+            "$USERNAME@$HOST" 'bash -s' <<'REMOTE_SCRIPT'
 
-            echo "📂 Switching to project directory..."
-            cd /var/www/cashflow
+          set -e
 
-            echo "📍 Current Directory:"
-            pwd
+          echo "========================================="
+          echo "🚀 Starting Deployment"
+          echo "========================================="
 
-            echo "🌿 Current Branch:"
-            git branch --show-current
+          echo "🖥️ Server:"
+          hostname
 
-            echo "🔄 Fetching latest code..."
-            git fetch origin
+          echo "📅 Time:"
+          date
 
-            echo "📥 Pulling latest changes..."
-            git pull --ff-only origin main
+          # ========================================================
+          # Application directory
+          # ========================================================
 
-            echo "🟢 Node Version:"
-            node -v
+          echo "📂 Switching to project directory..."
 
-            echo "📦 NPM Version:"
-            npm -v
+          cd /var/www/cashflow
 
-            echo "📦 Installing dependencies..."
-            npm install
+          echo "📍 Current Directory:"
+          pwd
 
-            echo "🏗️ Building application..."
-            npm run build
+          # ========================================================
+          # Git
+          # ========================================================
 
-            echo "♻️ Reloading PM2..."
-            pm2 reload next-app
+          echo "🌿 Current Branch:"
+          git branch --show-current
 
-            echo "💾 Saving PM2 process list..."
-            pm2 save
+          echo "🔄 Fetching latest code..."
 
-            echo "🔧 Configuring Nginx client_max_body_size..."
-            sudo sed -i 's/client_max_body_size.*/client_max_body_size 50M;/g' /etc/nginx/nginx.conf /etc/nginx/conf.d/*.conf /etc/nginx/sites-available/* 2>/dev/null || true
+          git fetch origin
 
-            if ! grep -q "client_max_body_size" /etc/nginx/nginx.conf 2>/dev/null; then
-              sudo sed -i '/http {/a \    client_max_body_size 50M;' /etc/nginx/nginx.conf 2>/dev/null || true
-            fi
+          echo "📥 Pulling latest changes..."
 
-            sudo systemctl reload nginx 2>/dev/null || true
+          git pull --ff-only origin main
 
-            echo "📋 PM2 Status:"
-            pm2 list
+          # ========================================================
+          # Node / NPM
+          # ========================================================
 
-            echo "========================================="
-            echo "✅ Deployment Successful"
-            echo "========================================="
+          echo "🟢 Node Version:"
+          node -v
+
+          echo "📦 NPM Version:"
+          npm -v
+
+          # ========================================================
+          # Dependencies
+          # ========================================================
+
+          echo "📦 Installing dependencies..."
+
+          npm install
+
+          # ========================================================
+          # Build
+          # ========================================================
+
+          echo "🏗️ Building application..."
+
+          npm run build
+
+          # ========================================================
+          # PM2
+          # ========================================================
+
+          echo "♻️ Reloading PM2 application..."
+
+          pm2 reload next-app
+
+          echo "💾 Saving PM2 process list..."
+
+          pm2 save
+
+          # ========================================================
+          # Nginx
+          # ========================================================
+
+          echo "🔧 Configuring Nginx client_max_body_size..."
+
+          sudo sed -i \
+            's/client_max_body_size.*/client_max_body_size 50M;/g' \
+            /etc/nginx/nginx.conf \
+            /etc/nginx/conf.d/*.conf \
+            /etc/nginx/sites-available/* \
+            2>/dev/null || true
+
+          if ! grep -q "client_max_body_size" /etc/nginx/nginx.conf 2>/dev/null; then
+            sudo sed -i \
+              '/http {/a \    client_max_body_size 50M;' \
+              /etc/nginx/nginx.conf \
+              2>/dev/null || true
+          fi
+
+          echo "🔄 Reloading Nginx..."
+
+          sudo systemctl reload nginx 2>/dev/null || true
+
+          # ========================================================
+          # PM2 Status
+          # ========================================================
+
+          echo "📋 PM2 Status:"
+
+          pm2 list
+
+          # ========================================================
+          # Finished
+          # ========================================================
+
+          echo "========================================="
+          echo "✅ Deployment Successful"
+          echo "========================================="
+
+          REMOTE_SCRIPT
