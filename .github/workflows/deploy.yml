@@ -11,8 +11,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
       # ============================================================
-      # 1. Check that the VPS SSH port is reachable
+      # 1. Check SSH connectivity
       # ============================================================
       - name: Check SSH Port Reachability
         shell: bash
@@ -22,22 +23,24 @@ jobs:
           TARGET_HOST="${{ secrets.HOST }}"
           TARGET_PORT="${{ secrets.PORT || '22' }}"
 
-          echo "🔍 Testing TCP connectivity to $TARGET_HOST:$TARGET_PORT..."
+          echo "========================================="
+          echo "🔍 Checking VPS Connectivity"
+          echo "========================================="
+
+          echo "Host: $TARGET_HOST"
+          echo "Port: $TARGET_PORT"
 
           if nc -z -w 10 "$TARGET_HOST" "$TARGET_PORT"; then
-            echo "✅ Server $TARGET_HOST is reachable on port $TARGET_PORT."
+            echo "✅ VPS is reachable."
           else
-            echo "❌ Cannot establish TCP connection to $TARGET_HOST:$TARGET_PORT"
-            echo "Please check:"
-            echo "  1. VPS is running"
-            echo "  2. SSH port is correct"
-            echo "  3. VPS firewall allows SSH"
-            echo "  4. HOST secret contains the VPS public IP"
+            echo "❌ VPS is not reachable."
+            echo "Check HOST, PORT, VPS status and firewall."
             exit 1
           fi
 
+
       # ============================================================
-      # 2. Create SSH private-key file from GitHub Secret
+      # 2. Prepare SSH private key
       # ============================================================
       - name: Prepare SSH Key
         shell: bash
@@ -48,7 +51,9 @@ jobs:
 
           KEY_FILE="$RUNNER_TEMP/cashflow_deploy"
 
-          echo "🔐 Creating temporary SSH key..."
+          echo "========================================="
+          echo "🔐 Preparing SSH Key"
+          echo "========================================="
 
           printf '%s\n' "$SSH_PRIVATE_KEY" > "$KEY_FILE"
 
@@ -56,21 +61,24 @@ jobs:
 
           echo "🔍 Validating SSH private key..."
 
-          ssh-keygen -y -f "$KEY_FILE" > "$RUNNER_TEMP/cashflow_deploy.pub"
+          ssh-keygen -y \
+            -f "$KEY_FILE" \
+            > "$RUNNER_TEMP/cashflow_deploy.pub"
 
           echo "✅ SSH private key is valid."
 
           echo "🔑 SSH key fingerprint:"
+
           ssh-keygen -lf "$RUNNER_TEMP/cashflow_deploy.pub"
 
+
       # ============================================================
-      # 3. Connect to VPS using native OpenSSH
+      # 3. Deploy to VPS
       # ============================================================
       - name: Deploy over SSH
         shell: bash
         env:
           HOST: ${{ secrets.HOST }}
-          USERNAME: ${{ secrets.USERNAME }}
           PORT: ${{ secrets.PORT || '22' }}
         run: |
           set -euo pipefail
@@ -82,7 +90,7 @@ jobs:
           echo "========================================="
 
           echo "Host: $HOST"
-          echo "Username: $USERNAME"
+          echo "Username: root"
           echo "Port: $PORT"
 
           ssh \
@@ -91,13 +99,17 @@ jobs:
             -o BatchMode=yes \
             -o StrictHostKeyChecking=accept-new \
             -o ConnectTimeout=30 \
-            "$USERNAME@$HOST" 'bash -s' <<'REMOTE_SCRIPT'
+            "root@$HOST" 'bash -s' <<'REMOTE_SCRIPT'
 
           set -e
 
           echo "========================================="
           echo "🚀 Starting Deployment"
           echo "========================================="
+
+          # ========================================================
+          # Server information
+          # ========================================================
 
           echo "🖥️ Server:"
           hostname
@@ -132,7 +144,7 @@ jobs:
           git pull --ff-only origin main
 
           # ========================================================
-          # Node / NPM
+          # Node.js
           # ========================================================
 
           echo "🟢 Node Version:"
@@ -142,7 +154,7 @@ jobs:
           npm -v
 
           # ========================================================
-          # Dependencies
+          # Install dependencies
           # ========================================================
 
           echo "📦 Installing dependencies..."
@@ -150,7 +162,7 @@ jobs:
           npm install
 
           # ========================================================
-          # Build
+          # Build application
           # ========================================================
 
           echo "🏗️ Building application..."
@@ -161,7 +173,7 @@ jobs:
           # PM2
           # ========================================================
 
-          echo "♻️ Reloading PM2 application..."
+          echo "♻️ Reloading PM2..."
 
           pm2 reload next-app
 
@@ -183,10 +195,12 @@ jobs:
             2>/dev/null || true
 
           if ! grep -q "client_max_body_size" /etc/nginx/nginx.conf 2>/dev/null; then
+
             sudo sed -i \
               '/http {/a \    client_max_body_size 50M;' \
               /etc/nginx/nginx.conf \
               2>/dev/null || true
+
           fi
 
           echo "🔄 Reloading Nginx..."
@@ -194,7 +208,7 @@ jobs:
           sudo systemctl reload nginx 2>/dev/null || true
 
           # ========================================================
-          # PM2 Status
+          # PM2 status
           # ========================================================
 
           echo "📋 PM2 Status:"
@@ -202,7 +216,7 @@ jobs:
           pm2 list
 
           # ========================================================
-          # Finished
+          # Deployment complete
           # ========================================================
 
           echo "========================================="
