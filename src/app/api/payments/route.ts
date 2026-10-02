@@ -9,6 +9,7 @@ import Brand from "@/models/Brand";
 import { getUserFromCookies } from "@/lib/helper";
 import { sendWhatsAppFeeReceipt, sendWhatsAppCompanyCapacityAlert, sendWhatsAppCompanyLimit80Alert } from "@/lib/msg91";
 import { sendFeePaymentReceiptEmail } from "@/lib/emailService";
+import { getFinancialYear, getFinancialYearRange } from "@/lib/financialYearHelper";
 
 let paymentsReconciled = false;
 
@@ -234,11 +235,14 @@ export async function POST(req: Request) {
           });
 
           if (availableCompanies.length > 0) {
-            availableCompanies.sort((a, b) => {
-              const capA = (a.annualCapacityCap || 1949999) - (a.collectedRevenue || 0);
-              const capB = (b.annualCapacityCap || 1949999) - (b.collectedRevenue || 0);
-              return capB - capA;
-            });
+            const { label: currentFY } = getFinancialYearRange();
+            const getRemCap = (c: any) => {
+              const cap = Number(c.annualCapacityCap || 1949999);
+              const collected = c.currentFinancialYear === currentFY ? Number(c.collectedRevenue || 0) : 0;
+              return Math.max(0, cap - collected);
+            };
+
+            availableCompanies.sort((a, b) => getRemCap(b) - getRemCap(a));
 
             finalCompany = availableCompanies[0].name;
           } else {
@@ -260,23 +264,34 @@ export async function POST(req: Request) {
       const isSameCompany = oldCompany && oldCompany.toLowerCase() === finalCompany.toLowerCase();
 
       if (!isSameCompany) {
+        const { label: currentFY } = getFinancialYearRange();
+        const admDate = admission.admissionDate ? new Date(admission.admissionDate) : (admission.createdAt ? new Date(admission.createdAt) : new Date());
+        const admFY = getFinancialYear(admDate);
+
         // If changing company or allocating company for the first time
         if (oldCompany && oldCompany !== "Cash" && oldCompany !== "Unallocated" && oldCompany !== "Cash (Unallocated)") {
           // Unblock full fee from old company
           const oldCompRegex = new RegExp(`^${escapeRegExp(oldCompany)}$`, "i");
-          await Company.updateOne(
-            { $or: [{ name: { $regex: oldCompRegex } }, { legalName: { $regex: oldCompRegex } }] },
-            { $inc: { collectedRevenue: -studentFullFee } }
-          );
+          const oldComp = await Company.findOne({ $or: [{ name: { $regex: oldCompRegex } }, { legalName: { $regex: oldCompRegex } }] });
+          if (oldComp && (oldComp.currentFinancialYear === admFY || (!oldComp.currentFinancialYear && admFY === currentFY))) {
+            oldComp.collectedRevenue = Math.max(0, (oldComp.collectedRevenue || 0) - studentFullFee);
+            await oldComp.save();
+          }
         }
 
-        // Block full fee in new company
+        // Block full fee in new company for current financial year
         const compRegex = new RegExp(`^${escapeRegExp(finalCompany.trim())}$`, "i");
-        const updatedComp = await Company.findOneAndUpdate(
-          { $or: [{ name: { $regex: compRegex } }, { legalName: { $regex: compRegex } }] },
-          { $inc: { collectedRevenue: studentFullFee } },
-          { new: true }
-        );
+        let updatedComp = await Company.findOne({ $or: [{ name: { $regex: compRegex } }, { legalName: { $regex: compRegex } }] });
+        if (updatedComp) {
+          if (updatedComp.currentFinancialYear === admFY) {
+            updatedComp.collectedRevenue = (updatedComp.collectedRevenue || 0) + studentFullFee;
+          } else if (admFY === currentFY) {
+            updatedComp.currentFinancialYear = currentFY;
+            updatedComp.collectedRevenue = studentFullFee;
+            updatedComp.alerted80Percent = false;
+          }
+          await updatedComp.save();
+        }
 
         if (updatedComp) {
           const cap = updatedComp.annualCapacityCap || 1949999;
@@ -546,12 +561,20 @@ export async function DELETE(req: Request) {
       const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const compRegex = new RegExp(`^${escapeRegExp(paymentCompany)}$`, "i");
 
-      const compDoc = await Company.findOneAndUpdate(
-        { $or: [{ name: { $regex: compRegex } }, { legalName: { $regex: compRegex } }] },
-        { $inc: { collectedRevenue: -deletedAmount } },
-        { new: true }
-      );
-      if (compDoc) reversedCompany = compDoc.name;
+      const payDate = payment.paymentDate ? new Date(payment.paymentDate) : (payment.createdAt ? new Date(payment.createdAt) : new Date());
+      const payFY = getFinancialYear(payDate);
+      const { label: currentFY } = getFinancialYearRange();
+
+      const compDoc = await Company.findOne({
+        $or: [{ name: { $regex: compRegex } }, { legalName: { $regex: compRegex } }]
+      });
+      if (compDoc) {
+        if (compDoc.currentFinancialYear === payFY || (!compDoc.currentFinancialYear && payFY === currentFY)) {
+          compDoc.collectedRevenue = Math.max(0, (compDoc.collectedRevenue || 0) - deletedAmount);
+          await compDoc.save();
+        }
+        reversedCompany = compDoc.name;
+      }
     }
 
     // 3. Recalculate and update student admission record

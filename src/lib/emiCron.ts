@@ -119,6 +119,16 @@ export function initEmiReminderCron() {
         runMonthlyReportSilently();
       }
 
+      // -------------------------------------------------------------------
+      // TRIGGER 4: Annual Company Collection Rollover (1st April at 00:01 IST)
+      // -------------------------------------------------------------------
+      const lastFyRolloverYear = (global as any).__lastFyRolloverYear;
+      if (parseInt(istMonth, 10) === 4 && istDay === 1 && lastFyRolloverYear !== istYear) {
+        (global as any).__lastFyRolloverYear = istYear;
+        console.log(`🎉 [FINANCIAL YEAR ROLLOVER CRON] 1st April detected. Rolling over company collection cycles for new Financial Year...`);
+        runCompanyFiscalYearRollover();
+      }
+
     } catch (err) {
       console.error("[CRON WORKER] Time check error:", err);
     }
@@ -271,5 +281,26 @@ async function runPendingFollowupsReminderSilently() {
     console.error("❌ [PENDING FOLLOWUPS CRON] Background execution error:", err);
   } finally {
     isPendingFollowupsRunning = false;
+  }
+}
+
+async function runCompanyFiscalYearRollover() {
+  try {
+    const Company = (await import("@/models/Company")).default;
+    const { getFinancialYearRange } = await import("@/lib/financialYearHelper");
+    const fyRange = getFinancialYearRange();
+    await Company.updateMany(
+      {},
+      {
+        $set: {
+          collectedRevenue: 0,
+          currentFinancialYear: fyRange.label,
+          alerted80Percent: false,
+        },
+      }
+    );
+    console.log(`✅ [FINANCIAL YEAR ROLLOVER CRON] Successfully reset company collections for ${fyRange.displayLabel}`);
+  } catch (err) {
+    console.error("❌ [FINANCIAL YEAR ROLLOVER CRON] Rollover error:", err);
   }
 }

@@ -9,6 +9,7 @@ import Company from "@/models/Company";
 import Enquiry from "@/models/Enquiry";
 import Notification from "@/models/Notification";
 import { getUserFromCookies } from "@/lib/helper";
+import { getFinancialYear, getFinancialYearRange } from "@/lib/financialYearHelper";
 
 export async function GET(
   req: Request,
@@ -347,29 +348,45 @@ export async function PUT(
     const isOldValidComp = oldCompany && oldCompany !== "Cash" && oldCompany !== "Unallocated" && oldCompany !== "Cash (Unallocated)";
     const isNewValidComp = newCompany && newCompany !== "Cash" && newCompany !== "Unallocated" && newCompany !== "Cash (Unallocated)";
 
+    const effectiveAdmDate = existingDoc.admissionDate ? new Date(existingDoc.admissionDate) : (existingDoc.createdAt ? new Date(existingDoc.createdAt) : new Date());
+    const admFY = getFinancialYear(effectiveAdmDate);
+    const { label: currentFY } = getFinancialYearRange();
+
     if (isOldValidComp && isNewValidComp && oldCompany.toLowerCase() === newCompany.toLowerCase()) {
       const feeDiff = newFee - oldFee;
       if (feeDiff !== 0) {
         const compRegex = new RegExp(`^${escapeRegExp(newCompany)}$`, "i");
-        await Company.updateOne(
-          { $or: [{ name: { $regex: compRegex } }, { legalName: { $regex: compRegex } }] },
-          { $inc: { collectedRevenue: feeDiff } }
-        );
+        const comp = await Company.findOne({ $or: [{ name: { $regex: compRegex } }, { legalName: { $regex: compRegex } }] });
+        if (comp) {
+          if (comp.currentFinancialYear === admFY || (!comp.currentFinancialYear && admFY === currentFY)) {
+            comp.collectedRevenue = Math.max(0, (comp.collectedRevenue || 0) + feeDiff);
+            comp.currentFinancialYear = admFY;
+            await comp.save();
+          }
+        }
       }
     } else {
       if (isOldValidComp && oldFee > 0) {
         const oldCompRegex = new RegExp(`^${escapeRegExp(oldCompany)}$`, "i");
-        await Company.updateOne(
-          { $or: [{ name: { $regex: oldCompRegex } }, { legalName: { $regex: oldCompRegex } }] },
-          { $inc: { collectedRevenue: -oldFee } }
-        );
+        const oldComp = await Company.findOne({ $or: [{ name: { $regex: oldCompRegex } }, { legalName: { $regex: oldCompRegex } }] });
+        if (oldComp && (oldComp.currentFinancialYear === admFY || (!oldComp.currentFinancialYear && admFY === currentFY))) {
+          oldComp.collectedRevenue = Math.max(0, (oldComp.collectedRevenue || 0) - oldFee);
+          await oldComp.save();
+        }
       }
       if (isNewValidComp && newFee > 0) {
         const newCompRegex = new RegExp(`^${escapeRegExp(newCompany)}$`, "i");
-        await Company.updateOne(
-          { $or: [{ name: { $regex: newCompRegex } }, { legalName: { $regex: newCompRegex } }] },
-          { $inc: { collectedRevenue: newFee } }
-        );
+        const newComp = await Company.findOne({ $or: [{ name: { $regex: newCompRegex } }, { legalName: { $regex: newCompRegex } }] });
+        if (newComp) {
+          if (newComp.currentFinancialYear === admFY) {
+            newComp.collectedRevenue = (newComp.collectedRevenue || 0) + newFee;
+          } else if (admFY === currentFY) {
+            newComp.currentFinancialYear = currentFY;
+            newComp.collectedRevenue = newFee;
+            newComp.alerted80Percent = false;
+          }
+          await newComp.save();
+        }
       }
     }
 
@@ -517,10 +534,15 @@ export async function DELETE(
     if (amountToUnblock > 0 && admission.companyAssigned && admission.companyAssigned !== "Cash" && admission.companyAssigned !== "Unallocated" && admission.companyAssigned !== "Cash (Unallocated)") {
       const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const compRegex = new RegExp(`^${escapeRegExp(admission.companyAssigned.trim())}$`, "i");
-      await Company.updateOne(
-        { $or: [{ name: { $regex: compRegex } }, { legalName: { $regex: compRegex } }] },
-        { $inc: { collectedRevenue: -amountToUnblock } }
-      );
+      const comp = await Company.findOne({ $or: [{ name: { $regex: compRegex } }, { legalName: { $regex: compRegex } }] });
+      const effectiveAdmDate = admission.admissionDate ? new Date(admission.admissionDate) : (admission.createdAt ? new Date(admission.createdAt) : new Date());
+      const admFY = getFinancialYear(effectiveAdmDate);
+      const { label: currentFY } = getFinancialYearRange();
+
+      if (comp && (comp.currentFinancialYear === admFY || (!comp.currentFinancialYear && admFY === currentFY))) {
+        comp.collectedRevenue = Math.max(0, (comp.collectedRevenue || 0) - amountToUnblock);
+        await comp.save();
+      }
     }
 
     // 5. Reset linked Enquiry status if present

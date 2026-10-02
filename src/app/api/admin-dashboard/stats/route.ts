@@ -9,6 +9,7 @@ import Brand from "@/models/Brand";
 import LostLeadCounter from "@/models/LostLeadCounter";
 import Payroll from "@/models/Payroll";
 import Expense from "@/models/Expense";
+import { getFinancialYearRange } from "@/lib/financialYearHelper";
 
 
 export async function GET(req: Request) {
@@ -267,8 +268,8 @@ export async function GET(req: Request) {
         }
       ]),
 
-      // Companies data
-      Company.find().select("name annualCapacityCap collectedRevenue").lean(),
+      // Companies data (including financial year tracking)
+      Company.find().select("name annualCapacityCap collectedRevenue currentFinancialYear").lean(),
 
       // Work Queue counts
       Enquiry.countDocuments({ "followUps.date": { $lt: todayStr }, status: { $nin: ["Lost", "Admitted"] }, ...(isBrandFiltered && brandRegex ? { targetBrand: brandRegex } : {}) }),
@@ -645,10 +646,11 @@ export async function GET(req: Request) {
     });
     brandPerformance.sort((a: any, b: any) => b.admissions - a.admissions);
 
-    // 7. Process Company Limit & Utilization (Dynamic)
+    // 7. Process Company Limit & Utilization (1st April - 31st March Cycle)
+    const { label: currentFY } = getFinancialYearRange();
     const companyUtilization = companies.map((c: any) => {
       const cap = Number(c.annualCapacityCap || 1949999);
-      const collected = Number(c.collectedRevenue || 0);
+      const collected = c.currentFinancialYear === currentFY ? Number(c.collectedRevenue || 0) : 0;
       const usedPct = cap > 0 ? ((collected / cap) * 100).toFixed(1) + "%" : "0%";
       const remaining = Math.max(0, cap - collected);
 
@@ -656,7 +658,8 @@ export async function GET(req: Request) {
         name: c.name,
         collection: `₹${(collected / 100000).toFixed(2)} L`,
         usedPct,
-        remaining: `₹${(remaining / 100000).toFixed(2)} L`
+        remaining: `₹${(remaining / 100000).toFixed(2)} L`,
+        financialYear: currentFY,
       };
     });
 

@@ -43,6 +43,11 @@ const CompanySchema = new Schema(
       type: Number,
       default: 0,
     },
+    currentFinancialYear: {
+      type: String,
+      default: "",
+      trim: true,
+    },
     address: {
       type: String,
       default: "No listed street, No City, No State, PIN",

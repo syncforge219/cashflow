@@ -3,6 +3,7 @@ import dbConnect from "@/lib/db";
 import Admission from "@/models/Admission";
 import Payment from "@/models/Payment";
 import Company from "@/models/Company";
+import { getFinancialYearRange } from "@/lib/financialYearHelper";
 
 export async function GET() {
   try {
@@ -189,7 +190,17 @@ export async function GET() {
         .replace(/INSTITUTE/g, "INSTITUE")
         .replace(/LLP/g, "");
 
+    const fyRange = getFinancialYearRange();
     const admissionsByCompany = await Admission.aggregate([
+      {
+        $match: {
+          $or: [
+            { admissionDate: { $gte: fyRange.startDate, $lte: fyRange.endDate } },
+            { $and: [{ admissionDate: { $exists: false } }, { createdAt: { $gte: fyRange.startDate, $lte: fyRange.endDate } }] },
+            { $and: [{ admissionDate: null }, { createdAt: { $gte: fyRange.startDate, $lte: fyRange.endDate } }] }
+          ]
+        }
+      },
       {
         $group: {
           _id: { $toUpper: { $trim: { input: "$companyAssigned" } } },
@@ -227,6 +238,7 @@ export async function GET() {
       });
 
       comp.collectedRevenue = blockedSum;
+      comp.currentFinancialYear = fyRange.label;
       await comp.save();
     }
 

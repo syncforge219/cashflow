@@ -6,6 +6,8 @@ import Payment from "@/models/Payment";
 import Admission from "@/models/Admission";
 import { getUserFromCookies } from "@/lib/helper";
 
+import { getFinancialYearRange } from "@/lib/financialYearHelper";
+
 export async function GET(req: Request) {
   try {
     await dbConnect();
@@ -13,6 +15,9 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const brandParam = searchParams.get("brand");
+    const fyParam = searchParams.get("financialYear") || searchParams.get("fy");
+    const isAllTime = searchParams.get("cycle") === "all" || searchParams.get("allTime") === "true";
+    const fyRange = getFinancialYearRange(fyParam || undefined);
 
     let targetBrand = "";
     if (brandParam && brandParam !== "All Brands" && brandParam !== "ALL BRANDS" && brandParam !== "All") {
@@ -45,8 +50,27 @@ export async function GET(req: Request) {
     // Reverse mapping: Find brands that have associated this company
     const allBrands = await Brand.find({}).lean();
 
-    // Aggregate actual collected payments per company
+    // 1st April to 31st March Financial Year date filters
+    const paymentDateMatch: any = {};
+    const admissionDateMatch: any = {};
+
+    if (!isAllTime) {
+      paymentDateMatch.$or = [
+        { paymentDate: { $gte: fyRange.startDate, $lte: fyRange.endDate } },
+        { $and: [{ paymentDate: { $exists: false } }, { createdAt: { $gte: fyRange.startDate, $lte: fyRange.endDate } }] },
+        { $and: [{ paymentDate: null }, { createdAt: { $gte: fyRange.startDate, $lte: fyRange.endDate } }] }
+      ];
+
+      admissionDateMatch.$or = [
+        { admissionDate: { $gte: fyRange.startDate, $lte: fyRange.endDate } },
+        { $and: [{ admissionDate: { $exists: false } }, { createdAt: { $gte: fyRange.startDate, $lte: fyRange.endDate } }] },
+        { $and: [{ admissionDate: null }, { createdAt: { $gte: fyRange.startDate, $lte: fyRange.endDate } }] }
+      ];
+    }
+
+    // Aggregate actual collected payments per company for this 1st April - 31st March cycle
     const paymentsByCompany = await Payment.aggregate([
+      ...(Object.keys(paymentDateMatch).length > 0 ? [{ $match: paymentDateMatch }] : []),
       {
         $group: {
           _id: { $toUpper: { $trim: { input: "$company" } } },
@@ -55,8 +79,9 @@ export async function GET(req: Request) {
       }
     ]);
 
-    // Aggregate committed/contracted fees per company from admissions
+    // Aggregate committed/contracted fees per company from admissions for this 1st April - 31st March cycle
     const admissionsByCompany = await Admission.aggregate([
+      ...(Object.keys(admissionDateMatch).length > 0 ? [{ $match: admissionDateMatch }] : []),
       {
         $group: {
           _id: { $toUpper: { $trim: { input: "$companyAssigned" } } },
@@ -91,6 +116,9 @@ export async function GET(req: Request) {
         .replace(/INSTITUTE/g, "INSTITUE")
         .replace(/LLP/g, "");
 
+    const currentFyRange = getFinancialYearRange();
+    const isCurrentCycle = !isAllTime && fyRange.label === currentFyRange.label;
+
     list = list.map((company: any) => {
       const companyName = (company.name || "").toUpperCase().trim();
       const companyLegalName = (company.legalName || companyName).toUpperCase().trim();
@@ -106,7 +134,7 @@ export async function GET(req: Request) {
       ]);
       if (company.brand) finalBrandsSet.add(String(company.brand).toUpperCase().trim());
 
-      // Find actual collected payments for this company
+      // Find actual collected payments for this company in current cycle
       let actualCollected = 0;
       paymentsByCompany.forEach((p: any) => {
         if (!p._id || p._id === "CASH" || p._id === "UNALLOCATED" || p._id === "CASH (UNALLOCATED)") return;
@@ -115,7 +143,7 @@ export async function GET(req: Request) {
         }
       });
 
-      // Find committed/blocked fees for this company
+      // Find committed/blocked fees for this company in current cycle
       let blockedAmount = 0;
       admissionsByCompany.forEach((a: any) => {
         if (!a._id || a._id === "CASH" || a._id === "UNALLOCATED" || a._id === "CASH (UNALLOCATED)") return;
@@ -124,14 +152,25 @@ export async function GET(req: Request) {
         }
       });
 
-      // If blocked amount from admissions is 0 but company.collectedRevenue exists, keep existing record
-      if (blockedAmount === 0 && Number(company.collectedRevenue) > 0) {
-        blockedAmount = Number(company.collectedRevenue);
-      }
-
       const cap = Number(company.annualCapacityCap) || 1949999;
       const remainingCapacity = Math.max(0, cap - blockedAmount);
       const capacityPercentage = cap > 0 ? Number(((blockedAmount / cap) * 100).toFixed(1)) : 0;
+
+      // Keep Company.collectedRevenue and currentFinancialYear updated in database for current cycle
+      if (isCurrentCycle && company._id) {
+        if (company.currentFinancialYear !== fyRange.label || company.collectedRevenue !== blockedAmount) {
+          Company.updateOne(
+            { _id: company._id },
+            {
+              $set: {
+                collectedRevenue: blockedAmount,
+                currentFinancialYear: fyRange.label,
+                ...(company.currentFinancialYear !== fyRange.label ? { alerted80Percent: capacityPercentage >= 80 } : {})
+              }
+            }
+          ).catch((e) => console.error("[Companies API] FY Sync error:", e));
+        }
+      }
 
       return {
         ...company,
@@ -139,15 +178,25 @@ export async function GET(req: Request) {
         legalName: companyLegalName,
         brands: Array.from(finalBrandsSet),
         annualCapacityCap: cap,
-        collectedRevenue: blockedAmount, // Keep backwards compatibility with stored field
+        collectedRevenue: blockedAmount, // Reflects the current financial year cycle (1 Apr - 31 Mar)
         actualCollected,
         blockedAmount,
         remainingCapacity,
-        capacityPercentage
+        capacityPercentage,
+        currentFinancialYear: fyRange.label,
+        financialYear: fyRange.label,
+        financialYearDisplay: fyRange.displayLabel,
       };
     });
 
-    return NextResponse.json({ success: true, companies: list });
+    return NextResponse.json({
+      success: true,
+      financialYear: fyRange.label,
+      financialYearDisplay: fyRange.displayLabel,
+      cycleStartDate: fyRange.startDate,
+      cycleEndDate: fyRange.endDate,
+      companies: list
+    });
   } catch (error: any) {
     console.error("Fetch Companies Error:", error);
     return NextResponse.json({ error: error.message || "Failed to fetch companies" }, { status: 500 });

@@ -21,13 +21,22 @@ export default function CompaniesDisplay() {
   const [companyToDelete, setCompanyToDelete] = useState<{ id: string; name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Financial Year Cycle (1st April - 31st March)
+  const [fyInfo, setFyInfo] = useState<{ label: string; displayLabel: string; startDate: string; endDate: string }>({
+    label: "",
+    displayLabel: "FY Cycle: 1 Apr – 31 Mar",
+    startDate: "",
+    endDate: "",
+  });
+
   // Blocked Students Modal
   const [blockedStudentsModal, setBlockedStudentsModal] = useState<{ open: boolean; companyName: string; students: any[]; loading: boolean }>({ open: false, companyName: "", students: [], loading: false });
 
   const handleViewBlockedStudents = async (companyName: string) => {
     setBlockedStudentsModal({ open: true, companyName, students: [], loading: true });
     try {
-      const res = await fetch(`/api/admissions?company=${encodeURIComponent(companyName)}`);
+      const dateQuery = fyInfo.startDate && fyInfo.endDate ? `&startDate=${encodeURIComponent(fyInfo.startDate)}&endDate=${encodeURIComponent(fyInfo.endDate)}` : "";
+      const res = await fetch(`/api/admissions?company=${encodeURIComponent(companyName)}${dateQuery}`);
       const data = await res.json();
       if (data.success && data.data) {
         setBlockedStudentsModal((prev) => ({ ...prev, students: data.data, loading: false }));
@@ -46,7 +55,8 @@ export default function CompaniesDisplay() {
   const handleViewCollectedPayments = async (companyName: string) => {
     setCollectedPaymentsModal({ open: true, companyName, payments: [], loading: true });
     try {
-      const res = await fetch(`/api/payments?company=${encodeURIComponent(companyName)}`);
+      const dateQuery = fyInfo.startDate && fyInfo.endDate ? `&startDate=${encodeURIComponent(fyInfo.startDate)}&endDate=${encodeURIComponent(fyInfo.endDate)}` : "";
+      const res = await fetch(`/api/payments?company=${encodeURIComponent(companyName)}${dateQuery}`);
       const data = await res.json();
       if (data.success && data.data) {
         setCollectedPaymentsModal((prev) => ({ ...prev, payments: data.data, loading: false }));
@@ -143,6 +153,14 @@ export default function CompaniesDisplay() {
 
         const list = Array.from(deduppedMap.values());
         setCompaniesList(list);
+        if (data.financialYearDisplay) {
+          setFyInfo({
+            label: data.financialYear || "",
+            displayLabel: data.financialYearDisplay,
+            startDate: data.cycleStartDate || "",
+            endDate: data.cycleEndDate || "",
+          });
+        }
         if (list.length > 0) {
           setSelectedCompId((prev) => (prev && list.some((item: any) => item.id === prev) ? prev : list[0].id));
         } else {
@@ -247,9 +265,19 @@ export default function CompaniesDisplay() {
       {/* Top Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-800 font-sans">Legal Entities Registry</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-xl font-bold tracking-tight text-slate-800 font-sans">Legal Entities Registry</h1>
+            {fyInfo.displayLabel && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-indigo-50 border border-indigo-200/80 text-indigo-700 text-xs font-extrabold shadow-2xs">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5 text-indigo-600">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 9v7.5" />
+                </svg>
+                {fyInfo.displayLabel}
+              </span>
+            )}
+          </div>
           <p className="text-xs text-slate-400 mt-0.5 max-w-xl font-sans">
-            Configure legal companies, GST/PAN compliance parameters, and monitor annual revenue limits.
+            Configure legal companies, GST/PAN compliance parameters, and monitor revenue limits for the active 1st April to 31st March fiscal cycle.
           </p>
         </div>
 
@@ -636,7 +664,7 @@ export default function CompaniesDisplay() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block select-none">
-                    Capacity & Allocation Indicators
+                    Capacity & Allocation Indicators (1 Apr – 31 Mar)
                   </label>
                   <span className={`text-[10px] font-bold ${
                     (selectedCompany.capacityPctNum || 0) >= 80 ? "text-amber-600" : "text-indigo-600"

@@ -13,6 +13,7 @@ import Notification from "@/models/Notification";
 import { getUserFromCookies } from "@/lib/helper";
 import { sendWhatsAppFeeReceipt, sendWhatsAppBrandWelcome, sendWhatsAppSuperAdminAdmissionAlert } from "@/lib/msg91";
 import { sendAdmissionConfirmationEmail } from "@/lib/emailService";
+import { getFinancialYear, getFinancialYearRange } from "@/lib/financialYearHelper";
 
 export async function POST(req: NextRequest) {
   try {
@@ -137,11 +138,14 @@ export async function POST(req: NextRequest) {
         });
 
         if (availableCompanies.length > 0) {
-          availableCompanies.sort((a, b) => {
-            const capA = (a.annualCapacityCap || 1949999) - (a.collectedRevenue || 0);
-            const capB = (b.annualCapacityCap || 1949999) - (b.collectedRevenue || 0);
-            return capB - capA;
-          });
+          const { label: currentFY } = getFinancialYearRange();
+          const getRemCap = (c: any) => {
+            const cap = Number(c.annualCapacityCap || 1949999);
+            const collected = c.currentFinancialYear === currentFY ? Number(c.collectedRevenue || 0) : 0;
+            return Math.max(0, cap - collected);
+          };
+
+          availableCompanies.sort((a, b) => getRemCap(b) - getRemCap(a));
 
           finalCompany = availableCompanies[0].name;
         } else {
@@ -152,7 +156,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Update Ledger (block entire student fee in company collectedRevenue)
+    // Update Ledger (block entire student fee in company collectedRevenue for the active 1st April - 31st March cycle)
     if (finalCompany && finalCompany !== "Cash" && finalCompany !== "Unallocated" && finalCompany !== "Cash (Unallocated)") {
       const amountToBlock = Number(data.finalFee) > 0
         ? Number(data.finalFee)
@@ -161,10 +165,24 @@ export async function POST(req: NextRequest) {
       if (amountToBlock > 0) {
         const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const compRegex = new RegExp(`^${escapeRegExp(finalCompany.trim())}$`, "i");
-        await Company.updateOne(
-          { $or: [{ name: { $regex: compRegex } }, { legalName: { $regex: compRegex } }] },
-          { $inc: { collectedRevenue: amountToBlock } }
-        );
+        const targetComp = await Company.findOne({
+          $or: [{ name: { $regex: compRegex } }, { legalName: { $regex: compRegex } }]
+        });
+
+        if (targetComp) {
+          const { label: currentFY } = getFinancialYearRange();
+          const admDate = data.admissionDate ? new Date(data.admissionDate) : new Date();
+          const admFY = getFinancialYear(admDate);
+
+          if (targetComp.currentFinancialYear === admFY) {
+            targetComp.collectedRevenue = (targetComp.collectedRevenue || 0) + amountToBlock;
+          } else if (admFY === currentFY) {
+            targetComp.currentFinancialYear = currentFY;
+            targetComp.collectedRevenue = amountToBlock;
+            targetComp.alerted80Percent = false;
+          }
+          await targetComp.save();
+        }
       }
     }
 

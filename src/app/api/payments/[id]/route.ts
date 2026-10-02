@@ -4,6 +4,7 @@ import dbConnect from "@/lib/db";
 import Payment from "@/models/Payment";
 import Admission from "@/models/Admission";
 import Company from "@/models/Company";
+import { getFinancialYear, getFinancialYearRange } from "@/lib/financialYearHelper";
 
 export async function GET(
   req: NextRequest,
@@ -61,12 +62,20 @@ export async function DELETE(
       const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const compRegex = new RegExp(`^${escapeRegExp(paymentCompany)}$`, "i");
 
-      const compDoc = await Company.findOneAndUpdate(
-        { $or: [{ name: { $regex: compRegex } }, { legalName: { $regex: compRegex } }] },
-        { $inc: { collectedRevenue: -deletedAmount } },
-        { new: true }
-      );
-      if (compDoc) reversedCompany = compDoc.name;
+      const payDate = payment.paymentDate ? new Date(payment.paymentDate) : (payment.createdAt ? new Date(payment.createdAt) : new Date());
+      const payFY = getFinancialYear(payDate);
+      const { label: currentFY } = getFinancialYearRange();
+
+      const compDoc = await Company.findOne({
+        $or: [{ name: { $regex: compRegex } }, { legalName: { $regex: compRegex } }]
+      });
+      if (compDoc) {
+        if (compDoc.currentFinancialYear === payFY || (!compDoc.currentFinancialYear && payFY === currentFY)) {
+          compDoc.collectedRevenue = Math.max(0, (compDoc.collectedRevenue || 0) - deletedAmount);
+          await compDoc.save();
+        }
+        reversedCompany = compDoc.name;
+      }
     }
 
     // Recalculate student admission record

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Company from "@/models/Company";
 import Brand from "@/models/Brand";
+import { getFinancialYearRange } from "@/lib/financialYearHelper";
 
 function escapeRegex(text: string) {
   return text.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
@@ -51,19 +52,22 @@ export async function GET(req: NextRequest) {
       }).lean();
     }
 
-    // 4. Sort companies by remaining capacity cap (highest remaining capacity first)
+    // 4. Sort companies by remaining capacity cap for current 1st April - 31st March cycle
     if (availableCompanies.length > 0) {
-      availableCompanies.sort((a, b) => {
-        const capA = (a.annualCapacityCap || 1949999) - (a.collectedRevenue || 0);
-        const capB = (b.annualCapacityCap || 1949999) - (b.collectedRevenue || 0);
-        return capB - capA;
-      });
+      const { label: currentFY } = getFinancialYearRange();
+      const getRemCap = (c: any) => {
+        const cap = Number(c.annualCapacityCap || 1949999);
+        const collected = c.currentFinancialYear === currentFY ? Number(c.collectedRevenue || 0) : 0;
+        return Math.max(0, cap - collected);
+      };
+
+      availableCompanies.sort((a, b) => getRemCap(b) - getRemCap(a));
 
       const bestCompany = availableCompanies[0];
-      const remCap = (bestCompany.annualCapacityCap || 1949999) - (bestCompany.collectedRevenue || 0);
+      const remCap = getRemCap(bestCompany);
 
       if (remCap > 0) {
-        return NextResponse.json({ success: true, company: bestCompany.name });
+        return NextResponse.json({ success: true, company: bestCompany.name, financialYear: currentFY });
       }
     }
 

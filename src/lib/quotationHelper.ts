@@ -2,18 +2,8 @@ import dbConnect from "@/lib/db";
 import QuotationProfile from "@/models/QuotationProfile";
 import QuotationCounter from "@/models/QuotationCounter";
 
-export function getFinancialYear(dateInput: Date = new Date()): string {
-  const year = dateInput.getFullYear();
-  const month = dateInput.getMonth() + 1; // 1-12
-  if (month >= 4) {
-    const nextYear = String(year + 1).slice(-2);
-    return `${year}-${nextYear}`;
-  } else {
-    const prevYear = year - 1;
-    const currYear = String(year).slice(-2);
-    return `${prevYear}-${currYear}`;
-  }
-}
+import { getFinancialYear, getFinancialYearRange } from "@/lib/financialYearHelper";
+export { getFinancialYear, getFinancialYearRange };
 
 export function formatQuotationNumber(
   input: string,

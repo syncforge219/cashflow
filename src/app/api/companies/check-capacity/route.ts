@@ -17,10 +17,59 @@ export async function POST() {
   return handleCapacityCheck();
 }
 
+import { getFinancialYearRange } from "@/lib/financialYearHelper";
+import Admission from "@/models/Admission";
+
 async function handleCapacityCheck() {
   try {
     await dbConnect();
+    const fyRange = getFinancialYearRange();
     const companies = await Company.find({ status: "ACTIVE" });
+
+    // Aggregate admissions for current financial year (1st April - 31st March)
+    const admissionsByCompany = await Admission.aggregate([
+      {
+        $match: {
+          $or: [
+            { admissionDate: { $gte: fyRange.startDate, $lte: fyRange.endDate } },
+            { $and: [{ admissionDate: { $exists: false } }, { createdAt: { $gte: fyRange.startDate, $lte: fyRange.endDate } }] },
+            { $and: [{ admissionDate: null }, { createdAt: { $gte: fyRange.startDate, $lte: fyRange.endDate } }] }
+          ]
+        }
+      },
+      {
+        $group: {
+          _id: { $toUpper: { $trim: { input: "$companyAssigned" } } },
+          totalCommittedFee: {
+            $sum: {
+              $cond: [
+                { $gt: ["$finalFee", 0] },
+                "$finalFee",
+                {
+                  $cond: [
+                    { $gt: ["$courseFee", 0] },
+                    "$courseFee",
+                    { $ifNull: ["$registrationAmount", 0] }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      }
+    ]);
+
+    const normalizeKey = (n: string) =>
+      (n || "")
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, "")
+        .replace(/PRIVATELIMITED/g, "PVTLTD")
+        .replace(/PVTLIMITED/g, "PVTLTD")
+        .replace(/LIMITED/g, "LTD")
+        .replace(/SERVICES/g, "")
+        .replace(/GATEEWAY/g, "GATEWAY")
+        .replace(/INSTITUTE/g, "INSTITUE")
+        .replace(/LLP/g, "");
 
     let checked = 0;
     let alertsSent = 0;
@@ -28,11 +77,30 @@ async function handleCapacityCheck() {
 
     for (const comp of companies) {
       checked++;
-      const cap = comp.annualCapacityCap || 1949999;
-      const collected = comp.collectedRevenue || 0;
-      const pct = cap > 0 ? (collected / cap) * 100 : 0;
+      const compName = (comp.name || "").toUpperCase().trim();
+      const compLegal = (comp.legalName || compName).toUpperCase().trim();
+      const cNorm = normalizeKey(compName);
 
-      if (pct >= 80) {
+      let cycleCommitted = 0;
+      admissionsByCompany.forEach((a: any) => {
+        if (!a._id || a._id === "CASH" || a._id === "UNALLOCATED" || a._id === "CASH (UNALLOCATED)") return;
+        if (a._id === compName || a._id === compLegal || normalizeKey(a._id) === cNorm) {
+          cycleCommitted += Number(a.totalCommittedFee) || 0;
+        }
+      });
+
+      const isNewFiscalYear = comp.currentFinancialYear !== fyRange.label;
+      if (isNewFiscalYear) {
+        comp.currentFinancialYear = fyRange.label;
+        comp.alerted80Percent = false;
+      }
+      comp.collectedRevenue = cycleCommitted;
+      await comp.save();
+
+      const cap = comp.annualCapacityCap || 1949999;
+      const pct = cap > 0 ? (cycleCommitted / cap) * 100 : 0;
+
+      if (pct >= 80 && !comp.alerted80Percent) {
         const result = await sendWhatsAppCompanyLimit80Alert({
           companyName: comp.name,
         });
@@ -44,6 +112,7 @@ async function handleCapacityCheck() {
 
           details.push({
             company: comp.name,
+            financialYear: fyRange.label,
             capacityPercentage: `${pct.toFixed(1)}%`,
             status: "WhatsApp 80% Limit Alert Sent to Super Admin",
           });
