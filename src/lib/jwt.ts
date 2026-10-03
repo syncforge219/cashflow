@@ -40,7 +40,10 @@ export async function signJWT(
   secret?: string,
   expiresInSeconds: number = 3600 * 24
 ): Promise<string> {
-  const finalSecret = secret || process.env.JWT_SECRET || "default_coachflow_jwt_secret_key_2026";
+  const finalSecret = secret || process.env.JWT_SECRET;
+  if (!finalSecret) {
+    throw new Error("JWT_SECRET is not configured");
+  }
   const header = { alg: "HS256", typ: "JWT" };
   
   const now = Math.floor(Date.now() / 1000);
@@ -80,7 +83,11 @@ export async function verifyJWT(
   token: string,
   secret?: string
 ): Promise<Record<string, any> | null> {
-  const finalSecret = secret || process.env.JWT_SECRET || "default_coachflow_jwt_secret_key_2026";
+  // Never fall back to a hardcoded secret: anyone could forge tokens with it.
+  const finalSecret = secret || process.env.JWT_SECRET;
+  if (!finalSecret) {
+    return null;
+  }
   try {
     const parts = token.split(".");
     if (parts.length !== 3) {

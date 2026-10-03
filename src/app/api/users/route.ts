@@ -1,6 +1,22 @@
 import { NextResponse } from "next/server";
+import { escapeRegex } from "@/lib/helper";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
+import bcrypt from "bcryptjs";
+import { getAuthenticatedUser } from "@/lib/auth";
+
+// Only super admins / admins may manage system user accounts.
+async function requireUserAdmin() {
+  const sessionUser = await getAuthenticatedUser();
+  if (!sessionUser) {
+    return { error: NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 }) };
+  }
+  const role = (sessionUser.role || "").toLowerCase().replace(/[\s_-]+/g, "");
+  if (role !== "superadmin" && role !== "admin") {
+    return { error: NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 }) };
+  }
+  return { sessionUser };
+}
 
 export async function GET(req: Request) {
   try {
@@ -12,15 +28,15 @@ export async function GET(req: Request) {
     let query: any = {};
 
     if (roleFilter && roleFilter !== "all") {
-      query.role = { $regex: roleFilter, $options: "i" };
+      query.role = { $regex: escapeRegex(roleFilter), $options: "i" };
     }
 
     if (searchQuery) {
       query.$or = [
-        { name: { $regex: searchQuery, $options: "i" } },
-        { email: { $regex: searchQuery, $options: "i" } },
-        { phone: { $regex: searchQuery, $options: "i" } },
-        { role: { $regex: searchQuery, $options: "i" } },
+        { name: { $regex: escapeRegex(searchQuery), $options: "i" } },
+        { email: { $regex: escapeRegex(searchQuery), $options: "i" } },
+        { phone: { $regex: escapeRegex(searchQuery), $options: "i" } },
+        { role: { $regex: escapeRegex(searchQuery), $options: "i" } },
       ];
     }
 
@@ -39,6 +55,8 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     await dbConnect();
+    const auth = await requireUserAdmin();
+    if (auth.error) return auth.error;
     const body = await req.json();
     const { name, email, password, role, phone, brandScope, customAppName } = body;
 
@@ -60,7 +78,8 @@ export async function POST(req: Request) {
     const newUser = new User({
       name: name.trim(),
       email: email.toLowerCase().trim(),
-      password: password,
+      // The User model has no hashing hook; login uses bcrypt.compare, so hash here.
+      password: await bcrypt.hash(password, 10),
       role: role || "software developer",
       phone: phone ? phone.trim() : "",
       brandScope: brandScope || "All Brands",
@@ -92,6 +111,8 @@ export async function POST(req: Request) {
 export async function PUT(req: Request) {
   try {
     await dbConnect();
+    const auth = await requireUserAdmin();
+    if (auth.error) return auth.error;
     const body = await req.json();
     const { id, _id, name, email, password, role, phone, brandScope, customAppName } = body;
     const targetId = id || _id;
@@ -111,7 +132,7 @@ export async function PUT(req: Request) {
     if (brandScope) updateData.brandScope = brandScope;
     if (customAppName) updateData.customAppName = customAppName;
     if (password && password.trim().length >= 6) {
-      updateData.password = password.trim();
+      updateData.password = await bcrypt.hash(password.trim(), 10);
     }
 
     const updatedUser = await User.findByIdAndUpdate(targetId, updateData, { new: true }).select("-password");
@@ -140,12 +161,21 @@ export async function PUT(req: Request) {
 export async function DELETE(req: Request) {
   try {
     await dbConnect();
+    const auth = await requireUserAdmin();
+    if (auth.error) return auth.error;
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
 
     if (!id) {
       return NextResponse.json(
         { success: false, error: "User ID is required" },
+        { status: 400 }
+      );
+    }
+
+    if (String(auth.sessionUser?.id) === String(id)) {
+      return NextResponse.json(
+        { success: false, error: "You cannot delete your own account" },
         { status: 400 }
       );
     }

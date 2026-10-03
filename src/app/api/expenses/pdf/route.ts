@@ -4,7 +4,7 @@ import mongoose from "mongoose";
 import Expense from "@/models/Expense";
 import Brand from "@/models/Brand";
 import Company from "@/models/Company";
-import { getUserFromCookies } from "@/lib/helper";
+import { getUserFromCookies, escapeRegex } from "@/lib/helper";
 import { generateExpensePdfBuffer } from "@/lib/pdfGenerator";
 
 export async function GET(req: NextRequest) {
@@ -77,7 +77,7 @@ export async function GET(req: NextRequest) {
       }
     }
     if (search) {
-      const sRegex = { $regex: search, $options: "i" };
+      const sRegex = { $regex: escapeRegex(search), $options: "i" };
       query.$or = [
         { title: sRegex },
         { category: sRegex },

@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import dbConnect from "@/lib/db";
 import Enquiry from "@/models/Enquiry";
 import Notification from "@/models/Notification";
-import { verifyJWT } from "@/lib/jwt";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 export async function POST(
   req: Request,
@@ -14,20 +13,9 @@ export async function POST(
     const { id } = await params;
     const body = await req.json();
 
-    const cookieStore = await cookies();
-    const token = cookieStore.get("token")?.value;
-    let userName = "System";
-
-    if (token) {
-      try {
-        const decoded = await verifyJWT(token);
-        if (decoded && decoded.name) {
-          userName = decoded.name;
-        }
-      } catch (err) {
-        console.error("JWT verification failed in tasks route:", err);
-      }
-    }
+    // Session tokens are opaque (not JWTs), so look the user up via the session.
+    const sessionUser = await getAuthenticatedUser();
+    const userName = sessionUser?.name || "System";
 
     const {
       date,

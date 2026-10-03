@@ -6,3 +6,6 @@ README.md
 .next
 .git
 .DS_Store
+.env
+.env*.local
+.env.production

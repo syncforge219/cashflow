@@ -3,8 +3,7 @@ import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
-import { signJWT } from "@/lib/jwt";
-import { SESSION_DURATION_SECONDS } from "@/lib/auth";
+import { createSession, SESSION_COOKIE_NAME, SESSION_DURATION_SECONDS } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
@@ -72,20 +71,12 @@ export async function POST(request: Request) {
       role: "super admin",
     });
 
-    // Create payload for JWT
-    const tokenPayload = {
-      id: user._id.toString(),
-      email: user.email,
-      name: user.name,
-      role: user.role,
-    };
-
-    // Sign the JWT token
-    const token = await signJWT(tokenPayload);
+    // Create a server-side session, same as /api/auth/login
+    const { sessionToken: token } = await createSession(user._id.toString());
 
     // Set cookie
     const cookieStore = await cookies();
-    cookieStore.set("token", token, {
+    cookieStore.set(SESSION_COOKIE_NAME, token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
