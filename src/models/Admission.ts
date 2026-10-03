@@ -1,6 +1,17 @@
 import mongoose, { Schema } from "mongoose";
 import { softDeletePlugin } from "@/lib/softDeletePlugin";
 
+function safeObjectIdCast(v: any) {
+  if (!v || v === "" || v === "Unassigned" || v === "General Batch" || v === "undefined" || v === "null") {
+    return null;
+  }
+  if (v instanceof mongoose.Types.ObjectId) return v;
+  if (typeof v === "string" && /^[0-9a-fA-F]{24}$/.test(v)) {
+    return new mongoose.Types.ObjectId(v);
+  }
+  return null;
+}
+
 const AdmissionSchema = new Schema(
   {
     admissionId: {
@@ -10,12 +21,17 @@ const AdmissionSchema = new Schema(
     enquiryId: {
       type: Schema.Types.ObjectId,
       ref: "Enquiry",
+      default: null,
+      cast: safeObjectIdCast,
+      set: safeObjectIdCast,
     },
     studentId: {
       type: Schema.Types.ObjectId,
       ref: "Student",
       index: true,
       default: null,
+      cast: safeObjectIdCast,
+      set: safeObjectIdCast,
     },
     // 1. Student Information
     fullName: { type: String },
@@ -39,11 +55,17 @@ const AdmissionSchema = new Schema(
     counsellorId: {
       type: Schema.Types.ObjectId,
       ref: "User",
+      default: null,
+      cast: safeObjectIdCast,
+      set: safeObjectIdCast,
     },
     brand: { type: String },
     brandId: {
       type: Schema.Types.ObjectId,
       ref: "Brand",
+      default: null,
+      cast: safeObjectIdCast,
+      set: safeObjectIdCast,
     },
     isUpgrade: { type: Boolean, default: false },
 
@@ -56,7 +78,9 @@ const AdmissionSchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: "Batch",
       index: true,
-      set: (v: any) => (!v || v === "" || v === "Unassigned" ? null : v),
+      default: null,
+      cast: safeObjectIdCast,
+      set: safeObjectIdCast,
     },
     duration: { type: String },
     startDate: { type: Date },
@@ -66,6 +90,9 @@ const AdmissionSchema = new Schema(
     companyId: {
       type: Schema.Types.ObjectId,
       ref: "Company",
+      default: null,
+      cast: safeObjectIdCast,
+      set: safeObjectIdCast,
     },
 
     // 3. Discount & Scholarship
@@ -174,15 +201,39 @@ import { syncAdmissionRefs } from "@/lib/referenceHelper";
 import { syncAdmissionMoney } from "@/lib/moneySyncHelper";
 import { resolveStudentForAdmission } from "@/lib/studentHelper";
 
-// Dual-write sync and atomic Auto-generate admissionId using the document's transaction session
-AdmissionSchema.pre("save", async function () {
+// Sanitize legacy/empty string ObjectIds and sync references BEFORE validation runs
+AdmissionSchema.pre("validate", async function () {
   const session = this.$session();
 
-  // Dual-write synchronization between strings and ObjectIds
+  // Clear any transient casting errors that Mongoose doc.init() might have logged on these fields
+  if (this.errors) {
+    delete (this.errors as any).batchId;
+    delete (this.errors as any).brandId;
+    delete (this.errors as any).companyId;
+    delete (this.errors as any).counsellorId;
+    delete (this.errors as any).enquiryId;
+    delete (this.errors as any).studentId;
+  }
+
+  if (!this.batchId || (this.batchId as any) === "" || (this.batchId as any) === "Unassigned" || (this.batchId as any) === "General Batch") {
+    this.batchId = null;
+  }
+  if (!this.brandId || (this.brandId as any) === "") this.brandId = null;
+  if (!this.companyId || (this.companyId as any) === "") this.companyId = null;
+  if (!this.counsellorId || (this.counsellorId as any) === "") this.counsellorId = null;
+  if (!this.enquiryId || (this.enquiryId as any) === "") this.enquiryId = null;
+  if (!this.studentId || (this.studentId as any) === "") this.studentId = null;
+
+  // Dual-write synchronization between strings and ObjectIds before validation
   await syncAdmissionRefs(this, session);
 
   // Dual-write synchronization between rupees and integer paise
   syncAdmissionMoney(this);
+});
+
+// Dual-write sync and atomic Auto-generate admissionId using the document's transaction session
+AdmissionSchema.pre("save", async function () {
+  const session = this.$session();
 
   if (this.isNew && !this.studentId) {
     this.studentId = await resolveStudentForAdmission(this, session);
@@ -213,11 +264,20 @@ AdmissionSchema.pre("save", async function () {
   }
 });
 
-AdmissionSchema.pre(["findOneAndUpdate", "updateOne"], async function () {
+AdmissionSchema.pre(["findOneAndUpdate", "updateOne", "updateMany"], async function () {
   const update = this.getUpdate() as any;
   if (update) {
     const session = this.getOptions()?.session;
     const target = update.$set || update;
+    if (target.batchId === "" || target.batchId === "Unassigned" || target.batchId === "General Batch") {
+      target.batchId = null;
+    }
+    if (target.brandId === "") target.brandId = null;
+    if (target.companyId === "") target.companyId = null;
+    if (target.counsellorId === "") target.counsellorId = null;
+    if (target.enquiryId === "") target.enquiryId = null;
+    if (target.studentId === "") target.studentId = null;
+
     await syncAdmissionRefs(target, session);
     syncAdmissionMoney(target);
   }

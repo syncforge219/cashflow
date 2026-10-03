@@ -272,4 +272,64 @@ describe("Batch, Task, and Course Standardization Test Suite", () => {
     assert.equal(createdAdm.course, "Data Science, Python");
     assert.deepEqual(createdAdm.courses, ["Data Science", "Python"]);
   });
+
+  test("4. Admission with empty string batchId or General Batch casts cleanly to null and saves without error", async () => {
+    // A: Directly creating admission with batchId: ""
+    const admDataEmptyBatchId: any = {
+      fullName: "General Batch Student",
+      email: "generalbatch@batchtest.local",
+      mobileNumber: "9876500004",
+      batch: "General Batch",
+      batchId: "",
+      brandId: brandId,
+      companyId: companyId,
+      counsellorId: counsellorId,
+      course: "AutoCAD",
+      courseFee: 18000,
+      finalFee: 18000,
+      remainingBalance: 17000,
+    };
+
+    const doc = await Admission.create(admDataEmptyBatchId);
+    assert.ok(doc._id);
+    assert.equal(doc.batchId, null, "batchId should be null instead of empty string");
+
+    // B: Loading document into memory and simulating payment save
+    doc.remainingBalance = 0;
+    doc.amountReceivedToday = 18000;
+    await doc.save();
+    assert.equal(doc.remainingBalance, 0);
+
+    // C: Simulating MongoDB raw document containing batchId: "" via raw collection write
+    const rawId = new Types.ObjectId();
+    await mongoose.connection.db!.collection("admissions").insertOne({
+      _id: rawId,
+      fullName: "Legacy Raw Student",
+      email: "legacyraw@batchtest.local",
+      mobileNumber: "9876500005",
+      batch: "General Batch",
+      batchId: "",
+      brandId: brandId,
+      companyId: companyId,
+      counsellorId: counsellorId,
+      course: "AutoCAD",
+      courseFee: 18000,
+      finalFee: 18000,
+      remainingBalance: 17000,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+
+    // Load via Mongoose Admission model (simulating /api/payments Admission.findOne)
+    const loadedDoc = await Admission.findById(rawId);
+    assert.ok(loadedDoc);
+    assert.equal(loadedDoc.batchId, null, "Mongoose custom cast must convert legacy '' from DB to null");
+    assert.equal(loadedDoc.errors, undefined, "Mongoose init must not register a CastError");
+
+    // Now call save (simulating /api/payments admission.save)
+    loadedDoc.remainingBalance = 0;
+    loadedDoc.amountReceivedToday = 18000;
+    await loadedDoc.save();
+    assert.equal(loadedDoc.remainingBalance, 0);
+  });
 });

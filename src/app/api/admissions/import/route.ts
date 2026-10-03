@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
 import Admission from "@/models/Admission";
 import { getUserFromCookies } from "@/lib/helper";
@@ -32,12 +33,25 @@ export async function POST(req: NextRequest) {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       try {
-        let assignedBatchId = row.batchId?.trim() || "";
-        if (!assignedBatchId && row.batch && row.batch !== "General Batch" && row.batch !== "Unassigned") {
+        let assignedBatchId: any = null;
+        const rawBId = row.batchId?.trim() || "";
+        if (rawBId && rawBId !== "General Batch" && rawBId !== "Unassigned") {
+          const Batch = (await import("@/models/Batch")).default;
+          const bQuery: any[] = [{ batchId: rawBId }];
+          if (mongoose.Types.ObjectId.isValid(rawBId)) {
+            bQuery.push({ _id: new mongoose.Types.ObjectId(rawBId) });
+          }
+          const batchDoc = await Batch.findOne({ $or: bQuery }).lean();
+          if (batchDoc) {
+            assignedBatchId = batchDoc._id;
+          } else if (mongoose.Types.ObjectId.isValid(rawBId)) {
+            assignedBatchId = new mongoose.Types.ObjectId(rawBId);
+          }
+        } else if (row.batch && row.batch !== "General Batch" && row.batch !== "Unassigned") {
           const Batch = (await import("@/models/Batch")).default;
           const matchingBatches = await Batch.find({ batchName: row.batch.trim() }).lean();
           if (matchingBatches.length === 1) {
-            assignedBatchId = matchingBatches[0].batchId || matchingBatches[0]._id.toString();
+            assignedBatchId = matchingBatches[0]._id;
           }
         }
 

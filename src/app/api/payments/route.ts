@@ -235,6 +235,30 @@ export async function POST(req: Request) {
       );
     }
 
+    // Sanitize any legacy empty string ObjectId refs on admission
+    if (!admission.batchId || admission.batchId === "" || admission.batchId === "Unassigned" || admission.batchId === "General Batch" || !mongoose.Types.ObjectId.isValid(admission.batchId)) {
+      admission.batchId = null;
+    }
+    if (!admission.brandId || admission.brandId === "" || !mongoose.Types.ObjectId.isValid(admission.brandId)) {
+      admission.brandId = null;
+    }
+    if (!admission.companyId || admission.companyId === "" || !mongoose.Types.ObjectId.isValid(admission.companyId)) {
+      admission.companyId = null;
+    }
+    if (!admission.counsellorId || admission.counsellorId === "" || !mongoose.Types.ObjectId.isValid(admission.counsellorId)) {
+      admission.counsellorId = null;
+    }
+    if (!admission.enquiryId || admission.enquiryId === "" || !mongoose.Types.ObjectId.isValid(admission.enquiryId)) {
+      admission.enquiryId = null;
+    }
+    if (admission.errors) {
+      delete admission.errors.batchId;
+      delete admission.errors.brandId;
+      delete admission.errors.companyId;
+      delete admission.errors.counsellorId;
+      delete admission.errors.enquiryId;
+    }
+
     // 2. Company Allocation Engine: Use student's admission company first
     const studentAdmissionCompany = (admission.companyAssigned || "").trim();
     const hasValidAdmissionCompany = studentAdmissionCompany && 

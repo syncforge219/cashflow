@@ -89,6 +89,36 @@ async function dbConnect() {
 
   try {
     cached.conn = await cached.promise;
+    if (cached.conn && !(global as any).__cleanedLegacyEmptyRefs) {
+      (global as any).__cleanedLegacyEmptyRefs = true;
+      const col = cached.conn.connection?.db?.collection("admissions");
+      if (col) {
+        col.updateMany(
+          { batchId: { $in: ["", "Unassigned", "General Batch"] } },
+          { $set: { batchId: null } }
+        ).catch((err: any) => console.warn("[dbConnect] Legacy batchId cleanup notice:", err.message));
+        col.updateMany(
+          { brandId: "" },
+          { $set: { brandId: null } }
+        ).catch((err: any) => console.warn("[dbConnect] Legacy brandId cleanup notice:", err.message));
+        col.updateMany(
+          { companyId: "" },
+          { $set: { companyId: null } }
+        ).catch((err: any) => console.warn("[dbConnect] Legacy companyId cleanup notice:", err.message));
+        col.updateMany(
+          { counsellorId: "" },
+          { $set: { counsellorId: null } }
+        ).catch((err: any) => console.warn("[dbConnect] Legacy counsellorId cleanup notice:", err.message));
+        col.updateMany(
+          { enquiryId: "" },
+          { $set: { enquiryId: null } }
+        ).catch((err: any) => console.warn("[dbConnect] Legacy enquiryId cleanup notice:", err.message));
+        col.updateMany(
+          { studentId: "" },
+          { $set: { studentId: null } }
+        ).catch((err: any) => console.warn("[dbConnect] Legacy studentId cleanup notice:", err.message));
+      }
+    }
   } catch (e) {
     cached.promise = null;
     cached.conn = null;

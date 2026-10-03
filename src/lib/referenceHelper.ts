@@ -254,6 +254,16 @@ export async function syncAdmissionRefs(
         target.brand = res.record.name;
       }
     }
+    if (!(target.brandId instanceof mongoose.Types.ObjectId) && !(/^[0-9a-fA-F]{24}$/.test(String(target.brandId)))) {
+      const res = await lookupBrand(target.brandId, session);
+      if (res.status === "matched" && res.record?._id) {
+        target.brandId = res.record._id;
+      } else {
+        target.brandId = null;
+      }
+    }
+  } else if (target.brandId === "") {
+    target.brandId = null;
   } else if (target.brand) {
     const res = await lookupBrand(target.brand, session);
     if (res.status === "matched" && res.record?._id) {
@@ -269,6 +279,16 @@ export async function syncAdmissionRefs(
         target.companyAssigned = res.record.name;
       }
     }
+    if (!(target.companyId instanceof mongoose.Types.ObjectId) && !(/^[0-9a-fA-F]{24}$/.test(String(target.companyId)))) {
+      const res = await lookupCompany(target.companyId, session);
+      if (res.status === "matched" && res.record?._id) {
+        target.companyId = res.record._id;
+      } else {
+        target.companyId = null;
+      }
+    }
+  } else if (target.companyId === "") {
+    target.companyId = null;
   } else if (target.companyAssigned) {
     const res = await lookupCompany(target.companyAssigned, session);
     if (res.status === "matched" && res.record?._id) {
@@ -284,6 +304,16 @@ export async function syncAdmissionRefs(
         target.counsellor = res.record.name;
       }
     }
+    if (!(target.counsellorId instanceof mongoose.Types.ObjectId) && !(/^[0-9a-fA-F]{24}$/.test(String(target.counsellorId)))) {
+      const res = await lookupUser(target.counsellorId, session);
+      if (res.status === "matched" && res.record?._id) {
+        target.counsellorId = res.record._id;
+      } else {
+        target.counsellorId = null;
+      }
+    }
+  } else if (target.counsellorId === "") {
+    target.counsellorId = null;
   } else if (target.counsellor) {
     const res = await lookupUser(target.counsellor, session);
     if (res.status === "matched" && res.record?._id) {
@@ -296,7 +326,11 @@ export async function syncAdmissionRefs(
     const resolvedEnqId = await resolveEnquiryObjectId(target.enquiryId, session);
     if (resolvedEnqId) {
       target.enquiryId = resolvedEnqId;
+    } else {
+      target.enquiryId = null;
     }
+  } else if (target.enquiryId === "") {
+    target.enquiryId = null;
   }
 
   // 5. Batch <-> BatchId (ObjectId ref Batch)
@@ -307,7 +341,15 @@ export async function syncAdmissionRefs(
       target.batchId = res.record._id;
       if (!target.batchAssigned) target.batchAssigned = res.record.batchName;
       if (!target.batch) target.batch = res.record.batchName;
+    } else if (target.batchId instanceof mongoose.Types.ObjectId || (typeof target.batchId === "string" && /^[0-9a-fA-F]{24}$/.test(target.batchId))) {
+      if (typeof target.batchId === "string") {
+        target.batchId = new mongoose.Types.ObjectId(target.batchId);
+      }
+    } else {
+      target.batchId = null;
     }
+  } else if (target.batchId === "" || batchStr === "General Batch" || batchStr === "Unassigned") {
+    target.batchId = null;
   } else if (batchStr) {
     const res = await lookupBatch(batchStr, session);
     if (res.status === "matched" && res.record?._id) {

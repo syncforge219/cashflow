@@ -54,7 +54,7 @@ describe("transactionHelper: Standalone MongoDB vs Replica Set", () => {
     });
 
     test("withOptionalTransaction executes callback with session = null and saves data", async () => {
-      const result = await withOptionalTransaction(async (session) => {
+      const result = await withOptionalTransaction(async (session: any) => {
         assert.strictEqual(session, null, "Standalone execution should provide null session");
         const doc = new TestDoc({ name: "standalone_record", value: 42 });
         await doc.save(session ? { session } : undefined);
@@ -106,7 +106,7 @@ describe("transactionHelper: Standalone MongoDB vs Replica Set", () => {
     });
 
     test("withOptionalTransaction executes callback with an active ClientSession and commits", async () => {
-      const result = await withOptionalTransaction(async (session) => {
+      const result = await withOptionalTransaction(async (session: any) => {
         assert.ok(session, "ReplicaSet execution should provide an active session");
         const doc = new TestDoc({ name: "replset_committed", value: 99 });
         await doc.save(session ? { session } : undefined);
@@ -124,7 +124,7 @@ describe("transactionHelper: Standalone MongoDB vs Replica Set", () => {
     test("withOptionalTransaction rolls back changes when error is thrown inside transaction", async () => {
       await assert.rejects(
         async () => {
-          await withOptionalTransaction(async (session) => {
+          await withOptionalTransaction(async (session: any) => {
             const doc = new TestDoc({ name: "replset_aborted", value: 123 });
             await doc.save(session ? { session } : undefined);
             throw new Error("Transaction aborted explicitly");

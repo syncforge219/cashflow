@@ -254,8 +254,8 @@ export async function PUT(
     let assignedBatchName = body.batch !== undefined ? body.batch.trim() : existingDoc.batch;
     let assignedBatchId = body.batchId !== undefined ? body.batchId : existingDoc.batchId;
 
-    if (body.batch === "Unassigned" || body.batch === "General Batch" || body.batch === "" || body.batch === null || body.batchId === "" || body.batchId === null) {
-      assignedBatchName = "Unassigned";
+    if (body.batch === "Unassigned" || body.batch === "General Batch" || body.batch === "" || body.batch === null || body.batchId === "" || body.batchId === null || assignedBatchName === "General Batch" || assignedBatchName === "Unassigned") {
+      assignedBatchName = assignedBatchName === "General Batch" ? "General Batch" : "Unassigned";
       assignedBatchId = null;
     } else if (body.batchId && String(body.batchId).trim()) {
       const Batch = (await import("@/models/Batch")).default;
@@ -268,6 +268,10 @@ export async function PUT(
       if (batchDoc) {
         assignedBatchName = batchDoc.batchName;
         assignedBatchId = batchDoc._id;
+      } else if (mongoose.Types.ObjectId.isValid(trimmedBId)) {
+        assignedBatchId = new mongoose.Types.ObjectId(trimmedBId);
+      } else {
+        assignedBatchId = null;
       }
     } else if (body.batch && body.batch !== "Unassigned" && body.batch !== "General Batch") {
       const Batch = (await import("@/models/Batch")).default;
@@ -275,7 +279,13 @@ export async function PUT(
       if (matchingBatches.length === 1) {
         assignedBatchId = matchingBatches[0]._id;
         assignedBatchName = matchingBatches[0].batchName;
+      } else if (!mongoose.Types.ObjectId.isValid(assignedBatchId)) {
+        assignedBatchId = null;
       }
+    }
+
+    if (assignedBatchId && !mongoose.Types.ObjectId.isValid(assignedBatchId)) {
+      assignedBatchId = null;
     }
 
     // Fast-path for batch allocation / unassignment:

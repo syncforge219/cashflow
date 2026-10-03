@@ -60,23 +60,26 @@ export async function POST(req: NextRequest) {
 
     // 1. Resolve Batch & BatchId
     let finalBatchName = (data.batch || "").trim() || "General Batch";
-    let finalBatchId = (data.batchId || "").trim() || "";
+    let finalBatchId: any = null;
+    const rawBatchId = typeof data.batchId === "string" ? data.batchId.trim() : (data.batchId ? String(data.batchId).trim() : "");
 
-    if (finalBatchId) {
-      const bQuery: any[] = [{ batchId: finalBatchId }];
-      if (mongoose.Types.ObjectId.isValid(finalBatchId)) {
-        bQuery.push({ _id: new mongoose.Types.ObjectId(finalBatchId) });
+    if (rawBatchId && rawBatchId !== "Unassigned" && rawBatchId !== "General Batch") {
+      const bQuery: any[] = [{ batchId: rawBatchId }];
+      if (mongoose.Types.ObjectId.isValid(rawBatchId)) {
+        bQuery.push({ _id: new mongoose.Types.ObjectId(rawBatchId) });
       }
       const batchDoc = await Batch.findOne({ $or: bQuery }).lean();
       if (batchDoc) {
         finalBatchName = batchDoc.batchName;
-        finalBatchId = batchDoc.batchId || batchDoc._id.toString();
+        finalBatchId = batchDoc._id;
+      } else if (mongoose.Types.ObjectId.isValid(rawBatchId)) {
+        finalBatchId = new mongoose.Types.ObjectId(rawBatchId);
       }
     } else if (finalBatchName && finalBatchName !== "General Batch" && finalBatchName !== "Unassigned") {
       // Only resolve batchId if exactly one batch exists with this name to avoid guessing across duplicate batch names
       const matchingBatches = await Batch.find({ batchName: finalBatchName }).lean();
       if (matchingBatches.length === 1) {
-        finalBatchId = matchingBatches[0].batchId || matchingBatches[0]._id.toString();
+        finalBatchId = matchingBatches[0]._id;
         finalBatchName = matchingBatches[0].batchName;
       }
     }
