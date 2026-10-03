@@ -74,10 +74,19 @@ export async function GET(request: Request) {
         });
 
         if (matchingCount === 1) {
-          const legacyAdmissions = await Admission.find({
+          const legacyQuery: any = {
             batch: { $regex: new RegExp(`^${escapeRegExp(batchObj.batchName.trim())}$`, "i") },
-            $or: [{ batchId: { $exists: false } }, { batchId: "" }, { batchId: null }]
-          }).select("fullName studentFullName mobileNumber phone email admissionId batch batchId course").lean();
+            $or: [{ batchId: { $exists: false } }, { batchId: "" }, { batchId: null }],
+            status: { $nin: ["Cancelled", "Refunded", "Dropped", "Transferred"] }
+          };
+          if (batchObj.brand) {
+            legacyQuery.brand = { $regex: new RegExp(`^${escapeRegExp(batchObj.brand.trim())}$`, "i") };
+          }
+          if (batchObj.course) {
+            legacyQuery.course = { $regex: new RegExp(`^${escapeRegExp(batchObj.course.trim())}$`, "i") };
+          }
+          const legacyAdmissions = await Admission.find(legacyQuery)
+            .select("fullName studentFullName mobileNumber phone email admissionId batch batchId course").lean();
 
           if (legacyAdmissions.length > 0) {
             admissions = legacyAdmissions;

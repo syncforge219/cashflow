@@ -177,21 +177,71 @@ export async function GET(request: Request) {
 
         let admittedStudents: any[] = [];
         if (batchIdOrConditions.length > 0) {
-          admittedStudents = await Admission.find({
-            $or: batchIdOrConditions
-          }).select("fullName studentFullName admissionId mobileNumber").lean();
+          const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const activeStatusFilter = { $nin: ["Cancelled", "Refunded", "Dropped", "Transferred"] };
 
+          // 1. Direct query scoped to batch and active admissions
+          const baseMatch: any = {
+            $or: batchIdOrConditions,
+            status: activeStatusFilter,
+          };
+          if (b.brand) {
+            baseMatch.brand = { $regex: new RegExp(`^${escapeRegExp(b.brand.trim())}$`, "i") };
+          }
+
+          admittedStudents = await Admission.find(baseMatch)
+            .select("fullName studentFullName admissionId mobileNumber")
+            .lean();
+
+          // If no direct admissions matched with brand filter, try without brand filter (in case admission brand is unassigned)
+          if (admittedStudents.length === 0) {
+            admittedStudents = await Admission.find({
+              $or: batchIdOrConditions,
+              status: activeStatusFilter,
+            })
+              .select("fullName studentFullName admissionId mobileNumber")
+              .lean();
+          }
+
+          // 2. If still no direct admissions, check if an attendance session was already recorded for this batch
+          if (admittedStudents.length === 0) {
+            const attConditions: any[] = [];
+            if (b._id) attConditions.push({ batchId: b._id });
+            if (bIdStr) attConditions.push({ batchId: bIdStr });
+            if (bCustomId && bCustomId !== bIdStr) attConditions.push({ batchId: bCustomId });
+            const latestAtt = await Attendance.findOne({ $or: attConditions }).sort({ date: -1 }).lean();
+            if (latestAtt && Array.isArray(latestAtt.records) && latestAtt.records.length > 0) {
+              admittedStudents = latestAtt.records.map((r: any) => ({
+                fullName: r.studentName || "Student",
+                studentFullName: r.studentName || "Student",
+                admissionId: r.admissionId || "",
+                mobileNumber: r.mobileNumber || "",
+              }));
+            }
+          }
+
+          // 3. Only if still 0 and batchName exists, check legacy admissions but strictly scoped to the same brand & course
           if (admittedStudents.length === 0 && b.batchName) {
-            const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const nameCount = await Batch.countDocuments({
               batchName: { $regex: new RegExp(`^${escapeRegExp(b.batchName.trim())}$`, "i") }
             });
 
             if (nameCount === 1) {
-              const legacyAdmissions = await Admission.find({
+              const legacyQuery: any = {
                 batch: { $regex: new RegExp(`^${escapeRegExp(b.batchName.trim())}$`, "i") },
-                $or: [{ batchId: { $exists: false } }, { batchId: "" }, { batchId: null }]
-              }).select("fullName studentFullName admissionId mobileNumber").lean();
+                $or: [{ batchId: { $exists: false } }, { batchId: "" }, { batchId: null }],
+                status: activeStatusFilter,
+              };
+              if (b.brand) {
+                legacyQuery.brand = { $regex: new RegExp(`^${escapeRegExp(b.brand.trim())}$`, "i") };
+              }
+              if (b.course) {
+                legacyQuery.course = { $regex: new RegExp(`^${escapeRegExp(b.course.trim())}$`, "i") };
+              }
+
+              const legacyAdmissions = await Admission.find(legacyQuery)
+                .select("fullName studentFullName admissionId mobileNumber")
+                .lean();
               if (legacyAdmissions.length > 0) {
                 admittedStudents = legacyAdmissions;
               }

@@ -321,16 +321,17 @@ export default function AttendanceDisplay() {
               const arrayCount = Array.isArray(batch.students) ? batch.students.length : 0;
               const dbCount = Number(batch.enrolledStudentsCount || batch.studentsCount || 0);
               const logCount = latestLog ? Number(latestLog.totalStudents || 0) : 0;
-              const enrolledCount = Math.max(arrayCount, dbCount, logCount);
+              // Authoritative enrolled count:
+              // 1. If an attendance log exists, its recorded totalStudents represents the actual verified active roster.
+              // 2. Otherwise fall back to batch students list or db count.
+              const enrolledCount = logCount > 0 ? logCount : (arrayCount > 0 ? arrayCount : dbCount);
 
               const lastDateStr = latestLog
                 ? latestLog.dateStr || new Date(latestLog.date).toLocaleDateString("en-GB")
                 : "No logs recorded yet";
 
               const presentCount = latestLog ? Number(latestLog.totalPresent || 0) : 0;
-              const totalCount = latestLog
-                ? Number(latestLog.totalStudents || enrolledCount)
-                : enrolledCount;
+              const totalCount = logCount > 0 ? logCount : enrolledCount;
 
               const ratePct = totalCount > 0
                 ? Math.round((presentCount / totalCount) * 100)
