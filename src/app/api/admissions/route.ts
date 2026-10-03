@@ -642,7 +642,7 @@ export async function GET(req: Request) {
       const trimmedBId = batchIdParam.trim();
       const idMatches: any[] = [{ batchId: trimmedBId }];
       if (mongoose.Types.ObjectId.isValid(trimmedBId)) {
-        idMatches.push({ batchId: trimmedBId });
+        idMatches.push({ batchId: new mongoose.Types.ObjectId(trimmedBId) });
       }
 
       let batchDoc: any = null;
@@ -656,23 +656,29 @@ export async function GET(req: Request) {
           if (batchDoc.batchId && batchDoc.batchId !== trimmedBId) {
             idMatches.push({ batchId: batchDoc.batchId });
           }
-          if (batchDoc._id && batchDoc._id.toString() !== trimmedBId) {
+          if (batchDoc._id) {
+            idMatches.push({ batchId: batchDoc._id });
             idMatches.push({ batchId: batchDoc._id.toString() });
           }
         }
       } catch (_) {}
 
-      // If batch exists and EXACTLY 1 batch has this name, also include unassigned legacy records for this batchName
-      if (batchDoc && batchDoc.batchName) {
-        const matchingBatchesCount = await Batch.countDocuments({
-          batchName: { $regex: new RegExp(`^${escapeRegExp(batchDoc.batchName.trim())}$`, "i") }
-        });
-
-        if (matchingBatchesCount === 1) {
-          idMatches.push({
-            batch: { $regex: new RegExp(`^${escapeRegExp(batchDoc.batchName.trim())}$`, "i") },
-            $or: [{ batchId: { $exists: false } }, { batchId: "" }, { batchId: null }]
+      // Only if no direct batchId assignments exist and exactly 1 batch has this name, fall back to legacy records
+      if (batchDoc && batchDoc.batchName && batchDoc.course && batchDoc.brand) {
+        const directCount = await Admission.countDocuments({ $or: idMatches });
+        if (directCount === 0) {
+          const matchingBatchesCount = await Batch.countDocuments({
+            batchName: { $regex: new RegExp(`^${escapeRegExp(batchDoc.batchName.trim())}$`, "i") }
           });
+
+          if (matchingBatchesCount === 1) {
+            idMatches.push({
+              batch: { $regex: new RegExp(`^${escapeRegExp(batchDoc.batchName.trim())}$`, "i") },
+              brand: { $regex: new RegExp(`^${escapeRegExp(batchDoc.brand.trim())}$`, "i") },
+              course: { $regex: new RegExp(`^${escapeRegExp(batchDoc.course.trim())}$`, "i") },
+              $or: [{ batchId: { $exists: false } }, { batchId: "" }, { batchId: null }]
+            });
+          }
         }
       }
 

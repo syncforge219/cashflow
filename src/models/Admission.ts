@@ -75,12 +75,10 @@ const AdmissionSchema = new Schema(
     targetCourses: [{ type: String, trim: true }],
     batch: { type: String },
     batchId: {
-      type: Schema.Types.ObjectId,
+      type: Schema.Types.Mixed,
       ref: "Batch",
       index: true,
       default: null,
-      cast: safeObjectIdCast,
-      set: safeObjectIdCast,
     },
     duration: { type: String },
     startDate: { type: Date },
