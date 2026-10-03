@@ -13,6 +13,7 @@ import { getFinancialYear, getFinancialYearRange } from "@/lib/financialYearHelp
 import { syncAdmissionRefs } from "@/lib/referenceHelper";
 import { getStudentBalance } from "@/lib/studentBalanceService";
 import { logAuditEntry, diffAndLogAudit } from "@/lib/auditLogger";
+import { withOptionalTransaction } from "@/lib/transactionHelper";
 
 export async function GET(
   req: Request,
@@ -387,12 +388,10 @@ export async function PUT(
     const admFY = getFinancialYear(effectiveAdmDate);
     const { label: currentFY } = getFinancialYearRange();
 
-    // 4. Wrap admission write, company update, enquiry update, and task updates in a single MongoDB transaction
-    const session = await mongoose.startSession();
+    // 4. Wrap admission write, company update, enquiry update, and task updates in a single transaction (with standalone fallback)
     let updatedDoc: any = null;
 
-    try {
-      await session.withTransaction(async () => {
+    await withOptionalTransaction(async (session) => {
         // Re-balance company capacity if needed
         if (isOldValidComp && isNewValidComp && oldCompany.toLowerCase() === newCompany.toLowerCase()) {
           const feeDiff = newFee - oldFee;
@@ -527,7 +526,7 @@ export async function PUT(
             await Enquiry.updateOne(
               { _id: new mongoose.Types.ObjectId(String(targetEnquiryId)) },
               { $set: enqUpdatePayload },
-              { session }
+              session ? { session } : {}
             );
           }
         } else {
@@ -545,7 +544,7 @@ export async function PUT(
               ]
             },
             { $set: { linkedStudentName: updatedDoc.fullName } },
-            { session }
+            session ? { session } : {}
           );
         }
 
@@ -570,9 +569,6 @@ export async function PUT(
           );
         }
       });
-    } finally {
-      await session.endSession();
-    }
 
     return NextResponse.json({
       success: true,

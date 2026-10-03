@@ -7,6 +7,7 @@ import Enquiry from "@/models/Enquiry";
 import Admission from "@/models/Admission";
 import { logAuditEntry } from "@/lib/auditLogger";
 import { normalizePhone } from "@/lib/studentHelper";
+import { withOptionalTransaction } from "@/lib/transactionHelper";
 
 export async function POST(req: Request) {
   try {
@@ -37,11 +38,9 @@ export async function POST(req: Request) {
     const cleanParentPhone = normalizePhone(winningValues.parentPhone);
     const cleanGuardian2Phone = normalizePhone(winningValues.guardian2Phone);
 
-    const session = await mongoose.startSession();
     let masterStudent: any;
 
-    try {
-      await session.withTransaction(async () => {
+    await withOptionalTransaction(async (session) => {
         // 1. Resolve or create Master Student
         if (existingStudentId && mongoose.Types.ObjectId.isValid(existingStudentId)) {
           masterStudent = await Student.findById(existingStudentId).session(session);
@@ -84,7 +83,7 @@ export async function POST(req: Request) {
           await Enquiry.updateMany(
             { _id: { $in: enqIds } },
             { $set: { studentId: masterStudent._id } },
-            { session }
+            session ? { session } : {}
           );
         }
 
@@ -92,7 +91,7 @@ export async function POST(req: Request) {
           await Admission.updateMany(
             { _id: { $in: admIds } },
             { $set: { studentId: masterStudent._id } },
-            { session }
+            session ? { session } : {}
           );
         }
 
@@ -111,9 +110,6 @@ export async function POST(req: Request) {
           userId: user._id,
         });
       });
-    } finally {
-      await session.endSession();
-    }
 
     return NextResponse.json({
       success: true,

@@ -14,6 +14,7 @@ import { getCompanyPaymentRevenueMap, getCompanyFyRevenue } from "@/lib/companyR
 import { getStudentBalance, recomputeAndStoreAdmissionBalance } from "@/lib/studentBalanceService";
 import { logAuditEntry } from "@/lib/auditLogger";
 import { validateDeletedAccess } from "@/lib/softDeleteAccess";
+import { withOptionalTransaction } from "@/lib/transactionHelper";
 
 let paymentsReconciled = false;
 
@@ -379,12 +380,11 @@ export async function POST(req: Request) {
       admission.companyAssigned = finalCompany;
     }
 
-    // 2. Create the payment record & recompute admission balance inside transaction
-    const session = await mongoose.startSession();
+    // 2. Create the payment record & recompute admission balance inside transaction (with standalone fallback)
     let payment: any;
     let newBalance = 0;
 
-    await session.withTransaction(async () => {
+    await withOptionalTransaction(async (session) => {
       payment = new Payment({
         admissionId: admission._id,
         studentName: admission.fullName,
@@ -442,7 +442,6 @@ export async function POST(req: Request) {
 
       await admission.save({ session });
     });
-    await session.endSession();
 
     if (payment?._id) {
       await logAuditEntry({
@@ -570,8 +569,7 @@ export async function PATCH(req: Request) {
       existingPayment.amountReceived = Number(body.amountReceived);
     }
 
-    const session = await mongoose.startSession();
-    await session.withTransaction(async () => {
+    await withOptionalTransaction(async (session) => {
       await existingPayment.save({ session });
 
       // Sync admission remaining balance if amount changed
@@ -581,7 +579,6 @@ export async function PATCH(req: Request) {
         await recomputeAndStoreAdmissionBalance(existingPayment.admissionId, session);
       }
     });
-    await session.endSession();
 
     return NextResponse.json({
       success: true,
@@ -632,10 +629,9 @@ export async function DELETE(req: Request) {
     const user = await getUserFromCookies();
     const userId = (user as any)?._id || null;
 
-    // 1. Soft delete payment & recompute admission balance inside transaction
+    // 1. Soft delete payment & recompute admission balance inside transaction (with standalone fallback)
     let updatedAdmission: any = null;
-    const session = await mongoose.startSession();
-    await session.withTransaction(async () => {
+    await withOptionalTransaction(async (session) => {
       payment.isDeleted = true;
       payment.deletedAt = new Date();
       payment.deletedBy = userId;
@@ -659,7 +655,6 @@ export async function DELETE(req: Request) {
         }
       }
     });
-    await session.endSession();
 
     // 2. Reverse Company Collection if company is valid
     let reversedCompany = null;

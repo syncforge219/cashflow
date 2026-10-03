@@ -7,6 +7,7 @@ import Enquiry from "@/models/Enquiry";
 import Admission from "@/models/Admission";
 import { logAuditEntry } from "@/lib/auditLogger";
 import { normalizePhone } from "@/lib/studentHelper";
+import { withOptionalTransaction } from "@/lib/transactionHelper";
 
 export async function POST(req: Request) {
   try {
@@ -29,12 +30,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, message: "Valid recordId and recordType ('Enquiry' | 'Admission') are required." }, { status: 400 });
     }
 
-    const session = await mongoose.startSession();
     let newStudent: any;
     let oldStudentId: any;
 
-    try {
-      await session.withTransaction(async () => {
+    await withOptionalTransaction(async (session) => {
         let recordDoc: any;
         if (recordType === "Enquiry") {
           recordDoc = await Enquiry.findById(recordId).session(session);
@@ -85,9 +84,6 @@ export async function POST(req: Request) {
           userId: user._id,
         });
       });
-    } finally {
-      await session.endSession();
-    }
 
     return NextResponse.json({
       success: true,

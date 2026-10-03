@@ -8,6 +8,7 @@ import { getFinancialYear, getFinancialYearRange } from "@/lib/financialYearHelp
 import { recomputeAndStoreAdmissionBalance } from "@/lib/studentBalanceService";
 import { getUserFromCookies } from "@/lib/helper";
 import { logAuditEntry } from "@/lib/auditLogger";
+import { withOptionalTransaction } from "@/lib/transactionHelper";
 
 export async function GET(
   req: NextRequest,
@@ -55,10 +56,9 @@ export async function DELETE(
     const user = await getUserFromCookies();
     const userId = (user as any)?._id || null;
 
-    // Delete payment and recompute admission balance inside transaction
+    // Delete payment and recompute admission balance inside optional transaction (with standalone fallback)
     let updatedAdmission: any = null;
-    const session = await mongoose.startSession();
-    await session.withTransaction(async () => {
+    await withOptionalTransaction(async (session) => {
       payment.isDeleted = true;
       payment.deletedAt = new Date();
       payment.deletedBy = userId;
@@ -81,7 +81,6 @@ export async function DELETE(
         }
       }
     });
-    await session.endSession();
 
     // Reverse Company Collection if company is valid
     let reversedCompany = null;

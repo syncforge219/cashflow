@@ -18,6 +18,7 @@ import { getFinancialYear, getFinancialYearRange } from "@/lib/financialYearHelp
 import { syncAdmissionRefs } from "@/lib/referenceHelper";
 import { logAuditEntry } from "@/lib/auditLogger";
 import { validateDeletedAccess } from "@/lib/softDeleteAccess";
+import { withOptionalTransaction } from "@/lib/transactionHelper";
 
 export async function POST(req: NextRequest) {
   try {
@@ -220,11 +221,8 @@ export async function POST(req: NextRequest) {
     let initialPaymentObj: any = null;
     const matchedEnquiryIds: string[] = [];
 
-    // 4. Wrap the admission write, company ledger, enquiry update, task updates, and initial payment in a single MongoDB transaction
-    const session = await mongoose.startSession();
-
-    try {
-      await session.withTransaction(async () => {
+    // 4. Wrap the admission write, company ledger, enquiry update, task updates, and initial payment in a single transaction (with standalone fallback)
+    await withOptionalTransaction(async (session) => {
         // A. Update Ledger (block entire student fee in company collectedRevenue for active cycle) inside transaction
         if (finalCompany && finalCompany !== "Cash" && finalCompany !== "Unallocated" && finalCompany !== "Cash (Unallocated)") {
           const amountToBlock = Number(data.finalFee) > 0
@@ -283,7 +281,7 @@ export async function POST(req: NextRequest) {
                 status: "Pending",
                 read: false
               }
-            ], { session });
+            ], session ? { session } : undefined);
           } catch (notifErr) {
             console.error("Failed creating Notification:", notifErr);
           }
@@ -327,7 +325,7 @@ export async function POST(req: NextRequest) {
                   followUps: enq.followUps
                 }
               },
-              { session }
+              session ? { session } : {}
             );
             matchedEnquiryIds.push(enq._id.toString());
           } else {
@@ -372,7 +370,7 @@ export async function POST(req: NextRequest) {
                 completedAt: new Date()
               }
             },
-            { session }
+            session ? { session } : {}
           );
         }
 
@@ -477,11 +475,8 @@ export async function POST(req: NextRequest) {
             ],
             autoTriggerSource: "Auto Event: New Admission SOP Step 4"
           }
-        ], { session });
+        ], session ? { session } : undefined);
       });
-    } finally {
-      await session.endSession();
-    }
 
     // Trigger Admission Confirmation Email directly to Student's Email
     const studentEmail = (admission.email || data.email || data.emailAddress || "").trim();
