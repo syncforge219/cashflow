@@ -250,8 +250,8 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
   }, [localLead]);
 
   const handleAddSubmit = async () => {
-    if (!taskDate || !taskRemarks) {
-      return alert("Please fill all required fields.");
+    if (!taskDate) {
+      return alert("Please select a Follow-up Date.");
     }
     
     setIsSubmitting(true);
@@ -264,7 +264,7 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
           time: taskTime,
           priority: taskPriority,
           typeOfContact: taskType,
-          remarks: taskRemarks
+          remarks: taskRemarks.trim() || "Follow-up interaction"
         })
       });
       const data = await response.json();
@@ -432,63 +432,54 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
   const handleCompleteTaskSubmit = async () => {
     if (!taskToComplete) return;
 
-    // Strict validation: every field is compulsory
-    if (!completeRemarks.trim()) {
-      return alert("Please enter Interaction Remarks / Outcome for this task.");
-    }
-    if (!conversionChance) {
-      return alert("Please select Conversion Chance / Interest Level.");
-    }
-    if (!updateLeadStatus) {
-      return alert("Please select Lead Pipeline Status.");
-    }
-    if (!nextFollowUpDate) {
-      return alert("Please select Next Follow-up Date.");
-    }
-    if (!nextFollowUpPriority) {
-      return alert("Please select Follow-up Priority.");
-    }
-    if (!nextFollowUpType) {
-      return alert("Please select Type of Contact.");
-    }
-    if (!nextFollowUpRemarks.trim()) {
-      return alert("Please enter Next Follow-up Interaction Remarks.");
-    }
-
     setIsCompletingTask(true);
     try {
-      // 1. Mark current task completed & update lead status
+      // 1. Mark current task completed & optionally update remarks, conversion chance, and lead pipeline status
+      const patchPayload: any = {
+        isCompleted: true,
+        status: "Completed",
+      };
+      if (completeRemarks.trim()) {
+        patchPayload.remarks = completeRemarks.trim();
+      }
+      if (conversionChance) {
+        patchPayload.conversionChance = conversionChance;
+      }
+      if (updateLeadStatus) {
+        patchPayload.leadStatus = updateLeadStatus;
+      }
+
       const response = await fetch(`/api/enquiries/${localLead._id}/tasks/${taskToComplete._id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          isCompleted: true,
-          status: "Completed",
-          remarks: completeRemarks.trim(),
-          conversionChance: conversionChance,
-          leadStatus: updateLeadStatus
-        })
+        body: JSON.stringify(patchPayload)
       });
       const patchData = await response.json();
       if (!patchData.success) {
         throw new Error(patchData.message || patchData.error || "Failed to update task");
       }
 
-      // 2. Schedule the next planned follow-up interaction
-      const taskRes = await fetch(`/api/enquiries/${localLead._id}/tasks`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          date: nextFollowUpDate,
-          time: nextFollowUpTime,
-          priority: nextFollowUpPriority,
-          typeOfContact: nextFollowUpType,
-          remarks: nextFollowUpRemarks.trim()
-        })
-      });
-      const taskData = await taskRes.json();
+      let finalLead = patchData.data;
 
-      const finalLead = taskData.data || patchData.data;
+      // 2. Optionally schedule the next planned follow-up interaction if date or remarks are provided
+      if (nextFollowUpDate || nextFollowUpRemarks.trim()) {
+        const taskRes = await fetch(`/api/enquiries/${localLead._id}/tasks`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            date: nextFollowUpDate || new Date().toISOString().split("T")[0],
+            time: nextFollowUpTime || "11:00 AM",
+            priority: nextFollowUpPriority || "Medium",
+            typeOfContact: nextFollowUpType || "Phone Call",
+            remarks: nextFollowUpRemarks.trim() || "Follow-up interaction planned"
+          })
+        });
+        const taskData = await taskRes.json();
+        if (taskData.data) {
+          finalLead = taskData.data;
+        }
+      }
+
       if (finalLead) {
         setLocalLead(finalLead);
       }
@@ -1320,7 +1311,7 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-slate-500">Priority *</label>
+                <label className="text-xs font-bold text-slate-500">Priority</label>
                 <select value={taskPriority} onChange={e => setTaskPriority(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white appearance-none" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E\")", backgroundPosition: "right 1rem center", backgroundRepeat: "no-repeat", backgroundSize: "1em" }}>
                   <option value="High">High</option>
                   <option value="Medium">Medium</option>
@@ -1329,7 +1320,7 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-slate-500">Type of Contact *</label>
+                <label className="text-xs font-bold text-slate-500">Type of Contact</label>
                 <select value={taskType} onChange={e => setTaskType(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white appearance-none" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E\")", backgroundPosition: "right 1rem center", backgroundRepeat: "no-repeat", backgroundSize: "1em" }}>
                   <option value="Phone Call">Phone Call</option>
                   <option value="WhatsApp Message">WhatsApp Message</option>
@@ -1339,7 +1330,7 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-slate-500">Interaction Remarks *</label>
+                <label className="text-xs font-bold text-slate-500">Interaction Remarks</label>
                 <textarea value={taskRemarks} onChange={e => setTaskRemarks(e.target.value)} rows={3} placeholder="e.g. Schedule weekend consultation, send fee structures..." className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all resize-none bg-white"></textarea>
               </div>
 
@@ -1401,7 +1392,7 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
                 {/* Interaction Remarks / Notes */}
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                    INTERACTION REMARKS / OUTCOME <span className="text-rose-500">*</span>
+                    INTERACTION REMARKS / OUTCOME
                   </label>
                   <textarea
                     value={completeRemarks}
@@ -1415,7 +1406,7 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
                 {/* Conversion Chances / Priority */}
                 <div className="flex flex-col gap-2">
                   <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                    CONVERSION CHANCE / INTEREST LEVEL <span className="text-rose-500">*</span>
+                    CONVERSION CHANCE / INTEREST LEVEL
                   </label>
                   <div className="grid grid-cols-3 gap-2">
                     {[
@@ -1426,7 +1417,7 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
                       <button
                         key={option.value}
                         type="button"
-                        onClick={() => setConversionChance(option.value)}
+                        onClick={() => setConversionChance((prev) => prev === option.value ? "" : option.value)}
                         className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all text-center cursor-pointer ${
                           conversionChance === option.value
                             ? `${option.color} shadow-sm ring-2 ring-emerald-500/20`
@@ -1442,7 +1433,7 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
                 {/* Lead Status Update */}
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                    UPDATE LEAD PIPELINE STATUS <span className="text-rose-500">*</span>
+                    UPDATE LEAD PIPELINE STATUS
                   </label>
                   <select
                     value={updateLeadStatus}
@@ -1455,6 +1446,7 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
                       backgroundSize: "1em",
                     }}
                   >
+                    <option value="">Keep Current Status ({localLead.status || "None"})</option>
                     <option value="New">New</option>
                     <option value="Contacted">Contacted</option>
                     <option value="Interested">Interested</option>
@@ -1471,15 +1463,15 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
                   <h4 className="text-base font-bold text-slate-800 flex items-center gap-2">
                     <span>📅</span> Plan Follow-up Interaction
                   </h4>
-                  <span className="text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-lg">
-                    Compulsory
+                  <span className="text-[11px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-lg">
+                    Optional
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-bold text-slate-500">
-                      Follow-up Date <span className="text-rose-500">*</span>
+                      Follow-up Date
                     </label>
                     <input
                       type="date"
@@ -1505,7 +1497,7 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-bold text-slate-500">
-                      Priority <span className="text-rose-500">*</span>
+                      Priority
                     </label>
                     <select
                       value={nextFollowUpPriority}
@@ -1526,7 +1518,7 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
 
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-bold text-slate-500">
-                      Type of Contact <span className="text-rose-500">*</span>
+                      Type of Contact
                     </label>
                     <select
                       value={nextFollowUpType}
@@ -1549,7 +1541,7 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
 
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-bold text-slate-500">
-                    Interaction Remarks <span className="text-rose-500">*</span>
+                    Interaction Remarks
                   </label>
                   <textarea
                     value={nextFollowUpRemarks}
