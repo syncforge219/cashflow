@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Payroll from "@/models/Payroll";
-import { getUserFromCookies } from "@/lib/helper";
+import { getUserFromCookies, escapeRegex } from "@/lib/helper";
 import { logAuditEntry } from "@/lib/auditLogger";
 import { validateDeletedAccess } from "@/lib/softDeleteAccess";
 
@@ -34,10 +34,10 @@ export async function GET(req: Request) {
     }
     if (search) {
       query.$or = [
-        { employeeName: { $regex: search, $options: "i" } },
-        { employeeRole: { $regex: search, $options: "i" } },
-        { brand: { $regex: search, $options: "i" } },
-        { company: { $regex: search, $options: "i" } },
+        { employeeName: { $regex: escapeRegex(search), $options: "i" } },
+        { employeeRole: { $regex: escapeRegex(search), $options: "i" } },
+        { brand: { $regex: escapeRegex(search), $options: "i" } },
+        { company: { $regex: escapeRegex(search), $options: "i" } },
       ];
     }
 

@@ -4,7 +4,7 @@ import dbConnect from "@/lib/db";
 import Expense from "@/models/Expense";
 import Brand from "@/models/Brand";
 import Company from "@/models/Company";
-import { getUserFromCookies } from "@/lib/helper";
+import { getUserFromCookies, escapeRegex } from "@/lib/helper";
 import { syncExpenseRefs } from "@/lib/referenceHelper";
 import { logAuditEntry } from "@/lib/auditLogger";
 import { validateDeletedAccess } from "@/lib/softDeleteAccess";
@@ -86,7 +86,7 @@ export async function GET(req: Request) {
     }
 
     if (search) {
-      const sRegex = { $regex: search, $options: "i" };
+      const sRegex = { $regex: escapeRegex(search), $options: "i" };
       query.$or = [
         { title: sRegex },
         { category: sRegex },

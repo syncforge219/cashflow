@@ -11,7 +11,7 @@ import Batch from "@/models/Batch";
 import Course from "@/models/Course";
 import User from "@/models/User";
 import Notification from "@/models/Notification";
-import { getUserFromCookies } from "@/lib/helper";
+import { getUserFromCookies, escapeRegex } from "@/lib/helper";
 import { sendWhatsAppFeeReceipt, sendWhatsAppBrandWelcome, sendWhatsAppSuperAdminAdmissionAlert } from "@/lib/msg91";
 import { sendAdmissionConfirmationEmail } from "@/lib/emailService";
 import { getFinancialYear, getFinancialYearRange } from "@/lib/financialYearHelper";
@@ -584,9 +584,9 @@ export async function GET(req: Request) {
     }
 
     if (q) {
-      const regex = new RegExp(q, "i");
+      const regex = new RegExp(escapeRegex(q), "i");
       const cleanQ = q.replace(/[\s-]/g, "");
-      const cleanRegex = new RegExp(cleanQ, "i");
+      const cleanRegex = new RegExp(escapeRegex(cleanQ), "i");
 
       andConditions.push({
         $or: [

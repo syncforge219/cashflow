@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import crypto from "node:crypto";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
 import { createSession, SESSION_COOKIE_NAME, SESSION_DURATION_SECONDS } from "@/lib/auth";
@@ -92,7 +93,22 @@ export async function POST(request: Request) {
     // Compare passwords
     let isPasswordValid = false;
     try {
-      isPasswordValid = await bcrypt.compare(cleanPassword, user.password);
+      // Accounts created via /api/users used to be saved with a plaintext password.
+      // Accept them once and transparently upgrade the stored value to a bcrypt hash.
+      if (!/^\$2[aby]\$\d{2}\$/.test(user.password)) {
+        const candidates = [cleanPassword, cleanPassword.trim()].map((p) => Buffer.from(p));
+        const stored = Buffer.from(user.password);
+        const matches = candidates.some(
+          (c) => c.length === stored.length && crypto.timingSafeEqual(c, stored)
+        );
+        if (matches) {
+          user.password = await bcrypt.hash(user.password, 10);
+          await user.save({ validateModifiedOnly: true });
+          isPasswordValid = true;
+        }
+      } else {
+        isPasswordValid = await bcrypt.compare(cleanPassword, user.password);
+      }
       if (!isPasswordValid && cleanPassword !== cleanPassword.trim()) {
         isPasswordValid = await bcrypt.compare(cleanPassword.trim(), user.password);
       }

@@ -113,6 +113,72 @@ export async function destroySession(sessionToken?: string | null) {
 }
 
 /**
+ * Validates a raw session token and returns the matching User and Session.
+ * Does not touch request-scoped state, so it is safe to call from the proxy.
+ */
+export async function resolveSessionToken(token: string | null | undefined): Promise<{
+  user: AuthenticatedUser | null;
+  session: any | null;
+}> {
+  if (!token) {
+    return { user: null, session: null };
+  }
+
+  await dbConnect();
+
+  // 1. Find database session by SHA-256 hash (with fallback to legacy plain token)
+  const tokenHash = hashSessionToken(token);
+  const dbSession = await Session.findOne({
+    $or: [{ sessionToken: tokenHash }, { token: tokenHash }, { sessionToken: token }],
+  });
+
+  if (dbSession) {
+    // Check expiration
+    if (new Date(dbSession.expiresAt).getTime() < Date.now()) {
+      await Session.deleteOne({ _id: dbSession._id });
+      return { user: null, session: null };
+    }
+
+    const dbUser = await User.findById(dbSession.userId).select("-password").lean();
+    if (!dbUser) {
+      await Session.deleteOne({ _id: dbSession._id });
+      return { user: null, session: null };
+    }
+
+    const role = ((dbUser as any).role || "").toLowerCase().trim();
+    if (role.includes("marketing")) {
+      return { user: null, session: null };
+    }
+
+    const normalizedUser: AuthenticatedUser = {
+      ...(dbUser as any),
+      id: dbUser._id.toString(),
+    };
+    return { user: normalizedUser, session: dbSession };
+  }
+
+  // 2. Legacy fallback: accept a valid signed JWT (only when JWT_SECRET is configured).
+  // No DB session is minted here: createSession() wipes every other session of the user,
+  // and the new token was never sent back, so doing it per-request logged users out everywhere.
+  const decoded = await verifyJWT(token);
+  if (decoded && decoded.id) {
+    const dbUser = await User.findById(decoded.id).select("-password").lean();
+    if (dbUser) {
+      const role = ((dbUser as any).role || "").toLowerCase().trim();
+      if (!role.includes("marketing")) {
+        const normalizedUser: AuthenticatedUser = {
+          ...(dbUser as any),
+          id: dbUser._id.toString(),
+        };
+        return { user: normalizedUser, session: null };
+      }
+    }
+  }
+
+  return { user: null, session: null };
+}
+
+/**
  * Validates session token and returns the authenticated User document and Session.
  * Compares SHA-256 hash of the incoming token against the stored hash.
  */
@@ -122,65 +188,11 @@ export async function getAuthenticatedUserAndSession(): Promise<{
 }> {
   try {
     const token = await getRawSessionToken();
-    if (!token) {
-      return { user: null, session: null };
+    const result = await resolveSessionToken(token);
+    if (result.user) {
+      setRequestContextUser(result.user);
     }
-
-    await dbConnect();
-
-    // 1. Find database session by SHA-256 hash (with fallback to legacy plain token)
-    const tokenHash = hashSessionToken(token);
-    let dbSession = await Session.findOne({
-      $or: [{ sessionToken: tokenHash }, { token: tokenHash }, { sessionToken: token }],
-    });
-
-    if (dbSession) {
-      // Check expiration
-      if (new Date(dbSession.expiresAt).getTime() < Date.now()) {
-        await Session.deleteOne({ _id: dbSession._id });
-        return { user: null, session: null };
-      }
-
-      const dbUser = await User.findById(dbSession.userId).select("-password").lean();
-      if (!dbUser) {
-        await Session.deleteOne({ _id: dbSession._id });
-        return { user: null, session: null };
-      }
-
-      const role = ((dbUser as any).role || "").toLowerCase().trim();
-      if (role.includes("marketing")) {
-        return { user: null, session: null };
-      }
-
-      const normalizedUser: AuthenticatedUser = {
-        ...(dbUser as any),
-        id: dbUser._id.toString(),
-      };
-      setRequestContextUser(normalizedUser);
-
-      return { user: normalizedUser, session: dbSession };
-    }
-
-    // 2. Legacy fallback: Check if token is valid signed JWT
-    const decoded = await verifyJWT(token);
-    if (decoded && decoded.id) {
-      const dbUser = await User.findById(decoded.id).select("-password").lean();
-      if (dbUser) {
-        const role = ((dbUser as any).role || "").toLowerCase().trim();
-        if (!role.includes("marketing")) {
-          // Upgrade: Create DB session for active legacy JWT user
-          const { sessionToken, expiresAt, session: newSession } = await createSession(dbUser._id.toString());
-          const normalizedUser: AuthenticatedUser = {
-            ...(dbUser as any),
-            id: dbUser._id.toString(),
-          };
-          setRequestContextUser(normalizedUser);
-          return { user: normalizedUser, session: newSession };
-        }
-      }
-    }
-
-    return { user: null, session: null };
+    return result;
   } catch (error: any) {
     if (error?.digest === "DYNAMIC_SERVER_USAGE" || error?.message?.includes("Dynamic server usage")) {
       throw error;

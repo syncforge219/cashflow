@@ -30,7 +30,8 @@ export interface EmiReminderResult {
 export async function checkAndSendOverdueEmiReminders(options?: { force?: boolean }): Promise<EmiReminderResult> {
   await dbConnect();
 
-  const force = options?.force !== false;
+  // Default to the normal "1 day before due, once per day" rule; force must be explicit.
+  const force = options?.force === true;
   const now = new Date();
   const todayStr = now.toDateString();
 

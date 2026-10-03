@@ -1,19 +1,15 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
-import { verifyJWT, signJWT } from "@/lib/jwt";
-import { cookies } from "next/headers";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 export async function PATCH(req: Request) {
   try {
     await dbConnect();
 
-    const cookieStore = await cookies();
-    const token = cookieStore.get("token")?.value;
-    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const decoded = await verifyJWT(token);
-    if (!decoded) return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    // Login issues opaque DB-backed session tokens, not JWTs, so resolve the user via the session.
+    const sessionUser = await getAuthenticatedUser();
+    if (!sessionUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { name, email, phone, photoUrl, brandLogo, customAppName } = await req.json();
 
@@ -26,7 +22,7 @@ export async function PATCH(req: Request) {
     if (customAppName !== undefined) updateFields.customAppName = customAppName.trim();
 
     const updatedUser = await User.findByIdAndUpdate(
-      decoded.id,
+      sessionUser.id,
       { $set: updateFields },
       { new: true, runValidators: true }
     );
@@ -34,24 +30,6 @@ export async function PATCH(req: Request) {
     if (!updatedUser) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
-
-    // Sign new JWT with updated email in case it's used elsewhere
-    const newToken = await signJWT({
-      id: updatedUser._id.toString(),
-      name: updatedUser.name,
-      email: updatedUser.email,
-      role: updatedUser.role,
-    });
-
-    cookieStore.set({
-      name: "token",
-      value: newToken,
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      path: "/",
-      maxAge: 7 * 24 * 60 * 60,
-    });
 
     return NextResponse.json({
       success: true,

@@ -281,7 +281,7 @@ export default function RegisterBrandModal({ isOpen, onClose, brandToEdit }: Reg
                 </label>
                 <input
                   type="file"
-                  accept="image/png, image/jpeg, image/webp, image/svg+xml"
+                  accept="image/png, image/jpeg, image/webp"
                   onChange={handleLogoFileUpload}
                   disabled={isUploadingLogo}
                   className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2 focus:outline-none file:mr-3 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[10px] file:font-bold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer"
