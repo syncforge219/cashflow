@@ -1,3 +1,4 @@
+import { isMarketingExecutive, DEFAULT_MARKETING_TITLE } from "@/lib/roles";
 import { NextResponse } from "next/server";
 import { escapeRegex } from "@/lib/helper";
 import dbConnect from "@/lib/db";
@@ -52,6 +53,13 @@ export async function GET(req: Request) {
   }
 }
 
+/** Job title: trimmed, max 80 chars. Marketing users always get one (default "Marketing Executive"). */
+function cleanDesignation(value: unknown, role: unknown): string {
+  const title = typeof value === "string" ? value.trim().replace(/\s+/g, " ").slice(0, 80) : "";
+  if (!title && isMarketingExecutive(role)) return DEFAULT_MARKETING_TITLE;
+  return title;
+}
+
 export async function POST(req: Request) {
   try {
     await dbConnect();
@@ -59,6 +67,7 @@ export async function POST(req: Request) {
     if (auth.error) return auth.error;
     const body = await req.json();
     const { name, email, password, role, phone, brandScope, customAppName } = body;
+    const designation = cleanDesignation(body.designation, role);
 
     if (!name || !email || !password) {
       return NextResponse.json(
@@ -84,6 +93,7 @@ export async function POST(req: Request) {
       phone: phone ? phone.trim() : "",
       brandScope: brandScope || "All Brands",
       customAppName: customAppName || "Coach",
+      designation,
     });
 
     await newUser.save();
@@ -131,6 +141,12 @@ export async function PUT(req: Request) {
     if (phone !== undefined) updateData.phone = phone.trim();
     if (brandScope) updateData.brandScope = brandScope;
     if (customAppName) updateData.customAppName = customAppName;
+    if (body.designation !== undefined || role) {
+      const existing: any = await User.findById(targetId).select("role designation").lean();
+      const effectiveRole = role || existing?.role;
+      const incoming = body.designation !== undefined ? body.designation : existing?.designation;
+      updateData.designation = cleanDesignation(incoming, effectiveRole);
+    }
     if (password && password.trim().length >= 6) {
       updateData.password = await bcrypt.hash(password.trim(), 10);
     }

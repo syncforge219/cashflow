@@ -11,6 +11,26 @@
 export const MARKETING_ROLE = "marketing executive";
 export const MARKETING_HOME = "/marketing-dashboard";
 
+/**
+ * Job titles offered for marketing users. The title is only a label (shown on the Users page and
+ * the marketing dashboard); access is decided by the role, so every title has the same access.
+ */
+export const MARKETING_TITLES = [
+  "Marketing Executive",
+  "Digital Marketing Executive",
+  "Digital Marketing Manager",
+  "Performance Marketing Specialist",
+  "Social Media Manager",
+  "SEO Specialist",
+  "Content Marketing Executive",
+  "Lead Generation Executive",
+  "Brand Manager (Marketing)",
+  "Marketing Manager",
+  "Head of Marketing",
+] as const;
+
+export const DEFAULT_MARKETING_TITLE = MARKETING_TITLES[0];
+
 export const normalizeRole = (role: unknown) => String(role || "").toLowerCase().replace(/[\s_-]+/g, "");
 
 export function isMarketingExecutive(role: unknown): boolean {

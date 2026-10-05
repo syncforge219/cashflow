@@ -1,12 +1,14 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { MARKETING_TITLES, DEFAULT_MARKETING_TITLE, MARKETING_ROLE, isMarketingExecutive } from "@/lib/roles";
 
 interface UserAccount {
   _id: string;
   name: string;
   email: string;
   role: string;
+  designation?: string;
   phone?: string;
   brandScope?: string;
   customAppName?: string;
@@ -39,6 +41,8 @@ export default function UsersDisplay() {
   const [phone, setPhone] = useState("");
   const [brandScope, setBrandScope] = useState("All Brands");
   const [customAppName, setCustomAppName] = useState("Coach");
+  const [designation, setDesignation] = useState("");
+  const [customTitleMode, setCustomTitleMode] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -71,12 +75,14 @@ export default function UsersDisplay() {
     fetchData();
   }, []);
 
-  const handleOpenAddModal = () => {
+  const handleOpenAddModal = (preset?: "marketing") => {
     setEditingUserId(null);
     setName("");
     setEmail("");
     setPassword("");
-    setRole("software developer");
+    setRole(preset === "marketing" ? MARKETING_ROLE : "software developer");
+    setDesignation(preset === "marketing" ? DEFAULT_MARKETING_TITLE : "");
+    setCustomTitleMode(false);
     setPhone("");
     setBrandScope("All Brands");
     setCustomAppName("Coach");
@@ -90,6 +96,12 @@ export default function UsersDisplay() {
     setEmail(user.email || "");
     setPassword("");
     setRole(user.role || "software developer");
+    setDesignation(user.designation || "");
+    setCustomTitleMode(
+      isMarketingExecutive(user.role) &&
+        Boolean(user.designation) &&
+        !(MARKETING_TITLES as readonly string[]).includes(user.designation || "")
+    );
     setPhone(user.phone || "");
     setBrandScope(user.brandScope || "All Brands");
     setCustomAppName(user.customAppName || "Coach");
@@ -124,6 +136,7 @@ export default function UsersDisplay() {
         phone: phone.trim(),
         brandScope,
         customAppName: customAppName.trim(),
+        designation: designation.trim(),
       };
 
       if (password) {
@@ -280,7 +293,15 @@ export default function UsersDisplay() {
           </div>
 
           <button
-            onClick={handleOpenAddModal}
+            onClick={() => handleOpenAddModal("marketing")}
+            className="flex items-center gap-1.5 text-xs font-black bg-slate-950/90 border border-fuchsia-500/50 text-fuchsia-300 hover:bg-fuchsia-950/60 rounded-xl px-4 py-2 transition-all cursor-pointer"
+            title="Leads, lead connectors and marketing spend only"
+          >
+            📣 Add Marketing User
+          </button>
+
+          <button
+            onClick={() => handleOpenAddModal()}
             className="flex items-center gap-1.5 text-xs font-black bg-gradient-to-r from-emerald-500 to-cyan-600 hover:from-emerald-400 hover:to-cyan-500 text-slate-950 rounded-xl px-4 py-2 shadow-[0_0_20px_rgba(16,185,129,0.25)] transition-all cursor-pointer"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-4 w-4">
@@ -362,6 +383,7 @@ export default function UsersDisplay() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <h3 className="text-sm font-black text-white truncate">{u.name}</h3>
+                          {u.designation && <p className="text-[11px] text-fuchsia-300 truncate">{u.designation}</p>}
                           <p className="text-xs text-cyan-300 font-mono truncate">{u.email}</p>
                         </div>
                       </div>
@@ -454,6 +476,8 @@ export default function UsersDisplay() {
                             ? "bg-cyan-950/80 text-cyan-300 border-cyan-500/30"
                             : rLower.includes("manager")
                             ? "bg-purple-950/80 text-purple-300 border-purple-500/30"
+                            : rLower.includes("marketing")
+                            ? "bg-fuchsia-950/80 text-fuchsia-300 border-fuchsia-500/30"
                             : rLower.includes("counsellor")
                             ? "bg-amber-950/80 text-amber-300 border-amber-500/30"
                             : "bg-blue-950/80 text-blue-300 border-blue-500/30";
@@ -473,6 +497,9 @@ export default function UsersDisplay() {
                                   <span className={`text-[9px] font-black border rounded px-2 py-0.5 uppercase tracking-wider inline-block mt-0.5 ${roleBadgeColor}`}>
                                     {emp.role || "Employee"}
                                   </span>
+                                  {emp.designation && (
+                                    <div className="text-[11px] font-semibold text-fuchsia-300 truncate mt-0.5">{emp.designation}</div>
+                                  )}
                                 </div>
                               </div>
 
@@ -573,7 +600,10 @@ export default function UsersDisplay() {
                 <label className="block text-xs font-bold text-slate-300 mb-1">System Access Role *</label>
                 <select
                   value={role}
-                  onChange={(e) => setRole(e.target.value)}
+                  onChange={(e) => {
+                    setRole(e.target.value);
+                    if (isMarketingExecutive(e.target.value) && !designation) setDesignation(DEFAULT_MARKETING_TITLE);
+                  }}
                   className="w-full text-xs px-3 py-2 border border-slate-800 rounded-xl bg-slate-950 text-white focus:outline-none focus:border-emerald-500/50"
                 >
                   <option value="software developer">Software Developer</option>
@@ -587,6 +617,59 @@ export default function UsersDisplay() {
                   <option value="marketing executive">Marketing Executive (leads, connectors &amp; spend only)</option>
                 </select>
               </div>
+
+              {isMarketingExecutive(role) ? (
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">Marketing Title *</label>
+                  <select
+                    value={customTitleMode ? "__other" : designation || DEFAULT_MARKETING_TITLE}
+                    onChange={(e) => {
+                      if (e.target.value === "__other") {
+                        setCustomTitleMode(true);
+                        setDesignation("");
+                      } else {
+                        setCustomTitleMode(false);
+                        setDesignation(e.target.value);
+                      }
+                    }}
+                    className="w-full text-xs px-3 py-2 border border-slate-800 rounded-xl bg-slate-950 text-white focus:outline-none focus:border-emerald-500/50"
+                  >
+                    {MARKETING_TITLES.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                    <option value="__other">Other (type a title)…</option>
+                  </select>
+                  {customTitleMode && (
+                    <input
+                      type="text"
+                      required
+                      maxLength={80}
+                      value={designation}
+                      onChange={(e) => setDesignation(e.target.value)}
+                      placeholder="e.g. Google Ads Specialist"
+                      className="mt-2 w-full text-xs px-3 py-2 border border-slate-800 rounded-xl bg-slate-950 text-white focus:outline-none focus:border-emerald-500/50"
+                    />
+                  )}
+                  <p className="mt-1 text-[10px] text-slate-500">
+                    The title is a label only. Every marketing title has the same access: add leads, set up lead
+                    connectors, log spend and see cost per lead. Nothing else in the app is visible.
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">Job Title (optional)</label>
+                  <input
+                    type="text"
+                    maxLength={80}
+                    value={designation}
+                    onChange={(e) => setDesignation(e.target.value)}
+                    placeholder="e.g. Senior Counsellor"
+                    className="w-full text-xs px-3 py-2 border border-slate-800 rounded-xl bg-slate-950 text-white focus:outline-none focus:border-emerald-500/50"
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-bold text-slate-300 mb-1">Phone Contact</label>

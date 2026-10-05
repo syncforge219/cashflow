@@ -24,6 +24,13 @@ const UserSchema = new Schema(
       type: String,
       default: "super admin",
     },
+    // Job title shown in the app (e.g. "Digital Marketing Manager"). A label only: access comes from role.
+    designation: {
+      type: String,
+      trim: true,
+      maxlength: 80,
+      default: "",
+    },
     subjects: [
       {
         type: String,

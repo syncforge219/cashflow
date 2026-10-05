@@ -124,7 +124,12 @@ export default function MarketingDashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-xs font-bold text-slate-600">{user?.name}</span>
+          <div className="text-right leading-tight">
+            <div className="text-xs font-bold text-slate-700">{user?.name}</div>
+            {(user as any)?.designation && (
+              <div className="text-[11px] font-semibold text-fuchsia-600">{(user as any).designation}</div>
+            )}
+          </div>
           <button
             onClick={() => logout().then(() => (window.location.href = "/login"))}
             className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 hover:bg-slate-50 cursor-pointer"
