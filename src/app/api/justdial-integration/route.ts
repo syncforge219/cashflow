@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import JustdialConfig from "@/models/JustdialConfig";
 import JustdialLeadLog from "@/models/JustdialLeadLog";
+import { decryptField } from "@/lib/encryption";
 
 export async function GET() {
   try {
     await dbConnect();
-    let config = await JustdialConfig.findOne({}).lean();
+    let config: any = await JustdialConfig.findOne({}).select("+apiKey +pullApiKey").lean();
 
     if (!config) {
       const created = await JustdialConfig.create({
@@ -36,10 +37,17 @@ export async function GET() {
     const totalLogsCount = await JustdialLeadLog.countDocuments({});
     const successLogsCount = await JustdialLeadLog.countDocuments({ status: "SUCCESS" });
 
+    // apiKey is shown in the settings UI so admins can paste it into the Justdial panel.
+    // The pull secret is never sent back; the UI only learns whether one is stored.
+    const { pullApiKey: storedPullKey, webhookSecret: _omit, ...publicConfig } = config;
+
     return NextResponse.json({
       success: true,
       data: {
-        ...config,
+        ...publicConfig,
+        apiKey: decryptField(config.apiKey) || "",
+        pullApiKey: "",
+        hasPullApiKey: Boolean(storedPullKey),
         stats: {
           totalLeadsReceived: config.totalLeadsReceived || 0,
           lastLeadReceivedAt: config.lastLeadReceivedAt || null,
@@ -111,7 +119,8 @@ export async function POST(req: NextRequest) {
       if (defaultBrand !== undefined) config.defaultBrand = defaultBrand;
       if (counselorName !== undefined) config.counselorName = counselorName;
       if (defaultCourse !== undefined) config.defaultCourse = defaultCourse;
-      if (apiKey !== undefined) config.apiKey = apiKey;
+      // Blank secrets mean "keep the stored value" (the UI never receives the pull secret)
+      if (typeof apiKey === "string" && apiKey.trim()) config.apiKey = apiKey.trim();
       if (requireApiKey !== undefined) config.requireApiKey = Boolean(requireApiKey);
       if (autoAssignAdvisor !== undefined) config.autoAssignAdvisor = Boolean(autoAssignAdvisor);
       if (sendWelcomeWhatsApp !== undefined) config.sendWelcomeWhatsApp = Boolean(sendWelcomeWhatsApp);
@@ -119,7 +128,7 @@ export async function POST(req: NextRequest) {
       if (createFollowUpTask !== undefined) config.createFollowUpTask = Boolean(createFollowUpTask);
       if (pullApiUrl !== undefined) config.pullApiUrl = pullApiUrl;
       if (pullApiClientId !== undefined) config.pullApiClientId = pullApiClientId;
-      if (pullApiKey !== undefined) config.pullApiKey = pullApiKey;
+      if (typeof pullApiKey === "string" && pullApiKey.trim()) config.pullApiKey = pullApiKey.trim();
       if (pullApiMobile !== undefined) config.pullApiMobile = pullApiMobile;
       if (courseMappings !== undefined) config.courseMappings = courseMappings;
       config.apiLastUpdatedTime = new Date();
@@ -127,10 +136,12 @@ export async function POST(req: NextRequest) {
 
     await config.save();
 
+    const { apiKey: _k, pullApiKey: _p, webhookSecret: _w, ...savedConfig } = config.toObject();
+
     return NextResponse.json({
       success: true,
       message: "Justdial Integration configuration saved successfully!",
-      data: config,
+      data: savedConfig,
     });
   } catch (error: any) {
     console.error("Error saving Justdial config:", error);

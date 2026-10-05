@@ -82,10 +82,19 @@ export async function proxy(request: NextRequest) {
   try {
     const { user } = await resolveSessionToken(getSessionToken(request));
     if (user) {
+      const role = (user.role || "").toLowerCase().replace(/[\s_-]+/g, "");
+
       // One-off data maintenance endpoints rewrite records in bulk: admins only.
       if (normalizedPath.startsWith("/api/admin/")) {
-        const role = (user.role || "").toLowerCase().replace(/[\s_-]+/g, "");
         if (role !== "superadmin" && role !== "admin") {
+          return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+        }
+      }
+
+      // Justdial connector settings hold the webhook key and can reset config/logs: managers and above.
+      if (normalizedPath.startsWith("/api/justdial-integration")) {
+        const allowed = ["superadmin", "admin", "manager", "brandmanager", "centrehead", "centerhead", "branchhead"];
+        if (!allowed.includes(role)) {
           return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
         }
       }

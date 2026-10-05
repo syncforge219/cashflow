@@ -5,13 +5,17 @@ import Task from "@/models/Task";
 import JustdialConfig from "@/models/JustdialConfig";
 import JustdialLeadLog from "@/models/JustdialLeadLog";
 import { sendWhatsAppWelcomeEnquiry, sendWhatsAppSuperAdminEnquiryAlert } from "@/lib/msg91";
+import { decryptField } from "@/lib/encryption";
+
+const str = (val: any): string =>
+  val === undefined || val === null || typeof val === "object" ? "" : String(val).trim();
 
 export async function POST(req: NextRequest) {
   try {
     await dbConnect();
     const body = await req.json().catch(() => ({}));
 
-    const config = await JustdialConfig.findOne({}).lean();
+    const config: any = await JustdialConfig.findOne({}).select("+pullApiKey").lean();
     if (!config) {
       return NextResponse.json(
         { success: false, error: "Justdial configuration not found. Please configure settings first." },
@@ -21,7 +25,8 @@ export async function POST(req: NextRequest) {
 
     const pullUrl = body.pullApiUrl || config.pullApiUrl;
     const clientId = body.pullApiClientId || config.pullApiClientId;
-    const apiKey = body.pullApiKey || config.pullApiKey || config.apiKey;
+    // Never fall back to the inbound webhook apiKey: it would be sent to a third-party URL.
+    const apiKey = str(body.pullApiKey) || decryptField(config.pullApiKey) || "";
     const mobile = body.pullApiMobile || config.pullApiMobile;
 
     if (!pullUrl) {
@@ -35,7 +40,16 @@ export async function POST(req: NextRequest) {
     }
 
     // Construct request URL
-    const targetUrl = new URL(pullUrl);
+    let targetUrl: URL;
+    try {
+      targetUrl = new URL(pullUrl);
+      if (targetUrl.protocol !== "https:" && targetUrl.protocol !== "http:") throw new Error("bad protocol");
+    } catch {
+      return NextResponse.json(
+        { success: false, error: `Invalid Justdial Pull API URL: ${pullUrl}` },
+        { status: 400 }
+      );
+    }
     if (clientId) targetUrl.searchParams.set("client_id", clientId);
     if (apiKey) targetUrl.searchParams.set("api_key", apiKey);
     if (mobile) targetUrl.searchParams.set("mobile", mobile);
@@ -54,6 +68,15 @@ export async function POST(req: NextRequest) {
       });
 
       const resText = await response.text();
+      if (!response.ok) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Justdial Pull API responded with HTTP ${response.status}: ${resText.slice(0, 300)}`,
+          },
+          { status: 502 }
+        );
+      }
       let resJson: any = null;
       try {
         resJson = JSON.parse(resText);
@@ -70,7 +93,8 @@ export async function POST(req: NextRequest) {
           rawLeads = resJson.leads;
         } else if (Array.isArray(resJson.result)) {
           rawLeads = resJson.result;
-        } else if (typeof resJson === "object") {
+        } else if (typeof resJson === "object" && (resJson.leadid || resJson.mobile || resJson.name)) {
+          // Single lead object (not an error/status envelope)
           rawLeads = [resJson];
         }
       }
@@ -107,22 +131,30 @@ export async function POST(req: NextRequest) {
 
     for (const lead of rawLeads) {
       try {
-        const leadId = lead.leadid || lead.lead_id || lead.leadId || lead.id || "";
-        const rawName = lead.name || lead.lead_name || lead.caller_name || lead.customer_name || "Justdial Inquiry";
-        const studentFullName = String(rawName).replace(/^(mr\.?|ms\.?|mrs\.?|dr\.?)\s+/i, "").trim();
+        if (!lead || typeof lead !== "object") continue;
+        const leadId = str(lead.leadid || lead.lead_id || lead.leadId || lead.id);
+        const rawName = str(lead.name || lead.lead_name || lead.caller_name || lead.customer_name);
+        const studentFullName = rawName.replace(/^(mr\.?|ms\.?|mrs\.?|dr\.?)\s+/i, "").trim() || "Justdial Inquiry";
 
-        const rawMobile = lead.mobile || lead.phone || lead.caller_mobile || lead.customer_mobile || "";
-        const cleanDigits = String(rawMobile).replace(/\D/g, "").slice(-10);
-        const primaryPhoneMobile = cleanDigits.length === 10 ? `+91 ${cleanDigits}` : String(rawMobile).trim();
+        const rawMobile = str(lead.mobile || lead.phone || lead.caller_mobile || lead.customer_mobile);
+        const cleanDigits = rawMobile.replace(/\D/g, "").slice(-10);
+        const hasValidMobile = cleanDigits.length === 10 && !/^0+$/.test(cleanDigits);
+        const primaryPhoneMobile = cleanDigits.length === 10 ? `+91 ${cleanDigits}` : rawMobile;
 
-        const emailAddress = lead.email || lead.email_id || lead.customer_email || "";
-        const currentCity = lead.city || lead.customer_city || lead.location || "N/A";
-        const justdialCategory = lead.category || lead.catname || lead.product || lead.course || "";
-        const queryMessage = lead.query || lead.message || lead.remarks || lead.requirement || "";
-        const area = lead.area || lead.address || lead.locality || "";
+        const emailAddress = str(lead.email || lead.email_id || lead.customer_email);
+        const currentCity = str(lead.city || lead.customer_city || lead.location) || "N/A";
+        const justdialCategory = str(lead.category || lead.catname || lead.product || lead.course);
+        const queryMessage = str(lead.query || lead.message || lead.remarks || lead.requirement);
+        const area = str(lead.area || lead.address || lead.locality);
+
+        // Skip leads already imported (by push webhook or an earlier pull) with the same Justdial lead ID
+        if (leadId && (await JustdialLeadLog.exists({ leadId, status: "SUCCESS" }))) {
+          duplicatesCount++;
+          continue;
+        }
 
         // Check deduplication
-        if (primaryPhoneMobile && primaryPhoneMobile !== "0000000000") {
+        if (hasValidMobile) {
           const existingEnquiry = await Enquiry.findOne({ primaryPhoneMobile });
           if (existingEnquiry) {
             duplicatesCount++;
@@ -168,10 +200,6 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        const year = new Date().getFullYear();
-        const count = await Enquiry.countDocuments({});
-        const enquiryId = `JD-PULL-${year}-${String(count + 1).padStart(4, "0")}`;
-
         const remarksParts = [
           leadId ? `Justdial Lead ID: ${leadId}` : null,
           justdialCategory ? `Justdial Category: ${justdialCategory}` : null,
@@ -179,8 +207,8 @@ export async function POST(req: NextRequest) {
           queryMessage ? `Inquiry Note: ${queryMessage}` : null,
         ].filter(Boolean);
 
+        // enquiryId is assigned atomically by the Enquiry pre-save sequence
         const newEnquiry: any = await Enquiry.create({
-          enquiryId,
           studentFullName,
           date: new Date().toISOString().split("T")[0],
           primaryPhoneMobile,
@@ -232,7 +260,7 @@ export async function POST(req: NextRequest) {
           }).catch(console.error);
         }
 
-        if (config.sendWelcomeWhatsApp !== false && primaryPhoneMobile && cleanDigits.length === 10) {
+        if (config.sendWelcomeWhatsApp !== false && hasValidMobile) {
           sendWhatsAppWelcomeEnquiry({
             studentName: studentFullName,
             mobileNumber: primaryPhoneMobile,
@@ -247,6 +275,7 @@ export async function POST(req: NextRequest) {
           httpMethod: "GET",
           status: "SUCCESS",
           leadName: studentFullName,
+          ...(leadId ? { leadId } : {}),
           mobile: primaryPhoneMobile,
           email: emailAddress,
           category: justdialCategory,

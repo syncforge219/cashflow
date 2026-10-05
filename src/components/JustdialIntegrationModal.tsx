@@ -46,6 +46,7 @@ export default function JustdialIntegrationModal({
   const [pullApiUrl, setPullApiUrl] = useState("");
   const [pullApiClientId, setPullApiClientId] = useState("");
   const [pullApiKey, setPullApiKey] = useState("");
+  const [hasPullApiKey, setHasPullApiKey] = useState(false);
   const [pullApiMobile, setPullApiMobile] = useState("");
   const [pullStartDate, setPullStartDate] = useState("");
   const [pullEndDate, setPullEndDate] = useState("");
@@ -155,7 +156,8 @@ export default function JustdialIntegrationModal({
           setCreateFollowUpTask(d.createFollowUpTask !== false);
           setPullApiUrl(d.pullApiUrl || "");
           setPullApiClientId(d.pullApiClientId || "");
-          setPullApiKey(d.pullApiKey || "");
+          setPullApiKey("");
+          setHasPullApiKey(Boolean(d.hasPullApiKey));
           setPullApiMobile(d.pullApiMobile || "");
           if (d.stats) setStats(d.stats);
 
@@ -1274,7 +1276,7 @@ export default function JustdialIntegrationModal({
                           type="text"
                           value={pullApiKey}
                           onChange={(e) => setPullApiKey(e.target.value)}
-                          placeholder="API Secret Key"
+                          placeholder={hasPullApiKey ? "Saved (leave blank to keep)" : "API Secret Key"}
                           className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono font-bold text-slate-800"
                         />
                       </div>

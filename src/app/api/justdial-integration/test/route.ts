@@ -70,17 +70,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Unique test enquiry ID
-    const year = new Date().getFullYear();
-    const count = await Enquiry.countDocuments({});
-    const enquiryId = `JD-TEST-${year}-${String(count + 1).padStart(4, "0")}`;
-
     const coursesArray = matchedCourse ? [matchedCourse] : ["General Course"];
     const fullRemarks = `[TEST SIMULATION] Justdial Lead ID: JD-SIM-${Date.now()} | Category: ${justdialCategory} | Note: ${queryMessage}`;
 
-    // Create enquiry
+    // Create enquiry (enquiryId is assigned atomically by the Enquiry pre-save sequence)
     const newEnquiry: any = await Enquiry.create({
-      enquiryId,
       studentFullName,
       date: new Date().toISOString().split("T")[0],
       primaryPhoneMobile,

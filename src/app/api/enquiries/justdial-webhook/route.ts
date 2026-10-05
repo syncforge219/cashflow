@@ -104,6 +104,20 @@ async function parseIncomingPayload(req: NextRequest): Promise<{ body: any; raw:
 }
 
 /**
+ * Returns the first non-empty value among the given keys as a trimmed string.
+ * Payload values can be numbers, arrays or objects, so never assume a string.
+ */
+function pickString(body: any, keys: string[]): string {
+  for (const key of keys) {
+    const val = body[key];
+    if (val === undefined || val === null) continue;
+    const str = (Array.isArray(val) ? val.join(", ") : typeof val === "object" ? "" : String(val)).trim();
+    if (str) return str;
+  }
+  return "";
+}
+
+/**
  * Handle incoming Justdial lead processing (used by both GET and POST)
  */
 async function handleJustdialLead(req: NextRequest, isSimulation = false) {
@@ -229,17 +243,18 @@ async function handleJustdialLead(req: NextRequest, isSimulation = false) {
     const configuredApiKey = rawApiKey ? (decryptField(rawApiKey) || rawApiKey).trim() : "";
 
     const incomingApiKey =
-      body.apiKey ||
-      body.api_key ||
-      body.key ||
-      body.token ||
-      body.auth_key ||
+      pickString(body, ["apiKey", "api_key", "key", "token", "auth_key"]) ||
       req.headers.get("x-api-key") ||
       req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ||
       "";
 
     if (config.requireApiKey && configuredApiKey && !isSimulation) {
-      if (incomingApiKey.trim() !== configuredApiKey) {
+      const incomingBuf = Buffer.from(incomingApiKey.trim(), "utf-8");
+      const configuredBuf = Buffer.from(configuredApiKey, "utf-8");
+      const keyMatches =
+        incomingBuf.length === configuredBuf.length && crypto.timingSafeEqual(incomingBuf, configuredBuf);
+
+      if (!keyMatches) {
         await JustdialLeadLog.create({
           timestamp: new Date(),
           sourceType: "PUSH_WEBHOOK",
@@ -247,7 +262,9 @@ async function handleJustdialLead(req: NextRequest, isSimulation = false) {
           status: "UNAUTHORIZED",
           rawPayload: raw,
           responseMessage: "Unauthorized: Invalid API Key",
-          errorDetails: `Received key '${incomingApiKey}' did not match configured key.`,
+          errorDetails: incomingApiKey
+            ? "Received API key did not match configured key."
+            : "No API key was provided in the request.",
           ip: clientIp,
         });
 
@@ -266,122 +283,68 @@ async function handleJustdialLead(req: NextRequest, isSimulation = false) {
     }
 
     // 2. Exhaustive Field Extraction & Normalization
-    const leadId =
-      body.leadid ||
-      body.lead_id ||
-      body.leadId ||
-      body.leadID ||
-      body.id ||
-      body.lead_no ||
-      body.leadno ||
-      body.leadRef ||
-      "";
+    const leadId = pickString(body, [
+      "leadid", "lead_id", "leadId", "leadID", "id", "lead_no", "leadno", "leadRef",
+    ]);
 
-    const leadType =
-      body.leadtype ||
-      body.lead_type ||
-      body.leadType ||
-      "";
+    const leadType = pickString(body, ["leadtype", "lead_type", "leadType"]);
 
-    let rawName =
-      body.name ||
-      body.studentFullName ||
-      body.lead_name ||
-      body.caller_name ||
-      body.customer_name ||
-      body.leadName ||
-      body.callerName ||
-      body.customerName ||
-      body.contact_person ||
-      body.fullName ||
-      body.fullname ||
-      body.studentName ||
-      body["Student Name"] ||
-      body["Full Name"] ||
-      "";
+    const rawName = pickString(body, [
+      "name", "studentFullName", "lead_name", "caller_name", "customer_name", "leadName",
+      "callerName", "customerName", "contact_person", "fullName", "fullname", "studentName",
+      "Student Name", "Full Name",
+    ]);
 
     // Clean prefix (Mr./Ms./Dr.)
-    rawName = rawName.replace(/^(mr\.?|ms\.?|mrs\.?|dr\.?)\s+/i, "").trim();
-    const studentFullName = rawName || "Justdial Inquiry";
+    const studentFullName = rawName.replace(/^(mr\.?|ms\.?|mrs\.?|dr\.?)\s+/i, "").trim() || "Justdial Inquiry";
 
-    let rawMobile =
-      body.mobile ||
-      body.phone ||
-      body.primaryPhoneMobile ||
-      body.lead_mobile ||
-      body.caller_mobile ||
-      body.customer_mobile ||
-      body.mobile_number ||
-      body.contact ||
-      body.contact_number ||
-      body.phone_number ||
-      body.phone1 ||
-      body.cellphone ||
-      body["Mobile Number"] ||
-      body["Phone"] ||
-      "";
+    const rawMobile = pickString(body, [
+      "mobile", "phone", "primaryPhoneMobile", "lead_mobile", "caller_mobile", "customer_mobile",
+      "mobile_number", "contact", "contact_number", "phone_number", "phone1", "cellphone",
+      "Mobile Number", "Phone",
+    ]);
 
-    const cleanDigits = String(rawMobile).replace(/\D/g, "").slice(-10);
-    const primaryPhoneMobile = cleanDigits.length === 10 ? `+91 ${cleanDigits}` : String(rawMobile).trim();
+    const cleanDigits = rawMobile.replace(/\D/g, "").slice(-10);
+    const hasValidMobile = cleanDigits.length === 10 && !/^0+$/.test(cleanDigits);
+    const primaryPhoneMobile = cleanDigits.length === 10 ? `+91 ${cleanDigits}` : rawMobile;
 
-    const altMobile =
-      body.phone2 ||
-      body.alt_mobile ||
-      body.alternate_mobile ||
-      body.alternate_phone ||
-      body.alt_phone ||
-      "";
+    const altMobile = pickString(body, ["phone2", "alt_mobile", "alternate_mobile", "alternate_phone", "alt_phone"]);
 
-    const emailAddress =
-      body.email ||
-      body.emailAddress ||
-      body.lead_email ||
-      body.customer_email ||
-      body.email_id ||
-      body.mail ||
-      body["Email Address"] ||
-      "";
+    const emailAddress = pickString(body, [
+      "email", "emailAddress", "lead_email", "customer_email", "email_id", "mail", "Email Address",
+    ]);
 
-    const currentCity =
-      body.city ||
-      body.customer_city ||
-      body.location ||
-      body.currentCity ||
-      body.lead_city ||
-      body["City"] ||
-      "";
+    const currentCity = pickString(body, ["city", "customer_city", "location", "currentCity", "lead_city", "City"]);
 
-    const area =
-      body.area ||
-      body.address ||
-      body.locality ||
-      body.landmark ||
-      body.pincode ||
-      body.state ||
-      body["Area"] ||
-      "";
+    const area = pickString(body, ["area", "address", "locality", "landmark", "pincode", "state", "Area"]);
 
-    const justdialCategory =
-      body.category ||
-      body.catname ||
-      body.cat_name ||
-      body.category_name ||
-      body.product ||
-      body.course ||
-      body.parent_category ||
-      body.service ||
-      body["Category"] ||
-      "";
+    const justdialCategory = pickString(body, [
+      "category", "catname", "cat_name", "category_name", "product", "course", "parent_category",
+      "service", "Category",
+    ]);
 
-    const queryMessage =
-      body.query ||
-      body.requirement ||
-      body.message ||
-      body.remarks ||
-      body.lead_description ||
-      body.comment ||
-      body.notes ||
-      "";
+    const queryMessage = pickString(body, [
+      "query", "requirement", "message", "remarks", "lead_description", "comment", "notes",
+    ]);
+
+    // 2b. Lead-ID Idempotency: Justdial re-pushes the same lead on timeouts/retries
+    if (leadId) {
+      const alreadyProcessed = await JustdialLeadLog.findOne({ leadId, status: "SUCCESS" }).lean<any>();
+      if (alreadyProcessed) {
+        return NextResponse.json(
+          {
+            status: "SUCCESS",
+            code: 200,
+            message: "Lead already received (duplicate Justdial lead ID).",
+            enquiryId: alreadyProcessed.enquiryId,
+            isDuplicate: true,
+          },
+          {
+            headers: { "Access-Control-Allow-Origin": "*" },
+          }
+        );
+      }
+    }
 
     // 3. Multi-tier Intelligent Course & Counselor & Brand Matching
     let matchedCourse = config.defaultCourse || "";
@@ -474,7 +437,7 @@ async function handleJustdialLead(req: NextRequest, isSimulation = false) {
     }
 
     // 4. Deduplication Check (within last 2 hours)
-    if (primaryPhoneMobile && primaryPhoneMobile !== "0000000000") {
+    if (hasValidMobile) {
       const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
       const existingRecentEnquiry = await Enquiry.findOne({
         primaryPhoneMobile,
@@ -548,16 +511,11 @@ async function handleJustdialLead(req: NextRequest, isSimulation = false) {
 
     const fullRemarks = remarksParts.length > 0 ? remarksParts.join(" | ") : "Incoming Justdial Lead";
 
-    // 6. Auto-generate Unique Enquiry ID
-    const year = new Date().getFullYear();
-    const count = await Enquiry.countDocuments({});
-    const enquiryId = `JD-${year}-${String(count + 1).padStart(4, "0")}`;
-
     const coursesArray = matchedCourse ? [matchedCourse] : ["General Course"];
 
-    // 7. Create Enquiry Document
+    // 6-7. Create Enquiry Document (enquiryId is assigned atomically by the Enquiry pre-save sequence;
+    // a count-based ID collides with the unique index once any enquiry is deleted or two leads arrive together)
     const newEnquiry: any = await Enquiry.create({
-      enquiryId,
       studentFullName,
       date: new Date().toISOString().split("T")[0],
       primaryPhoneMobile,
@@ -631,7 +589,7 @@ async function handleJustdialLead(req: NextRequest, isSimulation = false) {
     }
 
     // (b) MSG91 Student Welcome WhatsApp
-    if (config.sendWelcomeWhatsApp !== false && primaryPhoneMobile && cleanDigits.length === 10) {
+    if (config.sendWelcomeWhatsApp !== false && hasValidMobile) {
       try {
         sendWhatsAppWelcomeEnquiry({
           studentName: studentFullName || "Student",
@@ -647,23 +605,30 @@ async function handleJustdialLead(req: NextRequest, isSimulation = false) {
     }
 
     // 11. Record Successful Activity in JustdialLeadLog
-    await JustdialLeadLog.create({
-      timestamp: new Date(),
-      sourceType: isSimulation ? "SIMULATION_TEST" : "PUSH_WEBHOOK",
-      httpMethod: req.method,
-      status: "SUCCESS",
-      leadName: studentFullName,
-      mobile: primaryPhoneMobile,
-      email: emailAddress,
-      category: justdialCategory,
-      matchedCourse,
-      assignedCounselor: matchedCounselor,
-      brand: targetBrand,
-      enquiryId: newEnquiry.enquiryId,
-      rawPayload: raw,
-      responseMessage: "Lead captured and registered successfully",
-      ip: clientIp,
-    });
+    // The enquiry already exists at this point: a logging failure must not turn into a 500,
+    // otherwise Justdial retries and the lead gets created twice.
+    try {
+      await JustdialLeadLog.create({
+        timestamp: new Date(),
+        sourceType: isSimulation ? "SIMULATION_TEST" : "PUSH_WEBHOOK",
+        httpMethod: req.method,
+        status: "SUCCESS",
+        leadName: studentFullName,
+        ...(leadId ? { leadId } : {}),
+        mobile: primaryPhoneMobile,
+        email: emailAddress,
+        category: justdialCategory,
+        matchedCourse,
+        assignedCounselor: matchedCounselor,
+        brand: targetBrand,
+        enquiryId: newEnquiry.enquiryId,
+        rawPayload: raw,
+        responseMessage: "Lead captured and registered successfully",
+        ip: clientIp,
+      });
+    } catch (logErr) {
+      console.error("[Justdial Webhook] Success log write failed:", logErr);
+    }
 
     return NextResponse.json(
       {
