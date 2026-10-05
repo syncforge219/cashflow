@@ -364,7 +364,9 @@ export default function PaymentReceiptModal({
   }, [isOpen, student, receipt]);
 
   const triggerCleanPrint = () => {
-    const receiptElement = document.getElementById("printable-receipt-content");
+    const receiptElement =
+      document.getElementById("printable-receipt") ||
+      document.getElementById("printable-receipt-content");
     if (!receiptElement) {
       window.print();
       return;
@@ -372,23 +374,28 @@ export default function PaymentReceiptModal({
 
     const receiptHtml = receiptElement.innerHTML;
 
-    // Collect all in-memory stylesheets from current document (0 network requests, 0ms lag)
+    // Collect all in-memory stylesheets from current document
     const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
       .map((s) => s.outerHTML)
       .join("\n");
 
     let iframe = document.getElementById("receipt-print-iframe") as HTMLIFrameElement;
-    if (!iframe) {
-      iframe = document.createElement("iframe");
-      iframe.id = "receipt-print-iframe";
-      iframe.style.position = "fixed";
-      iframe.style.right = "0";
-      iframe.style.bottom = "0";
-      iframe.style.width = "0";
-      iframe.style.height = "0";
-      iframe.style.border = "0";
-      document.body.appendChild(iframe);
+    if (iframe) {
+      iframe.remove();
     }
+
+    iframe = document.createElement("iframe");
+    iframe.id = "receipt-print-iframe";
+    // Non-zero dimensions placed off-screen so Chromium completely paints layout & SVG icons
+    iframe.style.position = "fixed";
+    iframe.style.left = "-9999px";
+    iframe.style.top = "0";
+    iframe.style.width = "850px";
+    iframe.style.height = "1200px";
+    iframe.style.border = "none";
+    iframe.style.opacity = "0.01";
+    iframe.style.pointerEvents = "none";
+    document.body.appendChild(iframe);
 
     const doc = iframe.contentWindow?.document;
     if (!doc) {
@@ -401,27 +408,59 @@ export default function PaymentReceiptModal({
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Receipt - ${receiptNo}</title>
+          <title>Fee Receipt - ${receiptNo}</title>
           ${styles}
           <style>
-            @page { size: A4 portrait; margin: 8mm; }
-            body { font-family: system-ui, -apple-system, sans-serif; padding: 0; margin: 0; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            @page {
+              size: A4 portrait;
+              margin: 8mm;
+            }
+            *, *::before, *::after {
+              visibility: visible !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            html, body {
+              padding: 0 !important;
+              margin: 0 !important;
+              background: #ffffff !important;
+              color: #0f172a !important;
+              font-family: system-ui, -apple-system, sans-serif !important;
+              visibility: visible !important;
+            }
+            #printable-receipt, #printable-receipt-content,
+            #printable-receipt *, #printable-receipt-content * {
+              visibility: visible !important;
+            }
+            .print-receipt-wrapper {
+              max-width: 800px;
+              margin: 0 auto;
+              padding: 8px;
+              background: #ffffff !important;
+            }
           </style>
         </head>
         <body class="bg-white">
-          <div style="max-width: 800px; margin: 0 auto;">
-            ${receiptHtml}
+          <div id="printable-receipt" class="print-receipt-wrapper">
+            <div id="printable-receipt-content">
+              ${receiptHtml}
+            </div>
           </div>
         </body>
       </html>
     `);
     doc.close();
 
-    // Trigger instant print dialog without delay
+    // Give iframe time to layout and render fonts/SVGs
     setTimeout(() => {
-      iframe.contentWindow?.focus();
-      iframe.contentWindow?.print();
-    }, 50);
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch (e) {
+        console.error("Iframe print error, falling back to window.print():", e);
+        window.print();
+      }
+    }, 300);
   };
 
   const [isSendingWhatsApp, setIsSendingWhatsApp] = React.useState(false);
@@ -464,8 +503,33 @@ export default function PaymentReceiptModal({
     triggerCleanPrint();
   };
 
-  const handleDownloadPDF = () => {
-    triggerCleanPrint();
+  const handleDownloadPDF = async () => {
+    setIsDownloadingPdf(true);
+    try {
+      const qParams = new URLSearchParams();
+      if (receiptNo) qParams.set("receiptNo", receiptNo);
+      if (receipt?._id) qParams.set("paymentId", String(receipt._id));
+      if (student?._id) qParams.set("admissionId", String(student._id));
+
+      const res = await fetch(`/api/receipts/download-pdf?${qParams.toString()}`);
+      if (!res.ok) {
+        throw new Error(`PDF generation failed (${res.status})`);
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Fee_Receipt_${receiptNo.replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error("Direct PDF download failed, falling back to print dialog:", err);
+      triggerCleanPrint();
+    } finally {
+      setIsDownloadingPdf(false);
+    }
   };
 
   return (
@@ -504,7 +568,8 @@ export default function PaymentReceiptModal({
         {/* Receipt Content Area */}
         <div className="p-6 overflow-y-auto flex-1 print:overflow-visible print:p-0">
           <div
-            id="printable-receipt-content"
+            id="printable-receipt"
+            data-id="printable-receipt-content"
             className="border border-slate-200 rounded-xl p-6 space-y-5 text-xs text-slate-800 bg-white font-sans print:border-none print:p-0"
           >
             {/* Header: Logo, Company, Address, Green Receipt #, Barcode */}
@@ -842,23 +907,33 @@ export default function PaymentReceiptModal({
           </button>
           <button
             onClick={handleDownloadPDF}
-            className="px-4 py-2 bg-slate-800 text-white hover:bg-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+            disabled={isDownloadingPdf}
+            className="px-4 py-2 bg-slate-800 text-white hover:bg-slate-700 disabled:opacity-60 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={2}
-              stroke="currentColor"
-              className="w-4 h-4"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
-              />
-            </svg>
-            Download PDF
+            {isDownloadingPdf ? (
+              <>
+                <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                <span>Downloading...</span>
+              </>
+            ) : (
+              <>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={2}
+                  stroke="currentColor"
+                  className="w-4 h-4"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
+                  />
+                </svg>
+                <span>Download PDF</span>
+              </>
+            )}
           </button>
           <button
             onClick={handlePrint}

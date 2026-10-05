@@ -1321,10 +1321,10 @@ export default function FeeCollectionPage() {
             body * {
               visibility: hidden !important;
             }
-            #printable-receipt, #printable-receipt * {
+            #printable-receipt, #printable-receipt *, #printable-receipt-content, #printable-receipt-content * {
               visibility: visible !important;
             }
-            #printable-receipt {
+            #printable-receipt, #printable-receipt-content {
               position: absolute;
               left: 0;
               top: 0;
