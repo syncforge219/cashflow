@@ -1,4 +1,4 @@
-import { toDateKey } from "@/lib/dates";
+import { todayKey, isDateKey, istDayRange, addDaysKey, formatDate } from "@/lib/dates";
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
@@ -20,20 +20,17 @@ export async function GET(req: Request) {
     const startDateParam = searchParams.get("startDate");
     const endDateParam = searchParams.get("endDate");
 
+    // IST calendar days, whatever time zone the server runs in
     const now = new Date();
-    const todayStr = toDateKey(now);
+    const todayStr = todayKey(now);
 
-    let targetStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    let targetEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    let { start: targetStart, end: targetEnd } = istDayRange(todayStr);
     let startStr = todayStr;
     let endStr = todayStr;
 
     let isFiltered = false;
-    if (startDateParam && endDateParam) {
-      targetStart = new Date(startDateParam);
-      targetStart.setHours(0, 0, 0, 0);
-      targetEnd = new Date(endDateParam);
-      targetEnd.setHours(23, 59, 59, 999);
+    if (isDateKey(startDateParam) && isDateKey(endDateParam)) {
+      ({ start: targetStart, end: targetEnd } = istDayRange(startDateParam, endDateParam));
       startStr = startDateParam;
       endStr = endDateParam;
       isFiltered = true;
@@ -87,14 +84,20 @@ export async function GET(req: Request) {
       }).select("_id").lean();
       brandIds = brandDocs.map((b: any) => b._id);
 
-      enquiryQuery.$or = [
-        ...(brandIds.length > 0 ? [{ targetBrandId: { $in: brandIds } }] : []),
-        { targetBrand: { $in: regexArray } }
-      ];
-      admissionQuery.$or = [
-        ...(brandIds.length > 0 ? [{ brandId: { $in: brandIds } }] : []),
-        { brand: { $in: regexArray } }
-      ];
+      // Kept in $and: queries below add their own $or (conversions, pipeline, counsellors), which
+      // used to REPLACE a top-level brand $or and silently count every brand.
+      enquiryQuery.$and = [{
+        $or: [
+          ...(brandIds.length > 0 ? [{ targetBrandId: { $in: brandIds } }] : []),
+          { targetBrand: { $in: regexArray } }
+        ]
+      }];
+      admissionQuery.$and = [{
+        $or: [
+          ...(brandIds.length > 0 ? [{ brandId: { $in: brandIds } }] : []),
+          { brand: { $in: regexArray } }
+        ]
+      }];
       companyQuery.$or = [
         { brand: { $in: regexArray } }
       ];
@@ -107,12 +110,7 @@ export async function GET(req: Request) {
         { $and: [{ admissionDate: { $exists: false } }, { createdAt: dateRangeFilter }] },
         { $and: [{ admissionDate: null }, { createdAt: dateRangeFilter }] }
       ];
-      if (admissionQuery.$or) {
-        admissionQuery.$and = [{ $or: admissionQuery.$or }, { $or: admDateOr }];
-        delete admissionQuery.$or;
-      } else {
-        admissionQuery.$or = admDateOr;
-      }
+      admissionQuery.$and = [...(admissionQuery.$and || []), { $or: admDateOr }];
     }
 
     // 1. KPI Calculations
@@ -227,40 +225,23 @@ export async function GET(req: Request) {
     );
 
     // 3. Dynamic Trend Data based on date range
-    const fourteenDaysAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 14);
-    fourteenDaysAgo.setHours(0, 0, 0, 0);
+    const trendStartKey = isFiltered ? startStr : addDaysKey(todayStr, -14);
+    const trendEndKey = isFiltered ? endStr : todayStr;
 
-    const trendStart = isFiltered ? targetStart : fourteenDaysAgo;
-    const trendEnd = targetEnd;
+    // Brand condition only (the period date is replaced by each day's range)
+    const brandOnlyAdmissionQuery: any = effectiveBrands.length > 0 ? { $and: [admissionQuery.$and[0]] } : {};
+    const dayEnquiryQuery = { ...enquiryQuery };
+    delete dayEnquiryQuery.createdAt;
 
     const trendDays: { dateLabel: string; newLeads: number; admissions: number; lostLeads: number }[] = [];
-    let curDate = new Date(trendStart);
-
-    let dayCount = 0;
-    while (curDate <= trendEnd && dayCount < 31) {
-      dayCount++;
-      const dayStart = new Date(curDate);
-      dayStart.setHours(0, 0, 0, 0);
-      const dayEnd = new Date(curDate);
-      dayEnd.setHours(23, 59, 59, 999);
-
-      const yyyy = dayStart.getFullYear();
-      const mm = String(dayStart.getMonth() + 1).padStart(2, "0");
-      const dd = String(dayStart.getDate()).padStart(2, "0");
-      const dayStr = `${yyyy}-${mm}-${dd}`;
-      const dayLabel = `${dayStart.getDate()} ${dayStart.toLocaleString("en-US", { month: "short" })}`;
-
-      const dayEnquiryQuery = { ...enquiryQuery };
-      delete dayEnquiryQuery.createdAt;
-
-      const dayAdmissionQuery = { ...admissionQuery };
-      delete dayAdmissionQuery.createdAt;
-      delete dayAdmissionQuery.$or;
+    for (let dayKey = trendStartKey, dayCount = 0; dayKey <= trendEndKey && dayCount < 31; dayKey = addDaysKey(dayKey, 1), dayCount++) {
+      const { start: dayStart, end: dayEnd } = istDayRange(dayKey);
+      const dayLabel = `${Number(dayKey.slice(8, 10))} ${formatDate(dayKey).slice(3, 6)}`;
 
       const [dayNewLeads, dayAdmissions, dayLostCount] = await Promise.all([
         Enquiry.countDocuments({ ...dayEnquiryQuery, createdAt: { $gte: dayStart, $lte: dayEnd } }),
         Admission.countDocuments({
-          ...dayAdmissionQuery,
+          ...brandOnlyAdmissionQuery,
           $or: [
             { admissionDate: { $gte: dayStart, $lte: dayEnd } },
             { $and: [{ admissionDate: { $exists: false } }, { createdAt: { $gte: dayStart, $lte: dayEnd } }] },
@@ -283,8 +264,6 @@ export async function GET(req: Request) {
         admissions: dayAdmissions,
         lostLeads: dayLostCount
       });
-
-      curDate.setDate(curDate.getDate() + 1);
     }
 
     // 4. Top Counsellors Stats

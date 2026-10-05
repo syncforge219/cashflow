@@ -1,4 +1,4 @@
-import { toDateKey } from "@/lib/dates";
+import { toDateKey, todayKey, isDateKey, istDayRange, monthBoundsKey, addDaysKey, formatDate } from "@/lib/dates";
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
@@ -36,49 +36,41 @@ export async function GET(req: Request) {
       }
     }
 
+    // All day boundaries are IST calendar days, whatever time zone the server runs in
     const now = new Date();
-    const todayStr = toDateKey(now);
-    const firstDayOfMonthStr = toDateKey(new Date(now.getFullYear(), now.getMonth(), 1));
+    const todayStr = todayKey(now);
+    const firstDayOfMonthStr = monthBoundsKey(todayStr).first;
 
-    let targetStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    let targetEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    let { start: targetStart, end: targetEnd } = istDayRange(todayStr);
     let startStr = todayStr;
     let endStr = todayStr;
-    
+
     let isFiltered = false;
-    if (startDateParam && endDateParam) {
-      targetStart = new Date(startDateParam);
-      targetStart.setHours(0, 0, 0, 0);
-      targetEnd = new Date(endDateParam);
-      targetEnd.setHours(23, 59, 59, 999);
+    if (isDateKey(startDateParam) && isDateKey(endDateParam)) {
+      ({ start: targetStart, end: targetEnd } = istDayRange(startDateParam, endDateParam));
       startStr = startDateParam;
       endStr = endDateParam;
       isFiltered = true;
     }
 
-    const startOfDay = new Date(now);
-    startOfDay.setHours(0, 0, 0, 0);
-
-    const endOfDay = new Date(now);
-    endOfDay.setHours(23, 59, 59, 999);
-
-    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    const { start: startOfDay, end: endOfDay } = istDayRange(todayStr);
+    const firstDayOfMonth = istDayRange(firstDayOfMonthStr).start;
 
     const globalFilter = isFiltered ? { createdAt: { $gte: targetStart, $lte: targetEnd } } : {};
     const dateRangeFilter = { $gte: targetStart, $lte: targetEnd };
     const stringDateFilter = { $gte: startStr, $lte: endStr };
 
-    const enquiryBrandMatch = isBrandFiltered
-      ? (targetBrandId ? { $or: [{ targetBrandId }, { targetBrand: brandRegex }] } : { targetBrand: brandRegex })
-      : {};
+    // Brand conditions are wrapped in $and. They are spread into filters that also carry a date
+    // (or status) $or; as a bare { $or } the brand condition replaced that $or, so selecting a
+    // brand silently dropped the date range (all-time totals) and the conversion/lost filters.
+    const brandCondition = (idField: string, nameField: string) =>
+      isBrandFiltered
+        ? { $and: [targetBrandId ? { $or: [{ [idField]: targetBrandId }, { [nameField]: brandRegex }] } : { [nameField]: brandRegex }] }
+        : {};
 
-    const admissionBrandMatch = isBrandFiltered
-      ? (targetBrandId ? { $or: [{ brandId: targetBrandId }, { brand: brandRegex }] } : { brand: brandRegex })
-      : {};
-
-    const paymentBrandMatch = isBrandFiltered
-      ? (targetBrandId ? { $or: [{ brandId: targetBrandId }, { brand: brandRegex }] } : { brand: brandRegex })
-      : {};
+    const enquiryBrandMatch = brandCondition("targetBrandId", "targetBrand");
+    const admissionBrandMatch = brandCondition("brandId", "brand");
+    const paymentBrandMatch = brandCondition("brandId", "brand");
 
     const enquiryGlobalFilter: any = {
       ...globalFilter,
@@ -105,8 +97,7 @@ export async function GET(req: Request) {
       ...paymentBrandMatch
     };
 
-    const thirtyDaysAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29);
-    thirtyDaysAgo.setHours(0, 0, 0, 0);
+    const thirtyDaysAgo = istDayRange(addDaysKey(todayStr, -29)).start;
 
     const trendStart = isFiltered ? targetStart : thirtyDaysAgo;
     const trendEnd = isFiltered ? targetEnd : targetEnd;
@@ -335,7 +326,7 @@ export async function GET(req: Request) {
             { $and: [{ expenseDate: { $exists: false } }, { createdAt: dateRangeFilter }] }
           ]
         } : {}),
-        ...(isBrandFiltered ? (targetBrandId ? { $or: [{ brandId: targetBrandId }, { brand: brandRegex }] } : { brand: brandRegex }) : {})
+        ...brandCondition("brandId", "brand")
       }).select("amount category").lean(),
 
       // Course-wise aggregations
@@ -517,20 +508,16 @@ export async function GET(req: Request) {
     const followupTrendMap = new Map(thirtyDayFollowupTrends.map((g: any) => [g._id, g.count]));
     const lostLeadTrendMap = new Map((lostLeadTrends || []).map((l: any) => [l._id || l.date, l.count]));
 
-    const daysCount = isFiltered 
+    const daysCount = isFiltered
       ? Math.max(1, Math.min(31, Math.round((targetEnd.getTime() - targetStart.getTime()) / (1000 * 60 * 60 * 24))))
       : 30;
 
-    const endDateForTrend = isFiltered ? targetEnd : now;
+    const endKeyForTrend = isFiltered ? endStr : todayStr;
 
     const trendDays = [];
     for (let i = daysCount - 1; i >= 0; i--) {
-      const d = new Date(endDateForTrend.getFullYear(), endDateForTrend.getMonth(), endDateForTrend.getDate() - i);
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, "0");
-      const day = String(d.getDate()).padStart(2, "0");
-      const dateStr = `${year}-${month}-${day}`;
-      const dayLabel = `${d.getDate()} ${d.toLocaleString("en-US", { month: "short" })}`;
+      const dateStr = addDaysKey(endKeyForTrend, -i);
+      const dayLabel = `${Number(dateStr.slice(8, 10))} ${formatDate(dateStr).slice(3, 6)}`;
 
       trendDays.push({
         dateStr,

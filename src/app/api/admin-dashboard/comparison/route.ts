@@ -1,4 +1,4 @@
-import { toDateKey } from "@/lib/dates";
+import { toDateKey, todayKey, isDateKey, istDayRange, addDaysKey, addMonthsKey, monthBoundsKey, formatDate } from "@/lib/dates";
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
@@ -41,110 +41,93 @@ export async function GET(req: Request) {
       }
     }
 
-    const now = new Date();
+    // Periods are built from IST calendar days, whatever time zone the server runs in
+    const today = todayKey();
+    const formatDateStr = (d: Date | string) => toDateKey(d);
+    const range =(fromKey: string, toKey: string) => istDayRange(fromKey, toKey);
+    const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const monthLabel = (key: string) => `${MONTHS[Number(key.slice(5, 7)) - 1]} ${key.slice(0, 4)}`;
 
-    let pAStart: Date;
-    let pAEnd: Date;
-    let pBStart: Date;
-    let pBEnd: Date;
-
+    let pA: { start: Date; end: Date };
+    let pB: { start: Date; end: Date };
     let periodALabel = "Period A";
     let periodBLabel = "Period B";
 
-    const formatDateStr = (d: Date) => toDateKey(d);
-
     if (preset === "today_vs_yesterday") {
-      pAStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-      pAEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-
-      const yesterday = new Date(now);
-      yesterday.setDate(now.getDate() - 1);
-      pBStart = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 0, 0, 0, 0);
-      pBEnd = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59, 999);
-
-      periodALabel = "Today (" + formatDateStr(pAStart) + ")";
-      periodBLabel = "Yesterday (" + formatDateStr(pBStart) + ")";
+      const yesterday = addDaysKey(today, -1);
+      pA = range(today, today);
+      pB = range(yesterday, yesterday);
+      periodALabel = `Today (${formatDate(today)})`;
+      periodBLabel = `Yesterday (${formatDate(yesterday)})`;
     } else if (preset === "this_week_vs_last_week") {
-      const dayOfWeek = now.getDay();
-      const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-      const mondayThisWeek = new Date(now);
-      mondayThisWeek.setDate(now.getDate() - diffToMonday);
-
-      pAStart = new Date(mondayThisWeek.getFullYear(), mondayThisWeek.getMonth(), mondayThisWeek.getDate(), 0, 0, 0, 0);
-      pAEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-
-      const mondayLastWeek = new Date(mondayThisWeek);
-      mondayLastWeek.setDate(mondayThisWeek.getDate() - 7);
-      const sundayLastWeek = new Date(mondayThisWeek);
-      sundayLastWeek.setDate(mondayThisWeek.getDate() - 1);
-
-      pBStart = new Date(mondayLastWeek.getFullYear(), mondayLastWeek.getMonth(), mondayLastWeek.getDate(), 0, 0, 0, 0);
-      pBEnd = new Date(sundayLastWeek.getFullYear(), sundayLastWeek.getMonth(), sundayLastWeek.getDate(), 23, 59, 59, 999);
-
+      const weekday = new Date(`${today}T00:00:00Z`).getUTCDay(); // 0 = Sunday
+      const monday = addDaysKey(today, -(weekday === 0 ? 6 : weekday - 1));
+      pA = range(monday, today);
+      pB = range(addDaysKey(monday, -7), addDaysKey(monday, -1));
       periodALabel = "This Week";
       periodBLabel = "Last Week";
     } else if (preset === "this_quarter_vs_last_quarter") {
-      const currentQuarter = Math.floor(now.getMonth() / 3);
-      const qStartMonth = currentQuarter * 3;
-
-      pAStart = new Date(now.getFullYear(), qStartMonth, 1, 0, 0, 0, 0);
-      pAEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-
-      pBStart = new Date(now.getFullYear(), qStartMonth - 3, 1, 0, 0, 0, 0);
-      pBEnd = new Date(now.getFullYear(), qStartMonth, 0, 23, 59, 59, 999);
-
-      periodALabel = `Q${currentQuarter + 1} ${now.getFullYear()}`;
-      periodBLabel = `Q${currentQuarter === 0 ? 4 : currentQuarter} ${currentQuarter === 0 ? now.getFullYear() - 1 : now.getFullYear()}`;
-    } else if (preset === "custom" && periodAStartRaw && periodAEndRaw && periodBStartRaw && periodBEndRaw) {
-      pAStart = new Date(periodAStartRaw + "T00:00:00");
-      pAEnd = new Date(periodAEndRaw + "T23:59:59");
-      pBStart = new Date(periodBStartRaw + "T00:00:00");
-      pBEnd = new Date(periodBEndRaw + "T23:59:59");
-
-      periodALabel = `Period A (${periodAStartRaw} to ${periodAEndRaw})`;
-      periodBLabel = `Period B (${periodBStartRaw} to ${periodBEndRaw})`;
+      const month = Number(today.slice(5, 7)) - 1;
+      const quarter = Math.floor(month / 3);
+      const qStart = `${today.slice(0, 4)}-${String(quarter * 3 + 1).padStart(2, "0")}-01`;
+      const prevQStart = addMonthsKey(qStart, -3);
+      pA = range(qStart, today);
+      pB = range(prevQStart, addDaysKey(qStart, -1));
+      periodALabel = `Q${quarter + 1} ${today.slice(0, 4)}`;
+      periodBLabel = `Q${quarter === 0 ? 4 : quarter} ${prevQStart.slice(0, 4)}`;
+    } else if (
+      preset === "custom" &&
+      isDateKey(periodAStartRaw) && isDateKey(periodAEndRaw) && isDateKey(periodBStartRaw) && isDateKey(periodBEndRaw)
+    ) {
+      pA = range(periodAStartRaw, periodAEndRaw);
+      pB = range(periodBStartRaw, periodBEndRaw);
+      periodALabel = `Period A (${formatDate(periodAStartRaw)} to ${formatDate(periodAEndRaw)})`;
+      periodBLabel = `Period B (${formatDate(periodBStartRaw)} to ${formatDate(periodBEndRaw)})`;
     } else {
-      // Default: this_month_vs_last_month
-      pAStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-      pAEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-
-      pBStart = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0);
-      pBEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
-
-      const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-      periodALabel = `${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
-      const lastMonthIdx = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
-      const lastMonthYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
-      periodBLabel = `${MONTHS[lastMonthIdx]} ${lastMonthYear}`;
+      // Default: this month (to date) vs the whole of last month
+      const { first } = monthBoundsKey(today);
+      const lastMonth = monthBoundsKey(addDaysKey(first, -1));
+      pA = range(first, today);
+      pB = range(lastMonth.first, lastMonth.last);
+      periodALabel = monthLabel(first);
+      periodBLabel = monthLabel(lastMonth.first);
     }
+    const { start: pAStart, end: pAEnd } = pA;
+    const { start: pBStart, end: pBEnd } = pB;
 
     const getStatsForPeriod = async (start: Date, end: Date) => {
       const dateFilter = { $gte: start, $lte: end };
 
       const enquiryFilter: any = {
         createdAt: dateFilter,
-        ...(isBrandFiltered ? (targetBrandId ? { $or: [{ targetBrandId }, { targetBrand: brandRegex }] } : { targetBrand: brandRegex }) : {}),
+        ...(isBrandFiltered ? { $and: [(targetBrandId ? { $or: [{ targetBrandId }, { targetBrand: brandRegex }] } : { targetBrand: brandRegex })] } : {}),
       };
 
       const admissionFilter: any = {
-        createdAt: dateFilter,
-        ...(isBrandFiltered ? (targetBrandId ? { $or: [{ brandId: targetBrandId }, { brand: brandRegex }] } : { brand: brandRegex }) : {}),
+        $or: [
+          { admissionDate: dateFilter },
+          { $and: [{ admissionDate: null }, { createdAt: dateFilter }] }
+        ],
+        ...(isBrandFiltered ? { $and: [(targetBrandId ? { $or: [{ brandId: targetBrandId }, { brand: brandRegex }] } : { brand: brandRegex })] } : {}),
       };
 
       const paymentFilter: any = {
-        createdAt: dateFilter,
-        ...(isBrandFiltered ? (targetBrandId ? { $or: [{ brandId: targetBrandId }, { brand: brandRegex }] } : { brand: brandRegex }) : {}),
+        $or: [
+          { paymentDate: dateFilter },
+          { $and: [{ paymentDate: null }, { createdAt: dateFilter }] }
+        ],
+        ...(isBrandFiltered ? { $and: [(targetBrandId ? { $or: [{ brandId: targetBrandId }, { brand: brandRegex }] } : { brand: brandRegex })] } : {}),
       };
 
       const expenseFilter: any = {
         expenseDate: dateFilter,
-        ...(isBrandFiltered ? (targetBrandId ? { $or: [{ brandId: targetBrandId }, { brand: brandRegex }] } : { brand: brandRegex }) : {}),
+        ...(isBrandFiltered ? { $and: [(targetBrandId ? { $or: [{ brandId: targetBrandId }, { brand: brandRegex }] } : { brand: brandRegex })] } : {}),
       };
 
       const [leadsList, admissionsList, paymentsList, expensesList] = await Promise.all([
         Enquiry.find(enquiryFilter).select("createdAt").lean(),
-        Admission.find(admissionFilter).select("createdAt").lean(),
-        Payment.find(paymentFilter).select("amountReceived createdAt").lean(),
+        Admission.find(admissionFilter).select("createdAt admissionDate").lean(),
+        Payment.find(paymentFilter).select("amountReceived createdAt paymentDate").lean(),
         Expense.find(expenseFilter).select("amount expenseDate").lean(),
       ]);
 
@@ -199,13 +182,8 @@ export async function GET(req: Request) {
     const dailyComparisonSeries: any[] = [];
 
     for (let dayIdx = 0; dayIdx < maxDays; dayIdx++) {
-      const dateA = new Date(pAStart);
-      dateA.setDate(pAStart.getDate() + dayIdx);
-      const dateAStr = formatDateStr(dateA);
-
-      const dateB = new Date(pBStart);
-      dateB.setDate(pBStart.getDate() + dayIdx);
-      const dateBStr = formatDateStr(dateB);
+      const dateAStr = addDaysKey(formatDateStr(pAStart), dayIdx);
+      const dateBStr = addDaysKey(formatDateStr(pBStart), dayIdx);
 
       // Aggregates for Period A Day
       const leadsA = statsA.leadsList.filter(
@@ -213,11 +191,11 @@ export async function GET(req: Request) {
       ).length;
 
       const admissionsA = statsA.admissionsList.filter(
-        (a: any) => a.createdAt && formatDateStr(new Date(a.createdAt)) === dateAStr
+        (a: any) => formatDateStr(a.admissionDate || a.createdAt) === dateAStr
       ).length;
 
       const revA = statsA.paymentsList
-        .filter((p: any) => p.createdAt && formatDateStr(new Date(p.createdAt)) === dateAStr)
+        .filter((p: any) => formatDateStr(p.paymentDate || p.createdAt) === dateAStr)
         .reduce((sum: number, p: any) => sum + (Number(p.amountReceived) || 0), 0);
 
       const expA = statsA.expensesList
@@ -230,11 +208,11 @@ export async function GET(req: Request) {
       ).length;
 
       const admissionsB = statsB.admissionsList.filter(
-        (a: any) => a.createdAt && formatDateStr(new Date(a.createdAt)) === dateBStr
+        (a: any) => formatDateStr(a.admissionDate || a.createdAt) === dateBStr
       ).length;
 
       const revB = statsB.paymentsList
-        .filter((p: any) => p.createdAt && formatDateStr(new Date(p.createdAt)) === dateBStr)
+        .filter((p: any) => formatDateStr(p.paymentDate || p.createdAt) === dateBStr)
         .reduce((sum: number, p: any) => sum + (Number(p.amountReceived) || 0), 0);
 
       const expB = statsB.expensesList
