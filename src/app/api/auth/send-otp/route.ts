@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import crypto from "node:crypto";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
 import { sendLoginOtpEmail } from "@/lib/emailService";
@@ -44,12 +45,22 @@ export async function POST(request: Request) {
       );
     }
 
-    // Generate 6-digit numeric OTP
-    const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    // Per-account limit, so the verify attempt cap can't be reset by requesting codes nonstop.
+    const emailRateCheck = checkRateLimit(`send_otp_email_${cleanEmail}`, { limit: 3, windowMs: 10 * 60 * 1000 });
+    if (emailRateCheck.isLimited) {
+      return NextResponse.json(
+        { error: "Too many OTP requests for this account. Please wait a few minutes." },
+        { status: 429 }
+      );
+    }
+
+    // Generate 6-digit numeric OTP (CSPRNG; Math.random is predictable)
+    const generatedOtp = crypto.randomInt(100000, 1000000).toString();
     const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes validity
 
     user.otp = generatedOtp;
     user.otpExpiresAt = otpExpiresAt;
+    user.otpAttempts = 0;
     await user.save();
 
     const emailRes = await sendLoginOtpEmail({

@@ -289,8 +289,10 @@ async function runCompanyFiscalYearRollover() {
     const Company = (await import("@/models/Company")).default;
     const { getFinancialYearRange } = await import("@/lib/financialYearHelper");
     const fyRange = getFinancialYearRange();
+    // Only companies not yet rolled over: the in-memory "already ran" flag resets on every
+    // restart / cold start, which previously wiped revenue collected earlier on 1 April.
     await Company.updateMany(
-      {},
+      { currentFinancialYear: { $ne: fyRange.label } },
       {
         $set: {
           collectedRevenue: 0,

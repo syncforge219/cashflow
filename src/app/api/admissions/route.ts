@@ -19,6 +19,7 @@ import { syncAdmissionRefs } from "@/lib/referenceHelper";
 import { logAuditEntry } from "@/lib/auditLogger";
 import { validateDeletedAccess } from "@/lib/softDeleteAccess";
 import { withOptionalTransaction } from "@/lib/transactionHelper";
+import { studentBalanceLookupStages } from "@/lib/studentBalanceService";
 
 export async function POST(req: NextRequest) {
   try {
@@ -738,6 +739,7 @@ export async function GET(req: Request) {
 
     const pageParam = searchParams.get("page");
     const limitParam = searchParams.get("limit");
+    const matchStage = Object.keys(query).length > 0 ? [{ $match: query }] : [];
 
     if (pageParam || limitParam) {
       const page = Math.max(1, parseInt(pageParam || "1", 10));
@@ -745,7 +747,13 @@ export async function GET(req: Request) {
       const skip = (page - 1) * limit;
 
       const [admissions, total] = await Promise.all([
-        Admission.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+        Admission.aggregate([
+          ...matchStage,
+          { $sort: { createdAt: -1 } },
+          { $skip: skip },
+          { $limit: limit },
+          ...studentBalanceLookupStages(),
+        ]),
         Admission.countDocuments(query),
       ]);
       const totalEnquiries = Math.max(rawEnquiriesCount, total);
@@ -763,7 +771,11 @@ export async function GET(req: Request) {
       });
     }
 
-    const admissions = await Admission.find(query).sort({ createdAt: -1 }).lean();
+    const admissions = await Admission.aggregate([
+      ...matchStage,
+      { $sort: { createdAt: -1 } },
+      ...studentBalanceLookupStages(),
+    ]);
     const totalEnquiries = Math.max(rawEnquiriesCount, admissions.length);
 
     return NextResponse.json({ success: true, data: admissions, totalEnquiries });

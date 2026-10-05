@@ -7,6 +7,7 @@ import { sendWhatsAppWelcomeEnquiry, sendWhatsAppSuperAdminEnquiryAlert } from "
 
 
 import { verifyRecaptchaToken } from "@/lib/recaptcha";
+import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 
 // Handling OPTIONS request for CORS preflight
 export async function OPTIONS() {
@@ -24,6 +25,16 @@ export async function OPTIONS() {
 
 export async function POST(req: Request) {
   try {
+    // Public, unauthenticated, and every submission sends a paid WhatsApp: throttle per IP.
+    // Kept generous because real Google Forms submissions arrive from shared Google IPs.
+    const rateCheck = checkRateLimit(`public_enquiry_${getClientIp(req)}`, { limit: 20, windowMs: 60 * 1000 });
+    if (rateCheck.isLimited) {
+      return NextResponse.json(
+        { success: false, error: "Too many submissions. Please try again in a minute." },
+        { status: 429 }
+      );
+    }
+
     await dbConnect();
 
     let body: any = {};

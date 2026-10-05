@@ -11,7 +11,7 @@ import Notification from "@/models/Notification";
 import { getUserFromCookies } from "@/lib/helper";
 import { getFinancialYear, getFinancialYearRange } from "@/lib/financialYearHelper";
 import { syncAdmissionRefs } from "@/lib/referenceHelper";
-import { getStudentBalance } from "@/lib/studentBalanceService";
+import { getStudentBalance, recomputeAndStoreAdmissionBalance } from "@/lib/studentBalanceService";
 import { logAuditEntry, diffAndLogAudit } from "@/lib/auditLogger";
 import { withOptionalTransaction } from "@/lib/transactionHelper";
 
@@ -82,8 +82,27 @@ export async function GET(
     // Authoritatively compute true balance from payment collection
     try {
       const balanceInfo = await getStudentBalance(admission._id);
+      const prevBal = Number((admission as any).remainingBalance ?? 0);
+      const prevPaid = Number((admission as any).amountReceivedToday ?? 0);
+
       (admission as any).remainingBalance = balanceInfo.remainingBalance;
       (admission as any).amountReceivedToday = balanceInfo.totalPaid;
+      (admission as any).paidAmount = balanceInfo.totalPaid;
+
+      // Heal persisted Admission in MongoDB if stored balance or paid amount drifted
+      if (prevBal !== balanceInfo.remainingBalance || prevPaid !== balanceInfo.totalPaid) {
+        await Admission.updateOne(
+          { _id: admission._id },
+          {
+            $set: {
+              remainingBalance: balanceInfo.remainingBalance,
+              remainingBalancePaise: balanceInfo.remainingBalancePaise,
+              amountReceivedToday: balanceInfo.totalPaid,
+              amountReceivedTodayPaise: balanceInfo.totalPaidPaise,
+            }
+          }
+        );
+      }
     } catch (balErr) {
       console.warn("[Admissions API] getStudentBalance notice:", balErr);
     }
@@ -240,7 +259,12 @@ export async function PUT(
       : undefined;
 
     let remainingBalance = existingDoc.remainingBalance;
-    if (Array.isArray(formattedEmiPlan) && formattedEmiPlan.length > 0) {
+    const hasLedgerPayments = await Payment.exists({ admissionId: existingDoc._id });
+    if (hasLedgerPayments) {
+      // Authoritative balance strictly from verified payments in ledger
+      const balanceInfo = await getStudentBalance(existingDoc._id);
+      remainingBalance = balanceInfo.remainingBalance;
+    } else if (Array.isArray(formattedEmiPlan) && formattedEmiPlan.length > 0) {
       const unpaidSum = formattedEmiPlan
         .filter((e: any) => !e.isPaid)
         .reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
@@ -508,6 +532,11 @@ export async function PUT(
           await newRegPayment.save({ session });
         }
 
+        if (hasLedgerPayments || (await Payment.exists({ admissionId: existingDoc._id }).session(session))) {
+          await recomputeAndStoreAdmissionBalance(existingDoc._id, session);
+          updatedDoc = await Admission.findById(existingDoc._id).session(session);
+        }
+
         // C. Synchronize linked Enquiry:
         // 1. Remove mobile-number fallback. Only cascade to enquiry linked by Admission.enquiryId (exact _id match).
         // 2. If enquiryId is missing, do not update any enquiry — log a warning instead.
@@ -634,14 +663,21 @@ export async function DELETE(
       return NextResponse.json({ success: false, message: "Student record not found or already deleted" }, { status: 404 });
     }
 
+    // Match records by this admission's IDs only. The old name OR phone matching also hit
+    // other students (same name, siblings sharing a parent phone, or everyone with an empty
+    // phone), and restore only brings back admissionId-linked payments.
+    const fullName = (admission.fullName || "").trim();
+    const mobileNumber = (admission.mobileNumber || "").trim();
+    const hasLegacyIdentity = fullName !== "" && mobileNumber !== "";
+    const linkedIds = Array.from(
+      new Set([id, admission._id.toString(), admission.admissionId].filter(Boolean).map(String))
+    );
+
     // 1. Soft delete associated Payment Receipts
-    const paymentDeleteConditions: any[] = [
-      { admissionId: admission._id },
-      { studentName: admission.fullName },
-      { mobileNumber: admission.mobileNumber }
-    ];
-    if (id && mongoose.Types.ObjectId.isValid(id) && id !== admission._id.toString()) {
-      paymentDeleteConditions.push({ admissionId: new mongoose.Types.ObjectId(id) });
+    const paymentDeleteConditions: any[] = [{ admissionId: admission._id }];
+    if (fullName) {
+      // Payments store no phone; only orphaned legacy receipts (no admissionId) fall back to name.
+      paymentDeleteConditions.push({ admissionId: null, studentName: fullName });
     }
     await Payment.updateMany(
       { $or: paymentDeleteConditions },
@@ -649,29 +685,16 @@ export async function DELETE(
     );
 
     // 2. Delete associated Tasks (SOP tasks, followups, EMI reminders)
-    await Task.deleteMany({
-      $or: [
-        { linkedStudentId: id },
-        { linkedStudentId: admission._id?.toString() },
-        { linkedStudentName: admission.fullName }
-      ]
-    });
+    await Task.deleteMany({ linkedStudentId: { $in: linkedIds } });
 
     // 3. Remove Attendance Records for this student from batch sheets
+    const attendanceConditions: any[] = [{ admissionId: { $in: linkedIds } }];
+    if (hasLegacyIdentity) {
+      attendanceConditions.push({ studentName: fullName, mobileNumber });
+    }
     await Attendance.updateMany(
       {},
-      {
-        $pull: {
-          records: {
-            $or: [
-              { admissionId: admission.admissionId },
-              { admissionId: id },
-              { studentName: admission.fullName },
-              { mobileNumber: admission.mobileNumber }
-            ]
-          }
-        }
-      }
+      { $pull: { records: { $or: attendanceConditions } } }
     );
 
     // 4. Reverse Company Blocked Revenue Cap (unblock full student fee)
@@ -715,11 +738,8 @@ export async function DELETE(
     }
 
     // 6. Delete Notifications mentioning this student
-    if (admission.fullName) {
-      const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const nameRegex = new RegExp(escapeRegExp(admission.fullName.trim()), "i");
-      await Notification.deleteMany({ message: { $regex: nameRegex } });
-    }
+    // (By admission ID: a name substring match deleted e.g. "Ramesh" alerts when deleting "Ram".)
+    await Notification.deleteMany({ admissionId: { $in: linkedIds } });
 
     // 7. Soft delete main Admission record
     (admission as any).isDeleted = true;

@@ -6,7 +6,7 @@ import Admission from "@/models/Admission";
 import Task from "@/models/Task";
 import Company from "@/models/Company";
 import Brand from "@/models/Brand";
-import { getUserFromCookies } from "@/lib/helper";
+import { getUserFromCookies, canDeleteFinancialRecords } from "@/lib/helper";
 import { sendWhatsAppFeeReceipt, sendWhatsAppCompanyCapacityAlert, sendWhatsAppCompanyLimit80Alert } from "@/lib/msg91";
 import { sendFeePaymentReceiptEmail } from "@/lib/emailService";
 import { getFinancialYear, getFinancialYearRange } from "@/lib/financialYearHelper";
@@ -651,6 +651,15 @@ export async function DELETE(req: Request) {
     const receiptNo = payment.receiptNo || "N/A";
 
     const user = await getUserFromCookies();
+    if (!user) {
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+    }
+    if (!canDeleteFinancialRecords(user.role)) {
+      return NextResponse.json(
+        { success: false, message: "Forbidden: You do not have permission to delete payment receipts." },
+        { status: 403 }
+      );
+    }
     const userId = (user as any)?._id || null;
 
     // 1. Soft delete payment & recompute admission balance inside transaction (with standalone fallback)

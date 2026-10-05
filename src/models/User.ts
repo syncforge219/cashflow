@@ -90,6 +90,11 @@ const UserSchema = new Schema(
     otpExpiresAt: {
       type: Date,
     },
+    // Wrong guesses against the current OTP; the code is burned after too many.
+    otpAttempts: {
+      type: Number,
+      default: 0,
+    },
   },
   {
     timestamps: true,

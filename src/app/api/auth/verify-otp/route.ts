@@ -4,6 +4,8 @@ import User from "@/models/User";
 import { createSession, SESSION_COOKIE_NAME, SESSION_DURATION_SECONDS } from "@/lib/auth";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 
+const MAX_OTP_ATTEMPTS = 5;
+
 export async function POST(request: Request) {
   try {
     const clientIp = getClientIp(request);
@@ -61,6 +63,20 @@ export async function POST(request: Request) {
     }
 
     if (user.otp !== cleanOtp) {
+      // Per-account limit: the per-IP limit alone relies on a client-supplied header,
+      // which would allow unlimited guesses at a 6-digit code.
+      user.otpAttempts = (user.otpAttempts || 0) + 1;
+      if (user.otpAttempts >= MAX_OTP_ATTEMPTS) {
+        user.otp = undefined;
+        user.otpExpiresAt = undefined;
+        user.otpAttempts = 0;
+        await user.save();
+        return NextResponse.json(
+          { error: "Too many incorrect attempts. Please request a new OTP." },
+          { status: 429 }
+        );
+      }
+      await user.save();
       return NextResponse.json(
         { error: "Invalid OTP code. Please enter the correct 6-digit code." },
         { status: 400 }
@@ -70,6 +86,7 @@ export async function POST(request: Request) {
     // OTP Verified! Clear OTP fields
     user.otp = undefined;
     user.otpExpiresAt = undefined;
+    user.otpAttempts = 0;
     await user.save();
 
     // Create server-side session in MongoDB

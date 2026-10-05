@@ -6,7 +6,7 @@ import Admission from "@/models/Admission";
 import Company from "@/models/Company";
 import { getFinancialYear, getFinancialYearRange } from "@/lib/financialYearHelper";
 import { recomputeAndStoreAdmissionBalance } from "@/lib/studentBalanceService";
-import { getUserFromCookies } from "@/lib/helper";
+import { getUserFromCookies, canDeleteFinancialRecords } from "@/lib/helper";
 import { logAuditEntry } from "@/lib/auditLogger";
 import { withOptionalTransaction } from "@/lib/transactionHelper";
 
@@ -43,6 +43,17 @@ export async function DELETE(
       return NextResponse.json({ success: false, message: "Payment ID required" }, { status: 400 });
     }
 
+    const user = await getUserFromCookies();
+    if (!user) {
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+    }
+    if (!canDeleteFinancialRecords(user.role)) {
+      return NextResponse.json(
+        { success: false, message: "Forbidden: You do not have permission to delete payment receipts." },
+        { status: 403 }
+      );
+    }
+
     const payment: any = await Payment.findById(id);
     if (!payment) {
       return NextResponse.json({ success: false, message: "Payment not found" }, { status: 404 });
@@ -53,7 +64,6 @@ export async function DELETE(
     const admissionId = payment.admissionId;
     const receiptNo = payment.receiptNo || "N/A";
 
-    const user = await getUserFromCookies();
     const userId = (user as any)?._id || null;
 
     // Delete payment and recompute admission balance inside optional transaction (with standalone fallback)

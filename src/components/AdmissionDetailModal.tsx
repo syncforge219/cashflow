@@ -59,11 +59,37 @@ export default function AdmissionDetailModal({
 
   const isUserAdmin = isAdmin !== undefined ? isAdmin : isAdminUser;
 
+  const [liveAdmission, setLiveAdmission] = useState<any>(admission);
+
   useEffect(() => {
-    if (isOpen && admission?.brand) {
-      fetchBrandCourses(admission.brand);
+    setLiveAdmission(admission);
+    const targetId = admission?._id || admission?.admissionId;
+    if (isOpen && targetId) {
+      let token = "";
+      try {
+        token = localStorage.getItem("token") || localStorage.getItem("sessionToken") || "";
+      } catch (_) {}
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      fetch(`/api/admissions/${targetId}`, { headers })
+        .then((res) => res.json())
+        .then((json) => {
+          if (json.success && json.data?.admission) {
+            setLiveAdmission(json.data.admission);
+          }
+        })
+        .catch((e) => console.error("Failed to refresh admission details:", e));
     }
-  }, [isOpen, admission?.brand]);
+  }, [isOpen, admission]);
+
+  const targetAdm = liveAdmission || admission;
+
+  useEffect(() => {
+    if (isOpen && targetAdm?.brand) {
+      fetchBrandCourses(targetAdm.brand);
+    }
+  }, [isOpen, targetAdm?.brand]);
 
   useEffect(() => {
     if (isOpen) {
@@ -91,16 +117,21 @@ export default function AdmissionDetailModal({
     }
   };
 
-  if (!isOpen || !admission) return null;
+  if (!isOpen || !targetAdm) return null;
 
-  const feePaid = Number(admission.finalFee || 0) - Number(admission.remainingBalance || 0);
-  const remaining = Number(admission.remainingBalance || 0);
+  const courseFee = Number(targetAdm.finalFee || targetAdm.courseFee || 0);
+  const remaining = Number(targetAdm.remainingBalance ?? Math.max(0, courseFee - Number(targetAdm.paidAmount || targetAdm.amountReceivedToday || 0)));
+  const feePaid = targetAdm.paidAmount !== undefined
+    ? Number(targetAdm.paidAmount)
+    : (targetAdm.amountReceivedToday !== undefined && Number(targetAdm.amountReceivedToday) > 0
+      ? Number(targetAdm.amountReceivedToday)
+      : Math.max(0, courseFee - remaining));
 
   const selectedCourseObj = brandCourses.find((c) => c.name === selectedCourse);
 
   const handleUpgradeClick = () => {
     if (selectedCourse && onUpgradeCourse) {
-      onUpgradeCourse(admission, selectedCourse, selectedCourseObj?.fee);
+      onUpgradeCourse(targetAdm, selectedCourse, selectedCourseObj?.fee);
       onClose();
     }
   };
@@ -120,14 +151,14 @@ export default function AdmissionDetailModal({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-sm backdrop-blur-sm">
-                {admission.fullName?.charAt(0)?.toUpperCase() || "S"}
+                {targetAdm.fullName?.charAt(0)?.toUpperCase() || "S"}
               </div>
               <div>
                 <h2 className="text-lg font-bold text-white tracking-tight">
-                  {admission.fullName || "Student"}
+                  {targetAdm.fullName || "Student"}
                 </h2>
                 <p className="text-xs font-semibold text-indigo-100/80">
-                  {admission.admissionId || "N/A"} • {admission.brand || "N/A"}
+                  {targetAdm.admissionId || "N/A"} • {targetAdm.brand || "N/A"}
                 </p>
               </div>
             </div>
@@ -178,7 +209,7 @@ export default function AdmissionDetailModal({
                 Student Name
               </p>
               <p className="text-sm font-bold text-slate-800 truncate">
-                {admission.fullName || "N/A"}
+                {targetAdm.fullName || "N/A"}
               </p>
             </div>
           </div>
@@ -206,7 +237,7 @@ export default function AdmissionDetailModal({
                 Present Course
               </p>
               <p className="text-sm font-bold text-slate-800 truncate">
-                {admission.course || "N/A"}
+                {targetAdm.course || "N/A"}
               </p>
             </div>
           </div>
@@ -219,7 +250,7 @@ export default function AdmissionDetailModal({
                 Course Fee
               </p>
               <p className="text-lg font-extrabold text-blue-700">
-                ₹{Number(admission.finalFee || 0).toLocaleString("en-IN")}
+                ₹{courseFee.toLocaleString("en-IN")}
               </p>
             </div>
 
@@ -248,7 +279,7 @@ export default function AdmissionDetailModal({
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                All Courses Under "{admission.brand || "Brand"}"
+                All Courses Under "{targetAdm.brand || "Brand"}"
               </label>
               {courseSearchQuery && (
                 <button
@@ -322,7 +353,7 @@ export default function AdmissionDetailModal({
                   .map((c: any, idx: number) => {
                     const isEnrolled =
                       c.name?.trim().toLowerCase() ===
-                      admission.course?.trim().toLowerCase();
+                      targetAdm.course?.trim().toLowerCase();
                     const feeVal = getCourseFee(c);
                     const feeText = feeVal > 0 ? `₹${feeVal.toLocaleString("en-IN")}` : (c.fee ? `₹${c.fee}` : "Fee on request");
                     return (
