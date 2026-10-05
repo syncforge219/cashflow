@@ -6,7 +6,7 @@ import { numberToIndianWords } from "@/lib/numberToWords";
 
 function generatePurchaseOrderHtml(po: any, profile: any): string {
   const dateStr = po.date
-    ? new Date(po.date).toLocaleDateString("en-IN", {
+    ? new Date(po.date).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata",
       day: "2-digit",
       month: "2-digit",
       year: "numeric",

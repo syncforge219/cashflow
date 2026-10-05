@@ -1,5 +1,6 @@
 "use client";
 
+import { todayKey } from "@/lib/dates";
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import ExcelJS from "exceljs";
@@ -1347,7 +1348,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
     // Download Workbook
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-    saveAs(blob, `Super_Master_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+    saveAs(blob, `Super_Master_Report_${todayKey()}.xlsx`);
   };
 
   // ══════════════════════════════════════════════════════════
@@ -1452,7 +1453,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
     }
 
     const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), `Leads_Register_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+    saveAs(new Blob([buffer]), `Leads_Register_Report_${todayKey()}.xlsx`);
   };
 
   // ══════════════════════════════════════════════════════════
@@ -1630,7 +1631,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
     }
 
     const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), `Counsellor_Performance_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+    saveAs(new Blob([buffer]), `Counsellor_Performance_Report_${todayKey()}.xlsx`);
   };
 
   // ══════════════════════════════════════════════════════════
@@ -1800,7 +1801,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
     }
 
     const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), `BrandManager_Performance_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+    saveAs(new Blob([buffer]), `BrandManager_Performance_Report_${todayKey()}.xlsx`);
   };
 
   // ══════════════════════════════════════════════════════════
@@ -2224,7 +2225,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
     ];
 
     const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), `Operational_Expense_Report_${new Date().toISOString().split("T")[0]}.xlsx`);
+    saveAs(new Blob([buffer]), `Operational_Expense_Report_${todayKey()}.xlsx`);
   };
 
   return (

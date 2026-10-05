@@ -1,5 +1,6 @@
 "use client";
 
+import { toDateKey } from "@/lib/dates";
 import React, { useState, useEffect } from "react";
 import { useUser } from "@/app/component/context/user-context";
 import CourseSearchSelect from "./CourseSearchSelect";
@@ -45,7 +46,7 @@ export default function EditBatchModal({
     try {
       const dt = new Date(d);
       if (!isNaN(dt.getTime())) {
-        return dt.toISOString().split("T")[0];
+        return toDateKey(dt);
       }
     } catch (_) {}
     return String(d).split("T")[0] || "";

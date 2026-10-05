@@ -1,5 +1,6 @@
 "use client";
 
+import { todayKey, toDateKey } from "@/lib/dates";
 import React, { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
 import QuotationNav from "@/components/QuotationNav";
@@ -145,12 +146,12 @@ export default function ProformaInvoicesPage() {
     if (pi.date) {
       try {
         const d = new Date(pi.date);
-        setTempDate(d.toISOString().split("T")[0]);
+        setTempDate(toDateKey(d));
       } catch {
-        setTempDate(new Date().toISOString().split("T")[0]);
+        setTempDate(todayKey());
       }
     } else {
-      setTempDate(new Date().toISOString().split("T")[0]);
+      setTempDate(todayKey());
     }
   };
 

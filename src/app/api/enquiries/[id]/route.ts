@@ -1,3 +1,4 @@
+import { todayKey } from "@/lib/dates";
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Enquiry from "@/models/Enquiry";
@@ -85,7 +86,7 @@ export async function PATCH(
     if (statusVal === "Lost") {
       const existingEnquiry = await Enquiry.findById(id);
       if (existingEnquiry && existingEnquiry.status !== "Lost") {
-        const todayStr = new Date().toISOString().split("T")[0];
+        const todayStr = todayKey();
         await LostLeadCounter.findOneAndUpdate(
           { date: todayStr },
           { $inc: { count: 1 } },
@@ -221,7 +222,7 @@ export async function DELETE(
     const isLostLead = searchParams.get('lostLead') === 'true';
 
     if (isLostLead) {
-      const todayStr = new Date().toISOString().split("T")[0];
+      const todayStr = todayKey();
       await LostLeadCounter.findOneAndUpdate(
         { date: todayStr },
         { $inc: { count: 1 } },

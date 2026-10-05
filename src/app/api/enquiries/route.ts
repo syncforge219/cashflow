@@ -1,3 +1,4 @@
+import { todayKey } from "@/lib/dates";
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Enquiry from "@/models/Enquiry";
@@ -45,7 +46,7 @@ export async function POST(req: Request) {
       );
     }
     body.studentFullName = fullName;
-    body.date = body.date?.trim() || new Date().toISOString().split("T")[0];
+    body.date = body.date?.trim() || todayKey();
     body.primaryPhoneMobile = body.primaryPhoneMobile?.trim() || "+91 0000000000";
     body.currentCity = body.currentCity?.trim() || "N/A";
     
@@ -111,7 +112,7 @@ export async function POST(req: Request) {
     const followUpDateStr = body.followUpDate ? String(body.followUpDate).trim() : "";
 
     if ((isFollowUpScheduled || followUpDateStr) && (!Array.isArray(body.followUps) || body.followUps.length === 0)) {
-      const fDate = followUpDateStr || body.date || new Date().toISOString().split("T")[0];
+      const fDate = followUpDateStr || body.date || todayKey();
       const fTime = body.followUpTime ? String(body.followUpTime).trim() : "10:00";
       const fPriority = body.followUpPriority ? String(body.followUpPriority).trim() : (body.priorityLevel || "Medium");
       const fType = body.followUpType ? String(body.followUpType).trim() : "Phone Call";

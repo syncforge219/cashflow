@@ -1,5 +1,6 @@
 "use client";
 
+import { toDateKey } from "@/lib/dates";
 import React, { useState, useRef, useCallback } from "react";
 import ExcelJS from "exceljs";
 
@@ -151,7 +152,7 @@ export default function BulkImportAdmissionsModal({ isOpen, onClose, onSuccess }
           );
           const rawVal = values[colIdx + 1];
           const val = rawVal !== null && rawVal !== undefined
-            ? (rawVal instanceof Date ? rawVal.toISOString().slice(0, 10) : String(rawVal).trim())
+            ? (rawVal instanceof Date ? toDateKey(rawVal) : String(rawVal).trim())
             : "";
           if (val !== "") hasData = true;
           if (mapping) obj[mapping.field] = val;

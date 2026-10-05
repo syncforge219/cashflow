@@ -135,10 +135,15 @@ export async function recomputeAndStoreAdmissionBalance(
 export function studentBalanceLookupStages(): any[] {
   return [
     {
+      // Payment's soft-delete filter does not apply inside a $lookup, so exclude deleted receipts here.
+      // Otherwise a deleted payment keeps counting as paid in every list view.
       $lookup: {
         from: "payments",
-        localField: "_id",
-        foreignField: "admissionId",
+        let: { admId: "$_id" },
+        pipeline: [
+          { $match: { $expr: { $eq: ["$admissionId", "$$admId"] }, isDeleted: { $ne: true } } },
+          { $project: { amountReceived: 1, amountReceivedPaise: 1 } },
+        ],
         as: "_payments",
       },
     },

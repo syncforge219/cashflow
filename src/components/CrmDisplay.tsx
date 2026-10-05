@@ -1,5 +1,6 @@
 "use client";
 
+import { toDateKey } from "@/lib/dates";
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useUser } from "@/app/component/context/user-context";
@@ -119,7 +120,7 @@ export default function CrmDisplay() {
             status: "ACTIVE",
             annualTarget: `₹${target.toLocaleString("en-IN")}`,
             revenueCollected: `₹${revenue.toLocaleString("en-IN")}`,
-            joiningDate: c.joiningDate ? new Date(c.joiningDate).toISOString().split("T")[0] : "—",
+            joiningDate: c.joiningDate ? toDateKey(new Date(c.joiningDate)) : "—",
             admissions: `${admissionsNum} Seats`,
             initials: `${firstInitial}${lastInitial}`.toUpperCase() || "CU",
             scopeBadge: "CRM Executive Scope",

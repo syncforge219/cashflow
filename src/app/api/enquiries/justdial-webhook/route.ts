@@ -1,3 +1,4 @@
+import { todayKey } from "@/lib/dates";
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "node:crypto";
 import dbConnect from "@/lib/db";
@@ -471,8 +472,8 @@ async function handleJustdialLead(req: NextRequest, isSimulation = false) {
             {
               $push: {
                 followUps: {
-                  date: new Date().toISOString().split("T")[0],
-                  time: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
+                  date: todayKey(),
+                  time: new Date().toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit" }),
                   priority: "High",
                   typeOfContact: "Justdial Push Repeat",
                   remarks: `Repeated Justdial lead received. Category: ${justdialCategory || "N/A"}. Query: ${queryMessage || "None"}`,
@@ -517,7 +518,7 @@ async function handleJustdialLead(req: NextRequest, isSimulation = false) {
     // a count-based ID collides with the unique index once any enquiry is deleted or two leads arrive together)
     const newEnquiry: any = await Enquiry.create({
       studentFullName,
-      date: new Date().toISOString().split("T")[0],
+      date: todayKey(),
       primaryPhoneMobile,
       emailAddress,
       currentCity: currentCity || "N/A",

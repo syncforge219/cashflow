@@ -1,6 +1,7 @@
 import dbConnect from "@/lib/db";
 import Brand from "@/models/Brand";
 import User from "@/models/User";
+import { formatDate, toDateKey, isDateKey } from "@/lib/dates";
 
 export interface FeeReceiptWhatsAppParams {
   studentName?: string | null;
@@ -19,12 +20,7 @@ export interface FeeReceiptWhatsAppParams {
  */
 export function formatDateOnly(dateInput?: string | null): string {
   if (!dateInput) {
-    return new Date().toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      timeZone: "Asia/Kolkata",
-    });
+    return formatDate(new Date());
   }
 
   // If formatted with comma like "21 Jul 2026, 05:30 am", strip time after comma
@@ -32,19 +28,17 @@ export function formatDateOnly(dateInput?: string | null): string {
     return dateInput.split(",")[0].trim();
   }
 
-  try {
-    const d = new Date(dateInput);
-    if (!isNaN(d.getTime())) {
-      return d.toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        timeZone: "Asia/Kolkata",
-      });
-    }
-  } catch (_) {
-    // fallback
+  // Indian "d/m/yyyy" (what toLocaleDateString("en-IN") produces). new Date() would read it as
+  // month/day, so 5/10/2026 became 10 May instead of 5 October.
+  const dmy = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/.exec(dateInput.trim());
+  if (dmy) {
+    const key = `${dmy[3]}-${dmy[2].padStart(2, "0")}-${dmy[1].padStart(2, "0")}`;
+    if (isDateKey(key)) return formatDate(key);
   }
+
+  // ISO dates/timestamps -> IST calendar date
+  const key = toDateKey(dateInput);
+  if (key) return formatDate(key);
 
   return dateInput.trim();
 }
@@ -1845,10 +1839,10 @@ export async function sendWhatsAppSuperAdminEnquiryAlert(params: SuperAdminEnqui
     const now = new Date();
     const currentDateStr = params.date
       ? formatDateOnly(params.date)
-      : now.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+      : now.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "2-digit", month: "short", year: "numeric" });
     const currentTimeStr = params.time
       ? params.time.trim()
-      : now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+      : now.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true });
 
     const studentName = (params.studentName || "Student").trim();
     const studentMobile = (params.studentMobile || "N/A").trim();

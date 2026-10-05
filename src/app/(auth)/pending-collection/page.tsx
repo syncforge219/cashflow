@@ -12,6 +12,22 @@ import Student360Modal from "@/components/Student360Modal";
 import PaymentReceiptModal from "@/components/PaymentReceiptModal";
 import ProfileDisplay from "@/components/ProfileDisplay";
 import { useUser } from "@/app/component/context/user-context";
+import { formatDate, todayKey } from "@/lib/dates";
+
+// Aging cards, in display order. Keys match the buckets returned by /api/pending-collection.
+const BUCKET_CARDS: { key: string; filter: string; label: string; active: string; idle: string; accent: string }[] = [
+  { key: "totalPending", filter: "all", label: "Total Pending", active: "bg-slate-900 text-white border-slate-900", idle: "bg-white border-slate-200", accent: "text-indigo-600" },
+  { key: "overdueTotal", filter: "overdue", label: "Total Overdue", active: "bg-rose-600 text-white border-rose-600", idle: "bg-rose-50/50 border-rose-200/80", accent: "text-rose-700" },
+  { key: "overdue1to30", filter: "overdue1to30", label: "1–30 Days Late", active: "bg-orange-500 text-white border-orange-500", idle: "bg-white border-slate-200", accent: "text-orange-600" },
+  { key: "overdue31to60", filter: "overdue31to60", label: "31–60 Days Late", active: "bg-orange-600 text-white border-orange-600", idle: "bg-white border-slate-200", accent: "text-orange-700" },
+  { key: "overdue61to90", filter: "overdue61to90", label: "61–90 Days Late", active: "bg-red-600 text-white border-red-600", idle: "bg-white border-slate-200", accent: "text-red-600" },
+  { key: "overdue90Plus", filter: "overdue90Plus", label: "90+ Days Late", active: "bg-red-800 text-white border-red-800", idle: "bg-white border-slate-200", accent: "text-red-700" },
+  { key: "dueToday", filter: "dueToday", label: "Due Today", active: "bg-amber-500 text-white border-amber-500", idle: "bg-amber-50/50 border-amber-200/80", accent: "text-amber-700" },
+  { key: "next7Days", filter: "next7Days", label: "Next 7 Days", active: "bg-indigo-600 text-white border-indigo-600", idle: "bg-white border-slate-200", accent: "text-indigo-600" },
+  { key: "next15Days", filter: "next15Days", label: "In 8–15 Days", active: "bg-purple-600 text-white border-purple-600", idle: "bg-white border-slate-200", accent: "text-purple-600" },
+  { key: "next30Days", filter: "next30Days", label: "In 16–30 Days", active: "bg-blue-600 text-white border-blue-600", idle: "bg-white border-slate-200", accent: "text-blue-600" },
+  { key: "later", filter: "later", label: "After 30 Days", active: "bg-slate-600 text-white border-slate-600", idle: "bg-white border-slate-200", accent: "text-slate-600" },
+];
 
 interface PendingRecord {
   _id: string;
@@ -26,8 +42,13 @@ interface PendingRecord {
   counsellor: string;
   companyAssigned: string;
   agreedFee: number;
+  paidAmount?: number;
   remainingBalance: number;
+  /** Amount due now (overdue + today), or the next instalment if nothing is due yet */
   pendingInstallmentAmount: number;
+  overdueAmount?: number;
+  nextInstallmentLabel?: string;
+  /** IST calendar date "YYYY-MM-DD" of the earliest unpaid instalment */
   dueDate: string;
   diffDays: number;
   statusLabel: string;
@@ -234,13 +255,10 @@ export default function PendingCollectionPage() {
     }
 
     list.sort((a, b) => {
-      let valA: any = a[sortField];
-      let valB: any = b[sortField];
+      const valA: any = a[sortField];
+      const valB: any = b[sortField];
 
-      if (sortField === "dueDate") {
-        valA = new Date(a.dueDate).getTime();
-        valB = new Date(b.dueDate).getTime();
-      }
+      // dueDate is "YYYY-MM-DD", so plain string comparison sorts chronologically
 
       if (valA < valB) return sortDirection === "asc" ? -1 : 1;
       if (valA > valB) return sortDirection === "asc" ? 1 : -1;
@@ -282,8 +300,8 @@ export default function PendingCollectionPage() {
           studentName: rec.studentName,
           mobileNumber: rec.mobileNumber,
           courseName: rec.course,
-          pendingAmount: rec.remainingBalance,
-          dueDate: new Date(rec.dueDate).toLocaleDateString("en-IN")
+          pendingAmount: rec.pendingInstallmentAmount || rec.remainingBalance,
+          dueDate: formatDate(rec.dueDate)
         })
       });
       const json = await res.json().catch(() => ({}));
@@ -303,7 +321,7 @@ export default function PendingCollectionPage() {
     }
 
     const headers = [
-      "Admission ID", "Student Name", "Mobile", "Email", "Brand", "Branch", "Course", "Batch", "Counselor", "Company", "Agreed Fee", "Remaining Balance", "Pending Due Amount", "Due Date", "Status", "Last Payment Date"
+      "Admission ID", "Student Name", "Mobile", "Email", "Brand", "Branch", "Course", "Batch", "Counselor", "Company", "Agreed Fee", "Paid", "Remaining Balance", "Overdue Amount", "Due Now / Next Due", "Next Instalment", "Due Date", "Status", "Last Payment Date"
     ];
 
     const rows = processedRecords.map((r) => [
@@ -318,11 +336,14 @@ export default function PendingCollectionPage() {
       r.counsellor,
       r.companyAssigned,
       r.agreedFee,
+      r.paidAmount ?? "",
       r.remainingBalance,
+      r.overdueAmount ?? 0,
       r.pendingInstallmentAmount,
-      new Date(r.dueDate).toLocaleDateString("en-IN"),
+      r.nextInstallmentLabel || "",
+      formatDate(r.dueDate, "short"),
       r.statusLabel,
-      r.lastPaymentDate ? new Date(r.lastPaymentDate).toLocaleDateString("en-IN") : "None"
+      r.lastPaymentDate ? formatDate(r.lastPaymentDate, "short") : "None"
     ]);
 
     const csvContent =
@@ -332,7 +353,7 @@ export default function PendingCollectionPage() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Pending_Collections_Report_${new Date().toISOString().split("T")[0]}.csv`);
+    link.setAttribute("download", `Pending_Collections_Report_${todayKey()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -408,152 +429,29 @@ export default function PendingCollectionPage() {
         )}
 
         {/* AGING BUCKETS TOP STATS GRID */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-          
-          {/* Total Pending Card */}
-          <div
-            onClick={() => setActiveBucket("all")}
-            className={`p-3.5 rounded-2xl border transition-all cursor-pointer shadow-xs ${
-              activeBucket === "all"
-                ? "bg-slate-900 text-white border-slate-900 shadow-md ring-2 ring-slate-900/20"
-                : "bg-white text-slate-800 border-slate-200 hover:border-slate-300"
-            }`}
-          >
-            <span className={`text-[10px] font-extrabold uppercase tracking-wider block mb-1 ${activeBucket === "all" ? "text-slate-400" : "text-slate-400"}`}>
-              Total Pending
-            </span>
-            <div className="text-base font-black tracking-tight">₹{(b.totalPending?.amount || 0).toLocaleString("en-IN")}</div>
-            <span className={`text-[10px] font-bold mt-1 block ${activeBucket === "all" ? "text-indigo-400" : "text-indigo-600"}`}>
-              {b.totalPending?.count || 0} Students
-            </span>
-          </div>
-
-          {/* Total Overdue */}
-          <div
-            onClick={() => setActiveBucket("overdue")}
-            className={`p-3.5 rounded-2xl border transition-all cursor-pointer shadow-xs ${
-              activeBucket === "overdue"
-                ? "bg-rose-600 text-white border-rose-600 shadow-md ring-2 ring-rose-600/20"
-                : "bg-rose-50/50 text-slate-800 border-rose-200/80 hover:bg-rose-100/50"
-            }`}
-          >
-            <span className={`text-[10px] font-extrabold uppercase tracking-wider block mb-1 ${activeBucket === "overdue" ? "text-rose-200" : "text-rose-600"}`}>
-              Total Overdue
-            </span>
-            <div className="text-base font-black tracking-tight">₹{(b.overdueTotal?.amount || 0).toLocaleString("en-IN")}</div>
-            <span className={`text-[10px] font-bold mt-1 block ${activeBucket === "overdue" ? "text-rose-100" : "text-rose-700"}`}>
-              {b.overdueTotal?.count || 0} Students
-            </span>
-          </div>
-
-          {/* Due Today */}
-          <div
-            onClick={() => setActiveBucket("dueToday")}
-            className={`p-3.5 rounded-2xl border transition-all cursor-pointer shadow-xs ${
-              activeBucket === "dueToday"
-                ? "bg-amber-500 text-white border-amber-500 shadow-md ring-2 ring-amber-500/20"
-                : "bg-amber-50/50 text-slate-800 border-amber-200/80 hover:bg-amber-100/50"
-            }`}
-          >
-            <span className={`text-[10px] font-extrabold uppercase tracking-wider block mb-1 ${activeBucket === "dueToday" ? "text-amber-100" : "text-amber-700"}`}>
-              Due Today
-            </span>
-            <div className="text-base font-black tracking-tight">₹{(b.dueToday?.amount || 0).toLocaleString("en-IN")}</div>
-            <span className={`text-[10px] font-bold mt-1 block ${activeBucket === "dueToday" ? "text-amber-100" : "text-amber-700"}`}>
-              {b.dueToday?.count || 0} Students
-            </span>
-          </div>
-
-          {/* Next 7 Days */}
-          <div
-            onClick={() => setActiveBucket("next7Days")}
-            className={`p-3.5 rounded-2xl border transition-all cursor-pointer shadow-xs ${
-              activeBucket === "next7Days"
-                ? "bg-indigo-600 text-white border-indigo-600 shadow-md ring-2 ring-indigo-600/20"
-                : "bg-white text-slate-800 border-slate-200 hover:border-slate-300"
-            }`}
-          >
-            <span className={`text-[10px] font-extrabold uppercase tracking-wider block mb-1 ${activeBucket === "next7Days" ? "text-indigo-200" : "text-slate-400"}`}>
-              Next 7 Days
-            </span>
-            <div className="text-base font-black tracking-tight">₹{(b.next7Days?.amount || 0).toLocaleString("en-IN")}</div>
-            <span className={`text-[10px] font-bold mt-1 block ${activeBucket === "next7Days" ? "text-indigo-100" : "text-indigo-600"}`}>
-              {b.next7Days?.count || 0} Students
-            </span>
-          </div>
-
-          {/* Next 15 Days */}
-          <div
-            onClick={() => setActiveBucket("next15Days")}
-            className={`p-3.5 rounded-2xl border transition-all cursor-pointer shadow-xs ${
-              activeBucket === "next15Days"
-                ? "bg-purple-600 text-white border-purple-600 shadow-md ring-2 ring-purple-600/20"
-                : "bg-white text-slate-800 border-slate-200 hover:border-slate-300"
-            }`}
-          >
-            <span className={`text-[10px] font-extrabold uppercase tracking-wider block mb-1 ${activeBucket === "next15Days" ? "text-purple-200" : "text-slate-400"}`}>
-              Next 15 Days
-            </span>
-            <div className="text-base font-black tracking-tight">₹{(b.next15Days?.amount || 0).toLocaleString("en-IN")}</div>
-            <span className={`text-[10px] font-bold mt-1 block ${activeBucket === "next15Days" ? "text-purple-100" : "text-purple-600"}`}>
-              {b.next15Days?.count || 0} Students
-            </span>
-          </div>
-
-          {/* Next 30 Days */}
-          <div
-            onClick={() => setActiveBucket("next30Days")}
-            className={`p-3.5 rounded-2xl border transition-all cursor-pointer shadow-xs ${
-              activeBucket === "next30Days"
-                ? "bg-blue-600 text-white border-blue-600 shadow-md ring-2 ring-blue-600/20"
-                : "bg-white text-slate-800 border-slate-200 hover:border-slate-300"
-            }`}
-          >
-            <span className={`text-[10px] font-extrabold uppercase tracking-wider block mb-1 ${activeBucket === "next30Days" ? "text-blue-200" : "text-slate-400"}`}>
-              Next 30 Days
-            </span>
-            <div className="text-base font-black tracking-tight">₹{(b.next30Days?.amount || 0).toLocaleString("en-IN")}</div>
-            <span className={`text-[10px] font-bold mt-1 block ${activeBucket === "next30Days" ? "text-blue-100" : "text-blue-600"}`}>
-              {b.next30Days?.count || 0} Students
-            </span>
-          </div>
-
-          {/* 31–60 Days Overdue */}
-          <div
-            onClick={() => setActiveBucket("overdue31to60")}
-            className={`p-3.5 rounded-2xl border transition-all cursor-pointer shadow-xs ${
-              activeBucket === "overdue31to60"
-                ? "bg-orange-600 text-white border-orange-600 shadow-md ring-2 ring-orange-600/20"
-                : "bg-white text-slate-800 border-slate-200 hover:border-slate-300"
-            }`}
-          >
-            <span className={`text-[10px] font-extrabold uppercase tracking-wider block mb-1 ${activeBucket === "overdue31to60" ? "text-orange-200" : "text-slate-400"}`}>
-              31–60 Days
-            </span>
-            <div className="text-base font-black tracking-tight">₹{(b.overdue31to60?.amount || 0).toLocaleString("en-IN")}</div>
-            <span className={`text-[10px] font-bold mt-1 block ${activeBucket === "overdue31to60" ? "text-orange-100" : "text-orange-600"}`}>
-              {b.overdue31to60?.count || 0} Students
-            </span>
-          </div>
-
-          {/* 90+ Days Overdue */}
-          <div
-            onClick={() => setActiveBucket("overdue90Plus")}
-            className={`p-3.5 rounded-2xl border transition-all cursor-pointer shadow-xs ${
-              activeBucket === "overdue90Plus"
-                ? "bg-red-700 text-white border-red-700 shadow-md ring-2 ring-red-700/20"
-                : "bg-white text-slate-800 border-slate-200 hover:border-slate-300"
-            }`}
-          >
-            <span className={`text-[10px] font-extrabold uppercase tracking-wider block mb-1 ${activeBucket === "overdue90Plus" ? "text-red-200" : "text-slate-400"}`}>
-              90+ Days
-            </span>
-            <div className="text-base font-black tracking-tight">₹{(b.overdue90Plus?.amount || 0).toLocaleString("en-IN")}</div>
-            <span className={`text-[10px] font-bold mt-1 block ${activeBucket === "overdue90Plus" ? "text-red-100" : "text-red-600"}`}>
-              {b.overdue90Plus?.count || 0} Students
-            </span>
-          </div>
-
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-11 gap-3">
+          {BUCKET_CARDS.map((card) => {
+            const isActive = activeBucket === card.filter;
+            const bucket = b[card.key] || {};
+            return (
+              <button
+                type="button"
+                key={card.key}
+                onClick={() => setActiveBucket(card.filter)}
+                className={`text-left p-3.5 rounded-2xl border transition-all cursor-pointer shadow-xs ${
+                  isActive ? `${card.active} shadow-md` : `${card.idle} text-slate-800 hover:border-slate-300`
+                }`}
+              >
+                <span className={`text-[10px] font-extrabold uppercase tracking-wider block mb-1 ${isActive ? "opacity-80" : "text-slate-500"}`}>
+                  {card.label}
+                </span>
+                <div className="text-base font-black tracking-tight">₹{(bucket.amount || 0).toLocaleString("en-IN")}</div>
+                <span className={`text-[10px] font-bold mt-1 block ${isActive ? "opacity-90" : card.accent}`}>
+                  {bucket.count || 0} {bucket.count === 1 ? "Student" : "Students"}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
         {/* ADVANCED SEARCH & FILTERS BAR */}
@@ -771,9 +669,10 @@ export default function PendingCollectionPage() {
 
                         {/* Due Date & Aging */}
                         <td className="py-4 px-6">
-                          <span className="font-bold text-slate-800 block text-xs">
-                            {new Date(rec.dueDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
-                          </span>
+                          <span className="font-bold text-slate-800 block text-xs">{formatDate(rec.dueDate)}</span>
+                          {rec.nextInstallmentLabel && (
+                            <span className="text-[10px] text-slate-400 font-medium block">{rec.nextInstallmentLabel}</span>
+                          )}
                           <span
                             className={`inline-block mt-0.5 px-2 py-0.5 font-bold text-[10px] rounded-md border ${
                               isOverdue
@@ -790,7 +689,13 @@ export default function PendingCollectionPage() {
                         {/* Pending Dues */}
                         <td className="py-4 px-6">
                           <span className="font-black text-rose-600 block text-sm">
-                            ₹{rec.remainingBalance.toLocaleString("en-IN")}
+                            ₹{rec.pendingInstallmentAmount.toLocaleString("en-IN")}
+                            <span className="ml-1 text-[10px] font-bold text-slate-400">
+                              {isOverdue || isDueToday ? "due now" : "next"}
+                            </span>
+                          </span>
+                          <span className="text-[10px] text-slate-500 font-semibold block">
+                            Balance: ₹{rec.remainingBalance.toLocaleString("en-IN")}
                           </span>
                           <span className="text-[10px] text-slate-400 font-medium block">
                             Agreed Fee: ₹{rec.agreedFee.toLocaleString("en-IN")}
@@ -800,10 +705,10 @@ export default function PendingCollectionPage() {
                         {/* Last Activity */}
                         <td className="py-4 px-6 text-xs">
                           <span className="text-slate-600 block font-medium">
-                            Payment: {rec.lastPaymentDate ? new Date(rec.lastPaymentDate).toLocaleDateString("en-IN") : "No Payment"}
+                            Payment: {rec.lastPaymentDate ? formatDate(rec.lastPaymentDate) : "No Payment"}
                           </span>
                           <span className="text-[10px] text-slate-400 block truncate max-w-[140px]">
-                            Follow-up: {rec.lastFollowupDate ? new Date(rec.lastFollowupDate).toLocaleDateString("en-IN") : "None"}
+                            Follow-up: {rec.lastFollowupDate ? formatDate(rec.lastFollowupDate) : "None"}
                           </span>
                         </td>
 

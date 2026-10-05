@@ -1,5 +1,6 @@
 "use client";
 
+import { todayKey, toDateKey } from "@/lib/dates";
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { numberToIndianWords } from "@/lib/numberToWords";
@@ -165,11 +166,11 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
   const [quotationNumber, setQuotationNumber] = useState(initialData?.quotationNumber || "");
   const [date, setDate] = useState(
     initialData?.date
-      ? new Date(initialData.date).toISOString().split("T")[0]
-      : new Date().toISOString().split("T")[0]
+      ? toDateKey(new Date(initialData.date))
+      : todayKey()
   );
   const [validUntil, setValidUntil] = useState(
-    initialData?.validUntil ? new Date(initialData.validUntil).toISOString().split("T")[0] : ""
+    initialData?.validUntil ? toDateKey(new Date(initialData.validUntil)) : ""
   );
   const [poNumber, setPoNumber] = useState(initialData?.poNumber || "APPL/2026-27");
   const [selectedCustomerId, setSelectedCustomerId] = useState(initialData?.customerId || "");

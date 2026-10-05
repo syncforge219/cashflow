@@ -78,7 +78,7 @@ export async function GET(req: Request) {
       admissionNumber: admission.admissionId,
       feeStatus: Number(admission.remainingBalance) === 0 ? "Paid In Full" : "Pending Balance",
       outstandingAmount: admission.remainingBalance,
-      admissionDate: new Date(admission.admissionDate || admission.createdAt).toLocaleDateString("en-IN", {
+      admissionDate: new Date(admission.admissionDate || admission.createdAt).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata",
         day: "2-digit",
         month: "short",
         year: "numeric",

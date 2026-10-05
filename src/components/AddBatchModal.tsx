@@ -1,5 +1,6 @@
 "use client";
 
+import { todayKey } from "@/lib/dates";
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useUser } from "@/app/component/context/user-context";
 import CourseSearchSelect from "./CourseSearchSelect";
@@ -102,7 +103,7 @@ export default function AddBatchModal({
 
         // Default start date = today
         if (!startDate) {
-          setStartDate(new Date().toISOString().split("T")[0]);
+          setStartDate(todayKey());
         }
       } catch (err) {
         console.error("Failed to load options for batch modal:", err);

@@ -1,5 +1,6 @@
 "use client";
 
+import { todayKey } from "@/lib/dates";
 import React, { useState, useEffect } from "react";
 
 interface FeeFollowupModalProps {
@@ -17,7 +18,7 @@ export default function FeeFollowupModal({
 }: FeeFollowupModalProps) {
   const [activeTab, setActiveTab] = useState<"add" | "history">("add");
 
-  const todayYYYYMMDD = new Date().toISOString().split("T")[0];
+  const todayYYYYMMDD = todayKey();
 
   // Fee Follow-up Specific Form Fields
   const [followupStatus, setFollowupStatus] = useState<string>("PTP (Promised to Pay)");

@@ -1,5 +1,6 @@
 "use client";
 
+import { todayKey, toDateKey } from "@/lib/dates";
 import React, { useState } from "react";
 
 interface CorporateTrainingDetailModalProps {
@@ -25,7 +26,7 @@ export default function CorporateTrainingDetailModal({
   // Record Payment Form State
   const [newPayment, setNewPayment] = useState({
     amount: "",
-    date: new Date().toISOString().split("T")[0],
+    date: todayKey(),
     paymentMode: "Bank Transfer / NEFT",
     referenceNo: "",
     remarks: "Corporate Installment Payment",
@@ -47,8 +48,8 @@ export default function CorporateTrainingDetailModal({
         numberOfParticipants: training.numberOfParticipants || 15,
         location: training.location || "",
         faculty: training.faculty || "",
-        startDate: training.startDate ? new Date(training.startDate).toISOString().split("T")[0] : "",
-        endDate: training.endDate ? new Date(training.endDate).toISOString().split("T")[0] : "",
+        startDate: training.startDate ? toDateKey(new Date(training.startDate)) : "",
+        endDate: training.endDate ? toDateKey(new Date(training.endDate)) : "",
         durationHours: training.durationHours || "",
         totalAmount: training.totalAmount || 0,
         brand: training.brand || "",
@@ -110,7 +111,7 @@ export default function CorporateTrainingDetailModal({
         setSuccessMsg(`Payment of ₹${payAmt.toLocaleString("en-IN")} recorded successfully!`);
         setNewPayment({
           amount: "",
-          date: new Date().toISOString().split("T")[0],
+          date: todayKey(),
           paymentMode: "Bank Transfer / NEFT",
           referenceNo: "",
           remarks: "Corporate Installment Payment",

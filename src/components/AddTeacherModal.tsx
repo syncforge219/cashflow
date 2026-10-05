@@ -1,5 +1,6 @@
 "use client";
 
+import { todayKey } from "@/lib/dates";
 import React, { useState, useEffect, useRef } from "react";
 
 interface AddTeacherModalProps {
@@ -21,7 +22,7 @@ export default function AddTeacherModal({
     email: "",
     phone: "+91 ",
     brandScope: initialBrandScope || "",
-    joiningDate: new Date().toISOString().split("T")[0],
+    joiningDate: todayKey(),
     password: "TeacherTemp123!",
   });
 
@@ -136,7 +137,7 @@ export default function AddTeacherModal({
         email: "",
         phone: "+91 ",
         brandScope: initialBrandScope || (brands[0] || ""),
-        joiningDate: new Date().toISOString().split("T")[0],
+        joiningDate: todayKey(),
         password: "TeacherTemp123!",
       });
       setSelectedSubjects([]);

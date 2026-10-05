@@ -1,5 +1,6 @@
 "use client";
 
+import { todayKey, toDateKey } from "@/lib/dates";
 import React, { useState, useEffect } from "react";
 import PaymentReceiptModal from "@/components/PaymentReceiptModal";
 import DeletePaymentConfirmModal from "@/components/DeletePaymentConfirmModal";
@@ -107,9 +108,9 @@ export default function Student360Modal({
   const handleOpenEditPayment = (payment: any) => {
     setEditingPayment(payment);
     const dateVal = payment.paymentDate
-      ? new Date(payment.paymentDate).toISOString().slice(0, 10)
+      ? toDateKey(new Date(payment.paymentDate))
       : payment.createdAt
-      ? new Date(payment.createdAt).toISOString().slice(0, 10)
+      ? toDateKey(new Date(payment.createdAt))
       : "";
     setEditPaymentForm({
       paymentDate: dateVal,
@@ -335,10 +336,10 @@ export default function Student360Modal({
         setTasks(json.data.tasks || []);
 
         const emiList = (adm.customEmiPlan || []).map((e: any) => ({
-          dueDate: e.dueDate ? new Date(e.dueDate).toISOString().slice(0, 10) : "",
+          dueDate: e.dueDate ? toDateKey(new Date(e.dueDate)) : "",
           amount: Number(e.amount) || 0,
           isPaid: Boolean(e.isPaid),
-          paidDate: e.paidDate ? new Date(e.paidDate).toISOString().slice(0, 10) : "",
+          paidDate: e.paidDate ? toDateKey(new Date(e.paidDate)) : "",
         }));
 
         setFormData({
@@ -362,15 +363,15 @@ export default function Student360Modal({
           batchId: adm.batchId || "",
           duration: adm.duration || "",
           academicYear: adm.academicYear || "",
-          startDate: adm.startDate ? new Date(adm.startDate).toISOString().slice(0, 10) : "",
-          admissionDate: adm.admissionDate ? new Date(adm.admissionDate).toISOString().slice(0, 10) : "",
+          startDate: adm.startDate ? toDateKey(new Date(adm.startDate)) : "",
+          admissionDate: adm.admissionDate ? toDateKey(new Date(adm.admissionDate)) : "",
           companyAssigned: adm.companyAssigned || "",
           courseFee: adm.courseFee || 0,
           finalFee: adm.finalFee || 0,
           amountReceivedToday: adm.amountReceivedToday || 0,
           registrationAmount: adm.registrationAmount !== undefined ? adm.registrationAmount : (adm.amountReceivedToday || 0),
           downpaymentAmount: adm.downpaymentAmount || 0,
-          downpaymentDueDate: adm.downpaymentDueDate ? new Date(adm.downpaymentDueDate).toISOString().slice(0, 10) : "",
+          downpaymentDueDate: adm.downpaymentDueDate ? toDateKey(new Date(adm.downpaymentDueDate)) : "",
           remainingBalance: adm.remainingBalance || 0,
           paymentMode: adm.paymentMode || "Cash",
           transactionNo: adm.transactionNo || "",
@@ -446,7 +447,7 @@ export default function Student360Modal({
       const d = new Date(baseDate);
       d.setMonth(d.getMonth() + (i + 1));
       plan.push({
-        dueDate: d.toISOString().slice(0, 10),
+        dueDate: toDateKey(d),
         amount: perEmi,
         isPaid: false,
         paidDate: "",
@@ -473,7 +474,7 @@ export default function Student360Modal({
       customEmiPlan: [
         ...currentPlan,
         {
-          dueDate: nextD.toISOString().slice(0, 10),
+          dueDate: toDateKey(nextD),
           amount: Number(formData.installmentAmount) || 5000,
           isPaid: false,
           paidDate: "",
@@ -498,7 +499,7 @@ export default function Student360Modal({
       [field]: value,
     };
     if (field === "isPaid") {
-      updatedItem.paidDate = value ? (updatedItem.paidDate || new Date().toISOString().slice(0, 10)) : "";
+      updatedItem.paidDate = value ? (updatedItem.paidDate || todayKey()) : "";
     }
     currentPlan[index] = updatedItem;
 
@@ -515,7 +516,7 @@ export default function Student360Modal({
 
   const handleEmiStatusChange = async (index: number, isPaid: boolean) => {
     const currentPlan = [...(formData.customEmiPlan || emiPlanToRender || [])];
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStr = todayKey();
 
     currentPlan[index] = {
       ...currentPlan[index],

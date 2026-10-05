@@ -6,7 +6,7 @@ import { numberToIndianWords } from "@/lib/numberToWords";
 
 function generateQuotationHtml(quotation: any, profile: any): string {
   const dateStr = quotation.date
-    ? new Date(quotation.date).toLocaleDateString("en-IN", {
+    ? new Date(quotation.date).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata",
       day: "2-digit",
       month: "2-digit",
       year: "numeric",

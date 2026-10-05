@@ -1,3 +1,4 @@
+import { todayKey } from "@/lib/dates";
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Enquiry from "@/models/Enquiry";
@@ -54,7 +55,7 @@ export async function GET(request: Request) {
       respondedCount: number;
     }> = {};
 
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = todayKey();
     const todayTime = new Date(todayStr).getTime();
 
     enquiries.forEach((e: any) => {

@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import CounsellorSidebar from "@/components/CounsellorSidebar";
 import PaymentReceiptModal from "@/components/PaymentReceiptModal";
+import { buildFeeSchedule } from "@/lib/feeSchedule";
+import { todayKey, formatDate } from "@/lib/dates";
 import { useUser } from "@/app/component/context/user-context";
 
 interface AdmissionType {
@@ -117,12 +119,6 @@ export default function CounsellorFeeCollectionPage() {
             if (dpAmt > 0) {
                 setAmountReceived(String(dpAmt));
             }
-            if (studentAny.downpaymentDueDate) {
-                const d = new Date(studentAny.downpaymentDueDate);
-                if (!isNaN(d.getTime())) {
-                    setReceivedDate(d.toISOString().slice(0, 10));
-                }
-            }
         }
     }, [allocateTo, selectedStudent]);
 
@@ -130,14 +126,13 @@ export default function CounsellorFeeCollectionPage() {
     const [editEmiAmount, setEditEmiAmount] = useState<number>(0);
     const [editEmiDate, setEditEmiDate] = useState<string>("");
 
-    const handleEditEmi = (index: number, currentAmount: number, currentDate: Date) => {
-        if (!isCustomEmi || index === (selectedStudent?.numInstallments || 4) - 1) return;
-        setEditingEmiIndex(index);
-        setEditEmiAmount(currentAmount);
-        setEditEmiDate(currentDate.toISOString().split("T")[0]);
-    };
+    const handleEditEmi = (index: number, currentAmount: number, dueDateKey: string) => {
+    setEditingEmiIndex(index);
+    setEditEmiAmount(currentAmount);
+    setEditEmiDate(dueDateKey);
+  };
 
-    const handleEmiCheckbox = (index: number, checked: boolean, dueAmount: number) => {
+  const handleEmiCheckbox = (index: number, checked: boolean, dueAmount: number) => {
         const currentAmount = parseFloat(amountReceived || "0");
         if (checked) {
             setSelectedEmiIndices(prev => [...prev, index]);
@@ -152,7 +147,7 @@ export default function CounsellorFeeCollectionPage() {
 
     // Set default date
     useEffect(() => {
-        const today = new Date().toISOString().split("T")[0];
+        const today = todayKey();
         setReceivedDate(today);
     }, []);
 
@@ -183,7 +178,7 @@ export default function CounsellorFeeCollectionPage() {
     useEffect(() => {
         if (selectedStudent) {
             const randomId = Math.floor(10000 + Math.random() * 90000);
-            setReferenceNo(`Ref-2026-${randomId}`);
+            setReferenceNo(`Ref-${todayKey().slice(0, 4)}-${randomId}`);
             setSelectedCompany(selectedStudent.companyAssigned || "Design Gateway Pvt Ltd");
         }
     }, [selectedStudent]);
@@ -232,6 +227,22 @@ export default function CounsellorFeeCollectionPage() {
         setRemarks("");
         fetchPayments(student._id);
     };
+
+
+  // Opened from Pending Collection ("Record Payment" passes ?admissionId=...): preselect that student
+  useEffect(() => {
+    const wanted = new URLSearchParams(window.location.search).get("admissionId");
+    if (!wanted) return;
+    fetch(`/api/admissions?q=${encodeURIComponent(wanted)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        const list = Array.isArray(data?.data) ? data.data : [];
+        const match = list.find((a: any) => a.admissionId === wanted || a._id === wanted);
+        if (match) selectStudent(match);
+      })
+      .catch((err) => console.error("Failed to preselect student:", err));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
     const fetchPayments = async (admissionId: string) => {
         try {
@@ -295,6 +306,7 @@ export default function CounsellorFeeCollectionPage() {
                 body: JSON.stringify({
                     admissionId: selectedStudent._id,
                     amountReceived: inputAmtVal,
+                    paymentDate: receivedDate,
                     paymentMode,
                     referenceNo,
                     remarks: allocateTo === "Downpayment" ? (remarks ? `${remarks} (Down Payment)` : "Down Payment Collection") : remarks,
@@ -326,11 +338,11 @@ export default function CounsellorFeeCollectionPage() {
                 const newReceipt = resData.data || {
                     receiptNo: resData.receiptNo || `REC-${Date.now().toString().slice(-6)}`,
                     amountReceived: inputAmtVal,
+                    paymentDate: receivedDate,
                     paymentMode,
                     referenceNo,
                     remarks,
                     company: selectedCompany,
-                    paymentDate: new Date().toISOString(),
                     particulars: { courseFeeDue: allocatedCourse },
                 };
                 setSelectedReceipt(newReceipt);
@@ -352,148 +364,107 @@ export default function CounsellorFeeCollectionPage() {
 
     // Installment plan calculator (dynamic)
     const generateInstallments = () => {
-        if (!selectedStudent) return [];
+    if (!selectedStudent) return [];
 
-        const hasCustomPlan = Array.isArray(selectedStudent.customEmiPlan) && selectedStudent.customEmiPlan.length > 0;
-        const totalInst = hasCustomPlan && selectedStudent.customEmiPlan ? selectedStudent.customEmiPlan.length : (selectedStudent.numInstallments || 4);
+    // Same schedule as Pending Collection & reminders (src/lib/feeSchedule.ts): registration,
+    // down payment and EMIs, with what is still due derived from actual payments.
+    const schedule = buildFeeSchedule(selectedStudent as any, { totalPaid, totalFee: totalFees });
+    const emiItems = schedule.items.filter((i) => i.kind === "EMI");
+    const lastEmi = emiItems[emiItems.length - 1];
 
-        const studentAny = selectedStudent as any;
-        const regAmt = Number(studentAny.registrationAmount ?? studentAny.amountReceivedToday ?? 0);
-        const dpAmt = Number(studentAny.downpaymentAmount ?? 0);
-        const upfrontPayments = regAmt + dpAmt;
-
-        // EMI Principal is strictly the fee remaining after subtracting both registration AND downpayment
-        const emiPrincipal = Math.max(0, (selectedStudent.finalFee || (selectedStudent as any).totalCourseFee || 0) - upfrontPayments);
-        const baseAmount = selectedStudent.installmentAmount || Math.floor(emiPrincipal / (totalInst || 1));
-
-        // Calculate sum of custom EMI plan to detect if downpayment was mistakenly included
-        const customPlanSum = hasCustomPlan && selectedStudent.customEmiPlan
-            ? selectedStudent.customEmiPlan.reduce((sum: number, item: any) => sum + (Number(item?.amount) || 0), 0)
-            : 0;
-
-        // Amount paid specifically towards EMIs (total paid minus upfront registration & downpayment)
-        let runningPaid = Math.max(0, totalPaid - upfrontPayments);
-
-        const installments = [];
-        const baseDate = new Date(selectedStudent.admissionDate || new Date());
-        baseDate.setMonth(baseDate.getMonth() + 1);
-
-        for (let i = 1; i <= totalInst; i++) {
-            const customEntry = (hasCustomPlan && selectedStudent.customEmiPlan) ? selectedStudent.customEmiPlan[i - 1] : null;
-
-            let rawAmount = customEntry ? Number(customEntry.amount || 0) : 0;
-            let instAmount = 0;
-
-            if (hasCustomPlan && customEntry) {
-                // If custom plan was saved with amounts exceeding emiPrincipal (e.g. downpayment was included in the EMI plan),
-                // adjust the installment amount proportionally to match emiPrincipal
-                if (customPlanSum > emiPrincipal && customPlanSum > 0) {
-                    instAmount = totalInst === 1
-                        ? emiPrincipal
-                        : (i === totalInst
-                            ? Math.max(0, emiPrincipal - Math.floor(emiPrincipal / totalInst) * (totalInst - 1))
-                            : Math.floor(emiPrincipal / totalInst));
-                } else {
-                    instAmount = rawAmount;
-                }
-            } else {
-                instAmount = i === totalInst ? emiPrincipal - baseAmount * (totalInst - 1) : baseAmount;
-            }
-
-            let dueDate = customEntry && customEntry.dueDate
-                ? new Date(customEntry.dueDate)
-                : new Date(baseDate.getFullYear(), baseDate.getMonth() + (i - 1), baseDate.getDate());
-
-            let status = "Pending";
-            let statusClass = "text-slate-400 bg-slate-100 border-slate-200";
-            let bulletClass = "bg-slate-200 border-slate-300";
-            let dueAmount = instAmount;
-
-            const customEntryAny = customEntry as any;
-
-            if (customEntryAny && customEntryAny.isPaid === true) {
-                status = "Paid";
-                statusClass = "text-emerald-600 bg-emerald-50 border-emerald-100";
-                bulletClass = "bg-emerald-500 border-emerald-600";
-                dueAmount = 0;
-            } else if (runningPaid >= instAmount && instAmount > 0) {
-                status = "Paid";
-                statusClass = "text-emerald-600 bg-emerald-50 border-emerald-100";
-                bulletClass = "bg-emerald-500 border-emerald-600";
-                runningPaid -= instAmount;
-                dueAmount = 0;
-            } else if (runningPaid > 0) {
-                status = "Partial";
-                statusClass = "text-amber-600 bg-amber-50 border-amber-100";
-                bulletClass = "bg-amber-500 border-amber-600";
-                dueAmount = Math.max(0, instAmount - runningPaid);
-                runningPaid = 0;
-            }
-
-            const formattedDueDate = dueDate.toLocaleDateString("en-IN", {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-            });
-
-            installments.push({
-                num: customEntryAny?.installmentName || `${i}${i === 1 ? "st" : i === 2 ? "nd" : i === 3 ? "rd" : "th"} Installment`,
-                amount: instAmount,
-                dueAmount,
-                dateText: status === "Paid" ? (customEntryAny?.paidDate ? `Paid on ${new Date(customEntryAny.paidDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}` : `Paid on ${formattedDueDate}`) : `Due on ${formattedDueDate}`,
-                rawDate: dueDate,
-                status,
-                statusClass,
-                bulletClass,
-            });
-        }
-
-        return installments;
+    const STYLES: Record<string, { statusClass: string; bulletClass: string }> = {
+      Paid: { statusClass: "text-emerald-600 bg-emerald-50 border-emerald-100", bulletClass: "bg-emerald-500 border-emerald-600" },
+      Overdue: { statusClass: "text-rose-600 bg-rose-50 border-rose-100", bulletClass: "bg-rose-500 border-rose-600" },
+      "Due Today": { statusClass: "text-amber-700 bg-amber-50 border-amber-100", bulletClass: "bg-amber-500 border-amber-600" },
+      Partial: { statusClass: "text-amber-600 bg-amber-50 border-amber-100", bulletClass: "bg-amber-400 border-amber-500" },
+      Pending: { statusClass: "text-slate-400 bg-slate-100 border-slate-200", bulletClass: "bg-slate-200 border-slate-300" },
     };
 
-    const handleSaveEmiEdit = async () => {
-        if (editingEmiIndex === null || !selectedStudent) return;
-        
-        const currentPlan = generateInstallments();
-        const originalAmount = currentPlan[editingEmiIndex].amount;
-        const diff = originalAmount - editEmiAmount;
-        
-        const remainingEmisCount = currentPlan.length - 1 - editingEmiIndex;
-        if (remainingEmisCount <= 0) return;
-        
-        const newCustomPlan = currentPlan.map((inst) => ({
-           dueDate: inst.rawDate,
-           amount: inst.amount
-        }));
-        
-        newCustomPlan[editingEmiIndex].dueDate = new Date(editEmiDate);
-        newCustomPlan[editingEmiIndex].amount = editEmiAmount;
-        
-        const roundedDiffPerRemaining = Math.round(diff / remainingEmisCount);
-        let appliedDiff = 0;
-        
-        for (let i = editingEmiIndex + 1; i < newCustomPlan.length - 1; i++) {
-            newCustomPlan[i].amount += roundedDiffPerRemaining;
-            appliedDiff += roundedDiffPerRemaining;
-        }
-        
-        newCustomPlan[newCustomPlan.length - 1].amount += (diff - appliedDiff);
-        
-        setSelectedStudent(prev => prev ? { ...prev, customEmiPlan: newCustomPlan } : null);
-        setEditingEmiIndex(null);
-        
-        try {
-            await fetch("/api/admissions/custom-emi", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ studentId: selectedStudent._id, customEmiPlan: newCustomPlan })
-            });
-        } catch(e) {
-            console.error(e);
-        }
-    };
+    return schedule.items.map((item) => {
+      const isPaid = item.dueAmount === 0;
+      const status = isPaid
+        ? "Paid"
+        : item.status === "OVERDUE"
+        ? "Overdue"
+        : item.status === "DUE_TODAY"
+        ? "Due Today"
+        : item.partiallyPaid
+        ? "Partial"
+        : "Pending";
+      const dateText = isPaid
+        ? item.paidDateKey
+          ? `Paid on ${formatDate(item.paidDateKey)}`
+          : `Due ${formatDate(item.dueDateKey)} · Paid`
+        : `Due on ${formatDate(item.dueDateKey)}${item.partiallyPaid ? ` · ₹${item.dueAmount.toLocaleString("en-IN")} left` : ""}`;
 
-    const installments = generateInstallments();
+      return {
+        num: item.label,
+        kind: item.kind,
+        amount: item.amount,
+        dueAmount: item.dueAmount,
+        dateText,
+        dueDateKey: item.dueDateKey,
+        status,
+        ...STYLES[status],
+        // Only unpaid EMIs before the last one can be edited; the last EMI absorbs the difference
+        isEditable: item.kind === "EMI" && item !== lastEmi && !isPaid,
+      };
+    });
+  };
+
+  const handleSaveEmiEdit = async () => {
+    if (editingEmiIndex === null || !selectedStudent) return;
+
+    const timeline = generateInstallments();
+    const edited = timeline[editingEmiIndex];
+    const emis = timeline.filter((i) => i.kind === "EMI");
+    const pos = edited ? emis.indexOf(edited) : -1;
+    if (pos < 0 || pos >= emis.length - 1 || !editEmiDate) return;
+
+    const plan = emis.map((i) => ({ dueDate: i.dueDateKey, amount: i.amount }));
+    const diff = plan[pos].amount - editEmiAmount;
+    plan[pos] = { dueDate: editEmiDate, amount: editEmiAmount };
+
+    // Spread the difference over the following instalments; the last one takes the rounding
+    const following = plan.length - 1 - pos;
+    const perItem = Math.round(diff / following);
+    let applied = 0;
+    for (let i = pos + 1; i < plan.length - 1; i++) {
+      plan[i].amount += perItem;
+      applied += perItem;
+    }
+    plan[plan.length - 1].amount += diff - applied;
+
+    if (plan.some((p) => p.amount < 0)) {
+      setErrorMsg("That amount is more than the remaining instalments can absorb.");
+      return;
+    }
+
+    setEditingEmiIndex(null);
+    try {
+      const res = await fetch("/api/admissions/custom-emi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId: selectedStudent._id, customEmiPlan: plan }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success && data.data) {
+        setSelectedStudent((prev) =>
+          prev
+            ? { ...prev, customEmiPlan: data.data.customEmiPlan, remainingBalance: data.data.remainingBalance ?? prev.remainingBalance }
+            : prev
+        );
+      } else {
+        setErrorMsg(data.message || "Failed to save the instalment plan.");
+      }
+    } catch (e) {
+      console.error(e);
+      setErrorMsg("Failed to save the instalment plan.");
+    }
+  };
+
+
+  const installments = generateInstallments();
 
     return (
         <div className="flex h-screen bg-[#f8faff] text-slate-800 overflow-hidden font-sans">
@@ -626,11 +597,7 @@ export default function CounsellorFeeCollectionPage() {
                                         <div>
                                             <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Admission Date</span>
                                             <span className="text-slate-800">
-                                                {new Date(selectedStudent.admissionDate).toLocaleDateString("en-IN", {
-                                                    day: "numeric",
-                                                    month: "short",
-                                                    year: "numeric",
-                                                })}
+                                                {formatDate(selectedStudent.admissionDate)}
                                             </span>
                                         </div>
                                         <div>
@@ -737,6 +704,7 @@ export default function CounsellorFeeCollectionPage() {
                                                 <input
                                                     type="date"
                                                     value={receivedDate}
+                                                    max={todayKey()}
                                                     onChange={(e) => setReceivedDate(e.target.value)}
                                                     required
                                                     className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
@@ -786,12 +754,6 @@ export default function CounsellorFeeCollectionPage() {
                                                                     const dpAmt = Number(studentAny.downpaymentAmount || 0);
                                                                     if (dpAmt > 0) {
                                                                         setAmountReceived(String(dpAmt));
-                                                                    }
-                                                                    if (studentAny.downpaymentDueDate) {
-                                                                        const d = new Date(studentAny.downpaymentDueDate);
-                                                                        if (!isNaN(d.getTime())) {
-                                                                            setReceivedDate(d.toISOString().slice(0, 10));
-                                                                        }
                                                                     }
                                                                 }
                                                             }
@@ -980,14 +942,12 @@ export default function CounsellorFeeCollectionPage() {
                                                 <div className={`absolute -left-5.5 mt-1 h-2.5 w-2.5 rounded-full border-2 border-white ${inst.bulletClass}`}></div>
 
                                                 <div 
-                                                    className={`space-y-0.5 pr-2 ${isCustomEmi && index !== (selectedStudent?.numInstallments || 4) - 1 && inst.status !== 'Paid' ? 'cursor-pointer hover:bg-slate-50 p-1 -m-1 rounded border border-dashed border-slate-300' : ''}`}
+                                                    className={`space-y-0.5 pr-2 ${isCustomEmi && inst.isEditable ? 'cursor-pointer hover:bg-slate-50 p-1 -m-1 rounded border border-dashed border-slate-300' : ''}`}
                                                     onClick={() => {
-                                                        if (inst.status !== 'Paid') {
-                                                            handleEditEmi(index, inst.amount, inst.rawDate);
-                                                        }
+                                                        if (isCustomEmi && inst.isEditable) handleEditEmi(index, inst.amount, inst.dueDateKey);
                                                     }}
                                                 >
-                                                    <span className="block text-slate-800 leading-none">{inst.num} {isCustomEmi && index !== (selectedStudent?.numInstallments || 4) - 1 && inst.status !== 'Paid' && '✏️'}</span>
+                                                    <span className="block text-slate-800 leading-none">{inst.num} {isCustomEmi && inst.isEditable && '✏️'}</span>
                                                     <span className="block text-[9px] text-slate-400 font-semibold leading-none">{inst.dateText}</span>
                                                 </div>
 
@@ -1160,11 +1120,7 @@ export default function CounsellorFeeCollectionPage() {
                                                     <tr key={receipt._id}>
                                                         <td className="py-3 font-mono font-bold text-indigo-600">{receipt.receiptNo}</td>
                                                         <td className="py-3">
-                                                            {new Date(receipt.paymentDate || receipt.createdAt).toLocaleDateString("en-IN", {
-                                                                day: "numeric",
-                                                                month: "short",
-                                                                year: "numeric",
-                                                            })}
+                                                            {formatDate(receipt.paymentDate || receipt.createdAt)}
                                                         </td>
                                                         <td className="py-3">{receipt.paymentMode}</td>
                                                         <td className="py-3 text-right font-bold text-slate-800">
@@ -1228,9 +1184,7 @@ export default function CounsellorFeeCollectionPage() {
                                                 <div>
                                                     <span className="block text-slate-800">Course Admission generated</span>
                                                     <span className="block text-[9px] text-slate-400 font-semibold">
-                                                        {new Date(selectedStudent.admissionDate).toLocaleDateString("en-IN", {
-                                                            day: "numeric", month: "short", year: "numeric"
-                                                        })}
+                                                        {formatDate(selectedStudent.admissionDate)}
                                                     </span>
                                                 </div>
                                                 <span className="text-rose-500">+ ₹{selectedStudent.finalFee.toLocaleString("en-IN")}</span>
@@ -1245,9 +1199,7 @@ export default function CounsellorFeeCollectionPage() {
                                                     <div>
                                                         <span className="block text-slate-800">Payment Received ({receipt.receiptNo})</span>
                                                         <span className="block text-[9px] text-slate-400 font-semibold">
-                                                            {new Date(receipt.paymentDate || receipt.createdAt).toLocaleDateString("en-IN", {
-                                                                day: "numeric", month: "short", year: "numeric"
-                                                            })} via {receipt.paymentMode}
+                                                            {formatDate(receipt.paymentDate || receipt.createdAt)} via {receipt.paymentMode}
                                                         </span>
                                                     </div>
                                                     <span className="text-emerald-600">- ₹{receipt.amountReceived.toLocaleString("en-IN")}</span>
@@ -1279,7 +1231,7 @@ export default function CounsellorFeeCollectionPage() {
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
                     <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl overflow-hidden border border-slate-200">
                         <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                            <h3 className="font-extrabold text-slate-800 text-sm">Customize Installment {editingEmiIndex + 1}</h3>
+                            <h3 className="font-extrabold text-slate-800 text-sm">Customize {installments[editingEmiIndex]?.num || "Installment"}</h3>
                             <button onClick={() => setEditingEmiIndex(null)} className="text-slate-400 hover:text-rose-500 transition-colors">
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />

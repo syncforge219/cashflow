@@ -139,7 +139,7 @@ export async function getMonthlyBiReportData(targetDate?: Date): Promise<Monthly
   // Last Full Month: 1st of prev month to last day of prev month
   const lastMonthStart = new Date(currentYear, currentMonth - 1, 1, 0, 0, 0, 0);
   const lastMonthEnd = new Date(currentYear, currentMonth, 0, 23, 59, 59, 999);
-  const lastMonthName = lastMonthStart.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+  const lastMonthName = lastMonthStart.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", month: "long", year: "numeric" });
 
   // Last Quarter Calculation:
   // Quarters: Q1 (Jan-Mar: 0-2), Q2 (Apr-Jun: 3-5), Q3 (Jul-Sep: 6-8), Q4 (Oct-Dec: 9-11)
@@ -152,7 +152,7 @@ export async function getMonthlyBiReportData(targetDate?: Date): Promise<Monthly
   }
   const lastQuarterStart = new Date(lastQuarterYear, lastQuarterStartMonth, 1, 0, 0, 0, 0);
   const lastQuarterEnd = new Date(lastQuarterYear, lastQuarterStartMonth + 3, 0, 23, 59, 59, 999);
-  const lastQuarterName = `Q${((lastQuarterStartMonth / 3) + 1)} ${lastQuarterYear} (${lastQuarterStart.toLocaleDateString("en-IN", { month: "short" })} - ${lastQuarterEnd.toLocaleDateString("en-IN", { month: "short" })})`;
+  const lastQuarterName = `Q${((lastQuarterStartMonth / 3) + 1)} ${lastQuarterYear} (${lastQuarterStart.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", month: "short" })} - ${lastQuarterEnd.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", month: "short" })})`;
 
   // 2. Fetch Datasets
   const [
@@ -257,7 +257,7 @@ export async function getMonthlyBiReportData(targetDate?: Date): Promise<Monthly
     dateRange: string;
   }
 
-  const monthShortName = mtdStart.toLocaleDateString("en-IN", { month: "short" });
+  const monthShortName = mtdStart.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", month: "short" });
   const weekDefs: WeekDef[] = [
     {
       weekNumber: 1,
@@ -611,9 +611,9 @@ export async function getMonthlyBiReportData(targetDate?: Date): Promise<Monthly
   const overallNetPnL = overallMtdCollections - totalOutflowOverall;
   const overallMargin = overallMtdCollections > 0 ? Number(((overallNetPnL / overallMtdCollections) * 100).toFixed(1)) : 0;
 
-  const monthStr = now.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
-  const dateStr = now.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-  const generatedAtStr = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+  const monthStr = now.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", month: "long", year: "numeric" });
+  const dateStr = now.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "2-digit", month: "short", year: "numeric" });
+  const generatedAtStr = now.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true });
 
   const overallConvRate = overallMtdLeads > 0 ? Number(((overallMtdAdmissions / overallMtdLeads) * 100).toFixed(1)) : 0;
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { toDateKey } from "@/lib/dates";
 import React, { useState, useEffect } from "react";
 import { useUser } from "../../../component/context/user-context";
 import CounsellorSidebar from "@/components/CounsellorSidebar";
@@ -79,7 +80,7 @@ export default function CounsellorCalendarPage() {
   const selectedDateStr = `${selYear}-${selMonth}-${selDay}`;
 
   const dateEnquiries = enquiries.filter(enq => {
-    const createdAtStr = enq.createdAt ? new Date(enq.createdAt).toISOString().split("T")[0] : "";
+    const createdAtStr = enq.createdAt ? toDateKey(new Date(enq.createdAt)) : "";
     if (createdAtStr === selectedDateStr) return true;
     if (enq.followUps && enq.followUps.length > 0) {
       return enq.followUps.some((f: any) => f.date === selectedDateStr);

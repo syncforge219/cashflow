@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { todayKey, isDateKey, addMonthsKey } from "@/lib/dates";
 import { motion, AnimatePresence } from "framer-motion";
 import PaymentReceiptModal from "./PaymentReceiptModal";
 import CourseMultiSelect from "./CourseMultiSelect";
@@ -50,10 +51,10 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
   const [batchId, setBatchId] = useState("");
   const [isCustomBatch, setIsCustomBatch] = useState(false);
   const [duration, setDuration] = useState("");
-  const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
+  const [startDate, setStartDate] = useState(todayKey());
   const [academicYear, setAcademicYear] = useState(new Date().getFullYear() + " - " + (new Date().getFullYear() + 1).toString().slice(2));
   const [courseFee, setCourseFee] = useState(Math.floor(Number(lead?.expectedCourseFee?.replace(/[^0-9.]/g, ''))) || 0);
-  const [admissionDate, setAdmissionDate] = useState(new Date().toISOString().split("T")[0]);
+  const [admissionDate, setAdmissionDate] = useState(todayKey());
   const [companyAssigned, setCompanyAssigned] = useState("");
 
   // 3. Discount & Scholarship
@@ -102,7 +103,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
   const [registrationAmount, setRegistrationAmount] = useState(0);
   const [downpaymentAmount, setDownpaymentAmount] = useState(0);
   const [downpaymentDueDate, setDownpaymentDueDate] = useState("");
-  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split("T")[0]);
+  const [paymentDate, setPaymentDate] = useState(todayKey());
   
   const amountReceivedToday = registrationAmount;
   const remainingBalance = Math.max(
@@ -129,39 +130,17 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
   const applyMonthlyDueDay = (targetDay: number) => {
     setCustomEmiItems((prev) => {
       if (!prev || prev.length === 0) return prev;
-
-      let baseDate = new Date();
-      if (prev[0]?.dueDate) {
-        const parsed = new Date(prev[0].dueDate);
-        if (!isNaN(parsed.getTime())) baseDate = parsed;
-      }
+      const baseKey = isDateKey(prev[0]?.dueDate) ? prev[0].dueDate : todayKey();
+      const monthStart = `${baseKey.slice(0, 7)}-01`;
 
       return prev.map((item, idx) => {
-        const nextMonthDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + idx, 1);
-        const maxDaysInMonth = new Date(nextMonthDate.getFullYear(), nextMonthDate.getMonth() + 1, 0).getDate();
-        const actualDay = Math.min(targetDay, maxDaysInMonth);
-        nextMonthDate.setDate(actualDay);
-
-        const year = nextMonthDate.getFullYear();
-        const month = String(nextMonthDate.getMonth() + 1).padStart(2, "0");
-        const day = String(nextMonthDate.getDate()).padStart(2, "0");
-
-        return {
-          ...item,
-          dueDate: `${year}-${month}-${day}`,
-        };
+        const firstOfMonth = addMonthsKey(monthStart, idx);
+        const [y, m] = firstOfMonth.split("-").map(Number);
+        const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+        const day = String(Math.min(targetDay, lastDay)).padStart(2, "0");
+        return { ...item, dueDate: `${firstOfMonth.slice(0, 8)}${day}` };
       });
     });
-  };
-
-  const addMonthsToDate = (date: Date, months: number) => {
-    const d = new Date(date);
-    const day = d.getDate();
-    d.setMonth(d.getMonth() + months);
-    if (d.getDate() !== day) {
-      d.setDate(0);
-    }
-    return d;
   };
 
   const generateDefaultEmiItems = (count: number, balance: number) => {
@@ -171,11 +150,10 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
     const remainder = bal - baseAmt * cnt;
 
     const items: CustomEmiItem[] = [];
-    const today = new Date();
+    const startKey = isDateKey(admissionDate) ? admissionDate : todayKey();
 
     for (let i = 0; i < cnt; i++) {
-      const d = addMonthsToDate(today, i + 1);
-      const dateStr = d.toISOString().split("T")[0];
+      const dateStr = addMonthsKey(startKey, i + 1);
       const itemAmount = i === cnt - 1 ? baseAmt + remainder : baseAmt;
 
       items.push({
@@ -216,15 +194,12 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
 
   const addEmiRow = () => {
     setCustomEmiItems((prev) => {
-      const lastDateStr = prev.length > 0 ? prev[prev.length - 1].dueDate : new Date().toISOString().split("T")[0];
-      const lastDate = new Date(lastDateStr);
-      if (isNaN(lastDate.getTime())) lastDate.setTime(Date.now());
-      const nextDate = addMonthsToDate(lastDate, 1);
+      const lastKey = prev.length > 0 && isDateKey(prev[prev.length - 1].dueDate) ? prev[prev.length - 1].dueDate : todayKey();
 
       const nextIndex = prev.length + 1;
       const newItem: CustomEmiItem = {
         installmentName: `Installment ${nextIndex}`,
-        dueDate: nextDate.toISOString().split("T")[0],
+        dueDate: addMonthsKey(lastKey, 1),
         amount: 0,
       };
       const updated = [...prev, newItem];
@@ -398,7 +373,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
           }
         }
 
-        setStartDate(new Date().toISOString().split("T")[0]);
+        setStartDate(todayKey());
         setCompanyAssigned("");
         setScholarshipType("None");
         setScholarshipAmount(0);
@@ -411,7 +386,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
         setRegistrationAmount(0);
         setDownpaymentAmount(0);
         setDownpaymentDueDate("");
-        setPaymentDate(new Date().toISOString().split("T")[0]);
+        setPaymentDate(todayKey());
         setHasEmi(false);
         setNumInstallments(1);
         setInstallmentAmount(0);
@@ -484,7 +459,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
     try {
       const defaultPlan = generateDefaultEmiItems(numInstallments > 0 ? numInstallments : 1, remainingBalance).map((item, idx) => ({
         installmentName: item.installmentName || `Installment ${idx + 1}`,
-        dueDate: item.dueDate ? new Date(item.dueDate) : new Date(Date.now() + (idx + 1) * 30 * 24 * 60 * 60 * 1000),
+        dueDate: isDateKey(item.dueDate) ? item.dueDate : addMonthsKey(todayKey(), idx + 1),
         amount: Number(item.amount) || 0,
         isPaid: false,
       }));
@@ -493,7 +468,7 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
         ? (customEmiItems.length > 0
             ? customEmiItems.map((item, idx) => ({
                 installmentName: item.installmentName || `Installment ${idx + 1}`,
-                dueDate: item.dueDate ? new Date(item.dueDate) : new Date(Date.now() + (idx + 1) * 30 * 24 * 60 * 60 * 1000),
+                dueDate: isDateKey(item.dueDate) ? item.dueDate : addMonthsKey(todayKey(), idx + 1),
                 amount: Number(item.amount) || 0,
                 isPaid: false,
               }))

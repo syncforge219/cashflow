@@ -1,5 +1,6 @@
 "use client";
 
+import { todayKey, toDateKey } from "@/lib/dates";
 import React, { useState, useEffect } from "react";
 import { useUser } from "../../component/context/user-context";
 import CounsellorSidebar from "@/components/CounsellorSidebar";
@@ -68,7 +69,7 @@ export default function CounsellorDashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   // Demo scheduling state inside modal
-  const [demoDate, setDemoDate] = useState(new Date().toISOString().split("T")[0]);
+  const [demoDate, setDemoDate] = useState(todayKey());
   const [demoTime, setDemoTime] = useState("11:00 AM");
   const [demoStudentName, setDemoStudentName] = useState("");
 
@@ -143,11 +144,11 @@ export default function CounsellorDashboardPage() {
         const myEnquiries = allEnquiries.filter((e: any) => isMatch(e.assignedCrmAdvisor));
         const counsellorAdmissions = allAdmissions.filter((a: any) => isMatch(a.counsellor || a.assignedCrmAdvisor));
 
-        const todayStr = new Date().toISOString().split("T")[0];
+        const todayStr = todayKey();
 
         // Today's Calls
         const todaysCallsCount = (taskData.tasks || []).filter(
-          (t: any) => t.taskType === "Lead Call" && new Date(t.dueDate).toISOString().split("T")[0] === todayStr
+          (t: any) => t.taskType === "Lead Call" && toDateKey(new Date(t.dueDate)) === todayStr
         ).length;
 
         // Today's Demos

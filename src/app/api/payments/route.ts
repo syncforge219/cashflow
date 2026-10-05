@@ -15,8 +15,34 @@ import { getStudentBalance, recomputeAndStoreAdmissionBalance } from "@/lib/stud
 import { logAuditEntry } from "@/lib/auditLogger";
 import { validateDeletedAccess } from "@/lib/softDeleteAccess";
 import { withOptionalTransaction } from "@/lib/transactionHelper";
+import { buildFeeSchedule, syncCustomPlanFlags } from "@/lib/feeSchedule";
+import { todayKey, toDateKey, isDateKey, dateKeyToDate, istDayRange, monthBoundsKey } from "@/lib/dates";
 
-let paymentsReconciled = false;
+/** Payment date from the form ("YYYY-MM-DD"). Today keeps the exact time; past days store that calendar day. */
+function resolvePaymentDate(value: unknown): { date: Date } | { error: string } {
+  if (value === undefined || value === null || value === "") return { date: new Date() };
+  const key = toDateKey(value as any);
+  if (!key || !isDateKey(key)) return { error: "Invalid payment date." };
+  const today = todayKey();
+  if (key > today) return { error: "Payment date cannot be in the future." };
+  return { date: key === today ? new Date() : dateKeyToDate(key) };
+}
+
+/** Recompute balance from payments and align the custom EMI plan's paid flags (never its amounts). */
+async function syncAdmissionAfterPaymentChange(admissionId: any, session: any) {
+  const balance = await recomputeAndStoreAdmissionBalance(admissionId, session);
+  const query = Admission.findById(admissionId);
+  if (session) query.session(session);
+  const admission: any = await query;
+  if (admission) {
+    const schedule = buildFeeSchedule(admission, { totalPaid: balance.totalPaid, totalFee: balance.finalFee });
+    if (syncCustomPlanFlags(admission.customEmiPlan, schedule)) {
+      admission.markModified("customEmiPlan");
+      await admission.save(session ? { session } : undefined);
+    }
+  }
+  return balance;
+}
 
 export async function GET(req: Request) {
   try {
@@ -117,11 +143,11 @@ export async function GET(req: Request) {
       });
     }
 
-    if (startDateParam && endDateParam) {
-      const s = new Date(startDateParam);
-      s.setHours(0, 0, 0, 0);
-      const e = new Date(endDateParam);
-      e.setHours(23, 59, 59, 999);
+    // Date filters are IST calendar days, independent of the server's time zone
+    const fromKey = toDateKey(startDateParam);
+    const toKey = toDateKey(endDateParam);
+    if (fromKey && toKey) {
+      const { start: s, end: e } = istDayRange(fromKey, toKey);
       andConditions.push({
         $or: [
           { paymentDate: { $gte: s, $lte: e } },
@@ -129,10 +155,7 @@ export async function GET(req: Request) {
         ]
       });
     } else if (filterParam === "today") {
-      const s = new Date();
-      s.setHours(0, 0, 0, 0);
-      const e = new Date();
-      e.setHours(23, 59, 59, 999);
+      const { start: s, end: e } = istDayRange(todayKey());
       andConditions.push({
         $or: [
           { paymentDate: { $gte: s, $lte: e } },
@@ -140,37 +163,14 @@ export async function GET(req: Request) {
         ]
       });
     } else if (filterParam === "thisMonth") {
-      const now = new Date();
-      const s = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-      const e = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      const { first, last } = monthBoundsKey();
+      const { start: s, end: e } = istDayRange(first, last);
       andConditions.push({
         $or: [
           { paymentDate: { $gte: s, $lte: e } },
           { $and: [{ paymentDate: { $exists: false } }, { createdAt: { $gte: s, $lte: e } }] }
         ]
       });
-    }
-
-    // Reconcile historical downpayment records once per server runtime instead of on every GET request
-    if (!paymentsReconciled) {
-      try {
-        const unrecAdmissions = await Admission.find({
-          downpaymentAmount: { $gt: 0 },
-          registrationAmount: { $gt: 0 }
-        }).select("_id registrationAmount downpaymentAmount finalFee courseFee").lean();
-
-        for (const adm of unrecAdmissions) {
-          const pmts = await Payment.find({ admissionId: adm._id }).sort({ createdAt: 1 }).lean();
-          const regAmt = Number(adm.registrationAmount) || 0;
-          const dpAmt = Number(adm.downpaymentAmount) || 0;
-          if (pmts.length === 1 && Number(pmts[0].amountReceived) === regAmt + dpAmt && regAmt > 0) {
-            await Payment.updateOne({ _id: pmts[0]._id }, { $set: { amountReceived: regAmt } });
-            const correctBal = Math.max(0, Number(adm.finalFee || adm.courseFee || 0) - regAmt);
-            await Admission.updateOne({ _id: adm._id }, { $set: { remainingBalance: correctBal, amountReceivedToday: regAmt } });
-          }
-        }
-      } catch (_) {}
-      paymentsReconciled = true;
     }
 
     const query = andConditions.length > 0 ? { $and: andConditions } : {};
@@ -179,7 +179,7 @@ export async function GET(req: Request) {
       .populate("admissionId", "fullName admissionId brand brandId course batch counsellor counsellorId mobileNumber remainingBalance finalFee admissionDate companyAssigned companyId company")
       .populate("brandId", "name code")
       .populate("companyId", "name legalName")
-      .sort({ createdAt: -1 })
+      .sort({ paymentDate: -1, createdAt: -1 })
       .lean();
 
     // Strict post-filtering to guarantee no cross-brand data leaks
@@ -187,7 +187,8 @@ export async function GET(req: Request) {
       const targetBrandsLower = targetBrand.split(",").map((b: string) => b.trim().toLowerCase()).filter(Boolean);
       payments = payments.filter((p: any) => {
         const pb = (p.brand || p.admissionId?.brand || "").trim().toLowerCase();
-        return targetBrandsLower.some((tb: string) => pb === tb || pb.includes(tb) || tb.includes(pb));
+        // A payment with no brand must not match every brand ("x".includes("") is true)
+        return Boolean(pb) && targetBrandsLower.some((tb: string) => pb === tb || pb.includes(tb) || tb.includes(pb));
       });
     }
 
@@ -221,6 +222,13 @@ export async function POST(req: Request) {
         { success: false, message: "Missing required fields (admissionId, amountReceived, paymentMode)." },
         { status: 400 }
       );
+    }
+    if (!(Number(amountReceived) > 0)) {
+      return NextResponse.json({ success: false, message: "Amount received must be greater than zero." }, { status: 400 });
+    }
+    const resolvedDate = resolvePaymentDate(body.paymentDate);
+    if ("error" in resolvedDate) {
+      return NextResponse.json({ success: false, message: resolvedDate.error }, { status: 400 });
     }
 
     // 1. Find the admission record
@@ -413,6 +421,7 @@ export async function POST(req: Request) {
         admissionId: admission._id,
         studentName: admission.fullName,
         amountReceived: Number(amountReceived),
+        paymentDate: resolvedDate.date,
         paymentMode,
         referenceNo,
         remarks,
@@ -430,38 +439,15 @@ export async function POST(req: Request) {
       admission.remainingBalance = newBalance;
       admission.amountReceivedToday = balanceResult.totalPaid;
 
-      const receivedAmt = Number(amountReceived);
-      if (body.isDownpayment || particulars?.isDownpayment || particulars?.paymentCategory === "Down Payment" || (remarks && remarks.toLowerCase().includes("down payment"))) {
-        admission.downpaymentAmount = (Number(admission.downpaymentAmount) || 0) + receivedAmt;
-      }
-
-      // Synchronize custom EMI plan installments
-      if (Array.isArray(admission.customEmiPlan) && admission.customEmiPlan.length > 0) {
-        if (newBalance === 0) {
-          // Full fee paid off - mark all installments as paid
-          admission.customEmiPlan.forEach((item: any) => {
-            item.isPaid = true;
-            if (!item.paidDate) item.paidDate = new Date();
-          });
-        } else if (receivedAmt > 0) {
-          // Apply received payment chronologically against unpaid installments
-          let creditRemaining = receivedAmt;
-          for (const item of admission.customEmiPlan) {
-            if (creditRemaining <= 0) break;
-            if (!item.isPaid) {
-              const itemAmt = Number(item.amount) || 0;
-              if (creditRemaining >= itemAmt) {
-                item.isPaid = true;
-                item.paidDate = new Date();
-                creditRemaining -= itemAmt;
-              } else {
-                // Partial payment on this installment: reduce remaining amount due for this installment
-                item.amount = Math.max(0, itemAmt - creditRemaining);
-                creditRemaining = 0;
-              }
-            }
-          }
-        }
+      // downpaymentAmount is the AGREED down payment and the EMI plan amounts are the agreed
+      // instalments: neither changes when money comes in. What is paid is derived from payments;
+      // only the informational isPaid/paidDate flags are aligned here.
+      const schedule = buildFeeSchedule(admission, {
+        totalPaid: balanceResult.totalPaid,
+        totalFee: balanceResult.finalFee,
+      });
+      if (syncCustomPlanFlags(admission.customEmiPlan, schedule, resolvedDate.date)) {
+        admission.markModified("customEmiPlan");
       }
 
       await admission.save({ session });
@@ -527,7 +513,8 @@ export async function POST(req: Request) {
           mobileNumber: admission.mobileNumber,
           courseName: admission.course,
           amountPaid: Number(amountReceived),
-          paymentDate: new Date(payment.createdAt || Date.now()).toLocaleDateString("en-IN"),
+          // ISO date key: formatDateOnly() renders it in IST. A "d/m/yyyy" string was parsed as m/d.
+          paymentDate: toDateKey(payment.paymentDate || payment.createdAt || new Date()),
           receiptNo: payment.receiptNo,
         }).catch((err) => console.error("Async MSG91 WhatsApp Error:", err));
       }
@@ -574,7 +561,14 @@ export async function PATCH(req: Request) {
     const oldAmount = Number(existingPayment.amountReceived) || 0;
 
     if (body.paymentDate) {
-      existingPayment.paymentDate = new Date(body.paymentDate);
+      const resolved = resolvePaymentDate(body.paymentDate);
+      if ("error" in resolved) {
+        return NextResponse.json({ success: false, message: resolved.error }, { status: 400 });
+      }
+      // Only change the stored value when the calendar date actually changes (keeps time of day)
+      if (toDateKey(existingPayment.paymentDate) !== toDateKey(resolved.date)) {
+        existingPayment.paymentDate = resolved.date;
+      }
     }
     if (body.paymentMode) {
       existingPayment.paymentMode = body.paymentMode;
@@ -589,7 +583,10 @@ export async function PATCH(req: Request) {
       existingPayment.company = body.company;
     }
 
-    if (body.amountReceived !== undefined && !isNaN(Number(body.amountReceived))) {
+    if (body.amountReceived !== undefined) {
+      if (!(Number(body.amountReceived) > 0)) {
+        return NextResponse.json({ success: false, message: "Amount received must be greater than zero." }, { status: 400 });
+      }
       existingPayment.amountReceived = Number(body.amountReceived);
     }
 
@@ -600,7 +597,7 @@ export async function PATCH(req: Request) {
       const newAmount = Number(existingPayment.amountReceived) || 0;
       const diff = newAmount - oldAmount;
       if (diff !== 0 && existingPayment.admissionId) {
-        await recomputeAndStoreAdmissionBalance(existingPayment.admissionId, session);
+        await syncAdmissionAfterPaymentChange(existingPayment.admissionId, session);
       }
     });
 
@@ -671,21 +668,8 @@ export async function DELETE(req: Request) {
       await payment.save({ session });
 
       if (admissionId) {
-        await recomputeAndStoreAdmissionBalance(admissionId, session);
+        await syncAdmissionAfterPaymentChange(admissionId, session);
         updatedAdmission = await Admission.findById(admissionId).session(session);
-
-        // If student has custom EMI plan, unmark the corresponding EMI installment
-        if (updatedAdmission && Array.isArray(updatedAdmission.customEmiPlan) && updatedAdmission.customEmiPlan.length > 0) {
-          const paidEmis = updatedAdmission.customEmiPlan.filter((emi: any) => emi.isPaid);
-          if (paidEmis.length > 0) {
-            const matchingEmi = paidEmis.reverse().find((emi: any) => Number(emi.amount) === deletedAmount) || paidEmis[0];
-            if (matchingEmi) {
-              matchingEmi.isPaid = false;
-              matchingEmi.paidDate = null;
-              await updatedAdmission.save({ session });
-            }
-          }
-        }
       }
     });
 

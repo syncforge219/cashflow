@@ -1,5 +1,6 @@
 "use client";
 
+import { todayKey, toDateKey } from "@/lib/dates";
 import React, { useState, useEffect, useRef } from "react";
 import RegisterCounsellorModal from "./RegisterCounsellorModal";
 import EditCounsellorModal from "./EditCounsellorModal";
@@ -114,7 +115,7 @@ export default function CounsellorDisplay() {
             status: "ACTIVE",
             annualTarget: `₹${target.toLocaleString("en-IN")}`,
             revenueCollected: `₹${revenue.toLocaleString("en-IN")}`,
-            joiningDate: c.joiningDate ? new Date(c.joiningDate).toISOString().split("T")[0] : "—",
+            joiningDate: c.joiningDate ? toDateKey(new Date(c.joiningDate)) : "—",
             admissions: `${admissionsNum} Seats`,
             initials: `${firstInitial}${lastInitial}`.toUpperCase() || "CU",
             scopeBadge: "Sales Counsellor Scope",
@@ -275,7 +276,7 @@ export default function CounsellorDisplay() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Counsellors_Registry_${new Date().toISOString().split("T")[0]}.csv`);
+    link.setAttribute("download", `Counsellors_Registry_${todayKey()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

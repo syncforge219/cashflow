@@ -1,5 +1,6 @@
 "use client";
 
+import { todayKey } from "@/lib/dates";
 import React, { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
 import ProfileDisplay from "@/components/ProfileDisplay";
@@ -52,7 +53,7 @@ export default function PayrollPage() {
     bonus: "0",
     deductions: "0",
     paymentStatus: "Paid",
-    paymentDate: new Date().toISOString().slice(0, 10),
+    paymentDate: todayKey(),
     paymentMode: "Bank Transfer",
     brand: "All Brands",
     company: "All Companies",
@@ -197,7 +198,7 @@ export default function PayrollPage() {
           bonus: "0",
           deductions: "0",
           paymentStatus: "Paid",
-          paymentDate: new Date().toISOString().slice(0, 10),
+          paymentDate: todayKey(),
           paymentMode: "Bank Transfer",
           brand: "All Brands",
           company: "All Companies",

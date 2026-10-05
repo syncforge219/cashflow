@@ -1,3 +1,4 @@
+import { todayKey } from "@/lib/dates";
 import { NextResponse } from "next/server";
 import { sendWhatsAppDemoReminder } from "@/lib/msg91";
 
@@ -27,7 +28,7 @@ export async function POST(req: Request) {
       studentName: studentName || "Student",
       mobileNumber,
       courseName: courseName || "Course",
-      demoDate: demoDate || new Date().toISOString().split("T")[0],
+      demoDate: demoDate || todayKey(),
       demoTime: demoTime || "11:00 AM",
       demoMode: demoMode || "Online",
     });

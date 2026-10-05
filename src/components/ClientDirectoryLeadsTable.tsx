@@ -1,5 +1,6 @@
 "use client";
 
+import { toDateKey } from "@/lib/dates";
 import React from "react";
 
 interface ClientDirectoryLeadsTableProps {
@@ -132,7 +133,7 @@ export default function ClientDirectoryLeadsTable({
                         <span>
                           {lead.date ||
                             (lead.createdAt
-                              ? new Date(lead.createdAt).toISOString().split("T")[0]
+                              ? toDateKey(new Date(lead.createdAt))
                               : "N/A")}
                         </span>
                       </div>

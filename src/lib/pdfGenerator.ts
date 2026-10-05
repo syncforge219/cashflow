@@ -138,12 +138,12 @@ export function generateReceiptPdfBuffer(data: ReceiptPdfData): Buffer {
     `BT /F2 8 Tf 0.2 0.2 0.2 rg 365 530 Td (Payment Details) Tj ET`,
 
     ...(Number(data.downpaymentAmount || 0) > 0 ? [
-      `BT /F1 8 Tf 0.2 0.2 0.2 rg 55 510 Td (${data.downpaymentDueDate ? new Date(data.downpaymentDueDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : shortPayDate}) Tj ET`,
+      `BT /F1 8 Tf 0.2 0.2 0.2 rg 55 510 Td (${data.downpaymentDueDate ? new Date(data.downpaymentDueDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "2-digit", month: "short", year: "numeric" }) : shortPayDate}) Tj ET`,
       `BT /F1 8 Tf 0.2 0.2 0.2 rg 125 510 Td (Downpayment) Tj ET`,
       `BT /F1 8 Tf 0.2 0.2 0.2 rg 185 510 Td (${Number(data.downpaymentAmount || 0)}) Tj ET`,
       `BT /F1 8 Tf 0.2 0.2 0.2 rg 235 510 Td (${totalPaidVal >= amountVal + Number(data.downpaymentAmount || 0) ? Number(data.downpaymentAmount || 0) : 0}) Tj ET`,
       `BT /F1 8 Tf 0.2 0.2 0.2 rg 295 510 Td (${totalPaidVal >= amountVal + Number(data.downpaymentAmount || 0) ? 0 : Number(data.downpaymentAmount || 0)}) Tj ET`,
-      `BT /F1 7 Tf 0.4 0.4 0.4 rg 365 510 Td (Scheduled Due Date: ${data.downpaymentDueDate ? new Date(data.downpaymentDueDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : shortPayDate}) Tj ET`,
+      `BT /F1 7 Tf 0.4 0.4 0.4 rg 365 510 Td (Scheduled Due Date: ${data.downpaymentDueDate ? new Date(data.downpaymentDueDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "2-digit", month: "short", year: "numeric" }) : shortPayDate}) Tj ET`,
     ] : [
       `BT /F1 8 Tf 0.2 0.2 0.2 rg 55 510 Td (${shortPayDate}) Tj ET`,
       `BT /F1 8 Tf 0.2 0.2 0.2 rg 125 510 Td (566) Tj ET`,
@@ -329,7 +329,7 @@ function buildMultiPagePdfBuffer(pageStreamTexts: string[]): Buffer {
 }
 
 function buildEnhancedBiReportPdfBuffer(data: DailyBiReportData): Buffer {
-  const dateStr = escapePdfText(data.dateStr || new Date().toLocaleDateString("en-IN"));
+  const dateStr = escapePdfText(data.dateStr || new Date().toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }));
   const genAtStr = escapePdfText(data.generatedAtStr || "");
 
   const fmt = (n: number) => Math.round(n || 0).toLocaleString("en-IN");
@@ -669,8 +669,8 @@ function buildEnhancedBiReportPdfBuffer(data: DailyBiReportData): Buffer {
  * Generate Multi-Page Native PDF Buffer for CoachFlow ERP - Monthly Brand-Divided BI Report
  */
 function buildMonthlyBiReportPdfBuffer(data: MonthlyBiReportData): Buffer {
-  const monthStr = escapePdfText(data.monthStr || new Date().toLocaleDateString("en-IN", { month: "long", year: "numeric" }));
-  const dateStr = escapePdfText(data.dateStr || new Date().toLocaleDateString("en-IN"));
+  const monthStr = escapePdfText(data.monthStr || new Date().toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", month: "long", year: "numeric" }));
+  const dateStr = escapePdfText(data.dateStr || new Date().toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }));
   const genAtStr = escapePdfText(data.generatedAtStr || "12:00 PM");
   const fmt = (n: number) => Math.round(n || 0).toLocaleString("en-IN");
   const fmtChg = (pct: number) => (pct >= 0 ? `+${pct}%` : `${pct}%`);
@@ -1237,7 +1237,7 @@ export function generateExpensePdfBuffer(data: ExpensePdfData): Buffer {
   p1Lines.push(fillRoundedRect("0.12 0.10 0.29", 20, 760, 555, 60, 6));
   p1Lines.push(`BT /F2 13 Tf 1 1 1 rg 35 798 Td (COACHFLOW ERP  \xb7  FINANCIAL INTELLIGENCE SUITE) Tj ET`);
   p1Lines.push(`BT /F2 9.5 Tf 0.8 0.85 0.98 rg 35 778 Td (OPERATIONAL EXPENSE EXECUTIVE REPORT) Tj ET`);
-  p1Lines.push(`BT /F1 7.5 Tf 0.7 0.8 0.95 rg 400 798 Td (Generated: ${escapePdfText(data.generatedAtStr || new Date().toLocaleDateString("en-IN"))}) Tj ET`);
+  p1Lines.push(`BT /F1 7.5 Tf 0.7 0.8 0.95 rg 400 798 Td (Generated: ${escapePdfText(data.generatedAtStr || new Date().toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }))}) Tj ET`);
   p1Lines.push(`BT /F1 7.5 Tf 0.7 0.8 0.95 rg 400 778 Td (Total Records: ${totalCount}) Tj ET`);
 
   // Sub-header Filter Strip (Y: 732..752)
@@ -1382,7 +1382,7 @@ export function generateExpensePdfBuffer(data: ExpensePdfData): Buffer {
   page1Rows.forEach((exp, idx) => {
     if (idx % 2 === 1) p1Lines.push(fillRoundedRect("0.96 0.97 0.98", 20, rY - 2, 555, 15, 0));
 
-    const dateStr = exp.expenseDate ? new Date(exp.expenseDate).toLocaleDateString("en-IN") : "-";
+    const dateStr = exp.expenseDate ? new Date(exp.expenseDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }) : "-";
     p1Lines.push(`BT /F1 7 Tf 0.3 0.3 0.4 rg 25 ${rY} Td (${idx + 1}) Tj ET`);
     p1Lines.push(`BT /F1 7 Tf 0.1 0.1 0.2 rg 50 ${rY} Td (${escapePdfText(dateStr)}) Tj ET`);
     p1Lines.push(`BT /F2 7 Tf 0.7 0.1 0.2 rg 110 ${rY} Td (${escapePdfText((exp.category || "Misc").slice(0, 15))}) Tj ET`);
@@ -1435,7 +1435,7 @@ export function generateExpensePdfBuffer(data: ExpensePdfData): Buffer {
         const globalIdx = 13 + pageIdx * 38 + rowIdx;
         if (rowIdx % 2 === 1) pageLines.push(fillRoundedRect("0.96 0.97 0.98", 20, pY - 2, 555, 15, 0));
 
-        const dateStr = exp.expenseDate ? new Date(exp.expenseDate).toLocaleDateString("en-IN") : "-";
+        const dateStr = exp.expenseDate ? new Date(exp.expenseDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }) : "-";
         pageLines.push(`BT /F1 7 Tf 0.3 0.3 0.4 rg 25 ${pY} Td (${globalIdx}) Tj ET`);
         pageLines.push(`BT /F1 7 Tf 0.1 0.1 0.2 rg 50 ${pY} Td (${escapePdfText(dateStr)}) Tj ET`);
         pageLines.push(`BT /F2 7 Tf 0.7 0.1 0.2 rg 110 ${pY} Td (${escapePdfText((exp.category || "Misc").slice(0, 15))}) Tj ET`);

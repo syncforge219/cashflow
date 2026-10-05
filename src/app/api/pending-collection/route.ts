@@ -12,6 +12,15 @@ import Brand from "@/models/Brand";
 import Company from "@/models/Company";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { studentBalanceLookupStages } from "@/lib/studentBalanceService";
+import { buildFeeSchedule, agingOf, OVERDUE_BUCKETS } from "@/lib/feeSchedule";
+import { todayKey, toDateKey } from "@/lib/dates";
+
+/** "all"/"totalPending" show everything, "overdue" shows every overdue bucket, otherwise exact bucket. */
+function matchesBucket(filter: string, categoryKey: string): boolean {
+  if (filter === "all" || filter === "totalPending") return true;
+  if (filter === "overdue" || filter === "overdueTotal") return OVERDUE_BUCKETS.includes(categoryKey as any);
+  return filter === categoryKey;
+}
 
 export async function GET(req: Request) {
   try {
@@ -77,8 +86,8 @@ export async function GET(req: Request) {
 
     const escapeRegExp = (str: string) => str.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
 
-    // Query all admissions with remaining balance > 0
-    const query: any = { remainingBalance: { $gt: 0 } };
+    // Balance is computed from actual payments in the pipeline below (the stored field can be stale)
+    const query: any = {};
 
     // Brand Scoping for Logged-In User
     const rawUserBrand = (user.brandScope || (user as any)?.brand || (user as any)?.targetBrand || "").trim();
@@ -181,7 +190,6 @@ export async function GET(req: Request) {
       query.$and = andClauses;
     }
 
-    delete query.remainingBalance; // Remove pre-filter on stored field so pipeline computes true balance
     const admissions = await Admission.aggregate([
       { $match: query },
       ...studentBalanceLookupStages(),
@@ -189,51 +197,52 @@ export async function GET(req: Request) {
     ]);
     const admissionIds = admissions.map((a: any) => a._id);
 
-    // Fetch payments to find last payment date
+    // Latest payment per admission (by the date the money was received, not when it was keyed in)
     const payments = await Payment.find({ admissionId: { $in: admissionIds } })
-      .sort({ createdAt: -1 })
+      .select("admissionId paymentDate createdAt amountReceived")
+      .sort({ paymentDate: -1, createdAt: -1 })
       .lean();
 
     const paymentMap = new Map<string, any>();
     payments.forEach((p: any) => {
       const key = p.admissionId.toString();
-      if (!paymentMap.has(key)) {
-        paymentMap.set(key, p);
-      }
+      if (!paymentMap.has(key)) paymentMap.set(key, p);
     });
 
-    // Fetch last follow-up tasks
+    // Latest follow-up task per admission
     const tasks = await Task.find({
-      linkedStudentId: { $in: admissionIds },
-      taskType: { $in: ["Fee Follow-up", "Follow-up", "Lead Call"] }
+      linkedStudentId: { $in: admissionIds.map((id: any) => id.toString()) },
+      taskType: { $in: ["Fee Follow-up", "Fee Followup", "Follow-up", "EMI Recovery", "Fee Collection"] },
     })
+      .select("linkedStudentId createdAt description title")
       .sort({ createdAt: -1 })
       .lean();
 
     const taskMap = new Map<string, any>();
     tasks.forEach((t: any) => {
-      if (t.linkedStudentId) {
-        const key = t.linkedStudentId.toString();
-        if (!taskMap.has(key)) {
-          taskMap.set(key, t);
-        }
-      }
+      const key = String(t.linkedStudentId || "");
+      if (key && !taskMap.has(key)) taskMap.set(key, t);
     });
 
-    const now = new Date();
-    const todayStr = now.toISOString().split("T")[0];
+    const today = todayKey();
 
-    // Aging Bucket Counters
-    const buckets = {
-      dueToday: { amount: 0, count: 0, label: "Due Today" },
-      next7Days: { amount: 0, count: 0, label: "Next 7 Days" },
-      next15Days: { amount: 0, count: 0, label: "Next 15 Days" },
-      next30Days: { amount: 0, count: 0, label: "Next 30 Days" },
+    // Aging buckets. Overdue buckets hold the overdue amount; upcoming buckets hold the next instalment.
+    const buckets: Record<string, { amount: number; count: number; label: string }> = {
+      totalPending: { amount: 0, count: 0, label: "Total Pending" },
+      overdueTotal: { amount: 0, count: 0, label: "Total Overdue" },
+      overdue1to30: { amount: 0, count: 0, label: "1–30 Days Overdue" },
       overdue31to60: { amount: 0, count: 0, label: "31–60 Days Overdue" },
       overdue61to90: { amount: 0, count: 0, label: "61–90 Days Overdue" },
       overdue90Plus: { amount: 0, count: 0, label: "90+ Days Overdue" },
-      overdueTotal: { amount: 0, count: 0, label: "Total Overdue" },
-      totalPending: { amount: 0, count: 0, label: "Total Pending" }
+      dueToday: { amount: 0, count: 0, label: "Due Today" },
+      next7Days: { amount: 0, count: 0, label: "Next 7 Days" },
+      next15Days: { amount: 0, count: 0, label: "8–15 Days" },
+      next30Days: { amount: 0, count: 0, label: "16–30 Days" },
+      later: { amount: 0, count: 0, label: "After 30 Days" },
+    };
+    const add = (key: string, amount: number) => {
+      buckets[key].amount = Math.round((buckets[key].amount + amount) * 100) / 100;
+      buckets[key].count += 1;
     };
 
     const records: any[] = [];
@@ -243,109 +252,21 @@ export async function GET(req: Request) {
       const lastPayment = paymentMap.get(admIdStr);
       const lastTask = taskMap.get(admIdStr);
 
-      // Determine next due date and pending amount by reconciling customEmiPlan with total paid amount
-      let dueDate: Date | null = null;
-      let pendingAmount = Number(adm.remainingBalance) || 0;
-      const totalFee = Number(adm.finalFee || adm.totalFee || 0);
-      const paidAmount = Math.max(0, totalFee - pendingAmount);
+      const schedule = buildFeeSchedule(
+        adm,
+        // Same fee and paid figures the balance pipeline used (paise -> rupees)
+        { totalPaid: (Number(adm.paidAmountPaise) || 0) / 100, totalFee: (Number(adm.computedFinalFeePaise) || 0) / 100 },
+        today
+      );
+      const next = schedule.nextDue;
+      const aging = agingOf(schedule);
+      if (!next || !aging) return; // nothing outstanding
 
-      if (adm.customEmiPlan && Array.isArray(adm.customEmiPlan) && adm.customEmiPlan.length > 0) {
-        // Sort installments by due date ascending
-        const sortedPlan = [...adm.customEmiPlan].sort(
-          (a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
-        );
+      const { bucket: categoryKey, label: statusLabel, amount: amountForBucket, days: diffDays } = aging;
+      if (diffDays < 0) add("overdueTotal", schedule.overdueAmount);
 
-        let creditRemaining = paidAmount;
-        const unpaidInstallments: any[] = [];
-
-        for (const item of sortedPlan) {
-          const itemAmt = Number(item.amount) || 0;
-          if (item.isPaid || creditRemaining >= itemAmt) {
-            creditRemaining = Math.max(0, creditRemaining - itemAmt);
-          } else {
-            unpaidInstallments.push({
-              ...item,
-              effectiveDueAmount: Math.max(0, itemAmt - creditRemaining)
-            });
-            creditRemaining = 0;
-          }
-        }
-
-        if (unpaidInstallments.length > 0) {
-          dueDate = new Date(unpaidInstallments[0].dueDate);
-          pendingAmount = unpaidInstallments[0].effectiveDueAmount || unpaidInstallments[0].amount || pendingAmount;
-        }
-      }
-
-      if (!dueDate) {
-        dueDate = adm.downpaymentDueDate
-          ? new Date(adm.downpaymentDueDate)
-          : adm.admissionDate
-          ? new Date(adm.admissionDate)
-          : adm.createdAt
-          ? new Date(adm.createdAt)
-          : now;
-      }
-
-      // Calculate days difference
-      const dueDateZero = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
-      const nowZero = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const diffTime = dueDateZero.getTime() - nowZero.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); // negative = overdue, 0 = today, positive = future
-
-      let categoryKey = "next30Days";
-      let statusLabel = "Upcoming";
-
-      if (diffDays < 0) {
-        const daysOverdue = Math.abs(diffDays);
-        statusLabel = `${daysOverdue} Days Overdue`;
-        buckets.overdueTotal.amount += pendingAmount;
-        buckets.overdueTotal.count += 1;
-
-        if (daysOverdue <= 30) {
-          categoryKey = "overdue31to60"; // Overdue up to 30 days
-        } else if (daysOverdue <= 60) {
-          categoryKey = "overdue31to60";
-          buckets.overdue31to60.amount += pendingAmount;
-          buckets.overdue31to60.count += 1;
-        } else if (daysOverdue <= 90) {
-          categoryKey = "overdue61to90";
-          buckets.overdue61to90.amount += pendingAmount;
-          buckets.overdue61to90.count += 1;
-        } else {
-          categoryKey = "overdue90Plus";
-          buckets.overdue90Plus.amount += pendingAmount;
-          buckets.overdue90Plus.count += 1;
-        }
-      } else if (diffDays === 0) {
-        categoryKey = "dueToday";
-        statusLabel = "Due Today";
-        buckets.dueToday.amount += pendingAmount;
-        buckets.dueToday.count += 1;
-      } else if (diffDays <= 7) {
-        categoryKey = "next7Days";
-        statusLabel = `Due in ${diffDays} Days`;
-        buckets.next7Days.amount += pendingAmount;
-        buckets.next7Days.count += 1;
-      } else if (diffDays <= 15) {
-        categoryKey = "next15Days";
-        statusLabel = `Due in ${diffDays} Days`;
-        buckets.next15Days.amount += pendingAmount;
-        buckets.next15Days.count += 1;
-      } else {
-        categoryKey = "next30Days";
-        statusLabel = `Due in ${diffDays} Days`;
-        buckets.next30Days.amount += pendingAmount;
-        buckets.next30Days.count += 1;
-      }
-
-      buckets.totalPending.amount += adm.remainingBalance || 0;
-      buckets.totalPending.count += 1;
-
-      // Filter by bucket if specified
-      if (bucketFilter && bucketFilter !== "all" && bucketFilter !== categoryKey && bucketFilter !== "all_overdue" && bucketFilter !== "totalPending") {
-        if (bucketFilter === "overdue" && diffDays >= 0) return;
-      }
+      add(categoryKey, amountForBucket);
+      add("totalPending", schedule.outstanding);
 
       const rec = {
         _id: adm._id,
@@ -359,28 +280,32 @@ export async function GET(req: Request) {
         batch: adm.batch || "General Batch",
         counsellor: adm.counsellor || "Staff",
         companyAssigned: adm.companyAssigned || adm.company || "N/A",
-        agreedFee: adm.finalFee || adm.courseFee || 0,
-        remainingBalance: adm.remainingBalance || 0,
-        pendingInstallmentAmount: pendingAmount,
-        dueDate: dueDate.toISOString(),
+        agreedFee: schedule.totalFee,
+        paidAmount: schedule.totalPaid,
+        remainingBalance: schedule.outstanding,
+        // What the student should pay now: everything overdue/due today, else the next instalment
+        pendingInstallmentAmount: schedule.amountDueNow > 0 ? schedule.amountDueNow : next.dueAmount,
+        overdueAmount: schedule.overdueAmount,
+        nextInstallmentLabel: next.label,
+        dueDate: next.dueDateKey, // IST calendar date "YYYY-MM-DD"
         diffDays,
         statusLabel,
         categoryKey,
-        lastPaymentDate: lastPayment ? lastPayment.paymentDate || lastPayment.createdAt : null,
+        lastPaymentDate: lastPayment ? toDateKey(lastPayment.paymentDate || lastPayment.createdAt) : null,
         lastPaymentAmount: lastPayment ? lastPayment.amountReceived : 0,
-        lastFollowupDate: lastTask ? lastTask.createdAt : null,
-        lastFollowupNotes: lastTask ? lastTask.notes || lastTask.remarks : null,
-        hasEmi: adm.hasEmi || false,
-        numInstallments: adm.numInstallments || 1
+        lastFollowupDate: lastTask ? toDateKey(lastTask.createdAt) : null,
+        lastFollowupNotes: lastTask ? lastTask.description || lastTask.title || null : null,
+        hasEmi: schedule.items.some((i) => i.kind === "EMI"),
+        numInstallments: schedule.items.filter((i) => i.kind === "EMI").length || 1,
       };
 
+      if (bucketFilter && !matchesBucket(bucketFilter, categoryKey)) return;
+
       if (searchQuery) {
-        const matchName = rec.studentName.toLowerCase().includes(searchQuery);
-        const matchId = rec.admissionId.toLowerCase().includes(searchQuery);
-        const matchMobile = rec.mobileNumber.includes(searchQuery);
-        const matchCourse = rec.course.toLowerCase().includes(searchQuery);
-        const matchCounsellor = rec.counsellor.toLowerCase().includes(searchQuery);
-        if (!matchName && !matchId && !matchMobile && !matchCourse && !matchCounsellor) return;
+        const haystack = [rec.studentName, rec.admissionId, rec.mobileNumber, rec.course, rec.counsellor]
+          .join(" ")
+          .toLowerCase();
+        if (!haystack.includes(searchQuery)) return;
       }
 
       records.push(rec);

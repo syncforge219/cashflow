@@ -1,5 +1,6 @@
 "use client";
 
+import { todayKey } from "@/lib/dates";
 import React, { useState, useEffect } from "react";
 
 interface AddFollowupModalProps {
@@ -29,7 +30,7 @@ export default function AddFollowupModal({
 }: AddFollowupModalProps) {
   const [activeTab, setActiveTab] = useState<"add" | "history">("add");
 
-  const todayYYYYMMDD = new Date().toISOString().split("T")[0];
+  const todayYYYYMMDD = todayKey();
   const currentTimeStr = new Date().toLocaleTimeString("en-US", {
     hour: "2-digit",
     minute: "2-digit",

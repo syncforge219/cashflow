@@ -1,3 +1,4 @@
+import { todayKey } from "@/lib/dates";
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Enquiry from "@/models/Enquiry";
@@ -218,7 +219,7 @@ export async function POST(req: Request) {
     // 3. Create Enquiry Document
     const newEnquiry = await Enquiry.create({
       studentFullName,
-      date: body.date?.trim() || new Date().toISOString().split("T")[0],
+      date: body.date?.trim() || todayKey(),
       primaryPhoneMobile,
       emailAddress,
       currentCity,

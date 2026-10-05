@@ -1,5 +1,6 @@
 "use client";
 
+import { toDateKey } from "@/lib/dates";
 import React, { useState, useEffect } from "react";
 
 interface EditCounsellorModalProps {
@@ -44,7 +45,7 @@ export default function EditCounsellorModal({
         phone: "+91 " + cleaned,
         brandScope: counsellor.scope || counsellor.brandScope || "Cadd Mantra",
         joiningDate: counsellor.joiningDate && counsellor.joiningDate !== "—"
-          ? new Date(counsellor.joiningDate).toISOString().split("T")[0]
+          ? toDateKey(new Date(counsellor.joiningDate))
           : "",
         annualTarget: counsellor.targetNum ?? 500000,
         currentRevenue: counsellor.revenueNum ?? 0,

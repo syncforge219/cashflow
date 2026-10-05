@@ -1,3 +1,4 @@
+import { toDateKey } from "@/lib/dates";
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Enquiry from "@/models/Enquiry";
@@ -49,15 +50,15 @@ function detectIntents(queryLower: string): Set<string> {
 // ─── ENTITY EXTRACTOR ───────────────────────────────────────
 function extractEntities(queryLower: string) {
   const today = new Date();
-  const todayStr = today.toISOString().split("T")[0];
+  const todayStr = toDateKey(today);
 
   const weekAgo = new Date(today);
   weekAgo.setDate(weekAgo.getDate() - 7);
-  const weekAgoStr = weekAgo.toISOString().split("T")[0];
+  const weekAgoStr = toDateKey(weekAgo);
 
   const monthAgo = new Date(today);
   monthAgo.setDate(monthAgo.getDate() - 30);
-  const monthAgoStr = monthAgo.toISOString().split("T")[0];
+  const monthAgoStr = toDateKey(monthAgo);
 
   const isToday = queryLower.includes("today");
   const isYesterday = queryLower.includes("yesterday");
@@ -120,8 +121,8 @@ function forecastMetrics(enquiries: any[], payments: any[]) {
   const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
   const remaining = daysInMonth - currentDay;
 
-  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split("T")[0];
-  const todayStr = today.toISOString().split("T")[0];
+  const monthStart = toDateKey(new Date(today.getFullYear(), today.getMonth(), 1));
+  const todayStr = toDateKey(today);
 
   const thisMonthAdmissions = enquiries.filter(e => {
     const d = e.admissionDate || e.createdAt || "";

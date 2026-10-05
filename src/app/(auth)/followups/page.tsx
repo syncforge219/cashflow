@@ -1,5 +1,6 @@
 "use client";
 
+import { todayKey, toDateKey } from "@/lib/dates";
 import React, { useState, useEffect, useMemo } from "react";
 import Sidebar from "@/components/Sidebar";
 import ProfileDisplay from "@/components/ProfileDisplay";
@@ -142,7 +143,7 @@ export default function FollowupPage() {
   // Tab Selection
   const [enquiryTab, setEnquiryTab] = useState<"today" | "new" | "pending" | "upcoming" | "donot">("today");
   const [feesTab, setFeesTab] = useState<"today" | "overdue" | "upcoming">("today");
-  const [selectedNewLeadDate, setSelectedNewLeadDate] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [selectedNewLeadDate, setSelectedNewLeadDate] = useState<string>(todayKey());
 
   // Helper for local YYYY-MM-DD date string
   const getLocalDateStr = (dateVal?: string | Date) => {
@@ -202,7 +203,7 @@ export default function FollowupPage() {
   // Quick Add Followup Modal State
   const [isQuickFollowupModalOpen, setIsQuickFollowupModalOpen] = useState(false);
   const [activeRecordForFollowup, setActiveRecordForFollowup] = useState<any | null>(null);
-  const [quickDate, setQuickDate] = useState(new Date().toISOString().split("T")[0]);
+  const [quickDate, setQuickDate] = useState(todayKey());
   const [quickTime, setQuickTime] = useState("11:00 AM");
   const [quickRemarks, setQuickRemarks] = useState("");
   const [quickStatus, setQuickStatus] = useState("In Progress");
@@ -473,7 +474,7 @@ export default function FollowupPage() {
           } else {
             updatedFollowups = [
               {
-                date: enq.followUpDate || enq.date || new Date().toISOString().split("T")[0],
+                date: enq.followUpDate || enq.date || todayKey(),
                 time: "10:00",
                 priority: enq.priorityLevel || "Medium",
                 typeOfContact: "Phone Call",
@@ -544,7 +545,7 @@ export default function FollowupPage() {
   // PROCESSED ENQUIRY FOLLOWUPS DATA
   // -------------------------------------------------------------
   const processedEnquiryFollowups = useMemo(() => {
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = todayKey();
     const todayTime = new Date().setHours(0, 0, 0, 0);
 
     const list: EnquiryFollowupRecord[] = [];
@@ -611,7 +612,7 @@ export default function FollowupPage() {
 
   // Filtered Enquiry Records based on Tab & Search & Advanced Filters & Strict Brand Isolation
   const filteredEnquiryRecords = useMemo(() => {
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = todayKey();
     const todayTime = new Date(todayStr).getTime();
 
     return processedEnquiryFollowups.filter((rec) => {
@@ -722,7 +723,7 @@ export default function FollowupPage() {
 
   // Tab Counters for Enquiry Mode strictly isolated by active Brand / Scope
   const enquiryCounts = useMemo(() => {
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = todayKey();
     const todayTime = new Date(todayStr).getTime();
     const uName = (user?.name || "").trim().toLowerCase();
     const uRole = (user?.role || "").trim().toLowerCase();
@@ -785,7 +786,7 @@ export default function FollowupPage() {
   // -------------------------------------------------------------
   const processedFeesFollowups = useMemo(() => {
     const list: FeesFollowupRecord[] = [];
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = todayKey();
 
     admissions.forEach((adm: any) => {
       if (adm.remainingBalance > 0) {
@@ -796,7 +797,7 @@ export default function FollowupPage() {
 
         if (unpaidInstallments.length > 0) {
           unpaidInstallments.forEach((inst: any, idx: number) => {
-            const feesDueDateStr = inst.dueDate ? new Date(inst.dueDate).toISOString().split("T")[0] : todayStr;
+            const feesDueDateStr = inst.dueDate ? toDateKey(new Date(inst.dueDate)) : todayStr;
             list.push({
               _id: adm._id,
               admissionId: adm.admissionId || "ADM-N/A",
@@ -814,7 +815,7 @@ export default function FollowupPage() {
           });
         } else {
           // Fallback if no custom EMI array exists
-          const fallbackDueDate = adm.downpaymentDueDate ? new Date(adm.downpaymentDueDate).toISOString().split("T")[0] : todayStr;
+          const fallbackDueDate = adm.downpaymentDueDate ? toDateKey(new Date(adm.downpaymentDueDate)) : todayStr;
           list.push({
             _id: adm._id,
             admissionId: adm.admissionId || "ADM-N/A",
@@ -837,7 +838,7 @@ export default function FollowupPage() {
 
   // Filtered Fees Records strictly isolated by active Brand / Scope
   const filteredFeesRecords = useMemo(() => {
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = todayKey();
     const todayTime = new Date(todayStr).getTime();
 
     return processedFeesFollowups.filter((rec) => {
@@ -891,7 +892,7 @@ export default function FollowupPage() {
 
   // Tab Counters for Fees Mode strictly isolated by active Brand / Scope
   const feesCounts = useMemo(() => {
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = todayKey();
     const todayTime = new Date(todayStr).getTime();
 
     let today = 0, overdue = 0, upcoming = 0;

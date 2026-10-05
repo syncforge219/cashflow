@@ -6,7 +6,7 @@ import { numberToIndianWords } from "@/lib/numberToWords";
 
 function generateProformaInvoiceHtml(pi: any, profile: any): string {
   const dateStr = pi.date
-    ? new Date(pi.date).toLocaleDateString("en-IN", {
+    ? new Date(pi.date).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata",
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
@@ -14,7 +14,7 @@ function generateProformaInvoiceHtml(pi: any, profile: any): string {
     : "";
 
   const validUntilStr = pi.validUntil
-    ? new Date(pi.validUntil).toLocaleDateString("en-IN", {
+    ? new Date(pi.validUntil).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata",
       day: "2-digit",
       month: "2-digit",
       year: "numeric",

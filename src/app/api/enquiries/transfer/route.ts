@@ -1,3 +1,4 @@
+import { todayKey } from "@/lib/dates";
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import mongoose from "mongoose";
@@ -121,7 +122,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = todayKey();
     const nowIso = new Date().toISOString();
     const performerName = currentUser?.name ? `${currentUser.name} (${currentUser.role || "Centre Head"})` : "Centre Head";
     const noteText = transferRemarks?.trim() ? ` Note: ${transferRemarks.trim()}` : "";

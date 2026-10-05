@@ -1,3 +1,4 @@
+import { toDateKey } from "@/lib/dates";
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
@@ -50,7 +51,7 @@ export async function GET(req: Request) {
     let periodALabel = "Period A";
     let periodBLabel = "Period B";
 
-    const formatDateStr = (d: Date) => d.toISOString().split("T")[0];
+    const formatDateStr = (d: Date) => toDateKey(d);
 
     if (preset === "today_vs_yesterday") {
       pAStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);

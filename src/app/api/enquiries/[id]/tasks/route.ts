@@ -1,3 +1,4 @@
+import { todayKey, toDateKey } from "@/lib/dates";
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Enquiry from "@/models/Enquiry";
@@ -34,7 +35,7 @@ export async function POST(
     } = body;
 
     const newFollowup: any = {
-      date: date || new Date().toISOString().split("T")[0],
+      date: date || todayKey(),
       time: time || "11:00 AM",
       priority,
       typeOfContact,
@@ -65,7 +66,7 @@ export async function POST(
 
       const baseDate = new Date(newFollowup.date);
       baseDate.setDate(baseDate.getDate() + daysToAdd);
-      const nextDateStr = baseDate.toISOString().split("T")[0];
+      const nextDateStr = toDateKey(baseDate);
 
       pushItems.push({
         date: nextDateStr,
@@ -191,7 +192,7 @@ export async function PATCH(
         });
       } else {
         enquiry.followUps.push({
-          date: enquiry.followUpDate || enquiry.date || new Date().toISOString().split("T")[0],
+          date: enquiry.followUpDate || enquiry.date || todayKey(),
           time: "10:00",
           priority: priority || enquiry.priorityLevel || "Medium",
           typeOfContact: "Phone Call",

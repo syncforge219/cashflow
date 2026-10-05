@@ -1,3 +1,4 @@
+import { todayKey } from "@/lib/dates";
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Enquiry from "@/models/Enquiry";
@@ -210,7 +211,7 @@ export async function POST(req: NextRequest) {
         // enquiryId is assigned atomically by the Enquiry pre-save sequence
         const newEnquiry: any = await Enquiry.create({
           studentFullName,
-          date: new Date().toISOString().split("T")[0],
+          date: todayKey(),
           primaryPhoneMobile,
           emailAddress,
           currentCity,

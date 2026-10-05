@@ -1,5 +1,6 @@
 "use client";
 
+import { todayKey, toDateKey } from "@/lib/dates";
 import React, { useState, useEffect } from "react";
 import EditEnquiryModal from "./EditEnquiryModal";
 import AdmissionModal from "./AdmissionModal";
@@ -467,7 +468,7 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            date: nextFollowUpDate || new Date().toISOString().split("T")[0],
+            date: nextFollowUpDate || todayKey(),
             time: nextFollowUpTime || "11:00 AM",
             priority: nextFollowUpPriority || "Medium",
             typeOfContact: nextFollowUpType || "Phone Call",
@@ -585,7 +586,7 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
 
   const handleOpenScheduleDemoModal = () => {
     if (!demoDate) {
-      setDemoDate(new Date().toISOString().split('T')[0]);
+      setDemoDate(todayKey());
     }
     if (!demoTime) {
       setDemoTime("11:00");
@@ -701,7 +702,7 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
               </svg>
               <span>ID: <span className="font-mono text-slate-600">{localLead.enquiryId}</span></span>
               <span className="text-slate-300">•</span>
-              <span>Enquiry Date: <span className="font-mono text-slate-600">{localLead.date || (localLead.createdAt ? new Date(localLead.createdAt).toISOString().split('T')[0] : "N/A")}</span></span>
+              <span>Enquiry Date: <span className="font-mono text-slate-600">{localLead.date || (localLead.createdAt ? toDateKey(new Date(localLead.createdAt)) : "N/A")}</span></span>
               <span className="text-slate-300">•</span>
               <span>Course / Purpose: <span className="font-semibold text-slate-700">{localLead.isLookingForJob || localLead.targetCourse === "Looking for Job" ? "💼 Looking for Job" : (localLead.targetCourse || "N/A")}</span></span>
             </div>
@@ -1218,15 +1219,15 @@ export default function LeadProfile({ lead, onClose, onSuccess, defaultOpenTaskM
                 <div className="grid grid-cols-3 gap-3 mb-4">
                   <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
                     <p className="text-[10px] font-semibold text-slate-400">Enquiry Date</p>
-                    <p className="text-xs font-bold text-slate-800 mt-0.5">{localLead.date || (localLead.createdAt ? new Date(localLead.createdAt).toISOString().split('T')[0] : "N/A")}</p>
+                    <p className="text-xs font-bold text-slate-800 mt-0.5">{localLead.date || (localLead.createdAt ? toDateKey(new Date(localLead.createdAt)) : "N/A")}</p>
                   </div>
                   <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
                     <p className="text-[10px] font-semibold text-slate-400">Scheduled followup</p>
-                    <p className="text-xs font-bold text-slate-800 mt-0.5">{localLead.followUpDate ? new Date(localLead.followUpDate).toISOString().split('T')[0] : "None"}</p>
+                    <p className="text-xs font-bold text-slate-800 mt-0.5">{localLead.followUpDate ? toDateKey(new Date(localLead.followUpDate)) : "None"}</p>
                   </div>
                   <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
                     <p className="text-[10px] font-semibold text-slate-400">Last contact date</p>
-                    <p className="text-xs font-bold text-slate-800 mt-0.5">{localLead.createdAt ? new Date(localLead.createdAt).toISOString().split('T')[0] : "N/A"}</p>
+                    <p className="text-xs font-bold text-slate-800 mt-0.5">{localLead.createdAt ? toDateKey(new Date(localLead.createdAt)) : "N/A"}</p>
                   </div>
                 </div>
 

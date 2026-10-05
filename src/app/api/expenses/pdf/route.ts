@@ -1,3 +1,4 @@
+import { todayKey } from "@/lib/dates";
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import mongoose from "mongoose";
@@ -116,10 +117,10 @@ export async function GET(req: NextRequest) {
         endDate: endDate || undefined,
         search: search || undefined,
       },
-      generatedAtStr: new Date().toLocaleDateString("en-IN"),
+      generatedAtStr: new Date().toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }),
     });
 
-    const safeDate = new Date().toISOString().split("T")[0];
+    const safeDate = todayKey();
 
     return new NextResponse(Uint8Array.from(pdfBuffer), {
       status: 200,

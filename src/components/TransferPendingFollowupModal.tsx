@@ -1,5 +1,6 @@
 "use client";
 
+import { todayKey } from "@/lib/dates";
 import React, { useState, useEffect, useMemo } from "react";
 
 export interface TransferLeadItem {
@@ -649,7 +650,7 @@ export default function TransferPendingFollowupModal({
                 <input
                   type="date"
                   value={rescheduleDate}
-                  min={new Date().toISOString().split("T")[0]}
+                  min={todayKey()}
                   onChange={(e) => setRescheduleDate(e.target.value)}
                   className="text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
                 />

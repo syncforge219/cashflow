@@ -1,5 +1,6 @@
 "use client";
 
+import { todayKey, toDateKey } from "@/lib/dates";
 import React, { useState, useEffect, useMemo } from "react";
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
@@ -324,7 +325,7 @@ export default function ExpensesPage() {
     title: "",
     category: "Construction",
     amount: "",
-    expenseDate: new Date().toISOString().slice(0, 10),
+    expenseDate: todayKey(),
     paymentMode: "UPI",
     brand: "All Brands",
     company: "All Companies",
@@ -341,7 +342,7 @@ export default function ExpensesPage() {
       title: "",
       category: "Construction",
       amount: "",
-      expenseDate: new Date().toISOString().slice(0, 10),
+      expenseDate: todayKey(),
       paymentMode: "UPI",
       brand: "All Brands",
       company: "All Companies",
@@ -360,7 +361,7 @@ export default function ExpensesPage() {
       title: expense.title || "",
       category: expense.category || "Misc Expense",
       amount: expense.amount ? String(expense.amount) : "",
-      expenseDate: expense.expenseDate ? new Date(expense.expenseDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+      expenseDate: expense.expenseDate ? toDateKey(new Date(expense.expenseDate)) : todayKey(),
       paymentMode: expense.paymentMode || "UPI",
       brand: expense.brand || "All Brands",
       company: expense.company || "All Companies",
@@ -852,7 +853,7 @@ export default function ExpensesPage() {
     const blob = new Blob([buffer], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
-    saveAs(blob, `Expense_Report${safeCategoryStr}_${new Date().toISOString().split("T")[0]}.xlsx`);
+    saveAs(blob, `Expense_Report${safeCategoryStr}_${todayKey()}.xlsx`);
   };
 
   useEffect(() => {
@@ -1142,7 +1143,7 @@ export default function ExpensesPage() {
           title: "",
           category: "Construction",
           amount: "",
-          expenseDate: new Date().toISOString().slice(0, 10),
+          expenseDate: todayKey(),
           paymentMode: "UPI",
           brand: "All Brands",
           company: "All Companies",

@@ -1,5 +1,6 @@
 "use client";
 
+import { toDateKey } from "@/lib/dates";
 import React, { useState, useEffect, useMemo } from "react";
 import Sidebar from "@/components/Sidebar";
 import ManagerSidebar from "@/components/ManagerSidebar";
@@ -45,7 +46,7 @@ export default function Student360PortalPage() {
   const handleDatePresetChange = (preset: string) => {
     setDatePreset(preset);
     const now = new Date();
-    const toYMD = (d: Date) => d.toISOString().split("T")[0];
+    const toYMD = (d: Date) => toDateKey(d);
 
     if (preset === "all") {
       setStartDate("");

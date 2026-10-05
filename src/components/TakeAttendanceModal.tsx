@@ -1,5 +1,6 @@
 "use client";
 
+import { todayKey } from "@/lib/dates";
 import React, { useState, useEffect } from "react";
 import { useUser } from "@/app/component/context/user-context";
 import { sortBatchesByTiming, getBatchSlotInfo } from "@/lib/slotHelper";
@@ -35,7 +36,7 @@ export default function TakeAttendanceModal({
   const [batchesList, setBatchesList] = useState<any[]>([]);
   const [selectedBatchId, setSelectedBatchId] = useState<string>(initialBatchId || "");
   const [attendanceDate, setAttendanceDate] = useState<string>(
-    new Date().toISOString().split("T")[0]
+    todayKey()
   );
   const [studentRecords, setStudentRecords] = useState<any[]>([]);
   const [notes, setNotes] = useState("");

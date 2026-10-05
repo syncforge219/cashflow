@@ -418,7 +418,7 @@ export async function getDailyBiReportData(targetDate?: Date): Promise<DailyBiRe
     const dEnd = new Date(todayEnd);
     dEnd.setDate(dEnd.getDate() - i);
 
-    const dayName = dStart.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+    const dayName = dStart.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "2-digit", month: "short" });
 
     const dayAdmissions = allAdmissions.filter((a: any) => {
       const dt = new Date(a.admissionDate || a.createdAt);
@@ -669,10 +669,10 @@ export async function getDailyBiReportData(targetDate?: Date): Promise<DailyBiRe
       const dEnd = new Date(todayEnd);
       dEnd.setDate(dEnd.getDate() - i);
 
-      const dayName = dStart.toLocaleDateString("en-IN", { weekday: "short" });
+      const dayName = dStart.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", weekday: "short" });
       const dayDateStr = i === 0
-        ? `${dStart.toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} (Today)`
-        : dStart.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+        ? `${dStart.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "2-digit", month: "short" })} (Today)`
+        : dStart.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "2-digit", month: "short" });
 
       const dLeads = allEnquiries.filter((e: any) => {
         const dt = new Date(e.createdAt || e.date);
@@ -733,7 +733,7 @@ export async function getDailyBiReportData(targetDate?: Date): Promise<DailyBiRe
 
       const admDateObj = new Date(a.admissionDate || a.createdAt || now);
       const admDateStr = !isNaN(admDateObj.getTime())
-        ? admDateObj.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+        ? admDateObj.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "2-digit", month: "short", year: "numeric" })
         : "Today";
 
       let leadRegDateStr = "";
@@ -742,7 +742,7 @@ export async function getDailyBiReportData(targetDate?: Date): Promise<DailyBiRe
       if (matchedEnquiry) {
         const leadDateObj = new Date(matchedEnquiry.createdAt || matchedEnquiry.date || a.createdAt);
         if (!isNaN(leadDateObj.getTime())) {
-          leadRegDateStr = leadDateObj.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+          leadRegDateStr = leadDateObj.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "2-digit", month: "short", year: "numeric" });
           const diffMs = Math.max(0, admDateObj.getTime() - leadDateObj.getTime());
           const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
           if (diffDays === 0) {
@@ -993,7 +993,7 @@ export async function getDailyBiReportData(targetDate?: Date): Promise<DailyBiRe
     mobileNumber: a.mobileNumber || a.phone || "N/A",
     course: a.course || "N/A",
     remainingBalance: Number(a.remainingBalance) || 0,
-    nextDueDate: a.updatedAt ? new Date(a.updatedAt).toLocaleDateString("en-IN") : "Immediate"
+    nextDueDate: a.updatedAt ? new Date(a.updatedAt).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }) : "Immediate"
   }));
 
   const pendingFeeSummary = {
@@ -1078,13 +1078,13 @@ export async function getDailyBiReportData(targetDate?: Date): Promise<DailyBiRe
     recommendedPriorityActions: priorityActions
   };
 
-  const dateStr = now.toLocaleDateString("en-IN", {
+  const dateStr = now.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata",
     day: "2-digit",
     month: "short",
     year: "numeric",
   });
 
-  const generatedAtStr = now.toLocaleTimeString("en-IN", {
+  const generatedAtStr = now.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata",
     hour: "2-digit",
     minute: "2-digit",
     hour12: true,

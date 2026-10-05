@@ -29,7 +29,7 @@ export async function POST(req: Request) {
       mobileNumber,
       courseName: courseName || "Course",
       amountPaid: amountPaid || 0,
-      paymentDate: paymentDate || new Date().toLocaleDateString("en-IN"),
+      paymentDate: paymentDate || new Date().toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }),
       receiptNo,
       receiptUrl,
     });

@@ -58,20 +58,8 @@ export async function GET(
     const admIdStr = admission._id ? admission._id.toString() : id;
     const rawPayments = await Payment.find({ admissionId: admission._id }).sort({ createdAt: 1 }).lean();
 
-    // Reconcile initial payment if it erroneously included future uncollected downpayment
-    if (rawPayments.length === 1 && admission.registrationAmount && admission.downpaymentAmount) {
-      const p = rawPayments[0];
-      const sum = Number(admission.registrationAmount) + Number(admission.downpaymentAmount);
-      if (Number(p.amountReceived) === sum && Number(admission.registrationAmount) > 0) {
-        await Payment.updateOne({ _id: p._id }, { $set: { amountReceived: Number(admission.registrationAmount) } });
-        p.amountReceived = Number(admission.registrationAmount);
-
-        const correctBal = Math.max(0, Number(admission.finalFee || admission.courseFee || 0) - Number(admission.registrationAmount));
-        await Admission.updateOne({ _id: admission._id }, { $set: { remainingBalance: correctBal, amountReceivedToday: Number(admission.registrationAmount) } });
-        (admission as any).remainingBalance = correctBal;
-        (admission as any).amountReceivedToday = Number(admission.registrationAmount);
-      }
-    }
+    // (Viewing a student used to "reconcile" here: a single receipt equal to registration + down
+    // payment was cut down to the registration amount. That rewrote genuine receipts; removed.)
 
     const payments = [...rawPayments].reverse().map((p: any) => ({
       ...p,

@@ -1,11 +1,12 @@
 "use client";
 
+import { todayKey } from "@/lib/dates";
 import React, { useState, useEffect } from "react";
 import { DailyBiReportData } from "@/lib/dailyBiService";
 
 export default function DailyBiDashboard() {
   const [selectedDate, setSelectedDate] = useState<string>(
-    new Date().toISOString().split("T")[0]
+    todayKey()
   );
   const [report, setReport] = useState<DailyBiReportData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);

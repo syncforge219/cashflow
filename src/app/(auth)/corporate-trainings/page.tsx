@@ -1,5 +1,6 @@
 "use client";
 
+import { todayKey, toDateKey } from "@/lib/dates";
 import React, { useState, useEffect, useMemo } from "react";
 import Sidebar from "@/components/Sidebar";
 import ManagerSidebar from "@/components/ManagerSidebar";
@@ -79,7 +80,7 @@ export default function CorporateTrainingsPage() {
   const handleDatePresetChange = (preset: string) => {
     setDatePreset(preset);
     const now = new Date();
-    const toYMD = (d: Date) => d.toISOString().split("T")[0];
+    const toYMD = (d: Date) => toDateKey(d);
 
     if (preset === "all") {
       setStartDate("");
@@ -283,7 +284,7 @@ export default function CorporateTrainingsPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `Corporate_Trainings_Register_${new Date().toISOString().split("T")[0]}.xlsx`;
+    a.download = `Corporate_Trainings_Register_${todayKey()}.xlsx`;
     a.click();
     URL.revokeObjectURL(url);
   };

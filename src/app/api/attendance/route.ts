@@ -1,3 +1,4 @@
+import { toDateKey } from "@/lib/dates";
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
@@ -263,7 +264,7 @@ export async function POST(request: Request) {
 
     // Normalize dateStr to YYYY-MM-DD
     const dateObj = new Date(date);
-    const dateStr = dateObj.toISOString().split("T")[0];
+    const dateStr = toDateKey(dateObj);
 
     // Compute totals
     let totalPresent = 0;

@@ -1,5 +1,6 @@
 "use client";
 
+import { todayKey, toDateKey } from "@/lib/dates";
 import React, { useState, useEffect } from "react";
 import TakeAttendanceModal from "./TakeAttendanceModal";
 import { useUser } from "@/app/component/context/user-context";
@@ -744,17 +745,17 @@ function QuickEditBatchTimingModal({
 }) {
   const [timing, setTiming] = useState(batch.timing || "10:00 AM - 12:00 PM");
   const [startDate, setStartDate] = useState(() => {
-    if (!batch.startDate) return new Date().toISOString().split("T")[0];
+    if (!batch.startDate) return todayKey();
     try {
-      return new Date(batch.startDate).toISOString().split("T")[0];
+      return toDateKey(new Date(batch.startDate));
     } catch (_) {
-      return new Date().toISOString().split("T")[0];
+      return todayKey();
     }
   });
   const [endDate, setEndDate] = useState(() => {
     if (!batch.endDate) return "";
     try {
-      return new Date(batch.endDate).toISOString().split("T")[0];
+      return toDateKey(new Date(batch.endDate));
     } catch (_) {
       return "";
     }

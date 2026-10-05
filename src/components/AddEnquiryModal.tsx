@@ -1,5 +1,6 @@
 "use client";
 
+import { todayKey, toDateKey } from "@/lib/dates";
 import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUser } from "@/app/component/context/user-context";
@@ -36,7 +37,7 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
   const [currentCity, setCurrentCity] = useState("");
   const [primaryPhone, setPrimaryPhone] = useState("+91 ");
   const [parentsPhone, setParentsPhone] = useState("+91 ");
-  const [enquiryDate, setEnquiryDate] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [enquiryDate, setEnquiryDate] = useState<string>(todayKey());
 
   useEffect(() => {
     if (isOpen) {
@@ -68,7 +69,7 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
         setParentsPhone("+91 ");
       }
 
-      setEnquiryDate(new Date().toISOString().split("T")[0]);
+      setEnquiryDate(todayKey());
       setIsFollowUpScheduled(false);
       setIsLookingForJob(false);
       setSelectedCourses([]);
@@ -675,7 +676,7 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
                     name="followUpDate"
                     type="date"
                     className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
-                    defaultValue={new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split("T")[0]}
+                    defaultValue={toDateKey(new Date(Date.now() + 24 * 60 * 60 * 1000))}
                   />
                 </div>
                 <div>

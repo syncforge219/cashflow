@@ -1,5 +1,6 @@
 "use client";
 
+import { todayKey } from "@/lib/dates";
 import React, { useState, useEffect } from "react";
 import CompanyModal from "./CompanyModal";
 import DeleteConfirmModal from "./DeleteConfirmModal";
@@ -254,7 +255,7 @@ export default function CompaniesDisplay() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Legal_Entities_${new Date().toISOString().split("T")[0]}.csv`);
+    link.setAttribute("download", `Legal_Entities_${todayKey()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

@@ -1,5 +1,6 @@
 "use client";
 
+import { todayKey } from "@/lib/dates";
 import React, { useState, useEffect } from "react";
 import { useUser } from "../../../component/context/user-context";
 import CounsellorSidebar from "@/components/CounsellorSidebar";
@@ -24,7 +25,7 @@ export default function CounsellorTasksPage() {
   const [newType, setNewType] = useState("Lead Call");
   const [newStudent, setNewStudent] = useState("");
   const [newPriority, setNewPriority] = useState("High");
-  const [newDueDate, setNewDueDate] = useState(new Date().toISOString().split("T")[0]);
+  const [newDueDate, setNewDueDate] = useState(todayKey());
   const [newChecklistText, setNewChecklistText] = useState("");
 
   const fetchTasks = async () => {

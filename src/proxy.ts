@@ -20,6 +20,7 @@ const PUBLIC_API_ROUTES: { path: string; methods?: string[] }[] = [
   { path: "/api/enquiries/public" },
   { path: "/api/enquiries/google-form" },
   { path: "/api/enquiries/justdial-webhook" }, // verifies its own API key / signature
+  { path: "/api/enquiries/facebook-webhook" }, // verifies Meta's verify token / X-Hub-Signature-256
   // Read-only lookups used by the public enquiry form at /public/enquiry/[brand]
   { path: "/api/lead-sources", methods: ["GET"] },
   { path: "/api/courses", methods: ["GET"] },
@@ -91,8 +92,11 @@ export async function proxy(request: NextRequest) {
         }
       }
 
-      // Justdial connector settings hold the webhook key and can reset config/logs: managers and above.
-      if (normalizedPath.startsWith("/api/justdial-integration")) {
+      // Lead connector settings hold webhook keys / page tokens and can reset config/logs: managers and above.
+      if (
+        normalizedPath.startsWith("/api/justdial-integration") ||
+        normalizedPath.startsWith("/api/facebook-integration")
+      ) {
         const allowed = ["superadmin", "admin", "manager", "brandmanager", "centrehead", "centerhead", "branchhead"];
         if (!allowed.includes(role)) {
           return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });

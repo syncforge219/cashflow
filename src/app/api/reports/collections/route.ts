@@ -5,6 +5,8 @@ import Payment from "@/models/Payment";
 import mongoose from "mongoose";
 import Brand from "@/models/Brand";
 import Company from "@/models/Company";
+import "@/models/Admission"; // registers the model used by populate("admissionId")
+import { toDateKey, istDayRange } from "@/lib/dates";
 
 export async function GET(req: NextRequest) {
   try {
@@ -19,15 +21,16 @@ export async function GET(req: NextRequest) {
     const andClauses: any[] = [];
     const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-    if (startDate && endDate) {
-      query.paymentDate = {
-        $gte: new Date(startDate),
-        $lte: new Date(new Date(endDate).setHours(23, 59, 59, 999)),
-      };
-    } else if (startDate) {
-      query.paymentDate = { $gte: new Date(startDate) };
-    } else if (endDate) {
-      query.paymentDate = { $lte: new Date(new Date(endDate).setHours(23, 59, 59, 999)) };
+    // IST calendar days, whatever the server's time zone
+    const fromKey = toDateKey(startDate);
+    const toKey = toDateKey(endDate);
+    if (fromKey && toKey) {
+      const { start, end } = istDayRange(fromKey, toKey);
+      query.paymentDate = { $gte: start, $lte: end };
+    } else if (fromKey) {
+      query.paymentDate = { $gte: istDayRange(fromKey).start };
+    } else if (toKey) {
+      query.paymentDate = { $lte: istDayRange(toKey).end };
     }
 
     if (brand && brand !== "All" && brand !== "All Brands") {
@@ -47,21 +50,17 @@ export async function GET(req: NextRequest) {
       const compDoc = (mongoose.Types.ObjectId.isValid(company)
         ? await Company.findById(company).lean()
         : await Company.findOne({ $or: [{ name: cRegex }, { legalName: cRegex }] }).lean()) as any;
+      // Payments store the company name in "company" (there is no companyAssigned on Payment)
       if (compDoc) {
-        andClauses.push({ $or: [{ companyId: compDoc._id }, { companyAssigned: cRegex }] });
+        andClauses.push({ $or: [{ companyId: compDoc._id }, { company: cRegex }] });
       } else {
-        andClauses.push({ companyAssigned: cRegex });
+        andClauses.push({ company: cRegex });
       }
     }
 
     if (andClauses.length > 0) {
       query.$and = andClauses;
     }
-
-    // Ensure Admission model is registered before populating
-    require("@/models/Admission");
-    require("@/models/Brand");
-    require("@/models/Company");
 
     const payments = await Payment.find(query)
       .populate({
@@ -76,7 +75,7 @@ export async function GET(req: NextRequest) {
         path: "companyId",
         select: "name legalName gstin",
       })
-      .sort({ paymentDate: -1 });
+      .sort({ paymentDate: -1, createdAt: -1 });
 
     return NextResponse.json({ success: true, data: payments });
   } catch (error: any) {

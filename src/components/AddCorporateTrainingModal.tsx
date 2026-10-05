@@ -1,5 +1,6 @@
 "use client";
 
+import { todayKey } from "@/lib/dates";
 import React, { useState, useEffect, useRef, useMemo } from "react";
 
 interface AddCorporateTrainingModalProps {
@@ -49,7 +50,7 @@ export default function AddCorporateTrainingModal({
     facultyId: "",
     facultyEmail: "",
     facultyPhone: "",
-    startDate: new Date().toISOString().split("T")[0],
+    startDate: todayKey(),
     endDate: "",
     durationHours: "40 Hours",
     totalAmount: "",

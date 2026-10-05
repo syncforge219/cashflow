@@ -1,3 +1,4 @@
+import { toDateKey } from "@/lib/dates";
 import nodemailer from "nodemailer";
 import ExcelJS from "exceljs";
 import { generateReceiptPdfBuffer } from "@/lib/pdfGenerator";
@@ -38,7 +39,7 @@ export async function generateAdmissionReceiptPDF(admissionData: any): Promise<B
     admissionId: admissionData.admissionId || "ADM-001",
     courseName: admissionData.course || "Course",
     amountPaid: admissionData.amountReceivedToday || admissionData.registrationAmount || 0,
-    paymentDate: admissionData.admissionDate ? new Date(admissionData.admissionDate).toLocaleDateString("en-IN") : new Date().toLocaleDateString("en-IN"),
+    paymentDate: admissionData.admissionDate ? new Date(admissionData.admissionDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }) : new Date().toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }),
     paymentMode: admissionData.paymentMode || "UPI",
     referenceNo: admissionData.referenceNo || "N/A",
     brandName: admissionData.brand || "CADD MANTRA",
@@ -54,7 +55,7 @@ export async function generateAdmissionReceiptPDF(admissionData: any): Promise<B
 export async function sendAdmissionConfirmationEmail(admissionData: any) {
   try {
     const formatCurrency = (amt: number) => "₹" + Number(amt || 0).toLocaleString("en-IN");
-    const formatDate = (d: any) => d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "N/A";
+    const formatDate = (d: any) => d ? new Date(d).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "2-digit", month: "short", year: "numeric" }) : "N/A";
 
     const customEmiRows = (admissionData.customEmiPlan || []).map((emi: any, idx: number) => `
       <tr style="border-bottom: 1px solid #f1f5f9;">
@@ -211,7 +212,7 @@ CoachFlow Academics Team
         admissionId: admissionData.admissionId,
         courseName: admissionData.course,
         amountPaid: admissionData.amountReceivedToday || 0,
-        paymentDate: admissionData.admissionDate ? new Date(admissionData.admissionDate).toLocaleDateString("en-IN") : new Date().toLocaleDateString("en-IN"),
+        paymentDate: admissionData.admissionDate ? new Date(admissionData.admissionDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }) : new Date().toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }),
         paymentMode: admissionData.paymentMode || "Online",
         referenceNo: admissionData.transactionNo || "N/A",
         brandName: admissionData.brand || "COACHFLOW ACADEMICS",
@@ -275,7 +276,7 @@ export async function sendFeePaymentReceiptEmail({ payment, admission }: { payme
       admissionId: admission.admissionId,
       courseName: admission.course,
       amountPaid: payment.amountReceived || 0,
-      paymentDate: new Date(payment.createdAt || Date.now()).toLocaleDateString("en-IN"),
+      paymentDate: new Date(payment.createdAt || Date.now()).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }),
       paymentMode: payment.paymentMode || "Online",
       referenceNo: payment.referenceNo || "N/A",
       brandName: admission.brand || "COACHFLOW ACADEMICS",
@@ -398,7 +399,7 @@ export async function sendOverdueEmiReminderEmail(admissionData: any, overdueDet
     }
 
     const formatCurrency = (amt: number) => `₹${Number(amt || 0).toLocaleString("en-IN")}`;
-    const formatDate = (d: any) => d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Overdue";
+    const formatDate = (d: any) => d ? new Date(d).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "2-digit", month: "short", year: "numeric" }) : "Overdue";
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -615,7 +616,7 @@ export async function sendWeeklyExecutiveExcelReport(targetAdminEmail?: string) 
         paid,
         Number(a.remainingBalance || 0),
         a.paymentMode || "Cash",
-        a.admissionDate ? new Date(a.admissionDate).toLocaleDateString("en-IN") : "N/A"
+        a.admissionDate ? new Date(a.admissionDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }) : "N/A"
       ]);
     });
     admSheet.columns.forEach(col => col.width = 20);
@@ -647,8 +648,8 @@ export async function sendWeeklyExecutiveExcelReport(targetAdminEmail?: string) 
     // Write to Buffer
     const buffer = await workbook.xlsx.writeBuffer();
 
-    const dateStr = now.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-    const filename = `CoachFlow_Weekly_Executive_Report_${now.toISOString().split("T")[0]}.xlsx`;
+    const dateStr = now.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "2-digit", month: "short", year: "numeric" });
+    const filename = `CoachFlow_Weekly_Executive_Report_${toDateKey(now)}.xlsx`;
 
     const mailOptions = {
       from: `"CoachFlow Analytics" <${SMTP_USER}>`,
@@ -962,7 +963,7 @@ export async function sendMasterExcelReportEmail({
         e.leadSource || "Direct",
         e.status || "New",
         getEnquiryFeeCollected(e),
-        e.createdAt ? new Date(e.createdAt).toLocaleDateString("en-IN") : "N/A"
+        e.createdAt ? new Date(e.createdAt).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }) : "N/A"
       ]);
     });
     leadsSheet.columns.forEach(col => col.width = 20);
@@ -996,7 +997,7 @@ export async function sendMasterExcelReportEmail({
         a.counsellor || "Staff",
         getAdmissionFeeCollected(a),
         "Admitted",
-        a.admissionDate ? new Date(a.admissionDate).toLocaleDateString("en-IN") : "N/A"
+        a.admissionDate ? new Date(a.admissionDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }) : "N/A"
       ]);
     });
 
@@ -1016,14 +1017,14 @@ export async function sendMasterExcelReportEmail({
         e.assignedCrmAdvisor || "Unassigned",
         getEnquiryFeeCollected(e),
         "Admitted",
-        e.createdAt ? new Date(e.createdAt).toLocaleDateString("en-IN") : "N/A"
+        e.createdAt ? new Date(e.createdAt).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }) : "N/A"
       ]);
     });
     admSheet.columns.forEach(col => col.width = 20);
 
     const buffer = await workbook.xlsx.writeBuffer();
-    const dateStr = now.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-    const filename = `Super_Master_Report_${now.toISOString().split("T")[0]}.xlsx`;
+    const dateStr = now.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "2-digit", month: "short", year: "numeric" });
+    const filename = `Super_Master_Report_${toDateKey(now)}.xlsx`;
 
     const mailOptions = {
       from: `"Lead2Ledger Reports" <${SMTP_USER}>`,
@@ -1310,7 +1311,7 @@ export async function sendPendingFollowupsReminderEmail(options: PendingFollowup
       const leadRowsHtml = displayLeads.map((l, idx) => {
         const cleanPhone = l.phone.replace(/\D/g, "");
         const waLink = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Hello ${l.studentName}, regarding your course inquiry for ${l.course}...`)}` : "";
-        const formattedDate = l.dueDate ? new Date(l.dueDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Overdue";
+        const formattedDate = l.dueDate ? new Date(l.dueDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "2-digit", month: "short", year: "numeric" }) : "Overdue";
 
         return `
           <tr style="border-bottom: 1px solid #f1f5f9; ${idx % 2 === 1 ? "background-color: #fafbfc;" : ""}">

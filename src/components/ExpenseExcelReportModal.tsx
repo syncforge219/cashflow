@@ -1,5 +1,6 @@
 "use client";
 
+import { todayKey } from "@/lib/dates";
 import React, { useState, useEffect, useMemo } from "react";
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
@@ -679,7 +680,7 @@ export default function ExpenseExcelReportModal({
     ];
 
     const safeCatStr = selectedCategory && selectedCategory !== "All" ? `_${selectedCategory.replace(/[^a-zA-Z0-9]/g, "")}` : "";
-    const safeDateStr = new Date().toISOString().split("T")[0];
+    const safeDateStr = todayKey();
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

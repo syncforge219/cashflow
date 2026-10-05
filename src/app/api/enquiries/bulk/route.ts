@@ -1,3 +1,4 @@
+import { todayKey } from "@/lib/dates";
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Enquiry from "@/models/Enquiry";
@@ -105,7 +106,7 @@ export async function POST(req: Request) {
         assignedName = currentUser?.name || "Unassigned";
       }
 
-      const todayDate = new Date().toISOString().split("T")[0];
+      const todayDate = todayKey();
       const currentTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
       finalLeads.push({

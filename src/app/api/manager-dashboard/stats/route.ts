@@ -1,3 +1,4 @@
+import { toDateKey } from "@/lib/dates";
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
@@ -20,7 +21,7 @@ export async function GET(req: Request) {
     const endDateParam = searchParams.get("endDate");
 
     const now = new Date();
-    const todayStr = now.toISOString().split("T")[0];
+    const todayStr = toDateKey(now);
 
     let targetStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     let targetEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);

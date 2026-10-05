@@ -7,6 +7,7 @@ import ImportLeadsModal from "./ImportLeadsModal";
 import GoogleFormIntegrationModal from "./GoogleFormIntegrationModal";
 import LeadSourceManagerModal from "./LeadSourceManagerModal";
 import JustdialIntegrationModal from "./JustdialIntegrationModal";
+import FacebookLeadsIntegrationModal from "./FacebookLeadsIntegrationModal";
 import ClientDirectoryLeadsTable from "./ClientDirectoryLeadsTable";
 import SourcePerformanceModal, { SourcePerformanceData } from "./SourcePerformanceModal";
 
@@ -16,6 +17,7 @@ export default function EnquiriesDisplay() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isLeadSourceModalOpen, setIsLeadSourceModalOpen] = useState(false);
   const [isJustdialModalOpen, setIsJustdialModalOpen] = useState(false);
+  const [isFacebookModalOpen, setIsFacebookModalOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<any | null>(null);
 
   const [enquiries, setEnquiries] = useState<any[]>([]);
@@ -552,6 +554,13 @@ export default function EnquiriesDisplay() {
             <span>Justdial Connector</span>
           </button>
           <button
+            onClick={() => setIsFacebookModalOpen(true)}
+            className="flex items-center gap-1.5 text-xs font-extrabold bg-[#1877F2] hover:bg-[#166FE5] text-white rounded-xl px-4 py-2 shadow-xs transition-all cursor-pointer border border-blue-400/30"
+          >
+            <span className="font-black text-[11px] bg-white text-[#1877F2] w-4 h-4 rounded-sm flex items-center justify-center leading-none">f</span>
+            <span>Facebook Leads</span>
+          </button>
+          <button
             onClick={() => setIsGoogleFormModalOpen(true)}
             className="flex items-center gap-1.5 text-xs font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 rounded-xl px-4 py-2 shadow-xs transition-all cursor-pointer"
           >
@@ -1011,6 +1020,15 @@ export default function EnquiriesDisplay() {
       <JustdialIntegrationModal
         isOpen={isJustdialModalOpen}
         onClose={() => setIsJustdialModalOpen(false)}
+        counsellorsList={counsellorsList}
+        dbLeadSources={dbLeadSources}
+        brandsList={brandsList}
+        onConfigSaved={fetchEnquiries}
+      />
+
+      <FacebookLeadsIntegrationModal
+        isOpen={isFacebookModalOpen}
+        onClose={() => setIsFacebookModalOpen(false)}
         counsellorsList={counsellorsList}
         dbLeadSources={dbLeadSources}
         brandsList={brandsList}
