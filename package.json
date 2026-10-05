@@ -10,7 +10,7 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test --test-concurrency=1 tests/**/*.test.ts",
+    "test": "node --test --experimental-test-module-mocks --test-concurrency=1 tests/**/*.test.ts",
     "backfill:refs": "node scripts/backfill-refs.ts"
   },
   "dependencies": {

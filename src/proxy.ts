@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { resolveSessionToken } from "@/lib/auth";
+import { isMarketingExecutive, isMarketingApiAllowed } from "@/lib/roles";
 
 /**
  * Central authentication gate for every API route.
@@ -68,6 +69,14 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const method = request.method.toUpperCase();
 
+  // Page requests: no auth work here (the (auth) layout checks the session). Only pass the path
+  // along so the layout can keep restricted roles (Marketing Executive) on their own pages.
+  if (!pathname.startsWith("/api")) {
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set("x-pathname", pathname);
+    return NextResponse.next({ request: { headers: requestHeaders } });
+  }
+
   // CORS preflights carry no credentials.
   if (method === "OPTIONS") {
     return NextResponse.next();
@@ -85,6 +94,12 @@ export async function proxy(request: NextRequest) {
     if (user) {
       const role = (user.role || "").toLowerCase().replace(/[\s_-]+/g, "");
 
+      // Marketing Executive: leads, spend and lead connectors only. Everything else (finance,
+      // admissions, students, reports, users, AI assistant...) is refused even if called directly.
+      if (isMarketingExecutive(user.role) && !isMarketingApiAllowed(normalizedPath, method)) {
+        return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+      }
+
       // One-off data maintenance endpoints rewrite records in bulk: admins only.
       if (normalizedPath.startsWith("/api/admin/")) {
         if (role !== "superadmin" && role !== "admin") {
@@ -97,7 +112,7 @@ export async function proxy(request: NextRequest) {
         normalizedPath.startsWith("/api/justdial-integration") ||
         normalizedPath.startsWith("/api/facebook-integration")
       ) {
-        const allowed = ["superadmin", "admin", "manager", "brandmanager", "centrehead", "centerhead", "branchhead"];
+        const allowed = ["superadmin", "admin", "manager", "brandmanager", "centrehead", "centerhead", "branchhead", "marketingexecutive"];
         if (!allowed.includes(role)) {
           return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
         }
@@ -119,5 +134,9 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: "/api/:path*",
+  matcher: [
+    "/api/:path*",
+    // Pages (for the x-pathname header); skips static assets and files with an extension
+    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.[a-zA-Z0-9]+$).*)",
+  ],
 };

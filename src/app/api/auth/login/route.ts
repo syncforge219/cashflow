@@ -1,3 +1,4 @@
+import { isDecommissionedMarketingRole } from "@/lib/roles";
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
@@ -129,7 +130,7 @@ export async function POST(request: Request) {
     }
 
     const cleanRole = (user.role || "").toLowerCase().trim();
-    if (cleanRole.includes("marketing")) {
+    if (isDecommissionedMarketingRole(cleanRole)) {
       console.warn(`[Login 403] Attempted login by decommissioned marketing user: "${cleanEmail}"`);
       return NextResponse.json(
         { error: "Access denied. Marketing accounts have been decommissioned." },

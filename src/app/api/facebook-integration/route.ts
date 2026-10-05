@@ -1,3 +1,5 @@
+import { isMarketingExecutive } from "@/lib/roles";
+import { getUserFromCookies } from "@/lib/helper";
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import FacebookLeadConfig from "@/models/FacebookLeadConfig";
@@ -92,6 +94,14 @@ export async function POST(req: NextRequest) {
     }
     if (body.clearAppSecret === true) config.appSecret = "";
     if (body.clearPageAccessToken === true) config.pageAccessToken = "";
+
+    // A Marketing Executive who sets up the connector gets the leads it brings in.
+    // (Admins editing it later do not take those leads over.)
+    const actor: any = await getUserFromCookies();
+    if (actor && isMarketingExecutive(actor.role)) {
+      config.connectedByUserId = actor._id;
+      config.connectedByName = actor.name || "";
+    }
 
     await config.save();
 

@@ -517,6 +517,9 @@ async function handleJustdialLead(req: NextRequest, isSimulation = false) {
     // 6-7. Create Enquiry Document (enquiryId is assigned atomically by the Enquiry pre-save sequence;
     // a count-based ID collides with the unique index once any enquiry is deleted or two leads arrive together)
     const newEnquiry: any = await Enquiry.create({
+      // Attributed to the marketing user who set up this connector (if any)
+      addedByUserId: (config as any).connectedByUserId || null,
+      addedByName: (config as any).connectedByName || "",
       studentFullName,
       date: todayKey(),
       primaryPhoneMobile,

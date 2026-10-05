@@ -210,6 +210,9 @@ export async function POST(req: NextRequest) {
 
         // enquiryId is assigned atomically by the Enquiry pre-save sequence
         const newEnquiry: any = await Enquiry.create({
+          // Attributed to the marketing user who set up this connector (if any)
+          addedByUserId: (config as any).connectedByUserId || null,
+          addedByName: (config as any).connectedByName || "",
           studentFullName,
           date: todayKey(),
           primaryPhoneMobile,

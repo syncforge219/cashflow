@@ -37,6 +37,14 @@ export async function POST(req: Request) {
       body.targetBrand = body.targetBrand || user.brandScope;
     }
 
+    // Lead ownership is decided here, never taken from the request body
+    delete body.addedByUserId;
+    delete body.addedByName;
+    if (user?._id) {
+      body.addedByUserId = user._id;
+      body.addedByName = user.name || "";
+    }
+
     // Fallbacks and mandatory field validations
     const fullName = body.studentFullName?.trim();
     if (!fullName) {

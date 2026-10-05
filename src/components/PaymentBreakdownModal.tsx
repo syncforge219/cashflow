@@ -215,9 +215,9 @@ export default function PaymentBreakdownModal({
             </div>
             <div>
               <h2 className="text-lg font-black tracking-tight flex items-center gap-2">
-                Period Collection Breakdown
+                {filterLabel === "Overall" ? "All Time Collection Breakdown" : "Period Collection Breakdown"}
                 <span className="text-xs bg-blue-500/30 text-blue-200 px-2.5 py-0.5 rounded-full border border-blue-400/30 font-bold">
-                  {filterLabel}
+                  {filterLabel === "Overall" ? "All Time" : filterLabel}
                 </span>
               </h2>
               <p className="text-xs text-slate-300 mt-0.5">

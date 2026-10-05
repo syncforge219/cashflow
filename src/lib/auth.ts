@@ -1,3 +1,4 @@
+import { isDecommissionedMarketingRole } from "@/lib/roles";
 import { cookies, headers } from "next/headers";
 import crypto from "node:crypto";
 import dbConnect from "@/lib/db";
@@ -146,7 +147,8 @@ export async function resolveSessionToken(token: string | null | undefined): Pro
     }
 
     const role = ((dbUser as any).role || "").toLowerCase().trim();
-    if (role.includes("marketing")) {
+    // Legacy marketing roles stay decommissioned; "marketing executive" is allowed (restricted in the proxy)
+    if (isDecommissionedMarketingRole(role)) {
       return { user: null, session: null };
     }
 
@@ -165,7 +167,7 @@ export async function resolveSessionToken(token: string | null | undefined): Pro
     const dbUser = await User.findById(decoded.id).select("-password").lean();
     if (dbUser) {
       const role = ((dbUser as any).role || "").toLowerCase().trim();
-      if (!role.includes("marketing")) {
+      if (!isDecommissionedMarketingRole(role)) {
         const normalizedUser: AuthenticatedUser = {
           ...(dbUser as any),
           id: dbUser._id.toString(),

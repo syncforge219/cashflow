@@ -258,9 +258,19 @@ export default function AdminDashboard() {
       pillClass: "text-emerald-700 bg-emerald-50 border-emerald-200/60"
     },
     {
-      name: filterLabel === "Today" || filterLabel === "Overall" ? "Monthly Collection" : "Period Collection",
-      value: data?.kpis?.monthlyCollection || "₹0 L",
-      trend: filterLabel === "Overall" || filterLabel === "Today" ? "Current Month" : filterLabel,
+      name: filterLabel === "Overall"
+        ? "All Time Collection"
+        : filterLabel === "Today" || (!filterLabel.includes("Week") && !filterLabel.includes("Year") && !filterLabel.includes("Custom") && !filterLabel.includes("Range"))
+        ? "Monthly Collection"
+        : "Period Collection",
+      value: filterLabel === "Overall"
+        ? (data?.kpis?.allTimeCollection || data?.kpis?.totalCollection || (data?.financialSummary?.collections != null ? `₹${Number(data.financialSummary.collections) >= 100000 ? (Number(data.financialSummary.collections) / 100000).toFixed(2) + " L" : Number(data.financialSummary.collections).toLocaleString("en-IN")}` : null) || data?.kpis?.monthlyCollection || "₹0 L")
+        : (data?.kpis?.monthlyCollection || "₹0 L"),
+      trend: filterLabel === "Overall"
+        ? "All Time"
+        : filterLabel === "Today"
+        ? "Current Month"
+        : filterLabel,
       isGreen: true,
       borderAccent: "border-l-4 border-purple-500",
       hoverGradient: "hover:bg-gradient-to-br hover:from-purple-50/90 hover:via-indigo-50/50 hover:to-white hover:border-purple-300",
@@ -269,7 +279,7 @@ export default function AdminDashboard() {
     {
       name: filterLabel === "Overall" || filterLabel === "Today" ? "Total Revenue" : "Period Revenue",
       value: data?.kpis?.revenue || "₹0 L",
-      trend: filterLabel === "Overall" || filterLabel === "Today" ? "Total Collections" : filterLabel,
+      trend: filterLabel === "Overall" ? "Booked Course Fees" : filterLabel === "Today" ? "Total Collections" : filterLabel,
       isGreen: true,
       borderAccent: "border-l-4 border-indigo-500",
       hoverGradient: "hover:bg-gradient-to-br hover:from-indigo-50/90 hover:via-blue-50/50 hover:to-white hover:border-indigo-300",

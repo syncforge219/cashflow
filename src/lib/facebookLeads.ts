@@ -313,6 +313,9 @@ export async function ingestFacebookLead(lead: FacebookLead, config: any, opts: 
 
     const courses = matchedCourse ? [matchedCourse] : ["General Course"];
     const enquiry: any = await Enquiry.create({
+      // Attributed to the marketing user who set up this connector (if any)
+      addedByUserId: (config as any).connectedByUserId || null,
+      addedByName: (config as any).connectedByName || "",
       studentFullName,
       date: todayKey(),
       primaryPhoneMobile: mobile.display,

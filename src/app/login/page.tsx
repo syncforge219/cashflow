@@ -1,5 +1,6 @@
 "use client";
 
+import { isMarketingExecutive, isDecommissionedMarketingRole, MARKETING_HOME } from "@/lib/roles";
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -32,7 +33,11 @@ export default function LoginPage() {
   const handleRoleRedirect = (userRoleRaw: string) => {
     const userRole = (userRoleRaw || "").toLowerCase().trim();
 
-    if (userRole.includes("marketing")) {
+    if (isMarketingExecutive(userRole)) {
+      window.location.href = MARKETING_HOME;
+      return;
+    }
+    if (isDecommissionedMarketingRole(userRole)) {
       setErrors({ general: "Access denied. Marketing accounts have been decommissioned." });
       setIsLoading(false);
       return;

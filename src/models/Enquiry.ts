@@ -153,6 +153,19 @@ const EnquirySchema = new Schema(
       type: String,
       default: "New",
     },
+    // Who brought this lead in: the user who added it, or the marketing user who set up the
+    // connector it arrived through. Marketing Executives see only their own leads.
+    addedByUserId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      index: true,
+      default: null,
+    },
+    addedByName: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     // Marketing Suite & Lead Management Enhancements
     leadScore: {
       type: Number,

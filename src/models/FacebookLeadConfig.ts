@@ -37,6 +37,10 @@ const FacebookLeadConfigSchema = new Schema(
 
     formMappings: [FormMappingSchema],
 
+    // Marketing user who set up this connector: leads arriving through it are attributed to them
+    connectedByUserId: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    connectedByName: { type: String, default: "", trim: true },
+
     // Stats
     totalLeadsReceived: { type: Number, default: 0 },
     lastLeadReceivedAt: { type: Date },

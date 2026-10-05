@@ -107,6 +107,9 @@ const JustdialConfigSchema = new Schema(
       type: Date,
     },
     courseMappings: [CourseMappingSchema],
+    // Marketing user who set up this connector: leads arriving through it are attributed to them
+    connectedByUserId: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    connectedByName: { type: String, default: "", trim: true },
   },
   {
     timestamps: true,

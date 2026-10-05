@@ -263,6 +263,7 @@ export default function UsersDisplay() {
             <option value="developer">Developers</option>
             <option value="manager">Managers & Admin</option>
             <option value="counsellor">Counsellors & Staff</option>
+            <option value="marketing">Marketing</option>
           </select>
 
           <div className="relative">
@@ -583,6 +584,7 @@ export default function UsersDisplay() {
                   <option value="teacher">Teacher</option>
                   <option value="cfo">CFO / Finance</option>
                   <option value="crm">CRM Manager</option>
+                  <option value="marketing executive">Marketing Executive (leads, connectors &amp; spend only)</option>
                 </select>
               </div>
 
