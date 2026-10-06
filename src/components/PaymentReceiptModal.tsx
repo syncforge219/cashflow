@@ -497,107 +497,8 @@ export default function PaymentReceiptModal({
     }
   };
 
-  const [isDownloadingPdf, setIsDownloadingPdf] = React.useState(false);
-
   const handlePrint = () => {
     triggerCleanPrint();
-  };
-
-  const handleDownloadPDF = async () => {
-    setIsDownloadingPdf(true);
-    try {
-      const qParams = new URLSearchParams();
-      if (receiptNo) qParams.set("receiptNo", receiptNo);
-      if (receipt?._id) qParams.set("paymentId", String(receipt._id));
-      if (student?._id) qParams.set("admissionId", String(student._id));
-
-      const receiptElement =
-        document.getElementById("printable-receipt") ||
-        document.getElementById("printable-receipt-content");
-
-      const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
-        .map((s) => s.outerHTML)
-        .join("\n");
-
-      let receiptHtml = "";
-      if (receiptElement) {
-        receiptHtml = `
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <meta charset="utf-8">
-              <title>Fee Receipt - ${receiptNo}</title>
-              ${styles}
-              <style>
-                @page {
-                  size: A4 portrait;
-                  margin: 8mm;
-                }
-                *, *::before, *::after {
-                  visibility: visible !important;
-                  -webkit-print-color-adjust: exact !important;
-                  print-color-adjust: exact !important;
-                }
-                html, body {
-                  padding: 0 !important;
-                  margin: 0 !important;
-                  background: #ffffff !important;
-                  color: #0f172a !important;
-                  font-family: system-ui, -apple-system, sans-serif !important;
-                }
-                .print-receipt-wrapper {
-                  max-width: 800px;
-                  margin: 0 auto;
-                  padding: 8px;
-                  background: #ffffff !important;
-                }
-              </style>
-            </head>
-            <body class="bg-white">
-              <div class="print-receipt-wrapper">
-                ${receiptElement.innerHTML}
-              </div>
-            </body>
-          </html>
-        `;
-      }
-
-      // 1. Try POST with rendered client HTML
-      let res = await fetch(`/api/receipts/download-pdf?${qParams.toString()}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          receiptNo,
-          html: receiptHtml,
-          paymentId: receipt?._id ? String(receipt._id) : undefined,
-          admissionId: student?._id ? String(student._id) : undefined,
-        }),
-      });
-
-      // 2. Fallback to GET if POST failed
-      if (!res.ok) {
-        res = await fetch(`/api/receipts/download-pdf?${qParams.toString()}`);
-      }
-
-      if (!res.ok) {
-        throw new Error(`PDF generation failed (${res.status})`);
-      }
-
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `Fee_Receipt_${receiptNo.replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (err) {
-      console.error("Direct PDF download failed, falling back to print dialog:", err);
-      triggerCleanPrint();
-    } finally {
-      setIsDownloadingPdf(false);
-    }
   };
 
   return (
@@ -972,36 +873,6 @@ export default function PaymentReceiptModal({
               : waStatus === "Sent!"
               ? "WhatsApp Sent ✓"
               : "Send via WhatsApp"}
-          </button>
-          <button
-            onClick={handleDownloadPDF}
-            disabled={isDownloadingPdf}
-            className="px-4 py-2 bg-slate-800 text-white hover:bg-slate-700 disabled:opacity-60 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
-          >
-            {isDownloadingPdf ? (
-              <>
-                <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                <span>Downloading...</span>
-              </>
-            ) : (
-              <>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth={2}
-                  stroke="currentColor"
-                  className="w-4 h-4"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
-                  />
-                </svg>
-                <span>Download PDF</span>
-              </>
-            )}
           </button>
           <button
             onClick={handlePrint}

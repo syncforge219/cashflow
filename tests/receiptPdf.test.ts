@@ -1,8 +1,27 @@
-import { test } from "node:test";
+import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { generateOfficialReceiptHtml } from "../src/lib/receiptHtmlGenerator.ts";
-import { htmlToPdfBuffer, inlineLocalImages, getBrowserExecutablePath } from "../src/lib/puppeteerPdf.ts";
+import path from "node:path";
+import { register } from "node:module";
+import { pathToFileURL } from "node:url";
+
+// Register custom alias loader so TypeScript and relative imports resolve in Node native ESM
+register(pathToFileURL(path.resolve(process.cwd(), "scripts", "alias-loader.mjs")).href, pathToFileURL(process.cwd() + "/"));
+
+let generateOfficialReceiptHtml: any;
+let htmlToPdfBuffer: any;
+let inlineLocalImages: any;
+let getBrowserExecutablePath: any;
+
+before(async () => {
+  const receiptHtmlMod = await import("../src/lib/receiptHtmlGenerator");
+  generateOfficialReceiptHtml = receiptHtmlMod.generateOfficialReceiptHtml;
+
+  const puppeteerMod = await import("../src/lib/puppeteerPdf");
+  htmlToPdfBuffer = puppeteerMod.htmlToPdfBuffer;
+  inlineLocalImages = puppeteerMod.inlineLocalImages;
+  getBrowserExecutablePath = puppeteerMod.getBrowserExecutablePath;
+});
 
 test("Puppeteer executable path discovery", () => {
   const execPath = getBrowserExecutablePath();
@@ -76,7 +95,6 @@ test("htmlToPdfBuffer generates valid A4 PDF buffer", async () => {
   const html = generateOfficialReceiptHtml(sample);
   const pdfBuffer = await htmlToPdfBuffer(html);
   assert.ok(pdfBuffer.length > 5000, `PDF buffer length (${pdfBuffer.length}) must be substantial`);
-  // PDF file starts with %PDF-
   const header = pdfBuffer.slice(0, 5).toString("utf-8");
   assert.equal(header, "%PDF-", "Generated buffer must have valid PDF header %PDF-");
 });
