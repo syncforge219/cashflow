@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useUser } from "@/app/component/context/user-context";
 import LeadSourceManagerModal from "@/components/LeadSourceManagerModal";
 import CourseMultiSelect from "@/components/CourseMultiSelect";
+import { sanitizePhoneDigits, cleanPastedPhone } from "@/lib/phoneUtils";
 
 interface EditEnquiryModalProps {
   isOpen: boolean;
@@ -41,8 +42,7 @@ export default function EditEnquiryModal({ isOpen, onClose, onSuccess, lead }: E
   });
 
   const cleanPhoneDigits = (phone: string) => {
-    if (!phone) return "";
-    return String(phone).replace(/^\+?91\s?/, "").replace(/\D/g, "").slice(0, 10);
+    return sanitizePhoneDigits(phone);
   };
 
   const userRole = (user?.role || (user as any)?.crmRole || "").toLowerCase().trim();
@@ -450,6 +450,12 @@ export default function EditEnquiryModal({ isOpen, onClose, onSuccess, lead }: E
                       const cleaned = cleanPhoneDigits(e.target.value);
                       setFormData((prev) => ({ ...prev, primaryPhoneMobile: cleaned }));
                     }}
+                    onPaste={(e) => {
+                      e.preventDefault();
+                      const pasted = e.clipboardData.getData("text") || "";
+                      const cleaned = cleanPastedPhone(pasted);
+                      setFormData((prev) => ({ ...prev, primaryPhoneMobile: cleaned }));
+                    }}
                     type="tel"
                     placeholder="9876543210"
                     maxLength={10}
@@ -471,6 +477,12 @@ export default function EditEnquiryModal({ isOpen, onClose, onSuccess, lead }: E
                     value={formData.parentsPhoneNumber}
                     onChange={(e) => {
                       const cleaned = cleanPhoneDigits(e.target.value);
+                      setFormData((prev) => ({ ...prev, parentsPhoneNumber: cleaned }));
+                    }}
+                    onPaste={(e) => {
+                      e.preventDefault();
+                      const pasted = e.clipboardData.getData("text") || "";
+                      const cleaned = cleanPastedPhone(pasted);
                       setFormData((prev) => ({ ...prev, parentsPhoneNumber: cleaned }));
                     }}
                     type="tel"

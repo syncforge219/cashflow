@@ -2,6 +2,7 @@
 
 import { todayKey } from "@/lib/dates";
 import React, { useState, useEffect, useRef } from "react";
+import { sanitizePhoneDigits, cleanPastedPhone, formatPhoneForSubmission } from "@/lib/phoneUtils";
 
 interface AddTeacherModalProps {
   isOpen: boolean;
@@ -156,8 +157,17 @@ export default function AddTeacherModal({
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value;
-    const digits = raw.replace(/^\+?91\s?/, "").replace(/\D/g, "").slice(0, 10);
+    const digits = sanitizePhoneDigits(e.target.value);
+    setFormData((prev) => ({
+      ...prev,
+      phone: "+91 " + digits,
+    }));
+  };
+
+  const handlePhonePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData("text") || "";
+    const digits = cleanPastedPhone(pasted);
     setFormData((prev) => ({
       ...prev,
       phone: "+91 " + digits,
@@ -194,12 +204,11 @@ export default function AddTeacherModal({
       return;
     }
 
-    const cleanDigits = formData.phone.replace(/^\+?91\s?/, "").replace(/\D/g, "");
     const payload = {
       ...formData,
       subjects: selectedSubjects,
       subject: selectedSubjects,
-      phone: cleanDigits ? `+91 ${cleanDigits}` : "",
+      phone: formatPhoneForSubmission(formData.phone),
     };
 
     try {
@@ -328,6 +337,7 @@ export default function AddTeacherModal({
                 name="phone"
                 value={formData.phone}
                 onChange={handlePhoneChange}
+                onPaste={handlePhonePaste}
                 placeholder="+91 9876543210"
                 className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
               />

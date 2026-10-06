@@ -106,8 +106,8 @@ export function generateReceiptPdfBuffer(data: ReceiptPdfData): Buffer {
     fillRoundedRect("0.85 0.85 0.85", 305, 700, 240, 20, 4),
     `BT /F2 9 Tf 0.2 0.2 0.2 rg 310 706 Td (Received From :) Tj ET`,
     `BT /F2 10 Tf 0.1 0.1 0.1 rg 305 684 Td (${student}) Tj ET`,
-    `BT /F1 8.5 Tf 0.3 0.3 0.3 rg 305 669 Td (Admission Batch : Lucknow) Tj ET`,
-    `BT /F1 8.5 Tf 0.3 0.3 0.3 rg 305 654 Td (Lucknow) Tj ET`,
+    `BT /F1 8.5 Tf 0.3 0.3 0.3 rg 305 669 Td (Admission Batch : ${(data as any).batch || (data as any).admissionBatch || "General Batch"}) Tj ET`,
+    `BT /F1 8.5 Tf 0.3 0.3 0.3 rg 305 654 Td (${(data as any).city || "N/A"}) Tj ET`,
 
     fillRoundedRect("0.15 0.68 0.32", 305, 625, 240, 22, 4),
     `BT /F2 12 Tf 1 1 1 rg 380 632 Td (INR ${amountStr}) Tj ET`,
@@ -121,11 +121,11 @@ export function generateReceiptPdfBuffer(data: ReceiptPdfData): Buffer {
     `BT /F2 8 Tf 0.2 0.2 0.2 rg 435 590 Td (Due Fee) Tj ET`,
     `BT /F2 8 Tf 0.2 0.2 0.2 rg 490 590 Td (Received Fee) Tj ET`,
 
-    `BT /F1 8 Tf 0.2 0.2 0.2 rg 55 570 Td (566) Tj ET`,
-    `BT /F1 8 Tf 0.2 0.2 0.2 rg 160 570 Td (${course.slice(0, 22)}) Tj ET`,
-    `BT /F1 8 Tf 0.2 0.2 0.2 rg 290 570 Td (Course Fees) Tj ET`,
+    `BT /F1 8 Tf 0.2 0.2 0.2 rg 55 570 Td (${data.admissionId || "ADM-N/A"}) Tj ET`,
+    `BT /F1 8 Tf 0.2 0.2 0.2 rg 160 570 Td (${course.slice(0, 35)}) Tj ET`,
+    `BT /F1 8 Tf 0.2 0.2 0.2 rg 290 570 Td (Course Fee / Registration) Tj ET`,
     `BT /F1 8 Tf 0.2 0.2 0.2 rg 360 570 Td (${shortPayDate}) Tj ET`,
-    `BT /F1 8 Tf 0.2 0.2 0.2 rg 435 570 Td (${amountVal}) Tj ET`,
+    `BT /F1 8 Tf 0.2 0.2 0.2 rg 435 570 Td (${finalFeeVal}) Tj ET`,
     `BT /F2 8 Tf 0.1 0.5 0.2 rg 490 570 Td (${amountVal}) Tj ET`,
 
     `BT /F2 10 Tf 0.1 0.1 0.1 rg 50 545 Td (Installment & Downpayment Payments Schedule) Tj ET`,
@@ -146,7 +146,7 @@ export function generateReceiptPdfBuffer(data: ReceiptPdfData): Buffer {
       `BT /F1 7 Tf 0.4 0.4 0.4 rg 365 510 Td (Scheduled Due Date: ${data.downpaymentDueDate ? new Date(data.downpaymentDueDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "2-digit", month: "short", year: "numeric" }) : shortPayDate}) Tj ET`,
     ] : [
       `BT /F1 8 Tf 0.2 0.2 0.2 rg 55 510 Td (${shortPayDate}) Tj ET`,
-      `BT /F1 8 Tf 0.2 0.2 0.2 rg 125 510 Td (566) Tj ET`,
+      `BT /F1 8 Tf 0.2 0.2 0.2 rg 125 510 Td (${data.admissionId || "ADM-N/A"}) Tj ET`,
       `BT /F1 8 Tf 0.2 0.2 0.2 rg 185 510 Td (${finalFeeVal}) Tj ET`,
       `BT /F1 8 Tf 0.2 0.2 0.2 rg 235 510 Td (${totalPaidVal}) Tj ET`,
       `BT /F1 8 Tf 0.2 0.2 0.2 rg 295 510 Td (${remainingVal}) Tj ET`,

@@ -6,6 +6,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useUser } from "@/app/component/context/user-context";
 import LeadSourceManagerModal from "@/components/LeadSourceManagerModal";
 import CourseMultiSelect from "@/components/CourseMultiSelect";
+import {
+  sanitizePhoneDigits,
+  cleanPastedPhone,
+  formatPhoneForSubmission,
+} from "@/lib/phoneUtils";
 
 interface AddEnquiryModalProps {
   isOpen: boolean;
@@ -47,16 +52,14 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
         setCurrentCity(initialData.currentCity || "");
 
         if (initialData.primaryPhoneMobile) {
-          const raw = String(initialData.primaryPhoneMobile);
-          const digits = raw.replace(/^\+?91\s?/, "").replace(/\D/g, "").slice(0, 10);
+          const digits = sanitizePhoneDigits(initialData.primaryPhoneMobile);
           setPrimaryPhone(digits ? "+91 " + digits : "+91 ");
         } else {
           setPrimaryPhone("+91 ");
         }
 
         if (initialData.parentsPhoneNumber) {
-          const raw = String(initialData.parentsPhoneNumber);
-          const digits = raw.replace(/^\+?91\s?/, "").replace(/\D/g, "").slice(0, 10);
+          const digits = sanitizePhoneDigits(initialData.parentsPhoneNumber);
           setParentsPhone(digits ? "+91 " + digits : "+91 ");
         } else {
           setParentsPhone("+91 ");
@@ -199,14 +202,26 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
   }, [courses, selectedBrand, activeBrandForCounsellors]);
 
   const handlePrimaryPhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value;
-    const digits = raw.replace(/^\+?91\s?/, "").replace(/\D/g, "").slice(0, 10);
+    const digits = sanitizePhoneDigits(e.target.value);
+    setPrimaryPhone("+91 " + digits);
+  };
+
+  const handlePrimaryPhonePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData("text") || "";
+    const digits = cleanPastedPhone(pasted);
     setPrimaryPhone("+91 " + digits);
   };
 
   const handleParentsPhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value;
-    const digits = raw.replace(/^\+?91\s?/, "").replace(/\D/g, "").slice(0, 10);
+    const digits = sanitizePhoneDigits(e.target.value);
+    setParentsPhone("+91 " + digits);
+  };
+
+  const handleParentsPhonePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData("text") || "";
+    const digits = cleanPastedPhone(pasted);
     setParentsPhone("+91 " + digits);
   };
 
@@ -252,12 +267,10 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
     }
 
     if (data.primaryPhoneMobile) {
-      const cleanPrimary = String(data.primaryPhoneMobile).trim().replace(/^\+?91\s?/, '');
-      data.primaryPhoneMobile = cleanPrimary ? `+91 ${cleanPrimary}` : "";
+      data.primaryPhoneMobile = formatPhoneForSubmission(String(data.primaryPhoneMobile));
     }
     if (data.parentsPhoneNumber) {
-      const cleanParents = String(data.parentsPhoneNumber).trim().replace(/^\+?91\s?/, '');
-      data.parentsPhoneNumber = cleanParents ? `+91 ${cleanParents}` : "";
+      data.parentsPhoneNumber = formatPhoneForSubmission(String(data.parentsPhoneNumber));
     }
 
     // Attach multi-selected courses array or looking for job
@@ -393,6 +406,7 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
                   type="tel" 
                   value={primaryPhone}
                   onChange={handlePrimaryPhoneChange}
+                  onPaste={handlePrimaryPhonePaste}
                   placeholder="e.g. +91 9876500000"
                   className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50" 
                 />
@@ -404,6 +418,7 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
                   type="tel" 
                   value={parentsPhone}
                   onChange={handleParentsPhoneChange}
+                  onPaste={handleParentsPhonePaste}
                   placeholder="e.g. +91 9876500000"
                   className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50" 
                 />

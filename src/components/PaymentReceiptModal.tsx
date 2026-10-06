@@ -511,10 +511,78 @@ export default function PaymentReceiptModal({
       if (receipt?._id) qParams.set("paymentId", String(receipt._id));
       if (student?._id) qParams.set("admissionId", String(student._id));
 
-      const res = await fetch(`/api/receipts/download-pdf?${qParams.toString()}`);
+      const receiptElement =
+        document.getElementById("printable-receipt") ||
+        document.getElementById("printable-receipt-content");
+
+      const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+        .map((s) => s.outerHTML)
+        .join("\n");
+
+      let receiptHtml = "";
+      if (receiptElement) {
+        receiptHtml = `
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <meta charset="utf-8">
+              <title>Fee Receipt - ${receiptNo}</title>
+              ${styles}
+              <style>
+                @page {
+                  size: A4 portrait;
+                  margin: 8mm;
+                }
+                *, *::before, *::after {
+                  visibility: visible !important;
+                  -webkit-print-color-adjust: exact !important;
+                  print-color-adjust: exact !important;
+                }
+                html, body {
+                  padding: 0 !important;
+                  margin: 0 !important;
+                  background: #ffffff !important;
+                  color: #0f172a !important;
+                  font-family: system-ui, -apple-system, sans-serif !important;
+                }
+                .print-receipt-wrapper {
+                  max-width: 800px;
+                  margin: 0 auto;
+                  padding: 8px;
+                  background: #ffffff !important;
+                }
+              </style>
+            </head>
+            <body class="bg-white">
+              <div class="print-receipt-wrapper">
+                ${receiptElement.innerHTML}
+              </div>
+            </body>
+          </html>
+        `;
+      }
+
+      // 1. Try POST with rendered client HTML
+      let res = await fetch(`/api/receipts/download-pdf?${qParams.toString()}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          receiptNo,
+          html: receiptHtml,
+          paymentId: receipt?._id ? String(receipt._id) : undefined,
+          admissionId: student?._id ? String(student._id) : undefined,
+        }),
+      });
+
+      // 2. Fallback to GET if POST failed
+      if (!res.ok) {
+        res = await fetch(`/api/receipts/download-pdf?${qParams.toString()}`);
+      }
+
       if (!res.ok) {
         throw new Error(`PDF generation failed (${res.status})`);
       }
+
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");

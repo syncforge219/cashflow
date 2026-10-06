@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { sanitizePhoneDigits, cleanPastedPhone, formatPhoneForSubmission } from "@/lib/phoneUtils";
 
 interface EditTeacherModalProps {
   isOpen: boolean;
@@ -34,8 +35,7 @@ export default function EditTeacherModal({
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const cleanPhoneDigits = (phone: string) => {
-    if (!phone) return "";
-    return String(phone).replace(/^\+?91\s?/, "").replace(/\D/g, "").slice(0, 10);
+    return sanitizePhoneDigits(phone);
   };
 
   // Close dropdown on click outside
@@ -147,8 +147,14 @@ export default function EditTeacherModal({
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value;
-    const digits = raw.replace(/^\+?91\s?/, "").replace(/\D/g, "").slice(0, 10);
+    const digits = sanitizePhoneDigits(e.target.value);
+    setFormData((prev) => ({ ...prev, phone: "+91 " + digits }));
+  };
+
+  const handlePhonePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData("text") || "";
+    const digits = cleanPastedPhone(pasted);
     setFormData((prev) => ({ ...prev, phone: "+91 " + digits }));
   };
 
@@ -176,14 +182,11 @@ export default function EditTeacherModal({
     setIsSubmitting(true);
     setError("");
 
-    const cleanDigits = cleanPhoneDigits(formData.phone);
-    const targetId = teacher.rawId || teacher._id || teacher.id;
-
     const payload: any = {
       firstName: formData.firstName,
       lastName: formData.lastName,
       email: formData.email,
-      phone: cleanDigits ? `+91 ${cleanDigits}` : "",
+      phone: formatPhoneForSubmission(formData.phone),
       brandScope: formData.brandScope,
       subjects: selectedSubjects,
       subject: selectedSubjects,
@@ -192,6 +195,8 @@ export default function EditTeacherModal({
     if (formData.password && formData.password.trim().length >= 6) {
       payload.password = formData.password.trim();
     }
+
+    const targetId = teacher.rawId || teacher._id || teacher.id;
 
     try {
       const response = await fetch(`/api/teachers/${targetId}`, {
@@ -302,6 +307,7 @@ export default function EditTeacherModal({
                 name="phone"
                 value={formData.phone}
                 onChange={handlePhoneChange}
+                onPaste={handlePhonePaste}
                 className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
               />
             </div>

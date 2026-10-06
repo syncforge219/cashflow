@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import PaymentReceiptModal from "./PaymentReceiptModal";
 import CourseMultiSelect from "./CourseMultiSelect";
 import { useUser } from "@/app/component/context/user-context";
+import { cleanPastedPhone, sanitizePhoneDigits } from "@/lib/phoneUtils";
 
 interface AdmissionModalProps {
   isOpen: boolean;
@@ -625,7 +626,17 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-bold text-slate-500">Mobile Number <span className="text-rose-500">*</span></label>
-                    <input type="text" value={mobileNumber} onChange={e=>setMobileNumber(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white" />
+                    <input 
+                      type="text" 
+                      value={mobileNumber} 
+                      onChange={e=>setMobileNumber(e.target.value)} 
+                      onPaste={(e) => {
+                        e.preventDefault();
+                        const pasted = e.clipboardData.getData("text") || "";
+                        setMobileNumber(cleanPastedPhone(pasted));
+                      }}
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white" 
+                    />
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-bold text-slate-500">Email Address <span className="text-indigo-600 text-[10px] font-semibold">(for PDF Receipt & Email)</span></label>
@@ -637,7 +648,18 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-bold text-slate-500">Guardian 1 Phone <span className="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
-                    <input type="tel" value={parentPhone} onChange={e=>setParentPhone(e.target.value)} placeholder="e.g. +91 9876500000" className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white" />
+                    <input 
+                      type="tel" 
+                      value={parentPhone} 
+                      onChange={e=>setParentPhone(e.target.value)} 
+                      onPaste={(e) => {
+                        e.preventDefault();
+                        const pasted = e.clipboardData.getData("text") || "";
+                        setParentPhone(cleanPastedPhone(pasted));
+                      }}
+                      placeholder="e.g. +91 9876500000" 
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white" 
+                    />
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-bold text-slate-500">Guardian 2 Name <span className="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
@@ -645,7 +667,18 @@ export default function AdmissionModal({ isOpen, onClose, lead, onSuccess, defau
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-bold text-slate-500">Guardian 2 Phone <span className="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
-                    <input type="tel" value={guardian2Phone} onChange={e=>setGuardian2Phone(e.target.value)} placeholder="e.g. +91 9876511111" className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white" />
+                    <input 
+                      type="tel" 
+                      value={guardian2Phone} 
+                      onChange={e=>setGuardian2Phone(e.target.value)} 
+                      onPaste={(e) => {
+                        e.preventDefault();
+                        const pasted = e.clipboardData.getData("text") || "";
+                        setGuardian2Phone(cleanPastedPhone(pasted));
+                      }}
+                      placeholder="e.g. +91 9876511111" 
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white" 
+                    />
                   </div>
                   <div className="flex flex-col gap-1.5 md:col-span-3">
                     <label className="text-xs font-bold text-slate-500">Address</label>

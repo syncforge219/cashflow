@@ -8,6 +8,10 @@ import Admission from "@/models/Admission";
 import Brand from "@/models/Brand";
 import Company from "@/models/Company";
 import { generateReceiptPdfBuffer } from "@/lib/pdfGenerator";
+import { htmlToPdfBuffer } from "@/lib/puppeteerPdf";
+import { generateOfficialReceiptHtml, ReceiptHtmlData } from "@/lib/receiptHtmlGenerator";
+
+const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export async function GET(
   req: NextRequest,
@@ -21,11 +25,25 @@ export async function GET(
       return new NextResponse("Receipt number required", { status: 400 });
     }
 
-    const payment = await Payment.findOne({ receiptNo }).lean();
-    let admission: any = null;
+    const payment = await Payment.findOne({
+      $or: [
+        { receiptNo },
+        { receiptNo: decodeURIComponent(receiptNo) },
+        { receiptNo: { $regex: new RegExp(`^${escapeRegExp(receiptNo.trim())}$`, "i") } },
+      ],
+    }).lean();
 
-    if (payment && payment.admissionId) {
+    let admission: any = null;
+    const paymentAny = payment as any;
+    if (payment && payment.admissionId && mongoose.Types.ObjectId.isValid(payment.admissionId)) {
       admission = await Admission.findById(payment.admissionId).lean();
+    } else if (paymentAny?.admissionNumber) {
+      admission = await Admission.findOne({
+        $or: [
+          { admissionId: paymentAny.admissionNumber },
+          { _id: mongoose.Types.ObjectId.isValid(paymentAny.admissionNumber) ? paymentAny.admissionNumber : undefined },
+        ].filter(Boolean),
+      }).lean();
     }
 
     const studentName = payment?.studentName || admission?.fullName || "Student";
@@ -73,22 +91,22 @@ export async function GET(
     }
 
     const paymentDate = paymentDateObj.toLocaleString("en-IN", {
+      timeZone: "Asia/Kolkata",
       day: "2-digit",
       month: "short",
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
-      second: "2-digit",
       hour12: true,
     });
 
     const generatedAtStr = new Date().toLocaleString("en-IN", {
+      timeZone: "Asia/Kolkata",
       day: "2-digit",
       month: "short",
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
-      second: "2-digit",
       hour12: true,
     });
 
@@ -103,8 +121,8 @@ export async function GET(
     const targetBrandName = payment?.brand || admission?.brand || "CADD MANTRA";
     const brand = await Brand.findOne({
       $or: [
-        { name: { $regex: new RegExp(`^${targetBrandName}$`, "i") } },
-        { code: { $regex: new RegExp(`^${targetBrandName}$`, "i") } },
+        { name: { $regex: new RegExp(`^${escapeRegExp(targetBrandName.trim())}$`, "i") } },
+        { code: { $regex: new RegExp(`^${escapeRegExp(targetBrandName.trim())}$`, "i") } },
       ],
     }).lean();
 
@@ -133,7 +151,6 @@ export async function GET(
 
     let companyObj: any = null;
     if (targetCompName) {
-      const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       companyObj = await Company.findOne({
         $or: [
           { name: { $regex: new RegExp(`^${escapeRegExp(targetCompName.trim())}$`, "i") } },
@@ -143,7 +160,6 @@ export async function GET(
     }
 
     if (!companyObj && targetBrandName) {
-      const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       companyObj = await Company.findOne({
         $or: [
           { brands: { $regex: new RegExp(`^${escapeRegExp(targetBrandName.trim())}$`, "i") } },
@@ -154,7 +170,51 @@ export async function GET(
 
     const companyName = companyObj?.legalName || companyObj?.name || targetCompName || brand?.companies?.[0] || targetBrandName || "INSTITUTE OF CREATIVE STUDIES";
     const companyAddress = companyObj?.address || brand?.address || "No listed street, No City, No State, PIN";
+    const brandLogoUrl = brand?.logoUrl || (brand?.receiptTemplateUrl && !brand.receiptTemplateUrl.toLowerCase().endsWith(".pdf") ? brand.receiptTemplateUrl : null);
 
+    const receiptData: ReceiptHtmlData = {
+      receiptNo,
+      studentName,
+      admissionId,
+      courseName,
+      amountPaid,
+      paymentDate,
+      paymentMode: payment?.paymentMode || "Online",
+      referenceNo: payment?.referenceNo || "N/A",
+      particulars: typeof paymentAny?.particulars === "string" ? paymentAny.particulars : "Course Fee / Registration Payment Received",
+      brandName: targetBrandName,
+      brandAddress: brand?.address || "G 11 , Murli Bhawan , 10- A, Ashok Marg , Lucknow",
+      brandLogoUrl,
+      companyName,
+      companyAddress,
+      batch: admission?.batch || admission?.city || "General Batch",
+      city: admission?.city || "Lucknow",
+      finalFee,
+      totalPaidToDate,
+      remainingBalance,
+      downpaymentAmount: admission?.downpaymentAmount,
+      downpaymentDueDate: admission?.downpaymentDueDate,
+      customEmiPlan: admission?.customEmiPlan,
+      terms: brand?.receiptTerms ? [brand.receiptTerms] : undefined,
+    };
+
+    // 1. Try Puppeteer for exact official PDF
+    try {
+      const html = generateOfficialReceiptHtml(receiptData);
+      const pdfBuffer = await htmlToPdfBuffer(html);
+      return new NextResponse(Uint8Array.from(pdfBuffer), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `inline; filename="Fee_Receipt_${receiptNo}.pdf"`,
+          "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+        },
+      });
+    } catch (pupErr) {
+      console.warn("Puppeteer failed on [receiptNo]/pdf, falling back to pdfGenerator:", pupErr);
+    }
+
+    // 2. Fallback to vector generator
     const pdfBuffer = generateReceiptPdfBuffer({
       receiptNo,
       studentName,

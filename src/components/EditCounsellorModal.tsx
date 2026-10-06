@@ -2,6 +2,7 @@
 
 import { toDateKey } from "@/lib/dates";
 import React, { useState, useEffect } from "react";
+import { sanitizePhoneDigits, cleanPastedPhone, formatPhoneForSubmission } from "@/lib/phoneUtils";
 
 interface EditCounsellorModalProps {
   isOpen: boolean;
@@ -32,8 +33,7 @@ export default function EditCounsellorModal({
   const [isLoading, setIsLoading] = useState(false);
 
   const cleanPhoneDigits = (phone: string) => {
-    if (!phone) return "";
-    return String(phone).replace(/^\+?91\s?/, "").replace(/\D/g, "").slice(0, 10);
+    return sanitizePhoneDigits(phone);
   };
 
   useEffect(() => {
@@ -67,8 +67,17 @@ export default function EditCounsellorModal({
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value;
-    const digits = raw.replace(/^\+?91\s?/, "").replace(/\D/g, "").slice(0, 10);
+    const digits = sanitizePhoneDigits(e.target.value);
+    setFormData((prev) => ({
+      ...prev,
+      phone: "+91 " + digits,
+    }));
+  };
+
+  const handlePhonePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData("text") || "";
+    const digits = cleanPastedPhone(pasted);
     setFormData((prev) => ({
       ...prev,
       phone: "+91 " + digits,
@@ -80,12 +89,10 @@ export default function EditCounsellorModal({
     setIsLoading(true);
     setError("");
 
-    const cleanPhone = cleanPhoneDigits(formData.phone);
-
     const payload: any = {
       name: formData.name,
       email: formData.email,
-      phone: cleanPhone ? `+91 ${cleanPhone}` : "",
+      phone: formatPhoneForSubmission(formData.phone),
       brandScope: formData.brandScope,
       joiningDate: formData.joiningDate ? new Date(formData.joiningDate) : undefined,
       annualTarget: Number(formData.annualTarget),
@@ -219,6 +226,7 @@ export default function EditCounsellorModal({
                 name="phone"
                 value={formData.phone}
                 onChange={handlePhoneChange}
+                onPaste={handlePhonePaste}
                 placeholder="e.g. +91 9988011223"
                 className="w-full text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
               />

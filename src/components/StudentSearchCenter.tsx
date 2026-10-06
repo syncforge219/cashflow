@@ -5,6 +5,7 @@ import AddEnquiryModal from "./AddEnquiryModal";
 import EditEnquiryModal from "./EditEnquiryModal";
 import LeadProfile from "./LeadProfile";
 import AdmissionModal from "./AdmissionModal";
+import { cleanPastedPhone } from "@/lib/phoneUtils";
 
 interface StudentSearchCenterProps {
   className?: string;
@@ -28,7 +29,12 @@ export default function StudentSearchCenter({ className = "" }: StudentSearchCen
   const [leadForAdmission, setLeadForAdmission] = useState<any | null>(null);
 
   const handleSearch = async () => {
-    const cleanDigits = searchQuery.replace(/\D/g, "");
+    let cleanDigits = searchQuery.replace(/\D/g, "");
+    if (cleanDigits.length === 12) {
+      cleanDigits = cleanDigits.slice(2);
+    } else if (cleanDigits.length > 10) {
+      cleanDigits = cleanDigits.slice(-10);
+    }
     if (!cleanDigits || cleanDigits.length < 5) {
       alert("Please enter a valid phone number with at least 5 digits.");
       return;
@@ -100,6 +106,12 @@ export default function StudentSearchCenter({ className = "" }: StudentSearchCen
                 type="tel"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value.replace(/[^\d+ -]/g, ""))}
+                onPaste={(e) => {
+                  e.preventDefault();
+                  const pasted = e.clipboardData.getData("text") || "";
+                  const cleaned = cleanPastedPhone(pasted);
+                  setSearchQuery(cleaned);
+                }}
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                 placeholder="Enter 10-digit mobile number (e.g. 9876543210)"
                 className="w-full bg-slate-50/70 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all placeholder:text-slate-400 font-mono"
