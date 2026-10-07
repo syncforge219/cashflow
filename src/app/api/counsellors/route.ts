@@ -80,6 +80,7 @@ export async function POST(request: Request) {
 }
 
 import { getUserFromCookies } from "@/lib/helper";
+import Brand from "@/models/Brand";
 
 // GET: Fetch users by role with live admission metrics calculation
 export async function GET(request: Request) {
@@ -137,6 +138,11 @@ export async function GET(request: Request) {
     const allEnquiries = await Enquiry.find({});
     const admittedEnquiries = allEnquiries.filter((enq: any) => enq.status === "Admitted");
 
+    const brandRows: any[] = await Brand.find({}).select("name code").lean();
+    const brandNames = new Set(
+      brandRows.flatMap((b: any) => [b.name, b.code]).filter(Boolean).map((n: string) => String(n).toLowerCase().trim())
+    );
+
     const counsellorsWithLiveStats = counsellors.map((c: any) => {
       const cObj = c.toObject();
       const cName = (c.name || "").toLowerCase().trim();
@@ -146,7 +152,7 @@ export async function GET(request: Request) {
       const matchesCounsellor = (val: string) => {
         if (!val) return false;
         const low = val.toLowerCase().trim();
-        if (low === "unassigned" || low === "n/a" || low === "counsellor" || low === "staff" || low === "cadd mantra" || low === "design gateway") return false;
+        if (low === "unassigned" || low === "n/a" || low === "counsellor" || low === "staff" || brandNames.has(low)) return false;
         if (low === cName || low === cEmail || low === cId) return true;
 
         if (cName) {

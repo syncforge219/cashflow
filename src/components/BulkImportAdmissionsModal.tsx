@@ -91,8 +91,8 @@ export default function BulkImportAdmissionsModal({ isOpen, onClose, onSuccess }
     // Sample data row
     ws.addRow([
       "Rahul Sharma", "+919876543210", "rahul@example.com", "123 Main St", "Nagpur", "Maharashtra", "440001",
-      "15/06/1998", "Male", "Priya Counsellor", "Cadd Mantra", "AutoCAD 3D", "BATCH-2024-A", "6 Months",
-      "2024-01-15", "2024-25", "2024-01-15", "CT Enterprises", "25000", "0", "2000", "0", "2000",
+      "15/06/1998", "Male", "Priya Counsellor", "Your Brand Name", "AutoCAD 3D", "BATCH-2024-A", "6 Months",
+      "2024-01-15", "2024-25", "2024-01-15", "Your Company Name", "25000", "0", "2000", "0", "2000",
       "23000", "UPI", "TXN123456", "10000", "2024-01-15", "13000", "TRUE", "3", "4334"
     ]);
 

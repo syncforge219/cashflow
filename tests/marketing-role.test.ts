@@ -77,7 +77,7 @@ describe("Marketing Executive role", () => {
     legacyToken = (await createSession(String(legacy._id))).sessionToken;
 
     // A lead entered by staff (not the marketing user) -> must never be visible to them
-    await Enquiry.create({ studentFullName: "Staff Lead", primaryPhoneMobile: "+91 9000000001", leadSource: "Walk-in", targetBrand: "CADD MANTRA" });
+    await Enquiry.create({ studentFullName: "Staff Lead", primaryPhoneMobile: "+91 9000000001", leadSource: "Walk-in", targetBrand: "BRAND A" });
   });
 
   after(async () => {
@@ -129,7 +129,7 @@ describe("Marketing Executive role", () => {
       phone: "98765 43210",
       source: "Meta Ads",
       campaign: "Oct AutoCAD",
-      brand: "CADD MANTRA",
+      brand: "BRAND A",
       course: "AutoCAD",
       counsellor: "Ravi Counsellor",
       status: "Admitted", // ignored
@@ -179,7 +179,7 @@ describe("Marketing Executive role", () => {
 
     // The Meta lead becomes an admission (linked by enquiryId)
     const lead = await Enquiry.findOne({ studentFullName: "Priya Lead" });
-    await Admission.create({ fullName: "Priya Lead", enquiryId: lead._id, finalFee: 50000, brand: "CADD MANTRA" });
+    await Admission.create({ fullName: "Priya Lead", enquiryId: lead._id, finalFee: 50000, brand: "BRAND A" });
 
     const { json } = await call(summaryRoute.GET, "/api/marketing/summary");
     assert.equal(json.success, true, JSON.stringify(json));

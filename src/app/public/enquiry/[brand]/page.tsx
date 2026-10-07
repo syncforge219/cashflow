@@ -10,7 +10,7 @@ interface PublicEnquiryPageProps {
 
 export default function PublicBrandEnquiryPage({ params }: PublicEnquiryPageProps) {
   const resolvedParams = use(params);
-  const rawBrand = decodeURIComponent(resolvedParams?.brand || "CADD MANTRA");
+  const rawBrand = decodeURIComponent(resolvedParams?.brand || "");
   const brandName = rawBrand.toUpperCase().trim();
   const { executeRecaptcha } = useRecaptcha();
 

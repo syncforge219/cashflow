@@ -9,21 +9,9 @@ export async function GET(req: Request) {
     const companyId = searchParams.get("companyId") || "DEFAULT_COMPANY";
 
     let profile = await QuotationProfile.findOne({ companyId }).lean();
+    // A new profile starts empty; company details are entered on Quotations → Settings
     if (!profile) {
-      profile = await QuotationProfile.create({ companyId, name: "SICCES PRIVATE LIMITED", prefix: "SICCES" });
-    } else if (!profile.name || profile.name === "AARAM PLASTICS PVT. LTD.") {
-      profile = await QuotationProfile.findOneAndUpdate(
-        { companyId },
-        {
-          $set: {
-            name: "SICCES PRIVATE LIMITED",
-            prefix: "SICCES",
-            gstin: profile.gstin === "08AABCA5691D1ZS" ? "09AASCS4608K1ZP" : profile.gstin,
-            description: "Providers of Software, Digital Marketing & Educational Services",
-          },
-        },
-        { new: true }
-      ).lean();
+      profile = (await QuotationProfile.create({ companyId })).toObject();
     }
 
     return NextResponse.json({ success: true, data: profile });

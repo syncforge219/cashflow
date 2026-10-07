@@ -26,34 +26,34 @@ export default function SettingsPage() {
   const [companies, setCompanies] = useState<CompanyEntity[]>([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState("");
 
-  const [name, setName] = useState("SICCES PRIVATE LIMITED");
+  const [name, setName] = useState("");
   const [logo, setLogo] = useState("");
-  const [gstin, setGstin] = useState("09AASCS4608K1ZP");
+  const [gstin, setGstin] = useState("");
   const [cin, setCin] = useState("");
-  const [description, setDescription] = useState("Providers of Software, Digital Marketing & Educational Services");
-  const [address, setAddress] = useState("101, Vinayak Complex, Station Road");
-  const [city, setCity] = useState("JAIPUR");
-  const [state, setState] = useState("Rajasthan");
-  const [pincode, setPincode] = useState("302 001");
-  const [phone, setPhone] = useState("0141-4059826");
+  const [description, setDescription] = useState("");
+  const [address, setAddress] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
+  const [pincode, setPincode] = useState("");
+  const [phone, setPhone] = useState("");
   const [telefax, setTelefax] = useState("");
-  const [email, setEmail] = useState("info@sicces.com");
-  const [website, setWebsite] = useState("www.sicces.com");
+  const [email, setEmail] = useState("");
+  const [website, setWebsite] = useState("");
   const [worksAddress, setWorksAddress] = useState("");
   const [isoTag, setIsoTag] = useState("");
 
-  const [bankName, setBankName] = useState("STATE BANK OF INDIA");
-  const [branch, setBranch] = useState("SITAPURA IND. AREA JAIPUR");
-  const [accountNumber, setAccountNumber] = useState("61330464677");
-  const [ifsc, setIfsc] = useState("SBIN0031792");
-  const [rtgsCode, setRtgsCode] = useState("SBIN0031792");
+  const [bankName, setBankName] = useState("");
+  const [branch, setBranch] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [ifsc, setIfsc] = useState("");
+  const [rtgsCode, setRtgsCode] = useState("");
 
   const [authorizedSignatory, setAuthorizedSignatory] = useState("AUTHORISED SIGNATORY");
   const [signatureImage, setSignatureImage] = useState("");
   const [stampImage, setStampImage] = useState("");
   const [bankQrImage, setBankQrImage] = useState("");
   const [brandLogo, setBrandLogo] = useState("");
-  const [prefix, setPrefix] = useState("SICCES");
+  const [prefix, setPrefix] = useState("QTN");
 
   const categoryTabLabels: Record<string, { label: string; icon: string }> = {
     PRODUCT: { label: "Physical Goods", icon: "📦" },
@@ -146,7 +146,7 @@ export default function SettingsPage() {
           setWebsite(p.website || "");
           setWorksAddress(p.worksAddress || "");
           setIsoTag(p.isoTag || "");
-          setPrefix(p.prefix || "APPL");
+          setPrefix(p.prefix || "QTN");
 
           if (p.bankDetails) {
             setBankName(p.bankDetails.bankName || "");
@@ -498,7 +498,7 @@ export default function SettingsPage() {
                         type="text"
                         value={prefix}
                         onChange={(e) => setPrefix(e.target.value.toUpperCase())}
-                        placeholder="APPL"
+                        placeholder="QTN"
                         className="w-full bg-slate-50 border border-slate-200 text-indigo-600 font-bold rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                       />
                     </div>

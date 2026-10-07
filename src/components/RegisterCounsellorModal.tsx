@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { sanitizePhoneDigits, cleanPastedPhone, formatPhoneForSubmission } from "@/lib/phoneUtils";
+import { todayKey } from "@/lib/dates";
 
 interface RegisterCounsellorModalProps {
   isOpen: boolean;
@@ -17,8 +18,8 @@ export default function RegisterCounsellorModal({ isOpen, onClose, onSuccess, ro
     email: "",
     phone: "+91 ",
     photoUrl: "",
-    brandScope: "Cadd Mantra",
-    joiningDate: "2026-07-14",
+    brandScope: "All Brands",
+    joiningDate: todayKey(),
     annualTarget: 500000,
     currentRevenue: 0,
     admissionsRecorded: 0,
@@ -34,7 +35,8 @@ export default function RegisterCounsellorModal({ isOpen, onClose, onSuccess, ro
       try {
         const res = await fetch("/api/brands");
         const data = await res.json();
-        const defaultBrands = ["All Brands", "DIGIFOOTPRINTS", "CADD MANTRA", "DESIGN GATEWAY"];
+        // "All Brands" plus every brand on the Brands page
+        const defaultBrands = ["All Brands"];
         if (res.ok && data.success && Array.isArray(data.brands)) {
           const fetchedNames = data.brands.map((b: any) => (b.name || "").toUpperCase().trim()).filter(Boolean);
           const combined = Array.from(new Set([...defaultBrands, ...fetchedNames]));
@@ -47,7 +49,7 @@ export default function RegisterCounsellorModal({ isOpen, onClose, onSuccess, ro
         }
       } catch (err) {
         console.error("Failed fetching brands:", err);
-        setDbBrands(["All Brands", "DIGIFOOTPRINTS", "CADD MANTRA", "DESIGN GATEWAY"].map((name) => ({ name })));
+        setDbBrands([{ name: "All Brands" }]);
       }
     };
     fetchBrands();
@@ -107,7 +109,7 @@ export default function RegisterCounsellorModal({ isOpen, onClose, onSuccess, ro
 
     const payload = {
       ...formData,
-      brandScope: formData.brandScope || "DIGIFOOTPRINTS",
+      brandScope: formData.brandScope || "All Brands",
       role: role || "counsellor",
       phone: formatPhoneForSubmission(formData.phone),
     };
@@ -245,12 +247,7 @@ export default function RegisterCounsellorModal({ isOpen, onClose, onSuccess, ro
                   <option key={idx} value={b.name}>{b.name}</option>
                 ))
               ) : (
-                <>
-                  <option value="All Brands">All Brands</option>
-                  <option value="DIGIFOOTPRINTS">DIGIFOOTPRINTS</option>
-                  <option value="CADD MANTRA">CADD MANTRA</option>
-                  <option value="DESIGN GATEWAY">DESIGN GATEWAY</option>
-                </>
+                <option value="All Brands">All Brands</option>
               )}
             </select>
           </div>

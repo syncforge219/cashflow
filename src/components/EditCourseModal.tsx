@@ -99,7 +99,7 @@ export default function EditCourseModal({ isOpen, course, onClose, onSuccess }: 
       const userBrands = user.brandScope.split(",").map((b: string) => b.trim()).filter(Boolean);
       if (userBrands.length > 0) return userBrands;
     }
-    return dbBrands.length > 0 ? dbBrands : ["Cadd Mantra", "Design Gateway"];
+    return dbBrands;
   };
 
   const brandOptions = getBrandOptions();

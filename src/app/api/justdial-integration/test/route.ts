@@ -6,6 +6,8 @@ import Task from "@/models/Task";
 import JustdialConfig from "@/models/JustdialConfig";
 import JustdialLeadLog from "@/models/JustdialLeadLog";
 import { sendWhatsAppWelcomeEnquiry, sendWhatsAppSuperAdminEnquiryAlert } from "@/lib/msg91";
+import { generateConnectorApiKey } from "@/lib/connectorKeys";
+import { getDefaultBrandName } from "@/lib/brandDefaults";
 
 export async function POST(req: NextRequest) {
   try {
@@ -29,10 +31,10 @@ export async function POST(req: NextRequest) {
         connectorType: "Justdial Lead Connector Push API",
         leadSource: "JustDial",
         leadStage: "New / Fresh Inquiry",
-        defaultBrand: "CADD MANTRA",
-        counselorName: "HO - TARANG SINGHAL - SICCES PVT LTD",
+        defaultBrand: "",
+        counselorName: "",
         defaultCourse: "",
-        apiKey: "JD-CF-API-KEY-984729103847",
+        apiKey: generateConnectorApiKey(),
         requireApiKey: false,
         autoAssignAdvisor: true,
         sendWelcomeWhatsApp: false, // In test mode default to false unless requested
@@ -46,8 +48,8 @@ export async function POST(req: NextRequest) {
 
     // Matching logic
     let matchedCourse = config.defaultCourse || "";
-    let matchedCounselor = config.counselorName || "HO - TARANG SINGHAL - SICCES PVT LTD";
-    let targetBrand = config.defaultBrand || "CADD MANTRA";
+    let matchedCounselor = config.counselorName || "Unassigned";
+    let targetBrand = config.defaultBrand || (await getDefaultBrandName());
 
     if (justdialCategory && Array.isArray(config.courseMappings) && config.courseMappings.length > 0) {
       const cleanCat = justdialCategory.toLowerCase().trim();

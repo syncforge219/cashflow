@@ -345,7 +345,7 @@ export default function PaymentBreakdownModal({
                   {filteredPayments.map((p) => {
                     const studentName = p.studentName || p.admissionId?.fullName || "Student";
                     const admId = p.admissionId?.admissionId || (typeof p.admissionId === "string" ? p.admissionId : "N/A");
-                    const brandName = p.brand || p.admissionId?.brand || "CADD Mantra";
+                    const brandName = p.brand || p.admissionId?.brand || "—";
                     const courseName = p.admissionId?.course || "N/A";
                     const amount = Number(p.amountReceived) || 0;
                     const payDateVal = p.paymentDate || p.createdAt;

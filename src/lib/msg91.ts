@@ -2,6 +2,7 @@ import dbConnect from "@/lib/db";
 import Brand from "@/models/Brand";
 import User from "@/models/User";
 import { formatDate, toDateKey, isDateKey } from "@/lib/dates";
+import { findBrandByName, getDefaultBrandName } from "@/lib/brandDefaults";
 
 export interface FeeReceiptWhatsAppParams {
   studentName?: string | null;
@@ -44,7 +45,15 @@ export function formatDateOnly(dateInput?: string | null): string {
 }
 
 /**
- * Format phone number to international format without leading plus (e.g. 919335913286)
+ * MSG91 auth key, from .env only (first key if several are listed). Secrets are never written in code:
+ * without MSG91_AUTHKEY configured, sends fail and are logged instead of using a built-in key.
+ */
+export function getMsg91AuthKey(): string {
+  return (process.env.MSG91_AUTHKEY || "").split(",")[0].trim();
+}
+
+/**
+ * Format phone number to international format without leading plus (e.g. 91XXXXXXXXXX)
  */
 export function formatPhoneNumber(phone: string): string {
   if (!phone) return "";
@@ -98,35 +107,6 @@ export async function getIntegratedNumberForBrand(
       }
     }
 
-    const envNumRaw = process.env.MSG91_INTEGRATED_NUMBER || "";
-    const envNumbers = envNumRaw.split(",").map((n) => n.trim()).filter(Boolean);
-
-    // Specific keyword matching for Design Gateway vs CADD
-    if (upperBrand.includes("DESIGN") || upperBrand.includes("GATEWAY")) {
-      const designNum =
-        process.env.MSG91_INTEGRATED_NUMBER_DESIGN_GATEWAY ||
-        process.env.MSG91_DESIGN_GATEWAY_INTEGRATED_NUMBER ||
-        process.env.MSG91_DESIGN_GATEWAY_NUMBER ||
-        process.env.MSG91_DESIGN_NUMBER ||
-        process.env.MSG91_INTEGRATED_NUMBER_DESIGN ||
-        (envNumbers.length >= 2 ? envNumbers[1] : "");
-      if (designNum) {
-        const formatted = formatPhoneNumber(designNum);
-        if (formatted) return formatted;
-      }
-    } else if (upperBrand.includes("CADD") || upperBrand.includes("MANTRA")) {
-      const caddNum =
-        process.env.MSG91_INTEGRATED_NUMBER_CADD ||
-        process.env.MSG91_INTEGRATED_NUMBER_CADD_MANTRA ||
-        process.env.MSG91_CADD_NUMBER ||
-        process.env.MSG91_CADD_MANTRA_NUMBER ||
-        (envNumbers.length >= 1 ? envNumbers[0] : "");
-      if (caddNum) {
-        const formatted = formatPhoneNumber(caddNum);
-        if (formatted) return formatted;
-      }
-    }
-
     // 2. Lookup MongoDB Brand collection for brand's registered integrated number
     try {
       await dbConnect();
@@ -149,7 +129,7 @@ export async function getIntegratedNumberForBrand(
     }
   }
 
-  // 3. Global fallback (1st number is default CADD Mantra)
+  // 3. Global fallback: first number in MSG91_INTEGRATED_NUMBER
   const envNum = process.env.MSG91_INTEGRATED_NUMBER || "";
   const envNumbers = envNum.split(",").map((n) => n.trim()).filter(Boolean);
   return envNumbers.length > 0 ? formatPhoneNumber(envNumbers[0]) : "";
@@ -169,32 +149,16 @@ export function getPublicPdfBaseUrl(): string {
  * Resolve the MSG91 AuthKey for a specific brand if multi-account / multi-AuthKey setup is configured in .env
  */
 export function getAuthKeyForBrand(brandName?: string | null): string {
-  const defaultAuthKey = process.env.MSG91_AUTHKEY || "478610A465a065I869fed7fdP1";
+  const defaultAuthKey = getMsg91AuthKey();
 
   if (brandName) {
     const cleanBrand = String(brandName).trim();
     const upperBrand = cleanBrand.toUpperCase();
 
-    if (upperBrand.includes("DESIGN") || upperBrand.includes("GATEWAY")) {
-      const designAuthKey =
-        process.env.MSG91_AUTHKEY_DESIGN_GATEWAY ||
-        process.env.MSG91_DESIGN_GATEWAY_AUTHKEY ||
-        process.env.MSG91_DESIGN_AUTHKEY ||
-        process.env.MSG91_AUTHKEY_DESIGN;
-      if (designAuthKey) return designAuthKey;
-    } else if (upperBrand.includes("CADD") || upperBrand.includes("MANTRA")) {
-      const caddAuthKey =
-        process.env.MSG91_AUTHKEY_CADD ||
-        process.env.MSG91_CADD_AUTHKEY;
-      if (caddAuthKey) return caddAuthKey;
-    }
-
-    const envAuthKeys = (process.env.MSG91_AUTHKEY || "").split(",").map((k) => k.trim()).filter(Boolean);
-    if (upperBrand.includes("DESIGN") || upperBrand.includes("GATEWAY")) {
-      if (envAuthKeys.length >= 2) return envAuthKeys[1];
-    } else if (upperBrand.includes("CADD") || upperBrand.includes("MANTRA")) {
-      if (envAuthKeys.length >= 1) return envAuthKeys[0];
-    }
+    // A brand on its own MSG91 account sets MSG91_AUTHKEY_<BRAND_NAME_IN_CAPS_WITH_UNDERSCORES> in .env
+    const brandEnvKey = upperBrand.replace(/[^A-Z0-9]/g, "_");
+    const brandKey = process.env[`MSG91_AUTHKEY_${brandEnvKey}`] || process.env[`MSG91_${brandEnvKey}_AUTHKEY`];
+    if (brandKey) return brandKey.trim();
   }
 
   return defaultAuthKey;
@@ -206,7 +170,7 @@ export function getAuthKeyForBrand(brandName?: string | null): string {
 export async function sendWhatsAppFeeReceipt(params: FeeReceiptWhatsAppParams) {
   try {
     const authKey =
-      process.env.MSG91_AUTHKEY || "478610A465a065I869fed7fdP1";
+      getMsg91AuthKey();
     const integratedNumber = await getIntegratedNumberForBrand(params.brandName, params.integratedNumber);
 
     const formattedPhone = formatPhoneNumber(params.mobileNumber);
@@ -334,7 +298,7 @@ export interface DailyReportWhatsAppParams {
 export async function sendWhatsAppDailyReport(params: DailyReportWhatsAppParams) {
   try {
     const authKey =
-      process.env.MSG91_AUTHKEY || "478610A465a065I869fed7fdP1";
+      getMsg91AuthKey();
     const integratedNumber = await getIntegratedNumberForBrand(params.brandName, params.integratedNumber);
 
     const formattedPhone = formatPhoneNumber(params.adminMobileNumber);
@@ -511,7 +475,7 @@ export async function sendWhatsAppMonthlyReport(params: {
   integratedNumber?: string | null;
 }) {
   try {
-    const authKey = process.env.MSG91_AUTHKEY || "478610A465a065I869fed7fdP1";
+    const authKey = getMsg91AuthKey();
     const integratedNumber = await getIntegratedNumberForBrand(params.brandName, params.integratedNumber);
     const formattedPhone = formatPhoneNumber(params.adminMobileNumber);
     if (!formattedPhone) {
@@ -691,9 +655,9 @@ export interface FeeReminderWhatsAppParams {
 export async function sendWhatsAppEmiReminder(params: FeeReminderWhatsAppParams) {
   try {
     const authKey =
-      process.env.MSG91_AUTHKEY || "478610A465a065I869fed7fdP1";
+      getMsg91AuthKey();
 
-    const brandName = (params.brandName || "CADD MANTRA").trim();
+    const brandName = (params.brandName || (await getDefaultBrandName())).trim();
     const integratedNumber = await getIntegratedNumberForBrand(brandName, params.integratedNumber);
 
     const formattedPhone = formatPhoneNumber(params.mobileNumber);
@@ -843,9 +807,9 @@ export interface BirthdayReminderWhatsAppParams {
 export async function sendWhatsAppBirthdayReminder(params: BirthdayReminderWhatsAppParams) {
   try {
     const authKey =
-      process.env.MSG91_AUTHKEY || "478610A465a065I869fed7fdP1";
+      getMsg91AuthKey();
 
-    const brandName = (params.brandName || "CADD MANTRA").trim();
+    const brandName = (params.brandName || (await getDefaultBrandName())).trim();
     const integratedNumber = await getIntegratedNumberForBrand(brandName, params.integratedNumber);
 
     const formattedPhone = formatPhoneNumber(params.mobileNumber);
@@ -967,35 +931,26 @@ export interface WelcomeEnquiryWhatsAppParams {
 
 /**
  * Dispatch MSG91 WhatsApp Outbound Welcome Message upon New Enquiry Creation
- * For Design Gateway:
- *   Template: "welcome_enquery"
- *   Namespace: "d637ec85_020e_4aa6_8042_f5db99837ab0"
- *   Sender: 916307244317 (2nd number in .env)
- *   Variables: body_1 (studentName), body_2 (brandName), body_3 (courseName), body_4 (brandName)
- *
- * For CADD Mantra / Default:
- *   Template: "welcome_enquiry"
- *   Namespace: "610ca09d_29b3_4193_8bab_18e0fab26f84"
- *   Sender: 1st number in .env
+ * Default: template "welcome_enquiry" in the main WhatsApp namespace, sent from the brand's number.
+ * A brand on its own WhatsApp Business account sets its namespace and welcome template on the
+ * Brands page; those messages use body_1..body_4 (no body_5).
  */
 export async function sendWhatsAppWelcomeEnquiry(params: WelcomeEnquiryWhatsAppParams) {
   try {
     const authKey =
-      process.env.MSG91_AUTHKEY ? process.env.MSG91_AUTHKEY.split(",")[0].trim() : "478610A465a065I869fed7fdP1";
+      getMsg91AuthKey();
 
-    const brandName = (params.brandName || "CADD MANTRA").trim();
-    const upperBrand = brandName.toUpperCase();
-    const isDesignGateway = upperBrand.includes("DESIGN") || upperBrand.includes("GATEWAY");
-
-    const envNumbers = (process.env.MSG91_INTEGRATED_NUMBER || "919335913286").split(",");
+    const brandName = (params.brandName || (await getDefaultBrandName())).trim();
+    const brandDoc: any = await findBrandByName(brandName).catch(() => null);
+    const brandNamespace = String(brandDoc?.whatsappNamespace || "").trim();
+    const brandWelcomeTemplate = String(brandDoc?.whatsappWelcomeTemplate || "").trim();
     const formattedPhone = formatPhoneNumber(params.mobileNumber);
     if (!formattedPhone) {
       console.warn("MSG91 WhatsApp Warning: Missing or invalid phone number for welcome enquiry.");
       return { success: false, error: "Invalid recipient phone number." };
     }
 
-    const defaultNumber = isDesignGateway ? (envNumbers[1] || "916307244317") : envNumbers[0];
-    const integratedNumber = await getIntegratedNumberForBrand(brandName, params.integratedNumber || defaultNumber);
+    const integratedNumber = await getIntegratedNumberForBrand(brandName, params.integratedNumber);
 
 
     const studentName = (params.studentName || "Student").trim();
@@ -1011,9 +966,9 @@ export async function sendWhatsAppWelcomeEnquiry(params: WelcomeEnquiryWhatsAppP
       body_5: { type: "text", value: brandName },
     };
 
-    if (isDesignGateway) {
-      templateName = "welcome_enquery";
-      namespace = "d637ec85_020e_4aa6_8042_f5db99837ab0";
+    if (brandNamespace || brandWelcomeTemplate) {
+      templateName = brandWelcomeTemplate || templateName;
+      namespace = brandNamespace || namespace;
       components = {
         body_1: { type: "text", value: studentName },
         body_2: { type: "text", value: brandName },
@@ -1122,8 +1077,7 @@ export function formatDDMMYYYY(dateStr?: string | null): string {
  * Template: "demoreminderforstudent"
  * Namespace: null
  *
- * For Design Gateway → sender: 916307244317 (2nd slot in MSG91_INTEGRATED_NUMBER)
- * For CADD Mantra / Default → sender: 919335913286 (1st slot)
+ * Sender: the brand's WhatsApp number (Brands page), else the first MSG91_INTEGRATED_NUMBER.
  *
  * Components:
  *   body_1: Student Name
@@ -1135,18 +1089,10 @@ export function formatDDMMYYYY(dateStr?: string | null): string {
 export async function sendWhatsAppDemoReminder(params: DemoReminderWhatsAppParams) {
   try {
     const authKey =
-      process.env.MSG91_AUTHKEY ? process.env.MSG91_AUTHKEY.split(",")[0].trim() : "478610A465a065I869fed7fdP1";
+      getMsg91AuthKey();
 
     const brandName = (params.brandName || "").trim();
-    const upperBrand = brandName.toUpperCase();
-    const isDesignGateway = upperBrand.includes("DESIGN") || upperBrand.includes("GATEWAY");
-
-    // Pick sender number: DG uses 2nd slot (916307244317), others use 1st slot
-    const envNumbers = (process.env.MSG91_INTEGRATED_NUMBER || "919335913286").split(",");
-    const defaultIntegratedNumber = isDesignGateway
-      ? (envNumbers[1]?.trim() || "916307244317")
-      : (envNumbers[0]?.trim() || "919335913286");
-    const integratedNumber = params.integratedNumber || defaultIntegratedNumber;
+    const integratedNumber = await getIntegratedNumberForBrand(brandName, params.integratedNumber);
 
     const formattedPhone = formatPhoneNumber(params.mobileNumber);
     if (!formattedPhone) {
@@ -1259,9 +1205,9 @@ export interface TeacherDemoAlertParams {
 }
 
 /**
- * Dispatch MSG91 WhatsApp Demo Alert to Teacher (Design Gateway)
+ * Dispatch MSG91 WhatsApp Demo Alert to Teacher (brands with "WhatsApp the teacher" switched on)
  * Template: "teacher_demo"
- * Sender: 916307244317
+ * Sender: the brand's WhatsApp number (Brands page), else the first MSG91_INTEGRATED_NUMBER
  * Namespace: null
  * Variables:
  *   body_1: teacherName
@@ -1271,7 +1217,7 @@ export interface TeacherDemoAlertParams {
 export async function sendWhatsAppTeacherDemoAlert(params: TeacherDemoAlertParams) {
   try {
     const authKey =
-      process.env.MSG91_AUTHKEY ? process.env.MSG91_AUTHKEY.split(",")[0].trim() : "478610A465a065I869fed7fdP1";
+      getMsg91AuthKey();
 
     const formattedPhone = formatPhoneNumber(params.teacherMobile);
     if (!formattedPhone) {
@@ -1279,10 +1225,7 @@ export async function sendWhatsAppTeacherDemoAlert(params: TeacherDemoAlertParam
       return { success: false, error: "Invalid teacher phone number." };
     }
 
-    // Resolve integrated_number — prefer 2nd env slot (Design Gateway sender: 916307244317)
-    const envNumbers = (process.env.MSG91_INTEGRATED_NUMBER || "919335913286").split(",");
-    const defaultIntegratedNumber = envNumbers[1]?.trim() || "916307244317";
-    const integratedNumber = params.integratedNumber || defaultIntegratedNumber;
+    const integratedNumber = await getIntegratedNumberForBrand(params.brandName, params.integratedNumber);
 
     const teacherName = (params.teacherName || "Teacher").trim();
     const courseName = (params.courseName || "Course").trim();
@@ -1388,7 +1331,7 @@ export interface CompanyCapacityAlertParams {
  */
 export async function sendWhatsAppCompanyCapacityAlert(params: CompanyCapacityAlertParams) {
   try {
-    const authKey = process.env.MSG91_AUTHKEY || "478610A465a065I869fed7fdP1";
+    const authKey = getMsg91AuthKey();
     const integratedNumber = await getIntegratedNumberForBrand(params.brandName, params.integratedNumber);
     const adminPhone = formatPhoneNumber(params.adminMobileNumber || process.env.ADMIN_WHATSAPP_NUMBER || "");
 
@@ -1510,12 +1453,12 @@ export interface BrandWelcomeWhatsAppParams {
  *   body_2: brand name
  *   body_3: coursename
  *   body_4: brandname
- *   body_5: brandnumber (1st env number for CADD Mantra, 2nd env number for Design Gateway)
+ *   body_5: brandnumber (the brand's WhatsApp number)
  */
 export async function sendWhatsAppBrandWelcome(params: BrandWelcomeWhatsAppParams) {
   try {
     const authKey =
-      process.env.MSG91_AUTHKEY ? process.env.MSG91_AUTHKEY.split(",")[0].trim() : "478610A465a065I869fed7fdP1";
+      getMsg91AuthKey();
 
     const integratedNumber = await getIntegratedNumberForBrand(params.brandName, params.integratedNumber);
 
@@ -1525,10 +1468,10 @@ export async function sendWhatsAppBrandWelcome(params: BrandWelcomeWhatsAppParam
       return { success: false, error: "Invalid mobile number." };
     }
 
-    const brand = (params.brandName || "CADD Mantra").trim();
+    const brand = (params.brandName || (await getDefaultBrandName())).trim();
     const student = (params.studentName || "Student").trim();
     const course = (params.courseName || "Course").trim();
-    const brandNumber = integratedNumber || "919335913286";
+    const brandNumber = integratedNumber;
 
     // Primary Template Payload using template "admission"
     const payload = {
@@ -1649,7 +1592,7 @@ export interface CompanyLimit80AlertParams {
 export async function sendWhatsAppCompanyLimit80Alert(params: CompanyLimit80AlertParams) {
   try {
     const authKey =
-      process.env.MSG91_AUTHKEY || "478610A465a065I869fed7fdP1";
+      getMsg91AuthKey();
 
     let superAdminPhone = formatPhoneNumber(
       params.superAdminMobile || process.env.ADMIN_WHATSAPP_NUMBER || process.env.ADMIN_PHONE || ""
@@ -1677,7 +1620,7 @@ export async function sendWhatsAppCompanyLimit80Alert(params: CompanyLimit80Aler
 
     if (!superAdminPhone) {
       const envNumRaw = process.env.MSG91_INTEGRATED_NUMBER || "";
-      superAdminPhone = formatPhoneNumber(envNumRaw.split(",")[0] || "919335913286");
+      superAdminPhone = formatPhoneNumber(envNumRaw.split(",")[0] || "");
     }
 
     if (!superAdminPhone) {
@@ -1798,12 +1741,12 @@ export interface SuperAdminEnquiryAlertParams {
 export async function sendWhatsAppSuperAdminEnquiryAlert(params: SuperAdminEnquiryAlertParams) {
   try {
     const authKey =
-      process.env.MSG91_AUTHKEY ? process.env.MSG91_AUTHKEY.split(",")[0].trim() : "478610A465a065I869fed7fdP1";
+      getMsg91AuthKey();
 
     // 1st number in .env for sender integrated_number
-    const envNumRaw = process.env.MSG91_INTEGRATED_NUMBER || "919335913286";
+    const envNumRaw = process.env.MSG91_INTEGRATED_NUMBER || "";
     const envNumbers = envNumRaw.split(",").map((n) => n.trim()).filter(Boolean);
-    const integratedNumber = envNumbers.length > 0 ? formatPhoneNumber(envNumbers[0]) : "919335913286";
+    const integratedNumber = envNumbers.length > 0 ? formatPhoneNumber(envNumbers[0]) : "";
 
     // Resolve Super Admin Phone number
     let superAdminPhone = formatPhoneNumber(
@@ -1847,7 +1790,7 @@ export async function sendWhatsAppSuperAdminEnquiryAlert(params: SuperAdminEnqui
     const studentName = (params.studentName || "Student").trim();
     const studentMobile = (params.studentMobile || "N/A").trim();
     const courseName = (params.courseName || "General Course").trim();
-    const brandName = (params.brandName || "CADD Mantra").trim();
+    const brandName = (params.brandName || (await getDefaultBrandName())).trim();
     const counsellorName = (params.counsellorName || "Unassigned").trim();
     const leadSource = (params.leadSource || "Website").trim();
 
@@ -1991,12 +1934,12 @@ export interface SuperAdminAdmissionAlertParams {
 export async function sendWhatsAppSuperAdminAdmissionAlert(params: SuperAdminAdmissionAlertParams) {
   try {
     const authKey =
-      process.env.MSG91_AUTHKEY ? process.env.MSG91_AUTHKEY.split(",")[0].trim() : "478610A465a065I869fed7fdP1";
+      getMsg91AuthKey();
 
     // 1st number in .env for sender integrated_number
-    const envNumRaw = process.env.MSG91_INTEGRATED_NUMBER || "919335913286";
+    const envNumRaw = process.env.MSG91_INTEGRATED_NUMBER || "";
     const envNumbers = envNumRaw.split(",").map((n) => n.trim()).filter(Boolean);
-    const integratedNumber = envNumbers.length > 0 ? formatPhoneNumber(envNumbers[0]) : "919335913286";
+    const integratedNumber = envNumbers.length > 0 ? formatPhoneNumber(envNumbers[0]) : "";
 
     // Resolve Super Admin Phone number
     let superAdminPhone = formatPhoneNumber(
@@ -2039,7 +1982,7 @@ export async function sendWhatsAppSuperAdminAdmissionAlert(params: SuperAdminAdm
     const studentName = (params.studentName || "Student").trim();
     const admissionNumber = (params.admissionNumber || "N/A").trim();
     const courseName = (params.courseName || "General Course").trim();
-    const brandName = (params.brandName || "CADD Mantra").trim();
+    const brandName = (params.brandName || (await getDefaultBrandName())).trim();
     const batchName = (params.batchName || "Regular Batch").trim();
     const counsellorName = (params.counsellorName || "Advisor").trim();
 

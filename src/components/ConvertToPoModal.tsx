@@ -165,7 +165,7 @@ export default function ConvertToPoModal({
               type="text"
               value={supplierName}
               onChange={(e) => setSupplierName(e.target.value)}
-              placeholder="e.g. SICCES PRIVATE LIMITED or Vendor Name"
+              placeholder="Company or vendor name"
               className="w-full px-3.5 py-2 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
             />
           </div>
@@ -179,7 +179,7 @@ export default function ConvertToPoModal({
               type="text"
               value={supplierGstin}
               onChange={(e) => setSupplierGstin(e.target.value)}
-              placeholder="e.g. 09AASCS4608K1ZP"
+              placeholder="15-character GSTIN"
               className="w-full px-3.5 py-2 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all uppercase"
             />
           </div>

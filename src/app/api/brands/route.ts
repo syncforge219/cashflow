@@ -6,6 +6,7 @@ import User from "@/models/User";
 import Admission from "@/models/Admission";
 import Counsellor from "@/models/Counsellor";
 import Enquiry from "@/models/Enquiry";
+import { isBrandCategory } from "@/lib/brandCategory";
 
 export async function GET() {
   try {
@@ -112,6 +113,11 @@ export async function POST(req: Request) {
     await dbConnect();
     const body = await req.json();
     let { name, code, logoUrl, description, phone, email, website, address, companies, receiptTemplateUrl, receiptTerms, youtubeUrl, facebookUrl, instagramUrl, brochureDriveUrl } = body;
+    const { businessCategory, isDefault, sendTeacherDemoAlert, integratedNumber, whatsappNamespace, whatsappWelcomeTemplate } = body;
+
+    if (businessCategory !== undefined && !isBrandCategory(businessCategory)) {
+      return NextResponse.json({ error: "Business category must be Training or Service" }, { status: 400 });
+    }
 
     const randomSuffix = Math.floor(1000 + Math.random() * 9000);
     name = (name?.trim() || `New Brand ${randomSuffix}`).toUpperCase();
@@ -149,8 +155,19 @@ export async function POST(req: Request) {
       facebookUrl,
       instagramUrl,
       brochureDriveUrl,
+      businessCategory: businessCategory || "TRAINING",
+      isDefault: Boolean(isDefault),
+      sendTeacherDemoAlert: Boolean(sendTeacherDemoAlert),
+      integratedNumber: String(integratedNumber || "").trim(),
+      whatsappNamespace: String(whatsappNamespace || "").trim(),
+      whatsappWelcomeTemplate: String(whatsappWelcomeTemplate || "").trim(),
       status: "ACTIVE",
     });
+
+    // Only one default brand at a time
+    if (newBrand.isDefault) {
+      await Brand.updateMany({ _id: { $ne: newBrand._id }, isDefault: true }, { $set: { isDefault: false } });
+    }
 
     return NextResponse.json({ success: true, brand: newBrand }, { status: 201 });
   } catch (error: any) {

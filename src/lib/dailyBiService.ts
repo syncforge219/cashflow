@@ -516,16 +516,7 @@ export async function getDailyBiReportData(targetDate?: Date): Promise<DailyBiRe
     });
   }
 
-  // If still empty, supply default standard operational brands
-  if (registeredBrandList.length === 0) {
-    ["CADD MANTRA", "DESIGN GATEWAY", "DIGIFOOTPRINTS"].forEach((bName) => {
-      registeredBrandList.push({
-        name: bName,
-        code: bName.replace(/[^A-Z0-9]/g, "_"),
-        logoUrl: "",
-      });
-    });
-  }
+  // No brands registered yet: the report shows one combined section (see pdfGenerator)
 
   // Create lookup maps for fast enquiry and admission matching
   const enquiryByIdMap = new Map<string, any>();

@@ -22,7 +22,7 @@ export default function EditBrandManagerModal({
     email: "",
     phone: "+91 ",
     photoUrl: "",
-    brandScope: "Cadd Mantra",
+    brandScope: "",
     password: "",
   });
 
@@ -63,7 +63,7 @@ export default function EditBrandManagerModal({
         email: manager.email || "",
         phone: "+91 " + phoneCleaned,
         photoUrl: manager.photoUrl || "",
-        brandScope: manager.brand || manager.brandScope || "Cadd Mantra",
+        brandScope: manager.brand || manager.brandScope || "",
         password: "",
       });
       setError("");
@@ -249,10 +249,7 @@ export default function EditBrandManagerModal({
                     <option key={idx} value={b.name}>{b.name}</option>
                   ))
                 ) : (
-                  <>
-                    <option value="Cadd Mantra">Cadd Mantra</option>
-                    <option value="Design Gateway">Design Gateway</option>
-                  </>
+                  <option value="" disabled>No brands yet — add one on the Brands page</option>
                 )}
               </select>
             </div>

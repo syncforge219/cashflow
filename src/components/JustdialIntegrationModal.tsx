@@ -32,10 +32,10 @@ export default function JustdialIntegrationModal({
   const [connectorType, setConnectorType] = useState("Justdial Lead Connector Push API");
   const [leadSource, setLeadSource] = useState("JustDial");
   const [leadStage, setLeadStage] = useState("New / Fresh Inquiry");
-  const [defaultBrand, setDefaultBrand] = useState("CADD MANTRA");
-  const [counselorName, setCounselorName] = useState("HO - TARANG SINGHAL - SICCES PVT LTD");
+  const [defaultBrand, setDefaultBrand] = useState("");
+  const [counselorName, setCounselorName] = useState("");
   const [defaultCourse, setDefaultCourse] = useState("");
-  const [apiKey, setApiKey] = useState("JD-CF-API-KEY-984729103847");
+  const [apiKey, setApiKey] = useState("");
   const [requireApiKey, setRequireApiKey] = useState(false);
   const [autoAssignAdvisor, setAutoAssignAdvisor] = useState(true);
   const [sendWelcomeWhatsApp, setSendWelcomeWhatsApp] = useState(true);
@@ -145,10 +145,10 @@ export default function JustdialIntegrationModal({
           setConnectorType(d.connectorType || "Justdial Lead Connector Push API");
           setLeadSource(d.leadSource || "JustDial");
           setLeadStage(d.leadStage || "New / Fresh Inquiry");
-          setDefaultBrand(d.defaultBrand || "CADD MANTRA");
-          setCounselorName(d.counselorName || "HO - TARANG SINGHAL - SICCES PVT LTD");
+          setDefaultBrand(d.defaultBrand || "");
+          setCounselorName(d.counselorName || "");
           setDefaultCourse(d.defaultCourse || "");
-          setApiKey(d.apiKey || "JD-CF-API-KEY-984729103847");
+          setApiKey(d.apiKey || "");
           setRequireApiKey(Boolean(d.requireApiKey));
           setAutoAssignAdvisor(d.autoAssignAdvisor !== false);
           setSendWelcomeWhatsApp(d.sendWelcomeWhatsApp !== false);
@@ -224,7 +224,7 @@ export default function JustdialIntegrationModal({
         course: matched ? matched.name : defaultCourseName,
         justdialCategory: categoryName,
         counselorName: counselorName || "",
-        brand: defaultBrand || "CADD MANTRA",
+        brand: defaultBrand || "",
       },
     ]);
   };
@@ -664,8 +664,10 @@ export default function JustdialIntegrationModal({
                             onChange={(e) => setDefaultBrand(e.target.value)}
                             className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-500"
                           >
-                            <option value="CADD MANTRA">CADD MANTRA</option>
-                            <option value="DESIGN GATEWAY">DESIGN GATEWAY</option>
+                            <option value="">Use the Default brand (Brands page)</option>
+                            {defaultBrand && !brandsList.some((b: any) => b.name === defaultBrand) && (
+                              <option value={defaultBrand}>{defaultBrand}</option>
+                            )}
                             {brandsList.map((b: any) => (
                               <option key={b._id || b.name} value={b.name}>
                                 {b.name}
@@ -684,9 +686,11 @@ export default function JustdialIntegrationModal({
                             onChange={(e) => setCounselorName(e.target.value)}
                             className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-500"
                           >
-                            <option value="HO - TARANG SINGHAL - SICCES PVT LTD">
-                              HO - TARANG SINGHAL - SICCES PVT LTD
-                            </option>
+                            <option value="">Unassigned (auto-assign / pick later)</option>
+                            {counselorName &&
+                              !counsellorsList.some((c: any) => (`${c.firstName || ""} ${c.lastName || ""}`.trim() || c.name || c.email) === counselorName) && (
+                                <option value={counselorName}>{counselorName}</option>
+                              )}
                             {counsellorsList.map((c: any) => {
                               const nameStr = `${c.firstName || ""} ${c.lastName || ""}`.trim() || c.name || c.email;
                               return (
@@ -1000,10 +1004,7 @@ export default function JustdialIntegrationModal({
                                     onChange={(e) => handleMappingChange(idx, "counselorName", e.target.value)}
                                     className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-orange-500"
                                   >
-                                    <option value="">Inherit Default ({counselorName})</option>
-                                    <option value="HO - TARANG SINGHAL - SICCES PVT LTD">
-                                      HO - TARANG SINGHAL - SICCES PVT LTD
-                                    </option>
+                                    <option value="">Inherit Default ({counselorName || "Unassigned"})</option>
                                     {counsellorsList.map((c: any) => {
                                       const nameStr = `${c.firstName || ""} ${c.lastName || ""}`.trim() || c.name || c.email;
                                       return (
@@ -1022,8 +1023,7 @@ export default function JustdialIntegrationModal({
                                     onChange={(e) => handleMappingChange(idx, "brand", e.target.value)}
                                     className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-orange-500"
                                   >
-                                    <option value="CADD MANTRA">CADD MANTRA</option>
-                                    <option value="DESIGN GATEWAY">DESIGN GATEWAY</option>
+                                    <option value="">Inherit Default ({defaultBrand || "Brands page default"})</option>
                                     {brandsList.map((b: any) => (
                                       <option key={b._id || b.name} value={b.name}>
                                         {b.name}
@@ -1208,7 +1208,7 @@ export default function JustdialIntegrationModal({
                               <div className="flex items-center justify-between">
                                 <span className="text-slate-400 font-bold">Target Brand:</span>
                                 <span className="font-bold text-white">
-                                  {testResult.diagnostics?.targetBrand || "CADD MANTRA"}
+                                  {testResult.diagnostics?.targetBrand || "No brand set"}
                                 </span>
                               </div>
                             </div>

@@ -9,6 +9,8 @@ import JustdialConfig from "@/models/JustdialConfig";
 import JustdialLeadLog from "@/models/JustdialLeadLog";
 import { sendWhatsAppWelcomeEnquiry, sendWhatsAppSuperAdminEnquiryAlert } from "@/lib/msg91";
 import { decryptField } from "@/lib/encryption";
+import { generateConnectorApiKey } from "@/lib/connectorKeys";
+import { getDefaultBrandName } from "@/lib/brandDefaults";
 
 // CORS Preflight handler
 export async function OPTIONS() {
@@ -141,10 +143,10 @@ async function handleJustdialLead(req: NextRequest, isSimulation = false) {
         connectorType: "Justdial Lead Connector Push API",
         leadSource: "JustDial",
         leadStage: "New / Fresh Inquiry",
-        defaultBrand: "CADD MANTRA",
-        counselorName: "HO - TARANG SINGHAL - SICCES PVT LTD",
+        defaultBrand: "",
+        counselorName: "",
         defaultCourse: "",
-        apiKey: "JD-CF-API-KEY-984729103847",
+        apiKey: generateConnectorApiKey(),
         requireApiKey: false,
         autoAssignAdvisor: true,
         sendWelcomeWhatsApp: true,
@@ -350,7 +352,7 @@ async function handleJustdialLead(req: NextRequest, isSimulation = false) {
     // 3. Multi-tier Intelligent Course & Counselor & Brand Matching
     let matchedCourse = config.defaultCourse || "";
     let matchedCounselor = config.counselorName || "";
-    let targetBrand = config.defaultBrand || "CADD MANTRA";
+    let targetBrand = config.defaultBrand || (await getDefaultBrandName());
 
     if (justdialCategory && Array.isArray(config.courseMappings) && config.courseMappings.length > 0) {
       const cleanCat = justdialCategory.toLowerCase().trim();
@@ -434,7 +436,7 @@ async function handleJustdialLead(req: NextRequest, isSimulation = false) {
     }
 
     if (!matchedCounselor) {
-      matchedCounselor = "HO - TARANG SINGHAL - SICCES PVT LTD";
+      matchedCounselor = "Unassigned";
     }
 
     // 4. Deduplication Check (within last 2 hours)

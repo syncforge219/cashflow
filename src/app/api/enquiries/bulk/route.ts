@@ -180,7 +180,7 @@ export async function POST(req: Request) {
           studentName: newLead.studentFullName || "Student",
           studentMobile: newLead.primaryPhoneMobile || "N/A",
           courseName: newLead.targetCourse || "General Course",
-          brandName: newLead.targetBrand || "CADD Mantra",
+          brandName: newLead.targetBrand || "",
           counsellorName: newLead.assignedCrmAdvisor || "Unassigned",
           leadSource: newLead.leadSource || "Bulk Import",
           date: newLead.date,

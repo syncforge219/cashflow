@@ -403,7 +403,7 @@ export default function ImportCourseModal({ isOpen, onClose, onSuccess }: Import
                       type="button"
                       onClick={() =>
                         setPastedText(
-                          `name,code,brand,category,duration,fee,status\nRevit Architecture,CM-CAD-09,Cadd Mantra,Design,40 Hours,"₹ 15,000.00",ACTIVE\nSolidWorks,CM-CAD-10,Cadd Mantra,Technology,80 Hours,"₹ 22,000.00",ACTIVE`
+                          `name,code,brand,category,duration,fee,status\nRevit Architecture,CM-CAD-09,Your Brand Name,Design,40 Hours,"₹ 15,000.00",ACTIVE\nSolidWorks,CM-CAD-10,Your Brand Name,Technology,80 Hours,"₹ 22,000.00",ACTIVE`
                         )
                       }
                       className="text-[10px] font-extrabold text-indigo-600 hover:text-indigo-500 transition-colors uppercase tracking-wider"
@@ -415,7 +415,7 @@ export default function ImportCourseModal({ isOpen, onClose, onSuccess }: Import
                     rows={8}
                     value={pastedText}
                     onChange={(e) => setPastedText(e.target.value)}
-                    placeholder='Pasted format example:\nname,code,brand,category,duration,fee,status\nRevit,CM-CAD-09,Cadd Mantra,Design,40 Hours,"₹ 15,000.00",ACTIVE'
+                    placeholder='Pasted format example:\nname,code,brand,category,duration,fee,status\nRevit,CM-CAD-09,Your Brand Name,Design,40 Hours,"₹ 15,000.00",ACTIVE'
                     className="w-full text-xs font-semibold font-mono text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 resize-y"
                   ></textarea>
                   <div className="flex justify-end">

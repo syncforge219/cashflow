@@ -93,7 +93,7 @@ export default function FacultyAvailabilityMatrix({
           _id: id,
           name: name,
           designation: "Faculty",
-          brandScope: b.brand || "CADD Mantra",
+          brandScope: b.brand || "",
           subject: b.course,
         });
       } else if (!id && name && name !== "Unassigned Faculty") {
@@ -103,7 +103,7 @@ export default function FacultyAvailabilityMatrix({
             _id: syntheticId,
             name: name,
             designation: "Faculty",
-            brandScope: b.brand || "CADD Mantra",
+            brandScope: b.brand || "",
             subject: b.course,
           });
         }
@@ -433,7 +433,7 @@ export default function FacultyAvailabilityMatrix({
                                       profile.facultyName,
                                       slotStatus.slot.label,
                                       selectedDay === "All" ? "Mon" : selectedDay,
-                                      profile.brandScope || "CADD Mantra"
+                                      profile.brandScope || ""
                                     );
                                   }
                                 }}

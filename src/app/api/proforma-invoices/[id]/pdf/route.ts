@@ -21,13 +21,13 @@ function generateProformaInvoiceHtml(pi: any, profile: any): string {
     })
     : "";
 
-  const companyName = pi.companyName || profile?.name || "SICCES PRIVATE LIMITED";
-  const gstin = pi.companyGstin || profile?.gstin || "08AABCA5691D1ZS";
-  const cin = pi.companyCin || profile?.cin || "U25209RJ1996PTC011513";
-  const address = pi.companyAddress || profile?.address || "101, Vinayak Complex, Station Road, JAIPUR - 302 001 (Raj.)";
-  const phone = pi.companyPhone || profile?.phone || "0141-4059826";
-  const email = pi.companyEmail || profile?.email || "appl_jaipur@rediffmail.com";
-  const website = pi.companyWebsite || profile?.website || "www.aaramplastics.com";
+  const companyName = pi.companyName || profile?.name || "";
+  const gstin = pi.companyGstin || profile?.gstin || "";
+  const cin = pi.companyCin || profile?.cin || "";
+  const address = pi.companyAddress || profile?.address || "";
+  const phone = pi.companyPhone || profile?.phone || "";
+  const email = pi.companyEmail || profile?.email || "";
+  const website = pi.companyWebsite || profile?.website || "";
 
   const parseItemQty = (item: any): { qtyNum: number; displayQty: string } => {
     const q = item.quantity;
@@ -556,7 +556,7 @@ function generateProformaInvoiceHtml(pi: any, profile: any): string {
             <div class="bank-label">Name of Bank :</div>
             <div>${bankDetails.bankName || "Bank of India"}</div>
             <div class="bank-label">Branch Address :</div>
-            <div>${bankDetails.branch || "Ashok Marg"}</div>
+            <div>${bankDetails.branch || ""}</div>
             <div class="bank-label">Account No. :</div>
             <div>"${bankDetails.accountNumber || "680530110000089"}"</div>
             <div class="bank-label">IFSC Code :</div>

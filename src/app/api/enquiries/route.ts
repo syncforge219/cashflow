@@ -12,6 +12,7 @@ import { verifyRecaptchaToken } from "@/lib/recaptcha";
 import { syncEnquiryRefs } from "@/lib/referenceHelper";
 import { logAuditEntry } from "@/lib/auditLogger";
 import { validateDeletedAccess } from "@/lib/softDeleteAccess";
+import { resolveBrandName, brandSendsTeacherDemoAlert } from "@/lib/brandDefaults";
 
 export async function POST(req: Request) {
   try {
@@ -87,7 +88,8 @@ export async function POST(req: Request) {
       body.targetCourses = coursesList;
       body.targetCourse = coursesList.join(", ");
     }
-    body.targetBrand = body.targetBrand?.trim() || "Cadd Mantra";
+    // No brand given: the user's own brand, else the brand marked Default on the Brands page, else left empty
+    body.targetBrand = await resolveBrandName(body.targetBrand, user?.brandScope);
     body.assignedCrmAdvisor = body.assignedCrmAdvisor?.trim() || user?.name || "Unassigned";
 
     // Check for duplicate primary phone number for any of the target courses (only for real non-default numbers)
@@ -192,7 +194,7 @@ export async function POST(req: Request) {
         sendWhatsAppWelcomeEnquiry({
           studentName: newEnquiry.studentFullName || body.studentFullName || "Student",
           mobileNumber: recipientPhone,
-          brandName: newEnquiry.targetBrand || (newEnquiry as any).brand || body.targetBrand || body.brand || "CADD Mantra",
+          brandName: newEnquiry.targetBrand || (newEnquiry as any).brand || body.targetBrand || body.brand || "",
           courseName: newEnquiry.targetCourse || body.targetCourse || "Course",
         }).then((res) => console.log(`[Enquiry API] Welcome enquiry WhatsApp sent to ${recipientPhone}:`, res))
           .catch((err) => console.error("[Enquiry API] Welcome enquiry WhatsApp error:", err));
@@ -207,7 +209,7 @@ export async function POST(req: Request) {
         studentName: newEnquiry.studentFullName || body.studentFullName || "Student",
         studentMobile: newEnquiry.primaryPhoneMobile || body.primaryPhoneMobile || "N/A",
         courseName: newEnquiry.targetCourse || body.targetCourse || "General Course",
-        brandName: newEnquiry.targetBrand || body.targetBrand || "CADD Mantra",
+        brandName: newEnquiry.targetBrand || body.targetBrand || "",
         counsellorName: newEnquiry.assignedCrmAdvisor || body.assignedCrmAdvisor || "Unassigned",
         leadSource: newEnquiry.leadSource || body.leadSource || "Website",
         date: newEnquiry.date || body.date,
@@ -266,11 +268,9 @@ export async function POST(req: Request) {
           }).catch((waErr) => console.error("Auto WhatsApp demo reminder error on create:", waErr));
         }
 
-        // AUTO WHATSAPP TEACHER DEMO ALERT (Design Gateway): Notify assigned teacher
+        // AUTO WHATSAPP TEACHER DEMO ALERT: only for brands with "WhatsApp the teacher" switched on (Brands page)
         const brandName = (newEnquiry.targetBrand || body.targetBrand || "").trim();
-        const upperBrand = brandName.toUpperCase();
-        const isDesignGateway = upperBrand.includes("DESIGN") || upperBrand.includes("GATEWAY");
-        if (isDesignGateway) {
+        if (await brandSendsTeacherDemoAlert(brandName)) {
           const teacherName = (newEnquiry.demoTeacher || body.demoTeacher || "").trim();
           if (teacherName) {
             // Look up teacher's phone number from User model by name
@@ -294,7 +294,7 @@ export async function POST(req: Request) {
               .then((res: any) => { if (res) console.log(`[Enquiry API] Teacher demo alert sent to ${teacherName}:`, res); })
               .catch((err: any) => console.error("[Enquiry API] Teacher demo WhatsApp error on create:", err));
           } else {
-            console.log("[Enquiry API] Design Gateway demo scheduled but no demoTeacher assigned — skipping teacher_demo alert.");
+            console.log(`[Enquiry API] Demo scheduled for ${brandName} but no demoTeacher assigned — skipping teacher_demo alert.`);
           }
         }
       }

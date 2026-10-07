@@ -128,7 +128,7 @@ export default function AdminAdmissionHub() {
         amountReceived: (Number(adm.finalFee || 0) - Number(adm.remainingBalance || 0)) || Number(adm.amountReceivedToday || 0),
         paymentMode: adm.paymentMode || "Cash",
         referenceNo: adm.transactionNo || "N/A",
-        company: adm.companyAssigned || "Design Gateway Pvt Ltd",
+        company: adm.companyAssigned || "",
         paymentDate: adm.admissionDate || adm.createdAt || new Date().toISOString(),
         particulars: { courseFeeDue: Number(adm.finalFee || 0) },
       };

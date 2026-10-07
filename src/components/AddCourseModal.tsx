@@ -110,7 +110,7 @@ export default function AddCourseModal({ isOpen, onClose, onSuccess }: AddCourse
           }
         }
 
-        const defaultBrand = loadedBrands[0] || "Cadd Mantra";
+        const defaultBrand = loadedBrands[0] || "";
         setSelectedBrand(defaultBrand);
         setCourseNameInput("");
         const newUniqueCode = generateUniqueCourseCode(codeSet, defaultBrand, "");
@@ -143,7 +143,7 @@ export default function AddCourseModal({ isOpen, onClose, onSuccess }: AddCourse
       const userBrands = user.brandScope.split(",").map((b: string) => b.trim()).filter(Boolean);
       if (userBrands.length > 0) return userBrands;
     }
-    return dbBrands.length > 0 ? dbBrands : ["Cadd Mantra", "Design Gateway"];
+    return dbBrands;
   };
 
   const brandOptions = getBrandOptions();

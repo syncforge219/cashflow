@@ -87,32 +87,12 @@ function ReceiptQRCode({ value }: { value: string }) {
 }
 
 /**
- * Official CADD MANTRA Logo Vector Component
+ * Brand without an uploaded logo: its name as a text mark (logos come from the Brands page).
  */
-function CaddMantraLogo() {
+function BrandNameMark({ name }: { name: string }) {
+  if (!name) return null;
   return (
-    <div className="flex flex-col items-center justify-center shrink-0">
-      <svg width="110" height="44" viewBox="0 0 120 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path
-          d="M18 30 C8 30 6 12 18 12 C28 12 30 22 34 30 L40 30 L40 12 L46 12 L46 30 L52 30 L52 12 L58 12 L58 30 L64 30 L64 12"
-          stroke="#B91C1C"
-          strokeWidth="4"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M8 22 C14 8 46 6 62 14"
-          stroke="#B91C1C"
-          strokeWidth="3.5"
-          strokeLinecap="round"
-        />
-        <circle cx="68" cy="8" r="3" stroke="#334155" strokeWidth="0.8" />
-        <text x="66.5" y="10" fontSize="4.5" fontWeight="bold" fill="#334155">R</text>
-        <text x="2" y="44" fontSize="10.5" fontWeight="900" fontFamily="system-ui, -apple-system, sans-serif" fill="#000000" letterSpacing="1.2">
-          CADD MANTRA
-        </text>
-      </svg>
-    </div>
+    <div className="shrink-0 max-w-[140px] text-[15px] font-black tracking-wide text-slate-900 leading-tight">{name}</div>
   );
 }
 
@@ -244,17 +224,17 @@ export default function PaymentReceiptModal({
   const [matchedBrand, setMatchedBrand] = React.useState<any>(null);
   const [matchedCompany, setMatchedCompany] = React.useState<any>(null);
 
-  // Authoritative company from student admission or receipt
+  // Authoritative company from payment receipt, with student admission fallback
   const rawAdmissionCompany =
-    (student?.companyAssigned && student.companyAssigned !== "Cash" && student.companyAssigned !== "Unallocated" && student.companyAssigned !== "Cash (Unallocated)" && student.companyAssigned !== "Auto" ? student.companyAssigned : null) ||
-    (student?.company && student.company !== "Cash" && student.company !== "Unallocated" && student.company !== "Cash (Unallocated)" && student.company !== "Auto" ? student.company : null) ||
     (receipt?.company && receipt.company !== "Cash" && receipt.company !== "Unallocated" && receipt.company !== "Cash (Unallocated)" && receipt.company !== "Auto" ? receipt.company : null) ||
-    (receipt?.companyAssigned && receipt.companyAssigned !== "Cash" && receipt.companyAssigned !== "Unallocated" ? receipt.companyAssigned : null);
+    (receipt?.companyAssigned && receipt.companyAssigned !== "Cash" && receipt.companyAssigned !== "Unallocated" ? receipt.companyAssigned : null) ||
+    (student?.companyAssigned && student.companyAssigned !== "Cash" && student.companyAssigned !== "Unallocated" && student.companyAssigned !== "Cash (Unallocated)" && student.companyAssigned !== "Auto" ? student.companyAssigned : null) ||
+    (student?.company && student.company !== "Cash" && student.company !== "Unallocated" && student.company !== "Cash (Unallocated)" && student.company !== "Auto" ? student.company : null);
 
-  const companyName = matchedCompany?.legalName || matchedCompany?.name || rawAdmissionCompany || matchedBrand?.companies?.[0] || "INSTITUTE OF CREATIVE STUDIES";
+  const companyName = matchedCompany?.legalName || matchedCompany?.name || rawAdmissionCompany || matchedBrand?.companies?.[0] || "";
   const companyAddress = matchedCompany?.address || matchedBrand?.address || "No listed street, No City, No State, PIN";
-  const brandName = matchedBrand?.name || student?.brand || student?.brandName || receipt?.brand || receipt?.brandName || "CADD MANTRA";
-  const brandAddress = matchedBrand?.address || "G 11 , Murli Bhawan , 10- A, Ashok Marg , Lucknow";
+  const brandName = matchedBrand?.name || student?.brand || student?.brandName || receipt?.brand || receipt?.brandName || "";
+  const brandAddress = matchedBrand?.address || "";
   
   // Resolve brand logo: use logoUrl or receiptTemplateUrl if image
   const brandLogoUrl = matchedBrand?.logoUrl || (matchedBrand?.receiptTemplateUrl && !matchedBrand.receiptTemplateUrl.toLowerCase().endsWith(".pdf") ? matchedBrand.receiptTemplateUrl : null);
@@ -303,11 +283,11 @@ export default function PaymentReceiptModal({
         .then((data) => {
           if (data.success && Array.isArray(data.companies) && data.companies.length > 0) {
             const targetComp = (
+              receipt?.company ||
+              receipt?.companyAssigned ||
               student?.companyAssigned ||
               student?.company ||
               student?.companyName ||
-              receipt?.company ||
-              receipt?.companyAssigned ||
               ""
             ).toString().toLowerCase().trim();
 
@@ -547,7 +527,7 @@ export default function PaymentReceiptModal({
                 {brandLogoUrl ? (
                   <img src={brandLogoUrl} alt={brandName} className="h-12 max-w-[120px] object-contain shrink-0" />
                 ) : (
-                  <CaddMantraLogo />
+                  <BrandNameMark name={brandName} />
                 )}
                 <div>
                   <h1 className="text-sm font-black text-slate-900 leading-tight uppercase">
@@ -615,9 +595,9 @@ export default function PaymentReceiptModal({
                   </div>
                   <p className="text-sm font-bold text-slate-900">{student.fullName}</p>
                   <p className="text-xs text-slate-600 font-medium">
-                    Admission Batch : <span className="font-semibold text-slate-800">{student.batch || student.city || "Lucknow"}</span>
+                    Admission Batch : <span className="font-semibold text-slate-800">{student.batch || student.city || "—"}</span>
                   </p>
-                  <p className="text-xs text-slate-500">{student.city || "Lucknow"}</p>
+                  <p className="text-xs text-slate-500">{student.city || ""}</p>
                 </div>
 
                 <div className="mt-4 bg-emerald-600 text-white font-bold text-base py-2 px-4 rounded-md text-center shadow-xs tracking-wide">

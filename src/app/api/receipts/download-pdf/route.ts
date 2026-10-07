@@ -133,7 +133,7 @@ async function generatePdfFromDb({
     ? allPayments.reduce((sum: number, p: any) => sum + (Number(p.amountReceived) || 0), 0)
     : Number(payment?.amountReceived || 0);
   const remainingBalance = Math.max(0, finalFee - totalPaidToDate);
-  const targetBrandName = payment?.brand || admission?.brand || "CADD MANTRA";
+  const targetBrandName = payment?.brand || admission?.brand || "";
   const brand = await Brand.findOne({
     $or: [
       { name: { $regex: new RegExp(`^${escapeRegExp(targetBrandName.trim())}$`, "i") } },
@@ -160,8 +160,8 @@ async function generatePdfFromDb({
   }
 
   const targetCompName =
-    (admission?.companyAssigned && admission.companyAssigned !== "Cash" && admission.companyAssigned !== "Unallocated" && admission.companyAssigned !== "Cash (Unallocated)" && admission.companyAssigned !== "Auto" ? admission.companyAssigned : null) ||
     (payment?.company && payment.company !== "Cash" && payment.company !== "Unallocated" && payment.company !== "Cash (Unallocated)" && payment.company !== "Auto" ? payment.company : null) ||
+    (admission?.companyAssigned && admission.companyAssigned !== "Cash" && admission.companyAssigned !== "Unallocated" && admission.companyAssigned !== "Cash (Unallocated)" && admission.companyAssigned !== "Auto" ? admission.companyAssigned : null) ||
     (admission?.company && admission.company !== "Cash" && admission.company !== "Unallocated" ? admission.company : null);
 
   let companyObj: any = null;
@@ -183,7 +183,7 @@ async function generatePdfFromDb({
     }).lean();
   }
 
-  const companyName = companyObj?.legalName || companyObj?.name || targetCompName || brand?.companies?.[0] || targetBrandName || "INSTITUTE OF CREATIVE STUDIES";
+  const companyName = companyObj?.legalName || companyObj?.name || targetCompName || brand?.companies?.[0] || targetBrandName || "";
   const companyAddress = companyObj?.address || brand?.address || "No listed street, No City, No State, PIN";
   const brandLogoUrl = brand?.logoUrl || (brand?.receiptTemplateUrl && !brand.receiptTemplateUrl.toLowerCase().endsWith(".pdf") ? brand.receiptTemplateUrl : null);
 
@@ -198,12 +198,12 @@ async function generatePdfFromDb({
     referenceNo: payment?.referenceNo || "N/A",
     particulars: typeof paymentAny?.particulars === "string" ? paymentAny.particulars : "Course Fee / Registration Payment Received",
     brandName: targetBrandName,
-    brandAddress: brand?.address || "G 11 , Murli Bhawan , 10- A, Ashok Marg , Lucknow",
+    brandAddress: brand?.address || "",
     brandLogoUrl,
     companyName,
     companyAddress,
     batch: admission?.batch || admission?.city || "General Batch",
-    city: admission?.city || "Lucknow",
+    city: admission?.city || "",
     finalFee,
     totalPaidToDate,
     remainingBalance,
@@ -242,7 +242,7 @@ async function generatePdfFromDb({
     paymentMode: payment?.paymentMode || "Cash",
     referenceNo: payment?.referenceNo || "N/A",
     brandName: targetBrandName,
-    brandAddress: brand?.address || "G 11 , Murli Bhawan , 10- A, Ashok Marg , Lucknow",
+    brandAddress: brand?.address || "",
     companyName,
     companyAddress,
     totalFee: finalFee,

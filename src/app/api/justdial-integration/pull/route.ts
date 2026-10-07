@@ -7,6 +7,7 @@ import JustdialConfig from "@/models/JustdialConfig";
 import JustdialLeadLog from "@/models/JustdialLeadLog";
 import { sendWhatsAppWelcomeEnquiry, sendWhatsAppSuperAdminEnquiryAlert } from "@/lib/msg91";
 import { decryptField } from "@/lib/encryption";
+import { getDefaultBrandName } from "@/lib/brandDefaults";
 
 const str = (val: any): string =>
   val === undefined || val === null || typeof val === "object" ? "" : String(val).trim();
@@ -179,8 +180,8 @@ export async function POST(req: NextRequest) {
 
         // Course & Counselor matching
         let matchedCourse = config.defaultCourse || "";
-        let matchedCounselor = config.counselorName || "HO - TARANG SINGHAL - SICCES PVT LTD";
-        let targetBrand = config.defaultBrand || "CADD MANTRA";
+        let matchedCounselor = config.counselorName || "Unassigned";
+        let targetBrand = config.defaultBrand || (await getDefaultBrandName());
 
         if (justdialCategory && Array.isArray(config.courseMappings) && config.courseMappings.length > 0) {
           const cleanCat = justdialCategory.toLowerCase().trim();

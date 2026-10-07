@@ -224,7 +224,7 @@ export default function AddBrandManagerModal({ isOpen, onClose, onSuccess }: Add
                   setFormData((prev) => ({
                     ...prev,
                     role: newRole,
-                    brandScope: newRole === "cfo" ? "All Brands" : (dbBrands[0]?.name || "Cadd Mantra"),
+                    brandScope: newRole === "cfo" ? "All Brands" : (dbBrands[0]?.name || ""),
                   }));
                 }}
                 className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-indigo-950 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all appearance-none cursor-pointer"
@@ -254,10 +254,7 @@ export default function AddBrandManagerModal({ isOpen, onClose, onSuccess }: Add
                     <option key={idx} value={b.name}>{b.name}</option>
                   ))
                 ) : (
-                  <>
-                    <option value="Cadd Mantra">Cadd Mantra</option>
-                    <option value="Design Gateway">Design Gateway</option>
-                  </>
+                  <option value="" disabled>No brands yet — add one on the Brands page</option>
                 )}
               </select>
             </div>

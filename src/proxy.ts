@@ -22,6 +22,7 @@ const PUBLIC_API_ROUTES: { path: string; methods?: string[] }[] = [
   { path: "/api/enquiries/google-form" },
   { path: "/api/enquiries/justdial-webhook" }, // verifies its own API key / signature
   { path: "/api/enquiries/facebook-webhook" }, // verifies Meta's verify token / X-Hub-Signature-256
+  { path: "/api/facebook-integration/oauth/callback" }, // Meta OAuth callback redirect
   // Read-only lookups used by the public enquiry form at /public/enquiry/[brand]
   { path: "/api/lead-sources", methods: ["GET"] },
   { path: "/api/courses", methods: ["GET"] },

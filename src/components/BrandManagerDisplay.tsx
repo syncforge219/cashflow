@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { BRAND_CATEGORY_LABELS, brandCategoryOf, type BrandCategory } from "@/lib/brandCategory";
 import RegisterBrandModal from "./RegisterBrandModal";
 import DeleteConfirmModal from "./DeleteConfirmModal";
 
@@ -13,6 +14,8 @@ export default function BrandManagerDisplay() {
   const [brandsList, setBrandsList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [failedLogos, setFailedLogos] = useState<Record<string, boolean>>({});
+  const [categoryFilter, setCategoryFilter] = useState<"ALL" | BrandCategory>("ALL");
+  const [sortBy, setSortBy] = useState<"category" | "name" | "revenue">("category");
 
   const handleLogoError = (id: string) => {
     if (id) {
@@ -104,7 +107,26 @@ export default function BrandManagerDisplay() {
     };
   };
 
-  const selectedBrandRaw = brandsList.find((b) => b.brandId === selectedBrandId) || brandsList[0];
+  const categoryCounts = {
+    ALL: brandsList.length,
+    TRAINING: brandsList.filter((b) => brandCategoryOf(b) === "TRAINING").length,
+    SERVICE: brandsList.filter((b) => brandCategoryOf(b) === "SERVICE").length,
+  };
+
+  const revenueOf = (b: any) => Number(String(getBrandDetails(b).revenue).replace(/[^0-9.]/g, "")) || 0;
+  const visibleBrands = brandsList
+    .filter((b) => categoryFilter === "ALL" || brandCategoryOf(b) === categoryFilter)
+    .sort((a, b) => {
+      if (sortBy === "revenue") return revenueOf(b) - revenueOf(a);
+      if (sortBy === "category") {
+        const diff = brandCategoryOf(a).localeCompare(brandCategoryOf(b)) * -1; // Training first, then Service
+        if (diff !== 0) return diff;
+      }
+      return String(a.name || "").localeCompare(String(b.name || ""));
+    });
+
+  // Keep the detail pane on a brand that is visible under the current filter
+  const selectedBrandRaw = visibleBrands.find((b) => b.brandId === selectedBrandId) || visibleBrands[0];
   const selectedBrand = selectedBrandRaw ? getBrandDetails(selectedBrandRaw) : null;
 
   const handleEditClick = () => {
@@ -187,16 +209,41 @@ export default function BrandManagerDisplay() {
           {/* Header */}
           <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
             <div>
-              <h2 className="text-sm font-extrabold text-slate-800">Academic Brands</h2>
+              <h2 className="text-sm font-extrabold text-slate-800">Brands</h2>
               <p className="text-[10px] text-slate-400 font-medium">Select a brand to view analytics and manage legal entities</p>
             </div>
-            <div className="flex items-center gap-1">
-              <button className="p-1.5 hover:bg-slate-50 rounded-lg text-slate-400 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" />
-                </svg>
+            <label className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              Sort
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                className="text-xs font-bold normal-case tracking-normal text-slate-700 bg-white border border-slate-200 rounded-lg px-2 py-1 outline-none cursor-pointer"
+              >
+                <option value="category">By category</option>
+                <option value="name">Name A–Z</option>
+                <option value="revenue">Revenue (high → low)</option>
+              </select>
+            </label>
+          </div>
+
+          {/* Category filter */}
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0" role="tablist" aria-label="Brand category">
+            {(["ALL", "TRAINING", "SERVICE"] as const).map((cat) => (
+              <button
+                key={cat}
+                role="tab"
+                aria-selected={categoryFilter === cat}
+                onClick={() => setCategoryFilter(cat)}
+                className={`flex-1 px-2 py-1.5 rounded-lg text-[11px] font-extrabold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                  categoryFilter === cat ? "bg-white text-indigo-700 shadow-xs" : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                {cat === "ALL" ? "All" : cat === "TRAINING" ? "🎓 Training" : "💼 Service"}
+                <span className={`px-1.5 rounded-full text-[10px] ${categoryFilter === cat ? "bg-indigo-100 text-indigo-700" : "bg-slate-200 text-slate-600"}`}>
+                  {categoryCounts[cat]}
+                </span>
               </button>
-            </div>
+            ))}
           </div>
 
           {/* Cards List */}
@@ -205,9 +252,13 @@ export default function BrandManagerDisplay() {
               <div className="p-4 text-center text-sm text-slate-500">Loading brands...</div>
             ) : brandsList.length === 0 ? (
               <div className="p-4 text-center text-sm text-slate-500">No brands registered.</div>
-            ) : brandsList.map((b) => {
+            ) : visibleBrands.length === 0 ? (
+              <div className="p-4 text-center text-sm text-slate-500">
+                No {categoryFilter === "SERVICE" ? "service-based" : "training-based"} brands yet. Edit a brand to set its category.
+              </div>
+            ) : visibleBrands.map((b) => {
               const brand = getBrandDetails(b);
-              const isSelected = brand.id === selectedBrandId;
+              const isSelected = brand.id === selectedBrandRaw?.brandId;
               return (
                 <div
                   key={brand.id}
@@ -242,9 +293,17 @@ export default function BrandManagerDisplay() {
                         <p className="text-[10px] text-slate-400 font-medium mt-0.5 line-clamp-1">{brand.description}</p>
                       </div>
                     </div>
-                    <span className="text-[9px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-full px-2 py-0.5 uppercase tracking-wide shrink-0">
-                      {brand.status}
-                    </span>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <span className="text-[9px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-full px-2 py-0.5 uppercase tracking-wide">
+                        {brand.status}
+                      </span>
+                      <CategoryBadge category={brandCategoryOf(b)} />
+                      {b.isDefault && (
+                        <span className="text-[9px] font-bold rounded-full px-2 py-0.5 uppercase tracking-wide border bg-indigo-50 text-indigo-700 border-indigo-200" title="Used when a record arrives without a brand">
+                          ★ Default
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="border-t border-slate-100 my-3"></div>
@@ -292,7 +351,10 @@ export default function BrandManagerDisplay() {
                   )}
                 </div>
                 <div>
-                  <h2 className="text-base font-extrabold text-slate-800 tracking-tight">{selectedBrand.name}</h2>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-base font-extrabold text-slate-800 tracking-tight">{selectedBrand.name}</h2>
+                    <CategoryBadge category={brandCategoryOf(selectedBrandRaw)} />
+                  </div>
                   <p className="text-[10px] text-slate-400 font-medium mt-0.5 flex items-center gap-1">
                     Brand Identity: <span className="font-mono text-slate-500 select-all">{selectedBrand.identity}</span>
                   </p>
@@ -472,5 +534,18 @@ export default function BrandManagerDisplay() {
         requireConfirmName={true}
       />
     </div>
+  );
+}
+
+function CategoryBadge({ category }: { category: BrandCategory }) {
+  return (
+    <span
+      className={`text-[9px] font-bold rounded-full px-2 py-0.5 uppercase tracking-wide border whitespace-nowrap ${
+        category === "SERVICE" ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-sky-50 text-sky-700 border-sky-200"
+      }`}
+    >
+      {category === "SERVICE" ? "💼 " : "🎓 "}
+      {BRAND_CATEGORY_LABELS[category]}
+    </span>
   );
 }

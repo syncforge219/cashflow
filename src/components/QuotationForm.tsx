@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { numberToIndianWords } from "@/lib/numberToWords";
 import { useUser } from "@/app/component/context/user-context";
 import { compressImageFile } from "@/lib/imageCompressor";
+import { getFinancialYear } from "@/lib/financialYearHelper";
 
 interface ItemRow {
   productId?: string;
@@ -57,6 +58,55 @@ interface QuotationFormProps {
   isPo?: boolean;
 }
 
+// Issuer (our company) details shown on quotations / POs. They come only from the saved quotation
+// profile or the company picked from the Companies list; nothing is filled in from code.
+const realValue = (v: unknown, placeholder?: string) => {
+  const s = String(v ?? "").trim();
+  return s && s !== placeholder && s !== "Not Provided" ? s : "";
+};
+
+function issuerFromProfile(p: any) {
+  return {
+    name: realValue(p?.name),
+    gstin: realValue(p?.gstin),
+    cin: realValue(p?.cin),
+    address: realValue(p?.address),
+    description: realValue(p?.description),
+    bankName: realValue(p?.bankDetails?.bankName),
+    accountNumber: realValue(p?.bankDetails?.accountNumber),
+    ifsc: realValue(p?.bankDetails?.ifsc) || realValue(p?.bankDetails?.rtgsCode),
+    branch: realValue(p?.bankDetails?.branch),
+    prefix: realValue(p?.prefix) || "QTN",
+    logo: realValue(p?.logo),
+    stampImage: realValue(p?.stampImage),
+    signatureImage: realValue(p?.signatureImage),
+    bankQrImage: realValue(p?.bankQrImage),
+    authorizedSignatory: realValue(p?.authorizedSignatory) || "AUTHORISED SIGNATORY",
+    phone: realValue(p?.phone),
+    email: realValue(p?.email),
+    website: realValue(p?.website),
+  };
+}
+
+/** A company from the Companies list; anything it doesn't hold falls back to the saved profile. */
+function issuerFromCompany(c: CompanyOption, p: any) {
+  const base = issuerFromProfile(p);
+  return {
+    ...base,
+    name: c.legalName || c.name || "",
+    gstin: realValue(c.gst) || base.gstin,
+    address: realValue(c.address, "No listed street, No City, No State, PIN") || base.address,
+    description: Array.isArray(c.brands) && c.brands.length > 0 ? `Providers for: ${c.brands.join(", ")}` : base.description,
+    bankName: realValue(c.bank) || base.bankName,
+    prefix: prefixFromName(c.name),
+  };
+}
+
+/** Number prefix derived from a company name: first 4 letters/digits, e.g. "Acme Corp" -> "ACME". */
+function prefixFromName(name: string | undefined) {
+  return (name || "").replace(/[^A-Za-z0-9]/g, "").substring(0, 4).toUpperCase() || "QTN";
+}
+
 export default function QuotationForm({ initialData, isEdit = false, isPo = false }: QuotationFormProps) {
   const router = useRouter();
   const { user } = useUser();
@@ -89,24 +139,24 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
     email: string;
     website: string;
   }>({
-    name: initialData?.companyName || "SICCES PRIVATE LIMITED",
-    gstin: initialData?.companyGstin || "09AASCS4608K1ZP",
+    name: initialData?.companyName || "",
+    gstin: initialData?.companyGstin || "",
     cin: initialData?.companyCin || "",
-    address: initialData?.companyAddress || "101, Vinayak Complex, Station Road, Jaipur",
-    description: initialData?.companyDescription || "Providers of Software, Digital Marketing & Educational Services",
-    bankName: initialData?.bankDetails?.bankName || "STATE BANK OF INDIA",
-    accountNumber: initialData?.bankDetails?.accountNumber || "61330464677",
-    ifsc: initialData?.bankDetails?.ifsc || initialData?.bankDetails?.rtgsCode || "SBIN0031792",
-    branch: initialData?.bankDetails?.branch || "SITAPURA IND. AREA JAIPUR",
-    prefix: "SICCES",
-    logo: initialData?.companyLogo !== undefined ? initialData.companyLogo : "/sicces-logo.png",
+    address: initialData?.companyAddress || "",
+    description: initialData?.companyDescription || "",
+    bankName: initialData?.bankDetails?.bankName || "",
+    accountNumber: initialData?.bankDetails?.accountNumber || "",
+    ifsc: initialData?.bankDetails?.ifsc || initialData?.bankDetails?.rtgsCode || "",
+    branch: initialData?.bankDetails?.branch || "",
+    prefix: "QTN",
+    logo: initialData?.companyLogo || "",
     stampImage: initialData?.stampImage || "",
     signatureImage: initialData?.signatureImage || "",
     bankQrImage: initialData?.bankQrImage || "",
     authorizedSignatory: initialData?.authorizedSignatory || "AUTHORISED SIGNATORY",
-    phone: initialData?.companyPhone || "0141-4059826",
-    email: initialData?.companyEmail || "info@sicces.com",
-    website: initialData?.companyWebsite || "www.sicces.com",
+    phone: initialData?.companyPhone || "",
+    email: initialData?.companyEmail || "",
+    website: initialData?.companyWebsite || "",
   });
 
   // File input refs for Company Assets (Logo, Stamp, Sign, Bank QR)
@@ -172,7 +222,7 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
   const [validUntil, setValidUntil] = useState(
     initialData?.validUntil ? toDateKey(new Date(initialData.validUntil)) : ""
   );
-  const [poNumber, setPoNumber] = useState(initialData?.poNumber || "APPL/2026-27");
+  const [poNumber, setPoNumber] = useState(initialData?.poNumber || `QTN/${getFinancialYear()}`);
   const [selectedCustomerId, setSelectedCustomerId] = useState(initialData?.customerId || "");
   const [customerName, setCustomerName] = useState(initialData?.customerName || "");
   const [consigneeInfo, setConsigneeInfo] = useState(initialData?.consigneeInfo || "");
@@ -282,29 +332,8 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
           const p = profData.data;
           setProfile(p);
           if (!isEdit) {
-            setIssuingCompanyInfo({
-              name: p.name && p.name !== "AARAM PLASTICS PVT. LTD." ? p.name : "SICCES PRIVATE LIMITED",
-              gstin: p.gstin || "09AASCS4608K1ZP",
-              cin: p.cin || "",
-              address: p.address || "101, Vinayak Complex, Station Road",
-              description: p.description || "",
-              bankName: p.bankDetails?.bankName || "STATE BANK OF INDIA",
-              accountNumber: p.bankDetails?.accountNumber || "",
-              ifsc: p.bankDetails?.ifsc || "",
-              branch: p.bankDetails?.branch || "",
-              prefix: p.prefix && p.prefix !== "APPL" ? p.prefix : "SICCES",
-              logo: p.logo || "/sicces-logo.png",
-              stampImage: p.stampImage || "",
-              signatureImage: p.signatureImage || "",
-              bankQrImage: p.bankQrImage || "",
-              authorizedSignatory: p.authorizedSignatory || "AUTHORISED SIGNATORY",
-              phone: p.phone || "",
-              email: p.email || "",
-              website: p.website || "",
-            });
-            if (!initialData?.poNumber && p.prefix) {
-              setPoNumber(`${p.prefix && p.prefix !== "APPL" ? p.prefix : "SICCES"}/2026-27`);
-            }
+            setIssuingCompanyInfo(issuerFromProfile(p));
+            if (!initialData?.poNumber) setPoNumber(`${p.prefix || "QTN"}/${getFinancialYear()}`);
           }
           if (!isEdit && !initialData) {
             setTerms(p.defaultTerms || []);
@@ -317,62 +346,15 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
           setCompaniesList(comps);
 
           if (!isEdit) {
-            const siccesComp = comps.find(
-              (c) =>
-                c.name?.toUpperCase().includes("SICCES") ||
-                c.legalName?.toUpperCase().includes("SICCES")
-            );
-
-            if (siccesComp) {
-              setSelectedCompanyEntityId(siccesComp._id);
-              setIssuingCompanyInfo({
-                name: siccesComp.legalName || siccesComp.name || "SICCES PRIVATE LIMITED",
-                gstin: (siccesComp.gst && siccesComp.gst !== "Not Provided") ? siccesComp.gst : (profData?.data?.gstin || "09AASCS4608K1ZP"),
-                cin: profData?.data?.cin || "",
-                address: (siccesComp.address && siccesComp.address !== "No listed street, No City, No State, PIN") ? siccesComp.address : (profData?.data?.address || "101, Vinayak Complex, Station Road"),
-                description: Array.isArray(siccesComp.brands) && siccesComp.brands.length > 0 ? `Providers for: ${siccesComp.brands.join(", ")}` : (profData?.data?.description || "Providers of Software, Digital Marketing & Educational Services"),
-                bankName: siccesComp.bank || profData?.data?.bankDetails?.bankName || "STATE BANK OF INDIA",
-                accountNumber: profData?.data?.bankDetails?.accountNumber || "61330464677",
-                ifsc: profData?.data?.bankDetails?.ifsc || "SBIN0031792",
-                branch: profData?.data?.bankDetails?.branch || "SITAPURA IND. AREA JAIPUR",
-                prefix: "SICCES",
-                logo: profData?.data?.logo || "/sicces-logo.png",
-                stampImage: profData?.data?.stampImage || "",
-                signatureImage: profData?.data?.signatureImage || "",
-                bankQrImage: profData?.data?.bankQrImage || "",
-                authorizedSignatory: profData?.data?.authorizedSignatory || "AUTHORISED SIGNATORY",
-                phone: profData?.data?.phone || "0141-4059826",
-                email: profData?.data?.email || "info@sicces.com",
-                website: profData?.data?.website || "www.sicces.com",
-              });
-              if (!initialData?.poNumber) {
-                setPoNumber("SICCES/2026-27");
-              }
-            } else if (profData.success && profData.data) {
-              const p = profData.data;
-              setIssuingCompanyInfo({
-                name: p.name && p.name !== "AARAM PLASTICS PVT. LTD." ? p.name : "SICCES PRIVATE LIMITED",
-                gstin: p.gstin || "09AASCS4608K1ZP",
-                cin: p.cin || "",
-                address: p.address || "101, Vinayak Complex, Station Road",
-                description: p.description || "",
-                bankName: p.bankDetails?.bankName || "STATE BANK OF INDIA",
-                accountNumber: p.bankDetails?.accountNumber || "",
-                ifsc: p.bankDetails?.ifsc || "",
-                branch: p.bankDetails?.branch || "",
-                prefix: p.prefix && p.prefix !== "APPL" ? p.prefix : "SICCES",
-                logo: p.logo || "/sicces-logo.png",
-                stampImage: p.stampImage || "",
-                signatureImage: p.signatureImage || "",
-                bankQrImage: p.bankQrImage || "",
-                authorizedSignatory: p.authorizedSignatory || "AUTHORISED SIGNATORY",
-                phone: p.phone || "",
-                email: p.email || "",
-                website: p.website || "",
-              });
-              if (!initialData?.poNumber && p.prefix) {
-                setPoNumber(`${p.prefix && p.prefix !== "APPL" ? p.prefix : "SICCES"}/2026-27`);
-              }
+            // The saved quotation profile decides the issuer. Only when it has no company name and
+            // there is exactly one active company is that company pre-selected.
+            const active = comps.filter((c: any) => c.status !== "INACTIVE");
+            const profileHasIssuer = Boolean(profData?.data?.name);
+            if (!profileHasIssuer && active.length === 1) {
+              const only = active[0];
+              setSelectedCompanyEntityId(only._id);
+              setIssuingCompanyInfo(issuerFromCompany(only, profData?.data));
+              if (!initialData?.poNumber) setPoNumber(`${prefixFromName(only.name)}/${getFinancialYear()}`);
             }
           } else {
             // Edit Mode: detect whether current company matches a preset or is custom
@@ -400,28 +382,7 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
   const handleSelectCompanyEntity = (compId: string) => {
     setSelectedCompanyEntityId(compId);
     if (!compId) {
-      if (profile) {
-        setIssuingCompanyInfo({
-          name: profile.name && profile.name !== "AARAM PLASTICS PVT. LTD." ? profile.name : "SICCES PRIVATE LIMITED",
-          gstin: profile.gstin || "09AASCS4608K1ZP",
-          cin: profile.cin || "",
-          address: profile.address || "101, Vinayak Complex, Station Road",
-          description: profile.description || "Providers of Software, Digital Marketing & Educational Services",
-          bankName: profile.bankDetails?.bankName || "STATE BANK OF INDIA",
-          accountNumber: profile.bankDetails?.accountNumber || "61330464677",
-          ifsc: profile.bankDetails?.ifsc || "SBIN0031792",
-          branch: profile.bankDetails?.branch || "SITAPURA IND. AREA JAIPUR",
-          prefix: profile.prefix && profile.prefix !== "APPL" ? profile.prefix : "SICCES",
-          logo: profile.logo || "/sicces-logo.png",
-          stampImage: profile.stampImage || "",
-          signatureImage: profile.signatureImage || "",
-          bankQrImage: profile.bankQrImage || "",
-          authorizedSignatory: profile.authorizedSignatory || "AUTHORISED SIGNATORY",
-          phone: profile.phone || "0141-4059826",
-          email: profile.email || "info@sicces.com",
-          website: profile.website || "www.sicces.com",
-        });
-      }
+      if (profile) setIssuingCompanyInfo(issuerFromProfile(profile));
       return;
     }
 
@@ -451,31 +412,10 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
 
     const found = companiesList.find((c) => c._id === compId);
     if (found) {
-      const generatedPrefix = found.name.toUpperCase().includes("SICCES")
-        ? "SICCES"
-        : found.name.replace(/[^A-Za-z0-9]/g, "").substring(0, 4).toUpperCase();
-      setIssuingCompanyInfo({
-        name: found.legalName || found.name || "",
-        gstin: (found.gst && found.gst !== "Not Provided") ? found.gst : (profile?.gstin || ""),
-        cin: profile?.cin || "",
-        address: (found.address && found.address !== "No listed street, No City, No State, PIN") ? found.address : (profile?.address || ""),
-        description: Array.isArray(found.brands) && found.brands.length > 0 ? `Providers for: ${found.brands.join(", ")}` : (profile?.description || ""),
-        bankName: found.bank || profile?.bankDetails?.bankName || "STATE BANK OF INDIA",
-        accountNumber: profile?.bankDetails?.accountNumber || "",
-        ifsc: profile?.bankDetails?.ifsc || "",
-        branch: profile?.bankDetails?.branch || "",
-        prefix: generatedPrefix,
-        logo: found.name?.toUpperCase().includes("SICCES") ? "/sicces-logo.png" : (profile?.logo || ""),
-        stampImage: profile?.stampImage || "",
-        signatureImage: profile?.signatureImage || "",
-        bankQrImage: profile?.bankQrImage || "",
-        authorizedSignatory: profile?.authorizedSignatory || "AUTHORISED SIGNATORY",
-        phone: profile?.phone || "",
-        email: profile?.email || "",
-        website: profile?.website || "",
-      });
+      const generatedPrefix = prefixFromName(found.name);
+      setIssuingCompanyInfo({ ...issuerFromCompany(found, profile), prefix: generatedPrefix });
       if (found.name) {
-        setPoNumber(`${generatedPrefix}/2026-27`);
+        setPoNumber(`${generatedPrefix}/${getFinancialYear()}`);
       }
     }
   };
@@ -1086,7 +1026,7 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
                   type="text"
                   value={issuingCompanyInfo.name}
                   onChange={(e) => setIssuingCompanyInfo({ ...issuingCompanyInfo, name: e.target.value })}
-                  placeholder="e.g. SICCES PRIVATE LIMITED"
+                  placeholder="Registered company name"
                   className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-bold rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                 />
               </div>
@@ -1099,7 +1039,7 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
                   type="text"
                   value={issuingCompanyInfo.gstin}
                   onChange={(e) => setIssuingCompanyInfo({ ...issuingCompanyInfo, gstin: e.target.value.toUpperCase() })}
-                  placeholder="e.g. 09AASCS4608K1ZP"
+                  placeholder="15-character GSTIN"
                   className="w-full bg-slate-50 border border-slate-200 text-cyan-800 font-mono font-bold rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                 />
               </div>
@@ -1112,7 +1052,7 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
                   type="text"
                   value={issuingCompanyInfo.cin}
                   onChange={(e) => setIssuingCompanyInfo({ ...issuingCompanyInfo, cin: e.target.value.toUpperCase() })}
-                  placeholder="e.g. U25209RJ1996PTC011513"
+                  placeholder="21-character CIN"
                   className="w-full bg-slate-50 border border-slate-200 text-slate-800 font-mono text-xs rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                 />
               </div>
@@ -1127,11 +1067,11 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
                   onChange={(e) => {
                     const p = e.target.value.toUpperCase();
                     setIssuingCompanyInfo({ ...issuingCompanyInfo, prefix: p });
-                    if (!poNumber || poNumber.includes("/2026-27")) {
-                      setPoNumber(`${p}/2026-27`);
+                    if (!poNumber || poNumber.endsWith(`/${getFinancialYear()}`)) {
+                      setPoNumber(`${p}/${getFinancialYear()}`);
                     }
                   }}
-                  placeholder="e.g. SICCES"
+                  placeholder="e.g. QTN"
                   className="w-full bg-slate-50 border border-slate-200 text-indigo-700 font-mono font-black text-xs rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                 />
               </div>
@@ -1160,7 +1100,7 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
                   type="text"
                   value={issuingCompanyInfo.address}
                   onChange={(e) => setIssuingCompanyInfo({ ...issuingCompanyInfo, address: e.target.value })}
-                  placeholder="e.g. 101, Vinayak Complex, Station Road, Jaipur"
+                  placeholder="Registered address"
                   className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                 />
               </div>
@@ -1176,7 +1116,7 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
                   type="text"
                   value={issuingCompanyInfo.phone || ""}
                   onChange={(e) => setIssuingCompanyInfo({ ...issuingCompanyInfo, phone: e.target.value })}
-                  placeholder="e.g. 0141-4059826"
+                  placeholder="Phone number"
                   className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                 />
               </div>
@@ -1274,7 +1214,7 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
                     type="text"
                     value={issuingCompanyInfo.accountNumber || ""}
                     onChange={(e) => setIssuingCompanyInfo({ ...issuingCompanyInfo, accountNumber: e.target.value })}
-                    placeholder="e.g. 61330464677"
+                    placeholder="Account number"
                     className="w-full bg-slate-50 border border-slate-200 text-slate-800 font-mono font-bold rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                   />
                 </div>
@@ -1287,7 +1227,7 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
                     type="text"
                     value={issuingCompanyInfo.ifsc || ""}
                     onChange={(e) => setIssuingCompanyInfo({ ...issuingCompanyInfo, ifsc: e.target.value.toUpperCase() })}
-                    placeholder="e.g. SBIN0031792"
+                    placeholder="11-character IFSC"
                     className="w-full bg-slate-50 border border-slate-200 text-slate-800 font-mono font-bold rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                   />
                 </div>
@@ -1300,7 +1240,7 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
                     type="text"
                     value={issuingCompanyInfo.branch || ""}
                     onChange={(e) => setIssuingCompanyInfo({ ...issuingCompanyInfo, branch: e.target.value })}
-                    placeholder="e.g. SITAPURA IND. AREA JAIPUR"
+                    placeholder="Branch"
                     className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                   />
                 </div>
@@ -1912,7 +1852,7 @@ export default function QuotationForm({ initialData, isEdit = false, isPo = fals
                 type="text"
                 value={customerGstin}
                 onChange={(e) => setCustomerGstin(e.target.value.toUpperCase())}
-                placeholder="09AFIPA8247C1ZM"
+                placeholder="15-character GSTIN"
                 className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 uppercase"
               />
             </div>

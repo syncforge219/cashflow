@@ -46,7 +46,7 @@ test("generateOfficialReceiptHtml outputs correct modal-matching details", () =>
     paymentMode: "UPI",
     referenceNo: "N/A",
     particulars: "Course Fee / Registration Payment Received",
-    brandName: "DESIGN GATEWAY",
+    brandName: "BRAND B",
     brandAddress: "Shagun Palace , Lucknow",
     companyName: "DESIGNERS CHOICE",
     companyAddress: "G-15 ,Murli Bhawan 10-A Ashok Marg Lucknow -226001",
@@ -65,7 +65,7 @@ test("generateOfficialReceiptHtml outputs correct modal-matching details", () =>
   assert.ok(html.includes("35,000"), "Must contain agreed fee ₹35,000");
   assert.ok(html.includes("5,000.00"), "Must contain formatted amount 5,000.00");
   assert.ok(html.includes("General Batch"), "Must contain General Batch");
-  assert.ok(html.includes("DESIGN GATEWAY"), "Must contain brand name DESIGN GATEWAY");
+  assert.ok(html.includes("BRAND B"), "Must contain brand name BRAND B");
   assert.ok(html.includes("DESIGNERS CHOICE"), "Must contain company name DESIGNERS CHOICE");
   assert.ok(html.includes("11. Course Modification Policy"), "Must contain full 11 terms");
 });
@@ -81,7 +81,7 @@ test("htmlToPdfBuffer generates valid A4 PDF buffer", async () => {
     paymentMode: "UPI",
     referenceNo: "N/A",
     particulars: "Course Fee / Registration Payment Received",
-    brandName: "DESIGN GATEWAY",
+    brandName: "BRAND B",
     brandAddress: "Shagun Palace , Lucknow",
     companyName: "DESIGNERS CHOICE",
     companyAddress: "G-15 ,Murli Bhawan 10-A Ashok Marg Lucknow -226001",

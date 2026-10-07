@@ -23,7 +23,7 @@ export async function generatePurchaseOrderNumber(
   }
 
   const prefix = (profile as any).prefix || "PO";
-  const poPrefix = prefix === "APPL" ? "PO" : `${prefix}-PO`;
+  const poPrefix = prefix && prefix !== "PO" ? `${prefix}-PO` : "PO";
   const fy = getFinancialYear(customDate || new Date());
 
   const counterOptions: any = { new: true, upsert: true };

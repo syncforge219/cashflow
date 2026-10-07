@@ -287,7 +287,7 @@ describe("Payments API + balances (in-memory MongoDB)", () => {
     const admission = await Admission.create({
       fullName: "Test Student",
       course: "AutoCAD",
-      brand: "CADD MANTRA",
+      brand: "BRAND A",
       finalFee: 40000,
       registrationAmount: 5000,
       downpaymentAmount: 5000,

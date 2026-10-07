@@ -108,7 +108,7 @@ export default function CrmDisplay() {
             name: c.name || "Unknown",
             email: c.email || "",
             phone: c.phone || "",
-            scope: c.brandScope || "Cadd Mantra",
+            scope: c.brandScope || "",
             targetNum: target,
             revenueNum: revenue,
             admissionsNum: admissionsNum,

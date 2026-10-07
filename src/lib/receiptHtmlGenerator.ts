@@ -42,14 +42,12 @@ function generateBarcodeSvg(): string {
   </svg>`;
 }
 
-function getCaddMantraSvg(): string {
-  return `<svg width="110" height="44" viewBox="0 0 120 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M18 30 C8 30 6 12 18 12 C28 12 30 22 34 30 L40 30 L40 12 L46 12 L46 30 L52 30 L52 12 L58 12 L58 30 L64 30 L64 12" stroke="#B91C1C" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
-    <path d="M8 22 C14 8 46 6 62 14" stroke="#B91C1C" stroke-width="3.5" stroke-linecap="round" />
-    <circle cx="68" cy="8" r="3" stroke="#334155" stroke-width="0.8" />
-    <text x="66.5" y="10" font-size="4.5" font-weight="bold" fill="#334155">R</text>
-    <text x="2" y="44" font-size="10.5" font-weight="900" font-family="system-ui, -apple-system, sans-serif" fill="#000000" letter-spacing="1.2">CADD MANTRA</text>
-  </svg>`;
+/** Brand without an uploaded logo: show its name as a text mark (logos come from the Brands page). */
+function getBrandNameMarkHtml(brandName: string): string {
+  const safe = String(brandName || "").replace(/[<>&"]/g, "");
+  return safe
+    ? `<div style="font-size: 15px; font-weight: 900; letter-spacing: 1px; color: #0f172a; max-width: 160px; line-height: 1.15;">${safe}</div>`
+    : "";
 }
 
 export function generateOfficialReceiptHtml(data: ReceiptHtmlData): string {
@@ -63,12 +61,12 @@ export function generateOfficialReceiptHtml(data: ReceiptHtmlData): string {
   const paymentMode = data.paymentMode || "Online";
   const referenceNo = data.referenceNo || "N/A";
   const particulars = data.particulars || "Course Fee / Registration Payment Received";
-  const brandName = data.brandName || "DESIGN GATEWAY";
-  const brandAddress = data.brandAddress || "G 11 , Murli Bhawan , 10- A, Ashok Marg , Lucknow";
-  const companyName = data.companyName || "DESIGNERS CHOICE";
-  const companyAddress = data.companyAddress || "G-15 ,Murli Bhawan 10-A Ashok Marg Lucknow -226001";
+  const brandName = data.brandName || "";
+  const brandAddress = data.brandAddress || "";
+  const companyName = data.companyName || "";
+  const companyAddress = data.companyAddress || "";
   const batch = data.batch || "General Batch";
-  const city = data.city || "Lucknow";
+  const city = data.city || "";
   const finalFeeNum = Number(data.finalFee || amountPaidNum);
   const finalFeeStr = finalFeeNum.toLocaleString("en-IN");
   const totalPaidNum = Number(data.totalPaidToDate || amountPaidNum);
@@ -84,7 +82,7 @@ export function generateOfficialReceiptHtml(data: ReceiptHtmlData): string {
   if (data.brandLogoUrl) {
     logoHtml = `<img src="${data.brandLogoUrl}" alt="${brandName}" style="max-height: 48px; max-width: 130px; object-fit: contain;" />`;
   } else {
-    logoHtml = getCaddMantraSvg();
+    logoHtml = getBrandNameMarkHtml(brandName);
   }
 
   const barcodeSvg = generateBarcodeSvg();

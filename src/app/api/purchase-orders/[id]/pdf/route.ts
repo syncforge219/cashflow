@@ -13,13 +13,13 @@ function generatePurchaseOrderHtml(po: any, profile: any): string {
     })
     : "";
 
-  const companyName = po.companyName || profile?.name || "SICCES PRIVATE LIMITED";
-  const gstin = po.companyGstin || profile?.gstin || "08AABCA5691D1ZS";
-  const cin = po.companyCin || profile?.cin || "U25209RJ1996PTC011513";
-  const address = po.companyAddress || profile?.address || "101, Vinayak Complex, Station Road, JAIPUR - 302 001 (Raj.)";
-  const phone = po.companyPhone || profile?.phone || "0141-4059826";
-  const email = po.companyEmail || profile?.email || "appl_jaipur@rediffmail.com";
-  const website = po.companyWebsite || profile?.website || "www.aaramplastics.com";
+  const companyName = po.companyName || profile?.name || "";
+  const gstin = po.companyGstin || profile?.gstin || "";
+  const cin = po.companyCin || profile?.cin || "";
+  const address = po.companyAddress || profile?.address || "";
+  const phone = po.companyPhone || profile?.phone || "";
+  const email = po.companyEmail || profile?.email || "";
+  const website = po.companyWebsite || profile?.website || "";
 
   const parseItemQty = (item: any): { qtyNum: number; displayQty: string } => {
     const q = item.quantity;
@@ -558,7 +558,7 @@ function generatePurchaseOrderHtml(po: any, profile: any): string {
             <div class="bank-label">Name of Bank :</div>
             <div>${bankDetails.bankName || "Bank of India"}</div>
             <div class="bank-label">Branch Address :</div>
-            <div>${bankDetails.branch || "Ashok Marg"}</div>
+            <div>${bankDetails.branch || ""}</div>
             <div class="bank-label">Account No. :</div>
             <div>"${bankDetails.accountNumber || "680530110000089"}"</div>
             <div class="bank-label">IFSC Code :</div>

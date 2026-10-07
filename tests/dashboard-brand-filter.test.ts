@@ -45,8 +45,8 @@ describe("Executive dashboard with a brand selected", () => {
 
     const [dg, cm] = [new mongoose.Types.ObjectId(), new mongoose.Types.ObjectId()];
     await db()("brands").insertMany([
-      { _id: dg, brandId: "BR-DG", name: "DESIGN GATEWAY", code: "DG", isDeleted: false },
-      { _id: cm, brandId: "BR-CM", name: "CADD MANTRA", code: "CM", isDeleted: false },
+      { _id: dg, brandId: "BR-DG", name: "BRAND B", code: "DG", isDeleted: false },
+      { _id: cm, brandId: "BR-CM", name: "BRAND A", code: "CM", isDeleted: false },
     ]);
 
     const adm = (brandId: any, brand: string, day: string) => ({
@@ -60,10 +60,10 @@ describe("Executive dashboard with a brand selected", () => {
       createdAt: at(day),
       isDeleted: false,
     });
-    // DESIGN GATEWAY: one admission last month, one today. CADD MANTRA: one today.
-    const dgOld = adm(dg, "DESIGN GATEWAY", lastMonth);
-    const dgNew = adm(dg, "DESIGN GATEWAY", today);
-    const cmNew = adm(cm, "CADD MANTRA", today);
+    // BRAND B: one admission last month, one today. BRAND A: one today.
+    const dgOld = adm(dg, "BRAND B", lastMonth);
+    const dgNew = adm(dg, "BRAND B", today);
+    const cmNew = adm(cm, "BRAND A", today);
     await db()("admissions").insertMany([dgOld, dgNew, cmNew]);
 
     const pay = (a: any, amount: number, day: string) => ({
@@ -85,15 +85,15 @@ describe("Executive dashboard with a brand selected", () => {
     ]);
 
     await db()("enquiries").insertMany([
-      { enquiryId: uid("ENQ"), studentFullName: "DG lead old", targetBrand: "DESIGN GATEWAY", targetBrandId: dg, createdAt: at(lastMonth), isDeleted: false },
-      { enquiryId: uid("ENQ"), studentFullName: "DG lead 1", targetBrand: "DESIGN GATEWAY", targetBrandId: dg, createdAt: at(today), isDeleted: false },
-      { enquiryId: uid("ENQ"), studentFullName: "DG lead 2", targetBrand: "DESIGN GATEWAY", targetBrandId: dg, createdAt: at(today), isDeleted: false },
-      { enquiryId: uid("ENQ"), studentFullName: "CM lead", targetBrand: "CADD MANTRA", targetBrandId: cm, createdAt: at(today), isDeleted: false },
+      { enquiryId: uid("ENQ"), studentFullName: "DG lead old", targetBrand: "BRAND B", targetBrandId: dg, createdAt: at(lastMonth), isDeleted: false },
+      { enquiryId: uid("ENQ"), studentFullName: "DG lead 1", targetBrand: "BRAND B", targetBrandId: dg, createdAt: at(today), isDeleted: false },
+      { enquiryId: uid("ENQ"), studentFullName: "DG lead 2", targetBrand: "BRAND B", targetBrandId: dg, createdAt: at(today), isDeleted: false },
+      { enquiryId: uid("ENQ"), studentFullName: "CM lead", targetBrand: "BRAND A", targetBrandId: cm, createdAt: at(today), isDeleted: false },
     ]);
 
     await db()("expenses").insertMany([
-      { expenseId: uid("EXP"), title: "Old rent", category: "Rent", amount: 50000, brand: "DESIGN GATEWAY", brandId: dg, expenseDate: at(lastMonth), isDeleted: false },
-      { expenseId: uid("EXP"), title: "Ads", category: "Marketing", amount: 2000, brand: "DESIGN GATEWAY", brandId: dg, expenseDate: at(today), isDeleted: false },
+      { expenseId: uid("EXP"), title: "Old rent", category: "Rent", amount: 50000, brand: "BRAND B", brandId: dg, expenseDate: at(lastMonth), isDeleted: false },
+      { expenseId: uid("EXP"), title: "Ads", category: "Marketing", amount: 2000, brand: "BRAND B", brandId: dg, expenseDate: at(today), isDeleted: false },
     ]);
   });
 
@@ -110,7 +110,7 @@ describe("Executive dashboard with a brand selected", () => {
   };
 
   test("collections, admissions and leads respect the month when a brand is selected", async () => {
-    const d = await getStats("DESIGN GATEWAY");
+    const d = await getStats("BRAND B");
     assert.equal(d.financialSummary.collections, 10000, "period collection excludes last month's ₹9,00,000");
     assert.equal(d.kpis.todayCollection, "₹10,000", "today's collection is today only");
     assert.equal(d.kpis.admissionsTotal, 1);
@@ -120,7 +120,7 @@ describe("Executive dashboard with a brand selected", () => {
   });
 
   test("other brand and All Brands are unaffected", async () => {
-    const cm = await getStats("CADD MANTRA");
+    const cm = await getStats("BRAND A");
     assert.equal(cm.financialSummary.collections, 7000);
     assert.equal(cm.kpis.todayCollection, "₹7,000");
 
@@ -130,7 +130,7 @@ describe("Executive dashboard with a brand selected", () => {
   });
 
   test("period comparison counts money on the day it was received, per brand", async () => {
-    const url = "http://localhost/api/admin-dashboard/comparison?preset=this_month_vs_last_month&brand=DESIGN%20GATEWAY";
+    const url = "http://localhost/api/admin-dashboard/comparison?preset=this_month_vs_last_month&brand=BRAND%20B";
     const json = await (await comparison.GET(new Request(url))).json();
     assert.equal(json.success, true, JSON.stringify(json).slice(0, 300));
     const text = JSON.stringify(json.data);

@@ -98,7 +98,7 @@ export default function AddBatchModal({
         }
 
         // Set default brand scope
-        const defaultBrand = initialBrandScope || user?.brandScope || (brandsList[0] || "CADD Mantra");
+        const defaultBrand = initialBrandScope || user?.brandScope || brandsList[0] || "";
         setBrand(defaultBrand);
 
         // Default start date = today
@@ -181,7 +181,7 @@ export default function AddBatchModal({
           courseCode: courseCode.trim() || undefined,
           teacherId,
           teacherName,
-          brand: brand || user?.brandScope || "CADD Mantra",
+          brand: brand || user?.brandScope || "",
           startDate,
           endDate: endDate || undefined,
           timing,
@@ -354,9 +354,11 @@ export default function AddBatchModal({
                     </option>
                   ))
                 ) : (
-                  <option value={user?.brandScope || "CADD Mantra"}>
-                    {user?.brandScope || "CADD Mantra"}
-                  </option>
+                  user?.brandScope ? (
+                    <option value={user.brandScope}>{user.brandScope}</option>
+                  ) : (
+                    <option value="" disabled>No brands yet — add one on the Brands page</option>
+                  )
                 )}
               </select>
             </div>

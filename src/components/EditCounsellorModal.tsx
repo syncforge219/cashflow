@@ -43,7 +43,7 @@ export default function EditCounsellorModal({
         name: counsellor.name || "",
         email: counsellor.email || "",
         phone: "+91 " + cleaned,
-        brandScope: counsellor.scope || counsellor.brandScope || "Cadd Mantra",
+        brandScope: counsellor.scope || counsellor.brandScope || "",
         joiningDate: counsellor.joiningDate && counsellor.joiningDate !== "—"
           ? toDateKey(new Date(counsellor.joiningDate))
           : "",
@@ -279,7 +279,7 @@ export default function EditCounsellorModal({
                 required
                 value={formData.brandScope}
                 onChange={handleChange}
-                placeholder="e.g. Cadd Mantra"
+                placeholder="Brand name, or All Brands"
                 className="w-full text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
               />
             </div>

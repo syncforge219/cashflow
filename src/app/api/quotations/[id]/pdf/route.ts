@@ -13,23 +13,23 @@ function generateQuotationHtml(quotation: any, profile: any): string {
     })
     : "";
 
-  const companyName = quotation.companyName || profile?.name || "SICCES PRIVATE LIMITED";
-  const gstin = quotation.companyGstin || profile?.gstin || "08AABCA5691D1ZS";
-  const cin = quotation.companyCin || profile?.cin || "U25209RJ1996PTC011513";
-  const description = quotation.companyDescription || profile?.description || "Manufacturers of : ISI MARKED 'GANGOTRI' HDPE PIPES, SPRINKLER SYSTEM AND PLB TELECOM DUCTS";
-  const address = quotation.companyAddress || profile?.address || "101, Vinayak Complex, Station Road, JAIPUR - 302 001 (Raj.)";
-  const phone = quotation.companyPhone || profile?.phone || "0141-4059826";
-  const telefax = profile?.telefax || "0141-2370336";
-  const email = quotation.companyEmail || profile?.email || "appl_jaipur@rediffmail.com";
-  const website = quotation.companyWebsite || profile?.website || "www.aaramplastics.com";
+  const companyName = quotation.companyName || profile?.name || "";
+  const gstin = quotation.companyGstin || profile?.gstin || "";
+  const cin = quotation.companyCin || profile?.cin || "";
+  const description = quotation.companyDescription || profile?.description || "";
+  const address = quotation.companyAddress || profile?.address || "";
+  const phone = quotation.companyPhone || profile?.phone || "";
+  const telefax = profile?.telefax || "";
+  const email = quotation.companyEmail || profile?.email || "";
+  const website = quotation.companyWebsite || profile?.website || "";
   const isoTag = profile?.isoTag || "";
 
   const bankDetails = quotation.bankDetails || profile?.bankDetails || {
-    bankName: "STATE BANK OF INDIA",
-    branch: "SITAPURA IND. AREA JAIPUR",
-    accountNumber: "61330464677",
-    ifsc: "SBIN0031792",
-    rtgsCode: "SBIN0031792",
+    bankName: "",
+    branch: "",
+    accountNumber: "",
+    ifsc: "",
+    rtgsCode: "",
   };
 
   const terms: string[] = Array.isArray(quotation.termsAndConditions)
@@ -653,11 +653,11 @@ function generateQuotationHtml(quotation: any, profile: any): string {
             <div class="bank-label">Name of Bank :</div>
             <div>${bankDetails.bankName || "STATE BANK OF INDIA"}</div>
             <div class="bank-label">Branch Address :</div>
-            <div>${bankDetails.branch || "SITAPURA IND. AREA JAIPUR"}</div>
+            <div>${bankDetails.branch || ""}</div>
             <div class="bank-label">Account No. :</div>
-            <div>"${bankDetails.accountNumber || "61330464677"}"</div>
+            <div>"${bankDetails.accountNumber || ""}"</div>
             <div class="bank-label">IFSC Code :</div>
-            <div>${bankDetails.ifsc || bankDetails.rtgsCode || "SBIN0031792"}</div>
+            <div>${bankDetails.ifsc || bankDetails.rtgsCode || ""}</div>
           </div>
         </div>
         ${(() => {

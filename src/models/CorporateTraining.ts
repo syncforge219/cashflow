@@ -120,12 +120,11 @@ const CorporateTrainingSchema = new Schema(
       type: String,
       required: [true, "Brand scope is required"],
       trim: true,
-      default: "CADD MANTRA",
     },
     companyAssigned: {
       type: String,
       trim: true,
-      default: "INSTITUTE OF CREATIVE STUDIES",
+      default: "",
     },
     salesExecutive: {
       type: String,

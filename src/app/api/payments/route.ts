@@ -267,68 +267,99 @@ export async function POST(req: Request) {
       delete admission.errors.enquiryId;
     }
 
-    // 2. Company Allocation Engine: Use student's admission company first
+    // 2. Company Allocation Engine: If the user explicitly provided/selected a company, honor that company directly!
+    const reqCompany = (company || body.allocatedCompany || body.companyAssigned || "").trim();
+    const hasExplicitReqCompany = Boolean(
+      reqCompany &&
+      reqCompany !== "Auto" &&
+      reqCompany !== "Select Company..." &&
+      reqCompany !== "Unallocated" &&
+      reqCompany !== "Cash (Unallocated)" &&
+      reqCompany !== "Cash"
+    );
+
     const studentAdmissionCompany = (admission.companyAssigned || "").trim();
-    const hasValidAdmissionCompany = studentAdmissionCompany && 
+    const hasValidAdmissionCompany = Boolean(
+      studentAdmissionCompany && 
       studentAdmissionCompany !== "Cash" && 
       studentAdmissionCompany !== "Unallocated" && 
       studentAdmissionCompany !== "Cash (Unallocated)" && 
-      studentAdmissionCompany !== "Auto";
+      studentAdmissionCompany !== "Auto"
+    );
 
     let finalCompany = "";
     if (paymentMode === "Cash") {
       finalCompany = "Cash";
+    } else if (hasExplicitReqCompany) {
+      // User explicitly selected this company in Fee Collection / form! Strictly take money in that company only!
+      finalCompany = reqCompany;
     } else if (hasValidAdmissionCompany) {
-      // ALWAYS use the company assigned at admission! Do not re-allocate!
+      // Fallback to student's admission company if no explicit company was specified
       finalCompany = studentAdmissionCompany;
     } else {
-      const reqCompany = (company || body.allocatedCompany || body.companyAssigned || "").trim();
-      if (reqCompany && reqCompany !== "Auto" && reqCompany !== "Select Company..." && reqCompany !== "Unallocated" && reqCompany !== "Cash (Unallocated)") {
-        finalCompany = reqCompany;
+      const previousNonCashPayment = await Payment.findOne({
+        admissionId: admission._id,
+        paymentMode: { $not: /^cash$/i },
+        company: { $nin: ["Cash", "CASH", "cash", "Unallocated", "UNALLOCATED", "unallocated", "Cash (Unallocated)", "CASH (UNALLOCATED)"] }
+      });
+
+      if (previousNonCashPayment && previousNonCashPayment.company) {
+        finalCompany = previousNonCashPayment.company;
       } else {
-        const previousNonCashPayment = await Payment.findOne({
-          admissionId: admission._id,
-          paymentMode: { $not: /^cash$/i },
-          company: { $nin: ["Cash", "CASH", "cash", "Unallocated", "UNALLOCATED", "unallocated", "Cash (Unallocated)", "CASH (UNALLOCATED)"] }
+        const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const brandStr = (admission.brand || "").trim();
+        const brandRegex = new RegExp(`^${escapeRegExp(brandStr)}$`, "i");
+
+        const brandDoc = await Brand.findOne({ name: { $regex: brandRegex } }).lean();
+        const brandCompanies = brandDoc?.companies || [];
+
+        const safeCompRegexes = brandCompanies.map((c: string) => new RegExp(`^${escapeRegExp(c.trim())}$`, "i"));
+
+        const availableCompanies = await Company.find({
+          $or: [
+            { brand: { $regex: brandRegex } },
+            { brands: { $regex: brandRegex } },
+            ...(safeCompRegexes.length > 0 ? [{ name: { $in: safeCompRegexes } }] : [])
+          ],
+          status: "ACTIVE"
         });
 
-        if (previousNonCashPayment && previousNonCashPayment.company) {
-          finalCompany = previousNonCashPayment.company;
+        if (availableCompanies.length > 0) {
+          const fyRange = getFinancialYearRange();
+          const fyRevenueMap = await getCompanyPaymentRevenueMap(fyRange);
+          const getRemCap = (c: any) => {
+            const cap = Number(c.annualCapacityCap || 1949999);
+            const collected = fyRevenueMap.get(String(c._id)) || 0;
+            return Math.max(0, cap - collected);
+          };
+
+          availableCompanies.sort((a, b) => getRemCap(b) - getRemCap(a));
+
+          finalCompany = availableCompanies[0].name;
         } else {
-          const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          const brandStr = (admission.brand || "").trim();
-          const brandRegex = new RegExp(`^${escapeRegExp(brandStr)}$`, "i");
-
-          const brandDoc = await Brand.findOne({ name: { $regex: brandRegex } }).lean();
-          const brandCompanies = brandDoc?.companies || [];
-
-          const safeCompRegexes = brandCompanies.map((c: string) => new RegExp(`^${escapeRegExp(c.trim())}$`, "i"));
-
-          const availableCompanies = await Company.find({
-            $or: [
-              { brand: { $regex: brandRegex } },
-              { brands: { $regex: brandRegex } },
-              ...(safeCompRegexes.length > 0 ? [{ name: { $in: safeCompRegexes } }] : [])
-            ],
-            status: "ACTIVE"
-          });
-
-          if (availableCompanies.length > 0) {
-            const fyRange = getFinancialYearRange();
-            const fyRevenueMap = await getCompanyPaymentRevenueMap(fyRange);
-            const getRemCap = (c: any) => {
-              const cap = Number(c.annualCapacityCap || 1949999);
-              const collected = fyRevenueMap.get(String(c._id)) || 0;
-              return Math.max(0, cap - collected);
-            };
-
-            availableCompanies.sort((a, b) => getRemCap(b) - getRemCap(a));
-
-            finalCompany = availableCompanies[0].name;
-          } else {
-            finalCompany = "Unallocated";
-          }
+          finalCompany = "Unallocated";
         }
+      }
+    }
+
+    // Resolve target company document
+    const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    let targetCompanyDoc: any = null;
+
+    if (finalCompany && finalCompany !== "Cash" && finalCompany !== "Unallocated" && finalCompany !== "Cash (Unallocated)") {
+      if (body.companyId && mongoose.Types.ObjectId.isValid(body.companyId)) {
+        targetCompanyDoc = await Company.findById(body.companyId);
+      }
+      if (!targetCompanyDoc) {
+        const compRegex = new RegExp(`^${escapeRegExp(finalCompany.trim())}$`, "i");
+        targetCompanyDoc = await Company.findOne({
+          $or: [{ name: { $regex: compRegex } }, { legalName: { $regex: compRegex } }]
+        });
+      }
+
+      if (targetCompanyDoc) {
+        // Enforce canonical company name from registered company
+        finalCompany = targetCompanyDoc.name;
       }
     }
 
@@ -340,7 +371,6 @@ export async function POST(req: Request) {
     const oldCompany = (admission.companyAssigned || "").trim();
 
     if (finalCompany && finalCompany !== "Cash" && finalCompany !== "Unallocated" && finalCompany !== "Cash (Unallocated)") {
-      const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const isSameCompany = oldCompany && oldCompany.toLowerCase() === finalCompany.toLowerCase();
 
       if (!isSameCompany) {
@@ -363,35 +393,29 @@ export async function POST(req: Request) {
         }
 
         // Block full fee in new company for current financial year
-        const targetNewCompanyId = body.companyId || admission.companyId;
-        let updatedComp = targetNewCompanyId ? await Company.findById(targetNewCompanyId) : null;
-        if (!updatedComp) {
-          const compRegex = new RegExp(`^${escapeRegExp(finalCompany.trim())}$`, "i");
-          updatedComp = await Company.findOne({ $or: [{ name: { $regex: compRegex } }, { legalName: { $regex: compRegex } }] });
-        }
-        if (updatedComp) {
-          if (updatedComp.currentFinancialYear === admFY) {
-            updatedComp.collectedRevenue = (updatedComp.collectedRevenue || 0) + studentFullFee;
+        if (targetCompanyDoc) {
+          if (targetCompanyDoc.currentFinancialYear === admFY) {
+            targetCompanyDoc.collectedRevenue = (targetCompanyDoc.collectedRevenue || 0) + studentFullFee;
           } else if (admFY === currentFY) {
-            updatedComp.currentFinancialYear = currentFY;
-            updatedComp.collectedRevenue = studentFullFee;
-            updatedComp.alerted80Percent = false;
+            targetCompanyDoc.currentFinancialYear = currentFY;
+            targetCompanyDoc.collectedRevenue = studentFullFee;
+            targetCompanyDoc.alerted80Percent = false;
           }
-          await updatedComp.save();
+          await targetCompanyDoc.save();
         }
 
-        if (updatedComp) {
-          const cap = updatedComp.annualCapacityCap || 1949999;
-          const collected = updatedComp.collectedRevenue || 0;
+        if (targetCompanyDoc) {
+          const cap = targetCompanyDoc.annualCapacityCap || 1949999;
+          const collected = targetCompanyDoc.collectedRevenue || 0;
           const pct = cap > 0 ? (collected / cap) * 100 : 0;
 
           // Automatically send WhatsApp alert ONLY to Super Admin when capacity reaches 80%+
-          if (pct >= 80 && !(updatedComp as any).alerted80Percent) {
-            (updatedComp as any).alerted80Percent = true;
-            await updatedComp.save();
+          if (pct >= 80 && !(targetCompanyDoc as any).alerted80Percent) {
+            (targetCompanyDoc as any).alerted80Percent = true;
+            await targetCompanyDoc.save();
 
             sendWhatsAppCompanyLimit80Alert({
-              companyName: updatedComp.name,
+              companyName: targetCompanyDoc.name,
               brandName: admission.brand || (admission as any).brandName,
             }).catch((err) => console.error("[Payment API] WhatsApp 80% Capacity Limit Alert error:", err));
           }
@@ -399,7 +423,7 @@ export async function POST(req: Request) {
           // Automatically send WhatsApp notification to Admin when capacity reaches 95%+
           if (pct >= 95) {
             sendWhatsAppCompanyCapacityAlert({
-              companyName: updatedComp.name,
+              companyName: targetCompanyDoc.name,
               collectedRevenue: collected,
               annualCapacityCap: cap,
               capacityPercentage: pct,
@@ -408,8 +432,11 @@ export async function POST(req: Request) {
         }
       }
 
-      // Lock future payments to this company
+      // Lock future payments to this company & sync admission companyId
       admission.companyAssigned = finalCompany;
+      if (targetCompanyDoc) {
+        admission.companyId = targetCompanyDoc._id;
+      }
     }
 
     // 2. Create the payment record & recompute admission balance inside transaction (with standalone fallback)
@@ -421,12 +448,13 @@ export async function POST(req: Request) {
         admissionId: admission._id,
         studentName: admission.fullName,
         amountReceived: Number(amountReceived),
+        amountReceivedPaise: Math.round(Number(amountReceived) * 100),
         paymentDate: resolvedDate.date,
         paymentMode,
         referenceNo,
         remarks,
         company: finalCompany,
-        companyId: admission.companyId,
+        companyId: targetCompanyDoc ? targetCompanyDoc._id : (finalCompany === "Cash" ? null : admission.companyId),
         brand: admission.brand,
         brandId: admission.brandId,
         particulars,

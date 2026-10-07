@@ -60,6 +60,7 @@ export default function MarketingDashboardPage() {
   const [loadedKey, setLoadedKey] = useState("");
   const [banner, setBanner] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [connector, setConnector] = useState<"justdial" | "facebook" | null>(null);
+  const [fbConfig, setFbConfig] = useState<any>(null);
 
   const query = useMemo(() => {
     const p = new URLSearchParams({ from, to });
@@ -69,13 +70,58 @@ export default function MarketingDashboardPage() {
 
   const currentKey = `${query}|${reloadKey}`;
   const loading = loadedKey !== currentKey;
-  const loadAll = () => setReloadKey((k) => k + 1);
+  const loadFbConfig = () => {
+    fetch("/api/facebook-integration")
+      .then((r) => r.json())
+      .then((d) => d.success && setFbConfig(d.data))
+      .catch(() => {});
+  };
+
+  const loadAll = () => {
+    setReloadKey((k) => k + 1);
+    loadFbConfig();
+  };
 
   useEffect(() => {
     fetch("/api/marketing/lookups")
       .then((r) => r.json())
       .then((d) => d.success && setLookups(d.data))
       .catch(() => {});
+    loadFbConfig();
+  }, []);
+
+  // Listen for Facebook OAuth redirect callbacks in the URL
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const sp = new URLSearchParams(window.location.search);
+    const fbConnected = sp.get("fb_connected");
+    const fbPage = sp.get("fb_page");
+    const fbErr = sp.get("fb_error");
+    const fbModal = sp.get("fb_modal");
+
+    if (fbConnected === "true") {
+      setBanner({
+        type: "success",
+        text: `🎉 Successfully connected to Facebook! Active page: "${fbPage || "Lead Ads Page"}". Incoming leads are now syncing automatically.`,
+      });
+      setTab("connectors");
+      loadFbConfig();
+      const cleanUrl = window.location.pathname + (sp.get("tab") ? "?tab=" + sp.get("tab") : "");
+      window.history.replaceState({}, "", cleanUrl);
+    } else if (fbErr) {
+      setBanner({
+        type: "error",
+        text: `❌ Facebook Connection Notice: ${fbErr}`,
+      });
+      setTab("connectors");
+      if (fbModal === "true") {
+        setConnector("facebook");
+      }
+      const cleanUrl = window.location.pathname + (sp.get("tab") ? "?tab=" + sp.get("tab") : "");
+      window.history.replaceState({}, "", cleanUrl);
+    } else if (sp.get("tab") === "connectors") {
+      setTab("connectors");
+    }
   }, []);
 
   useEffect(() => {
@@ -508,7 +554,21 @@ export default function MarketingDashboardPage() {
                 accentColor="from-blue-600 via-indigo-600 to-fuchsia-600"
                 text="Direct integration with Meta Graph API. Pull new form responses automatically without manual CSV exports and track exact cost per lead."
                 features={["Instant Form Sync", "Direct Counsellor Assignment", "Retroactive Lead Pulling"]}
+                isConnected={Boolean(fbConfig?.isConnected)}
+                statusText={
+                  fbConfig?.isConnected
+                    ? `Active Page: ${fbConfig?.pageName || "(Connected)"}`
+                    : undefined
+                }
                 onOpen={() => setConnector("facebook")}
+                onConnect={() => {
+                  if (fbConfig?.hasAppId && fbConfig?.hasAppSecret) {
+                    window.location.href = `/api/facebook-integration/oauth/init?returnUrl=${encodeURIComponent("/marketing-dashboard?tab=connectors")}`;
+                  } else {
+                    setConnector("facebook");
+                  }
+                }}
+                connectButtonText="Connect with Facebook"
               />
             </div>
 
@@ -1113,7 +1173,11 @@ function ConnectorCard({
   accentColor,
   text,
   features,
+  isConnected,
+  statusText,
   onOpen,
+  onConnect,
+  connectButtonText = "Connect with Facebook",
 }: {
   title: string;
   badge: string;
@@ -1121,7 +1185,11 @@ function ConnectorCard({
   accentColor: string;
   text: string;
   features: string[];
+  isConnected?: boolean;
+  statusText?: string;
   onOpen: () => void;
+  onConnect?: () => void;
+  connectButtonText?: string;
 }) {
   return (
     <div className="bg-white border border-slate-200/90 rounded-3xl p-6 shadow-sm flex flex-col justify-between hover:shadow-lg transition-all duration-300 relative overflow-hidden group">
@@ -1136,10 +1204,24 @@ function ConnectorCard({
               <span className="text-[10px] font-extrabold text-indigo-600 uppercase tracking-wider">{badge}</span>
             </div>
           </div>
-          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Ready
-          </span>
+          {isConnected ? (
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span>Connected</span>
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-full">
+              <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+              <span>Ready</span>
+            </span>
+          )}
         </div>
+
+        {statusText && (
+          <div className="mb-3 px-3 py-1.5 bg-blue-50/70 border border-blue-100 rounded-xl text-[11px] font-bold text-blue-800 flex items-center justify-between">
+            <span>{statusText}</span>
+          </div>
+        )}
 
         <p className="text-xs text-slate-600 leading-relaxed mb-4">{text}</p>
 
@@ -1153,13 +1235,33 @@ function ConnectorCard({
         </ul>
       </div>
 
-      <button
-        onClick={onOpen}
-        className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-xs transition-all hover:scale-[1.01] cursor-pointer flex items-center justify-center gap-2"
-      >
-        <span>Configure Integration</span>
-        <span>→</span>
-      </button>
+      <div className="space-y-2">
+        {onConnect && !isConnected && (
+          <button
+            onClick={onConnect}
+            className="w-full py-2.5 bg-[#1877F2] hover:bg-[#166FE5] text-white text-xs font-black rounded-xl shadow-md transition-all hover:scale-[1.01] cursor-pointer flex items-center justify-center gap-2"
+          >
+            <span className="w-4 h-4 rounded-full bg-white text-[#1877F2] font-black flex items-center justify-center text-[10px] leading-none">
+              f
+            </span>
+            <span>{connectButtonText}</span>
+            <span>→</span>
+          </button>
+        )}
+        <button
+          onClick={onOpen}
+          className={`w-full py-2.5 text-xs font-bold rounded-xl shadow-xs transition-all hover:scale-[1.01] cursor-pointer flex items-center justify-center gap-2 ${
+            isConnected
+              ? "bg-slate-900 hover:bg-slate-800 text-white"
+              : onConnect
+              ? "bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200"
+              : "bg-slate-900 hover:bg-slate-800 text-white"
+          }`}
+        >
+          <span>{isConnected ? "Configure & Manage Integration" : "Configure Integration"}</span>
+          <span>→</span>
+        </button>
+      </div>
     </div>
   );
 }

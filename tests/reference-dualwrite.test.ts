@@ -131,7 +131,7 @@ describe("Reference Dual-Write & Expand-Migrate-Contract Test Suite", () => {
   });
 
   test("lookupBrand resolves exact matches and rejects nonexistent brands", async () => {
-    const resMatched = await lookupBrand("CADD MANTRA");
+    const resMatched = await lookupBrand("BRAND A");
     assert.equal(resMatched.status, "matched");
     assert.ok(resMatched.record?._id);
 
@@ -165,11 +165,11 @@ describe("Reference Dual-Write & Expand-Migrate-Contract Test Suite", () => {
   });
 
   test("syncAdmissionRefs dual-writes both string -> ObjectId and ObjectId -> string", async () => {
-    const brandDoc = await Brand.findOne({ name: "CADD MANTRA" }).lean();
+    const brandDoc = await Brand.findOne({ name: "BRAND A" }).lean();
     assert.ok(brandDoc);
 
     // Case 1: String provided -> populates ObjectId
-    const doc1: any = { brand: "CADD MANTRA" };
+    const doc1: any = { brand: "BRAND A" };
     await syncAdmissionRefs(doc1);
     assert.ok(doc1.brandId);
     assert.equal(doc1.brandId.toString(), brandDoc._id.toString());
@@ -177,7 +177,7 @@ describe("Reference Dual-Write & Expand-Migrate-Contract Test Suite", () => {
     // Case 2: ObjectId provided -> populates string name
     const doc2: any = { brandId: brandDoc._id };
     await syncAdmissionRefs(doc2);
-    assert.equal(doc2.brand, "CADD MANTRA");
+    assert.equal(doc2.brand, "BRAND A");
 
     // Case 3: Nonexistent string -> leaves brandId undefined (no guessing)
     const doc3: any = { brand: "Nonexistent Random Brand XYZ" };
@@ -192,7 +192,7 @@ describe("Reference Dual-Write & Expand-Migrate-Contract Test Suite", () => {
         const testAdm = new Admission({
           fullName: "DualWrite Test Student",
           mobileNumber: "9999900001",
-          brand: "CADD MANTRA",
+          brand: "BRAND A",
           companyAssigned: "CT ENTERPRISES",
           counsellor: "Addu Dubey",
         });
@@ -203,7 +203,7 @@ describe("Reference Dual-Write & Expand-Migrate-Contract Test Suite", () => {
         assert.ok(testAdm.brandId, "brandId should be populated by pre-save hook");
         assert.ok(testAdm.companyId, "companyId should be populated by pre-save hook");
         assert.ok(testAdm.counsellorId, "counsellorId should be populated by pre-save hook");
-        assert.equal(testAdm.brand, "CADD MANTRA");
+        assert.equal(testAdm.brand, "BRAND A");
         assert.equal(testAdm.companyAssigned, "CT ENTERPRISES");
         assert.equal(testAdm.counsellor, "Addu Dubey");
 
@@ -226,7 +226,7 @@ describe("Reference Dual-Write & Expand-Migrate-Contract Test Suite", () => {
           studentName: "DualWrite Test Student",
           amountReceived: 1000,
           paymentMode: "Cash",
-          brand: "CADD MANTRA",
+          brand: "BRAND A",
           company: "CT ENTERPRISES",
         });
 
@@ -234,7 +234,7 @@ describe("Reference Dual-Write & Expand-Migrate-Contract Test Suite", () => {
 
         assert.ok(testPay.brandId, "Payment.brandId should be populated");
         assert.ok(testPay.companyId, "Payment.companyId should be populated");
-        assert.equal(testPay.brand, "CADD MANTRA");
+        assert.equal(testPay.brand, "BRAND A");
         assert.equal(testPay.company, "CT ENTERPRISES");
 
         throw new Error("ROLLBACK_TEST_PAYMENT");
@@ -253,7 +253,7 @@ describe("Reference Dual-Write & Expand-Migrate-Contract Test Suite", () => {
         const testEnq = new Enquiry({
           studentFullName: "DualWrite Test Lead",
           primaryPhoneMobile: "9999900002",
-          targetBrand: "CADD MANTRA",
+          targetBrand: "BRAND A",
           assignedCrmAdvisor: "Addu Dubey",
         });
 
@@ -261,7 +261,7 @@ describe("Reference Dual-Write & Expand-Migrate-Contract Test Suite", () => {
 
         assert.ok(testEnq.targetBrandId, "Enquiry.targetBrandId should be populated");
         assert.ok(testEnq.assignedCrmAdvisorId, "Enquiry.assignedCrmAdvisorId should be populated");
-        assert.equal(testEnq.targetBrand, "CADD MANTRA");
+        assert.equal(testEnq.targetBrand, "BRAND A");
         assert.equal(testEnq.assignedCrmAdvisor, "Addu Dubey");
 
         throw new Error("ROLLBACK_TEST_ENQUIRY");
@@ -281,7 +281,7 @@ describe("Reference Dual-Write & Expand-Migrate-Contract Test Suite", () => {
         const testExp = new Expense({
           title: "Test DualWrite Expense",
           amount: 500,
-          brand: "CADD MANTRA",
+          brand: "BRAND A",
           company: "CT ENTERPRISES",
         });
         await testExp.save({ session });
@@ -294,7 +294,7 @@ describe("Reference Dual-Write & Expand-Migrate-Contract Test Suite", () => {
           course: "AutoCAD",
           teacherId: new mongoose.Types.ObjectId(),
           teacherName: "Faculty Test",
-          brand: "DESIGN GATEWAY",
+          brand: "BRAND B",
           startDate: new Date(),
           timing: "10:00 AM",
         });
@@ -305,7 +305,7 @@ describe("Reference Dual-Write & Expand-Migrate-Contract Test Suite", () => {
         const testCou = new Course({
           name: "Test DualWrite Course",
           code: "TEST-DW-001",
-          brand: "CADD MANTRA",
+          brand: "BRAND A",
           category: "CAD",
           duration: "3 Months",
           fee: "15000",

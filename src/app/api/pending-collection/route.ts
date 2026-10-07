@@ -274,7 +274,7 @@ export async function GET(req: Request) {
         studentName: adm.fullName || "Unknown",
         mobileNumber: adm.mobileNumber || "N/A",
         email: adm.email || "",
-        brand: adm.brand || "CADD MANTRA",
+        brand: adm.brand || "",
         branch: adm.city || adm.branch || "Headquarters",
         course: adm.course || "General Course",
         batch: adm.batch || "General Batch",

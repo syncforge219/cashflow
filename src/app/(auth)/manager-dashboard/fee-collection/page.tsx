@@ -93,10 +93,9 @@ export default function FeeCollectionPage() {
             const hasValidAssignedCompany = assignedComp && assignedComp !== "Unallocated" && assignedComp !== "Cash (Unallocated)" && assignedComp !== "Auto";
 
             if (hasValidAssignedCompany) {
-                // Always use the company assigned at admission! Do not re-allocate!
                 setAutoAllocatedCompany(assignedComp);
                 setSelectedCompany(assignedComp);
-            } else if (paymentMode !== "Cash") {
+            } else {
                 // Only run auto-allocation engine if student has no company assigned at admission
                 fetch(`/api/engine/allocate?brand=${encodeURIComponent(selectedStudent.brand || "")}`)
                     .then(res => res.json())
@@ -107,11 +106,12 @@ export default function FeeCollectionPage() {
                         }
                     })
                     .catch(err => console.error("Failed to fetch allocated company", err));
-            } else {
-                setSelectedCompany("Cash (Unallocated)");
             }
+        } else {
+            setSelectedCompany("");
+            setAutoAllocatedCompany("");
         }
-    }, [selectedStudent, paymentMode]);
+    }, [selectedStudent]);
 
     // Auto-fill amount and due date when Down Payment allocation is selected
     useEffect(() => {
@@ -175,7 +175,6 @@ export default function FeeCollectionPage() {
         if (selectedStudent) {
             const randomId = Math.floor(10000 + Math.random() * 90000);
             setReferenceNo(`Ref-${todayKey().slice(0, 4)}-${randomId}`);
-            setSelectedCompany(selectedStudent.companyAssigned || "Design Gateway Pvt Ltd");
         }
     }, [selectedStudent]);
 
@@ -315,6 +314,10 @@ export default function FeeCollectionPage() {
         try {
 
 
+            const effectiveCompany = paymentMode === "Cash"
+                ? "Cash"
+                : (selectedCompany || selectedStudent?.companyAssigned || autoAllocatedCompany || "").trim();
+
             const res = await fetch("/api/payments", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -325,7 +328,7 @@ export default function FeeCollectionPage() {
                     paymentMode,
                     referenceNo,
                     remarks: allocateTo === "Downpayment" ? (remarks ? `${remarks} (Down Payment)` : "Down Payment Collection") : remarks,
-                    company: selectedCompany,
+                    company: effectiveCompany,
                     isDownpayment: allocateTo === "Downpayment",
                     particulars: {
                         courseFeeDue: allocatedCourse,
@@ -348,6 +351,7 @@ export default function FeeCollectionPage() {
                 const freshData = await freshRes.json();
                 if (freshRes.ok && freshData.success && freshData.data.length > 0) {
                     setSelectedStudent(freshData.data[0]);
+                    setSelectedCompany(freshData.data[0].companyAssigned || effectiveCompany);
                 }
                 fetchPayments(selectedStudent._id);
 
@@ -358,7 +362,7 @@ export default function FeeCollectionPage() {
                     paymentMode,
                     referenceNo,
                     remarks,
-                    company: selectedCompany,
+                    company: effectiveCompany,
                     particulars: { courseFeeDue: allocatedCourse },
                 };
                 setSelectedReceipt(newReceipt);
@@ -817,9 +821,15 @@ export default function FeeCollectionPage() {
                                             <div>
                                                 <div className="flex items-center justify-between mb-1.5">
                                                     <label className="block text-[9px] uppercase tracking-widest text-slate-400">Company Allocation</label>
-                                                    {paymentMode !== "Cash" && (selectedStudent?.companyAssigned || autoAllocatedCompany) && (
-                                                        <span className="text-[9px] text-emerald-600 font-extrabold flex items-center gap-0.5">
-                                                            {selectedStudent?.companyAssigned && selectedStudent.companyAssigned !== "Unallocated" ? "✓ Assigned at Admission" : "Suggested (Editable)"}
+                                                    {paymentMode !== "Cash" && (
+                                                        <span className="text-[9px] font-extrabold flex items-center gap-0.5">
+                                                            {(selectedCompany || selectedStudent?.companyAssigned || autoAllocatedCompany) && selectedStudent?.companyAssigned && (selectedCompany || selectedStudent?.companyAssigned || autoAllocatedCompany).toUpperCase() === selectedStudent.companyAssigned.toUpperCase() ? (
+                                                                <span className="text-emerald-600">✓ Assigned at Admission</span>
+                                                            ) : selectedCompany ? (
+                                                                <span className="text-indigo-600">✓ Selected for this Payment</span>
+                                                            ) : autoAllocatedCompany ? (
+                                                                <span className="text-slate-500">Suggested (Editable)</span>
+                                                            ) : null}
                                                         </span>
                                                     )}
                                                 </div>
@@ -839,7 +849,7 @@ export default function FeeCollectionPage() {
                                                                 </option>
                                                             )}
                                                             {availableCompaniesList
-                                                                .filter((c) => c !== (selectedStudent?.companyAssigned || autoAllocatedCompany))
+                                                                .filter((c) => c.toUpperCase() !== (selectedStudent?.companyAssigned || autoAllocatedCompany || "").toUpperCase())
                                                                 .map((cName) => (
                                                                     <option key={cName} value={cName}>
                                                                         {cName}

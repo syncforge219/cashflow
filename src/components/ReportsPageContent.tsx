@@ -328,7 +328,7 @@ export default function ReportsPageContent({ role }: ReportsPageContentProps) {
   const [message, setMessage] = useState({ text: "", type: "" });
 
   // WhatsApp & Email States
-  const [adminPhone, setAdminPhone] = useState("919335913286");
+  const [adminPhone, setAdminPhone] = useState("");
   const [isSendingWhatsAppReport, setIsSendingWhatsAppReport] = useState(false);
   const [waReportStatus, setWaReportStatus] = useState({ text: "", type: "" });
   const [isSendingMonthlyReport, setIsSendingMonthlyReport] = useState(false);

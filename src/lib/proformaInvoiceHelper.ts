@@ -23,7 +23,7 @@ export async function generateProformaInvoiceNumber(
   }
 
   const prefix = (profile as any).prefix || "PI";
-  const piPrefix = prefix === "APPL" ? "PI" : `${prefix}-PI`;
+  const piPrefix = prefix && prefix !== "PI" ? `${prefix}-PI` : "PI";
   const fy = getFinancialYear(customDate || new Date());
 
   const counterOptions: any = { new: true, upsert: true };

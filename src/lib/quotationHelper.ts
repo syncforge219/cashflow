@@ -8,7 +8,7 @@ export { getFinancialYear, getFinancialYearRange };
 
 export function formatQuotationNumber(
   input: string,
-  prefix: string = "SICCES",
+  prefix: string = "QTN",
   customDate?: Date
 ): string {
   const trimmed = (input || "").trim();
@@ -16,7 +16,7 @@ export function formatQuotationNumber(
   if (/^\d+$/.test(trimmed)) {
     const fy = getFinancialYear(customDate || new Date());
     const seq = trimmed.padStart(4, "0");
-    const p = prefix && prefix !== "APPL" ? prefix : "SICCES";
+    const p = prefix || "QTN";
     return `${p}/${fy}/${seq}`;
   }
   return trimmed;
@@ -41,7 +41,7 @@ export async function generateQuotationNumber(
   }
 
   const p = (profile as any)?.prefix;
-  const prefix = p && p !== "APPL" ? p : "SICCES";
+  const prefix = p || "QTN";
   const fy = getFinancialYear(customDate || new Date());
 
   const counterOptions: any = { new: true, upsert: true };

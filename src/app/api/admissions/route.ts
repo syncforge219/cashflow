@@ -20,6 +20,7 @@ import { logAuditEntry } from "@/lib/auditLogger";
 import { validateDeletedAccess } from "@/lib/softDeleteAccess";
 import { withOptionalTransaction } from "@/lib/transactionHelper";
 import { studentBalanceLookupStages } from "@/lib/studentBalanceService";
+import { resolveBrandName } from "@/lib/brandDefaults";
 
 export async function POST(req: NextRequest) {
   try {
@@ -121,7 +122,7 @@ export async function POST(req: NextRequest) {
     }
     data.paymentDate = data.paymentDate ? new Date(data.paymentDate) : new Date();
     data.companyAssigned = data.companyAssigned?.trim() || "Cash";
-    data.brand = data.brand?.trim() || "Cadd Mantra";
+    data.brand = await resolveBrandName(data.brand, user?.brandScope);
 
     // Auto Company Allocation Engine: Respect explicitly selected company if provided by user
     let finalCompany = (data.companyAssigned || data.company || "").trim();

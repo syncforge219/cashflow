@@ -506,7 +506,7 @@ export async function PUT(
             referenceNo: updatedDoc?.transactionNo || existingDoc.transactionNo || "N/A",
             company: updatedDoc?.companyAssigned || existingDoc.companyAssigned || "Cash",
             companyId: updatedDoc?.companyId || existingDoc.companyId,
-            brand: updatedDoc?.brand || existingDoc.brand || "Cadd Mantra",
+            brand: updatedDoc?.brand || existingDoc.brand || "",
             brandId: updatedDoc?.brandId || existingDoc.brandId,
             paymentDate: currentAdmDate,
             particulars: {

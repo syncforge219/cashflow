@@ -11,7 +11,7 @@ interface GoogleFormIntegrationModalProps {
 export default function GoogleFormIntegrationModal({ isOpen, onClose }: GoogleFormIntegrationModalProps) {
   const { user } = useUser();
   const [brands, setBrands] = useState<any[]>([]);
-  const [selectedBrand, setSelectedBrand] = useState("CADD MANTRA");
+  const [selectedBrand, setSelectedBrand] = useState("");
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
   const [copiedQrUrl, setCopiedQrUrl] = useState(false);
   const [origin, setOrigin] = useState("");

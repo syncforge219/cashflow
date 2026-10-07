@@ -10,7 +10,7 @@ const QuotationProfileSchema = new Schema(
     name: {
       type: String,
       required: true,
-      default: "SICCES PRIVATE LIMITED",
+      default: "",
     },
     logo: {
       type: String,
@@ -18,7 +18,7 @@ const QuotationProfileSchema = new Schema(
     },
     gstin: {
       type: String,
-      default: "09AASCS4608K1ZP",
+      default: "",
     },
     cin: {
       type: String,
@@ -26,27 +26,27 @@ const QuotationProfileSchema = new Schema(
     },
     description: {
       type: String,
-      default: "Providers of Software, Digital Marketing & Educational Services",
+      default: "",
     },
     address: {
       type: String,
-      default: "101, Vinayak Complex, Station Road",
+      default: "",
     },
     city: {
       type: String,
-      default: "JAIPUR",
+      default: "",
     },
     state: {
       type: String,
-      default: "Rajasthan",
+      default: "",
     },
     pincode: {
       type: String,
-      default: "302 001",
+      default: "",
     },
     phone: {
       type: String,
-      default: "0141-4059826",
+      default: "",
     },
     telefax: {
       type: String,
@@ -54,11 +54,11 @@ const QuotationProfileSchema = new Schema(
     },
     email: {
       type: String,
-      default: "info@sicces.com",
+      default: "",
     },
     website: {
       type: String,
-      default: "www.sicces.com",
+      default: "",
     },
     worksAddress: {
       type: String,
@@ -69,11 +69,11 @@ const QuotationProfileSchema = new Schema(
       default: "",
     },
     bankDetails: {
-      bankName: { type: String, default: "STATE BANK OF INDIA" },
-      branch: { type: String, default: "SITAPURA IND. AREA JAIPUR" },
-      accountNumber: { type: String, default: "61330464677", select: false },
-      ifsc: { type: String, default: "SBIN0031792" },
-      rtgsCode: { type: String, default: "SBIN0031792" },
+      bankName: { type: String, default: "" },
+      branch: { type: String, default: "" },
+      accountNumber: { type: String, default: "", select: false },
+      ifsc: { type: String, default: "" },
+      rtgsCode: { type: String, default: "" },
     },
     authorizedSignatory: {
       type: String,
@@ -111,7 +111,7 @@ const QuotationProfileSchema = new Schema(
     },
     prefix: {
       type: String,
-      default: "SICCES",
+      default: "QTN",
     },
   },
   { timestamps: true }

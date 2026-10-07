@@ -213,7 +213,7 @@ export async function POST(req: Request) {
       createdBy: body.createdBy || "Admin",
 
       // Snapshot company profile details (prefer user-customized details if passed)
-      companyName: body.companyName !== undefined && body.companyName !== "" ? body.companyName : ((profile as any)?.name || "SICCES PRIVATE LIMITED"),
+      companyName: body.companyName !== undefined && body.companyName !== "" ? body.companyName : ((profile as any)?.name || ""),
       companyLogo: body.companyLogo !== undefined ? body.companyLogo : ((profile as any)?.logo || ""),
       companyGstin: body.companyGstin !== undefined ? body.companyGstin : ((profile as any)?.gstin || ""),
       companyCin: body.companyCin !== undefined ? body.companyCin : ((profile as any)?.cin || ""),

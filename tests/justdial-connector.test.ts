@@ -69,7 +69,7 @@ describe("Justdial connector", () => {
           requireApiKey: false,
           sendWelcomeWhatsApp: false,
           sendAdminAlertWhatsApp: false,
-          courseMappings: [{ course: "AutoCAD", justdialCategory: "AutoCAD Training Institutes", brand: "CADD MANTRA" }],
+          courseMappings: [{ course: "AutoCAD", justdialCategory: "AutoCAD Training Institutes", brand: "BRAND A" }],
         }),
       })
     );

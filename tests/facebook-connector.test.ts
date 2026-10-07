@@ -65,7 +65,7 @@ globalThis.fetch = (async (input: any, init?: any) => {
     if (failLeadFetch) return json({ error: { message: "Temporary Graph outage", code: 2 } }, 500);
     return json(graphLeads[node]);
   }
-  if (node === PAGE_ID && !edge) return json({ id: PAGE_ID, name: "CADD Mantra Lucknow" });
+  if (node === PAGE_ID && !edge) return json({ id: PAGE_ID, name: "Brand A Lucknow" });
   if (node === PAGE_ID && edge === "leadgen_forms") {
     return json({ data: [{ id: FORM_AUTOCAD, name: "AutoCAD Enquiry", status: "ACTIVE", leads_count: 3 }] });
   }
@@ -146,12 +146,12 @@ describe("Facebook Lead Ads connector", () => {
       pageId: PAGE_ID,
       pageAccessToken: PAGE_TOKEN,
       appSecret: APP_SECRET,
-      defaultBrand: "CADD MANTRA",
+      defaultBrand: "BRAND A",
       counselorName: "Default Counsellor",
       sendWelcomeWhatsApp: false,
       sendAdminAlertWhatsApp: false,
       formMappings: [
-        { formId: FORM_AUTOCAD, formName: "AutoCAD Enquiry", course: "AutoCAD", brand: "CADD MANTRA", counselorName: "Riya (AutoCAD)" },
+        { formId: FORM_AUTOCAD, formName: "AutoCAD Enquiry", course: "AutoCAD", brand: "BRAND A", counselorName: "Riya (AutoCAD)" },
       ],
     });
     assert.equal((await res.json()).success, true);
@@ -281,7 +281,7 @@ describe("Facebook Lead Ads connector", () => {
   test("connection check lists forms and subscribe calls Meta", async () => {
     const check = await (await connectRoute.GET()).json();
     assert.equal(check.success, true, JSON.stringify(check));
-    assert.equal(check.page.name, "CADD Mantra Lucknow");
+    assert.equal(check.page.name, "Brand A Lucknow");
     assert.equal(check.forms[0].id, FORM_AUTOCAD);
     assert.equal(check.leadgenSubscribed, false);
 

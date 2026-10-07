@@ -236,15 +236,7 @@ export async function getMonthlyBiReportData(targetDate?: Date): Promise<Monthly
     });
   }
 
-  if (registeredBrandList.length === 0) {
-    ["CADD MANTRA", "DESIGN GATEWAY", "DIGIFOOTPRINTS"].forEach((bName) => {
-      registeredBrandList.push({
-        name: bName,
-        code: bName.replace(/[^A-Z0-9]/g, "_"),
-        logoUrl: "",
-      });
-    });
-  }
+  // No brands registered yet: the report shows one combined section (see pdfGenerator)
 
   // 5. Build 5 Week Windows for the Current Month
   interface WeekDef {

@@ -5,7 +5,8 @@ import Task from "@/models/Task";
 import FacebookLeadConfig from "@/models/FacebookLeadConfig";
 import FacebookLeadLog, { type FacebookLeadSourceType } from "@/models/FacebookLeadLog";
 import { sendWhatsAppWelcomeEnquiry, sendWhatsAppSuperAdminEnquiryAlert } from "@/lib/msg91";
-import { decryptField } from "@/lib/encryption";
+import { decryptField, decryptJson, encryptJson } from "@/lib/encryption";
+import { getDefaultBrandName } from "@/lib/brandDefaults";
 
 /**
  * Facebook / Instagram Lead Ads connector.
@@ -16,8 +17,17 @@ import { decryptField } from "@/lib/encryption";
  * on the Meta lead ID, so a lead can be delivered any number of times and is imported once.
  */
 
-export const FB_DEFAULT_COUNSELLOR = "HO - TARANG SINGHAL - SICCES PVT LTD";
+/** Used when neither the form mapping nor the connector settings name a counsellor. */
+export const FB_DEFAULT_COUNSELLOR = "Unassigned";
 const GRAPH_HOST = "https://graph.facebook.com";
+export const FB_OAUTH_SCOPES = [
+  "pages_show_list",
+  "pages_read_engagement",
+  "pages_manage_metadata",
+  "leads_retrieval",
+  "ads_management",
+  "pages_manage_ads",
+].join(",");
 
 // Fields requested for every lead read from the Graph API
 export const LEAD_FIELDS =
@@ -38,20 +48,137 @@ export interface FacebookLead {
 
 /** Loads the connector config with secrets decrypted. Creates the default config on first use. */
 export async function loadFacebookConfig() {
-  let config: any = await FacebookLeadConfig.findOne({}).select("+appSecret +pageAccessToken").lean();
+  let config: any = await FacebookLeadConfig.findOne({})
+    .select("+appSecret +pageAccessToken +userAccessToken +encryptedPagesData")
+    .lean();
   if (!config) {
     const created = await FacebookLeadConfig.create({ verifyToken: generateVerifyToken() });
     config = created.toObject();
   }
+
+  const envAppId =
+    process.env.FACEBOOK_APP_ID ||
+    process.env.META_APP_ID ||
+    process.env.NEXT_PUBLIC_FACEBOOK_APP_ID ||
+    "";
+  const envAppSecret = process.env.FACEBOOK_APP_SECRET || process.env.META_APP_SECRET || "";
+
+  const appId = config.appId || envAppId || "";
+  const appSecret = decryptField(config.appSecret) || envAppSecret || "";
+  const pageAccessToken = decryptField(config.pageAccessToken) || "";
+  const userAccessToken = decryptField(config.userAccessToken) || "";
+
+  let availablePagesWithTokens: any[] = [];
+  if (config.encryptedPagesData) {
+    try {
+      availablePagesWithTokens = decryptJson(config.encryptedPagesData) || [];
+    } catch {
+      availablePagesWithTokens = [];
+    }
+  }
+
   return {
     ...config,
-    appSecret: decryptField(config.appSecret) || "",
-    pageAccessToken: decryptField(config.pageAccessToken) || "",
+    appId,
+    appSecret,
+    pageAccessToken,
+    userAccessToken,
+    availablePagesWithTokens,
   };
 }
 
 export function generateVerifyToken(): string {
   return `fb-verify-${crypto.randomBytes(12).toString("hex")}`;
+}
+
+/** Generates the Facebook OAuth dialog URL to redirect the user to */
+export function buildFacebookOAuthUrl(
+  origin: string,
+  state: string,
+  appId: string,
+  version: string = "v22.0"
+): string {
+  const redirectUri = `${origin.replace(/\/+$/, "")}/api/facebook-integration/oauth/callback`;
+  const url = new URL(`https://www.facebook.com/${version || "v22.0"}/dialog/oauth`);
+  url.searchParams.set("client_id", appId);
+  url.searchParams.set("redirect_uri", redirectUri);
+  url.searchParams.set("state", state);
+  url.searchParams.set("scope", FB_OAUTH_SCOPES);
+  url.searchParams.set("response_type", "code");
+  return url.toString();
+}
+
+/** Exchanges OAuth code for a short-lived user access token */
+export async function exchangeCodeForUserToken(
+  code: string,
+  redirectUri: string,
+  appId: string,
+  appSecret: string,
+  version: string = "v22.0"
+): Promise<{ accessToken: string; expiresIn?: number }> {
+  const url = new URL(`${GRAPH_HOST}/${version || "v22.0"}/oauth/access_token`);
+  url.searchParams.set("client_id", appId);
+  url.searchParams.set("client_secret", appSecret);
+  url.searchParams.set("redirect_uri", redirectUri);
+  url.searchParams.set("code", code);
+
+  const res = await fetch(url.toString(), { headers: { Accept: "application/json" } });
+  const data = await res.json();
+  if (!res.ok || data?.error) {
+    throw new GraphApiError(
+      data?.error?.message || "Failed to exchange authorization code for access token",
+      res.status,
+      data?.error?.code
+    );
+  }
+  return { accessToken: data.access_token, expiresIn: data.expires_in };
+}
+
+/** Exchanges a short-lived user token for a 60-day long-lived user token */
+export async function exchangeForLongLivedUserToken(
+  shortUserToken: string,
+  appId: string,
+  appSecret: string,
+  version: string = "v22.0"
+): Promise<{ accessToken: string; expiresIn?: number }> {
+  const url = new URL(`${GRAPH_HOST}/${version || "v22.0"}/oauth/access_token`);
+  url.searchParams.set("grant_type", "fb_exchange_token");
+  url.searchParams.set("client_id", appId);
+  url.searchParams.set("client_secret", appSecret);
+  url.searchParams.set("fb_exchange_token", shortUserToken);
+
+  const res = await fetch(url.toString(), { headers: { Accept: "application/json" } });
+  const data = await res.json();
+  if (!res.ok || data?.error) {
+    // If long-lived exchange fails, fallback to short user token
+    console.warn("[Facebook OAuth] Long-lived token exchange warning:", data?.error?.message);
+    return { accessToken: shortUserToken };
+  }
+  return { accessToken: data.access_token || shortUserToken, expiresIn: data.expires_in };
+}
+
+/** Fetches user identity from Meta */
+export async function fetchMetaUserProfile(
+  userAccessToken: string,
+  version: string = "v22.0"
+): Promise<{ id: string; name: string }> {
+  return graphRequest("me", userAccessToken, version, { fields: "id,name" });
+}
+
+/**
+ * Fetches all pages managed by the user.
+ * Note: When queried using a long-lived user access token, Meta returns
+ * NEVER-EXPIRING Page Access Tokens for each page!
+ */
+export async function fetchUserManagedPages(
+  userAccessToken: string,
+  version: string = "v22.0"
+): Promise<Array<{ id: string; name: string; access_token: string; category?: string }>> {
+  const res = await graphRequest("me/accounts", userAccessToken, version, {
+    fields: "id,name,access_token,category,tasks",
+    limit: "100",
+  });
+  return res?.data || [];
 }
 
 // ---------------------------------------------------------------------------
@@ -215,7 +342,7 @@ export async function ingestFacebookLead(lead: FacebookLead, config: any, opts: 
   // Routing: form mapping > course answer > defaults
   const mapping = (config.formMappings || []).find((m: any) => m.formId && m.formId === lead.form_id);
   const matchedCourse = mapping?.course || parsed.course || config.defaultCourse || "";
-  const targetBrand = mapping?.brand || config.defaultBrand || "CADD MANTRA";
+  const targetBrand = mapping?.brand || config.defaultBrand || (await getDefaultBrandName());
   const assignedCounselor = mapping?.counselorName || config.counselorName || FB_DEFAULT_COUNSELLOR;
   const formName = mapping?.formName || "";
   const platform = lead.platform === "ig" ? "Instagram" : lead.platform === "fb" ? "Facebook" : lead.platform || "";

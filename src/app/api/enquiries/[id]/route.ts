@@ -9,6 +9,7 @@ import { sendWhatsAppTeacherDemoAlert, formatDDMMYYYY } from "@/lib/msg91";
 import { syncEnquiryRefs } from "@/lib/referenceHelper";
 import { getUserFromCookies } from "@/lib/helper";
 import { logAuditEntry, diffAndLogAudit } from "@/lib/auditLogger";
+import { brandSendsTeacherDemoAlert } from "@/lib/brandDefaults";
 
 export async function PATCH(
   req: Request,
@@ -129,16 +130,14 @@ export async function PATCH(
       );
     }
 
-    // AUTO WHATSAPP TEACHER DEMO ALERT (Design Gateway): Notify teacher when demo is being scheduled via PATCH
+    // AUTO WHATSAPP TEACHER DEMO ALERT: only for brands with "WhatsApp the teacher" switched on (Brands page)
     const demoChanged =
       touchesDemo &&
       (String(previousDemo?.demoDate || "") !== String((updatedEnquiry as any).demoDate || "") ||
         String(previousDemo?.demoTeacher || "") !== String((updatedEnquiry as any).demoTeacher || ""));
     if (demoChanged) {
       const brandName = ((updatedEnquiry as any).targetBrand || "").trim();
-      const upperBrand = brandName.toUpperCase();
-      const isDesignGateway = upperBrand.includes("DESIGN") || upperBrand.includes("GATEWAY");
-      if (isDesignGateway) {
+      if (await brandSendsTeacherDemoAlert(brandName)) {
         const teacherName = ((updatedEnquiry as any).demoTeacher || setData.demoTeacher || "").trim();
         const demoDate = (updatedEnquiry as any).demoDate || setData.demoDate || "";
         const courseName = (updatedEnquiry as any).targetCourse || "Course";

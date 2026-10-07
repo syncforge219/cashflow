@@ -216,7 +216,7 @@ async function runDailyReportSilently() {
 
     if (!adminPhone) {
       const envNumRaw = process.env.MSG91_INTEGRATED_NUMBER || "";
-      adminPhone = envNumRaw.split(",")[0]?.trim() || "919335913286";
+      adminPhone = envNumRaw.split(",")[0]?.trim() || "";
     }
 
     const stats = await getDailyReportStats();
@@ -251,7 +251,7 @@ async function runMonthlyReportSilently() {
 
     if (!adminPhone) {
       const envNumRaw = process.env.MSG91_INTEGRATED_NUMBER || "";
-      adminPhone = envNumRaw.split(",")[0]?.trim() || "919335913286";
+      adminPhone = envNumRaw.split(",")[0]?.trim() || "";
     }
 
     const stats = await getMonthlyReportStats();

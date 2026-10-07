@@ -109,7 +109,7 @@ export default function AddCorporateTrainingModal({
     // Set default sales exec & centre head from current user
     const defaultBrand = currentUser?.brandScope && currentUser.brandScope !== "All Brands" && currentUser.brandScope !== "All"
       ? currentUser.brandScope
-      : "CADD MANTRA";
+      : "";
 
     setFormData((prev) => ({
       ...prev,
@@ -680,7 +680,7 @@ export default function AddCorporateTrainingModal({
                   {brands.map((b) => (
                     <option key={b} value={b}>{b}</option>
                   ))}
-                  {brands.length === 0 && <option value="CADD MANTRA">CADD MANTRA</option>}
+                  {brands.length === 0 && <option value="" disabled>No brands yet — add one on the Brands page</option>}
                 </select>
               </div>
 
@@ -694,7 +694,7 @@ export default function AddCorporateTrainingModal({
                   {companies.map((c) => (
                     <option key={c} value={c}>{c}</option>
                   ))}
-                  {companies.length === 0 && <option value="INSTITUTE OF CREATIVE STUDIES">INSTITUTE OF CREATIVE STUDIES</option>}
+                  {companies.length === 0 && <option value="" disabled>No companies yet — add one on the Companies page</option>}
                 </select>
               </div>
 

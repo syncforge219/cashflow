@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import CorporateTraining from "@/models/CorporateTraining";
 import { getUserFromCookies } from "@/lib/helper";
+import { resolveBrandName } from "@/lib/brandDefaults";
 
 export async function GET(request: Request) {
   try {
@@ -260,8 +261,8 @@ export async function POST(request: Request) {
       remainingBalance: remainingBal,
       paymentMode: paymentMode || "Bank Transfer / NEFT",
       paymentHistory,
-      brand: brand || user?.brandScope || "CADD MANTRA",
-      companyAssigned: companyAssigned || "INSTITUTE OF CREATIVE STUDIES",
+      brand: await resolveBrandName(brand, user?.brandScope),
+      companyAssigned: companyAssigned || "",
       salesExecutive: defaultSalesExec,
       salesExecutiveId: isValidId(user?._id) ? user?._id : undefined,
       centreHead: defaultCentreHead,

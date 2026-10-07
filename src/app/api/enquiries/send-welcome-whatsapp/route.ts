@@ -7,7 +7,7 @@ import { sendWhatsAppWelcomeEnquiry } from "@/lib/msg91";
  * Body parameters:
  *   - studentName: string
  *   - mobileNumber: string
- *   - brandName: string (optional, defaults to "CADD Mantra")
+ *   - brandName: string (optional, defaults to the brand marked Default on the Brands page)
  *   - courseName: string (optional, defaults to "Course")
  */
 export async function POST(req: Request) {
@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     const result = await sendWhatsAppWelcomeEnquiry({
       studentName: studentName || "Student",
       mobileNumber,
-      brandName: brandName || "CADD Mantra",
+      brandName: brandName || "",
       courseName: courseName || "Course",
     });
 

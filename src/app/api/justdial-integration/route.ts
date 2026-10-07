@@ -5,6 +5,7 @@ import dbConnect from "@/lib/db";
 import JustdialConfig from "@/models/JustdialConfig";
 import JustdialLeadLog from "@/models/JustdialLeadLog";
 import { decryptField } from "@/lib/encryption";
+import { generateConnectorApiKey } from "@/lib/connectorKeys";
 
 export async function GET() {
   try {
@@ -16,10 +17,10 @@ export async function GET() {
         connectorType: "Justdial Lead Connector Push API",
         leadSource: "JustDial",
         leadStage: "New / Fresh Inquiry",
-        defaultBrand: "CADD MANTRA",
-        counselorName: "HO - TARANG SINGHAL - SICCES PVT LTD",
+        defaultBrand: "",
+        counselorName: "",
         defaultCourse: "",
-        apiKey: "JD-CF-API-KEY-984729103847",
+        apiKey: generateConnectorApiKey(),
         requireApiKey: false,
         autoAssignAdvisor: true,
         sendWelcomeWhatsApp: true,
@@ -98,10 +99,10 @@ export async function POST(req: NextRequest) {
         connectorType: connectorType || "Justdial Lead Connector Push API",
         leadSource: leadSource || "JustDial",
         leadStage: leadStage || "New / Fresh Inquiry",
-        defaultBrand: defaultBrand || "CADD MANTRA",
-        counselorName: counselorName || "HO - TARANG SINGHAL - SICCES PVT LTD",
+        defaultBrand: defaultBrand || "",
+        counselorName: counselorName || "",
         defaultCourse: defaultCourse || "",
-        apiKey: apiKey || "JD-CF-API-KEY-984729103847",
+        apiKey: (typeof apiKey === "string" && apiKey.trim()) || generateConnectorApiKey(),
         requireApiKey: Boolean(requireApiKey),
         autoAssignAdvisor: autoAssignAdvisor !== false,
         sendWelcomeWhatsApp: sendWelcomeWhatsApp !== false,

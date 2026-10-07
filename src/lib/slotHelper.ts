@@ -227,7 +227,7 @@ export function calculateFacultyAvailability(
     phone: faculty.phone,
     photoUrl: faculty.photoUrl,
     designation: faculty.designation || "Faculty",
-    brandScope: faculty.brandScope || "CADD Mantra",
+    brandScope: faculty.brandScope || "",
     subject: faculty.subject,
     subjects: faculty.subjects,
     slots,

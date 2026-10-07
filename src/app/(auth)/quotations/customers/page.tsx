@@ -291,7 +291,7 @@ export default function CustomersPage() {
                       type="text"
                       value={gstin}
                       onChange={(e) => setGstin(e.target.value.toUpperCase())}
-                      placeholder="09AFIPA8247C1ZM"
+                      placeholder="15-character GSTIN"
                       className="w-full bg-slate-50 border border-slate-200 text-slate-800 uppercase rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                     />
                   </div>

@@ -5,6 +5,7 @@ import Course from "@/models/Course";
 import Brand from "@/models/Brand";
 import { getUserFromCookies } from "@/lib/helper";
 import { syncCourseRefs } from "@/lib/referenceHelper";
+import { resolveBrandName } from "@/lib/brandDefaults";
 
 export async function GET(req: Request) {
   try {
@@ -88,7 +89,7 @@ export async function POST(req: Request) {
 
     const randomSuffix = Math.floor(1000 + Math.random() * 9000);
     body.name = body.name?.trim() || `New Course ${randomSuffix}`;
-    body.brand = body.brand?.trim() || "Cadd Mantra";
+    body.brand = await resolveBrandName(body.brand, user?.brandScope);
     body.code = await generateUniqueCodeBackend(body.code, body.brand, body.name);
     body.category = body.category?.trim() || "General";
     body.duration = body.duration?.trim() || "6 Months";

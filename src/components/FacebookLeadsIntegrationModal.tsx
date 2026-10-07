@@ -92,7 +92,9 @@ export default function FacebookLeadsIntegrationModal({
 }: FacebookLeadsIntegrationModalProps) {
   const [activeTab, setActiveTab] = useState<Tab>("connection");
 
-  // Connection
+  // Connection & OAuth
+  const [appId, setAppId] = useState("");
+  const [hasAppId, setHasAppId] = useState(false);
   const [pageId, setPageId] = useState("");
   const [pageName, setPageName] = useState("");
   const [graphApiVersion, setGraphApiVersion] = useState("v26.0");
@@ -101,11 +103,21 @@ export default function FacebookLeadsIntegrationModal({
   const [appSecret, setAppSecret] = useState("");
   const [hasPageAccessToken, setHasPageAccessToken] = useState(false);
   const [hasAppSecret, setHasAppSecret] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+  const [connectedAt, setConnectedAt] = useState<string | null>(null);
+  const [connectedUserMetaName, setConnectedUserMetaName] = useState("");
+  const [connectedUserMetaId, setConnectedUserMetaId] = useState("");
+  const [availablePages, setAvailablePages] = useState<any[]>([]);
+  const [isDiverting, setIsDiverting] = useState(false);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [isSwitchingPage, setIsSwitchingPage] = useState(false);
+  const [selectedSwitchPageId, setSelectedSwitchPageId] = useState("");
+  const [showManualConfig, setShowManualConfig] = useState(false);
 
   // Defaults & automation
   const [leadSource, setLeadSource] = useState("Meta Ads");
   const [leadStage, setLeadStage] = useState("New / Fresh Inquiry");
-  const [defaultBrand, setDefaultBrand] = useState("CADD MANTRA");
+  const [defaultBrand, setDefaultBrand] = useState("");
   const [counselorName, setCounselorName] = useState("");
   const [defaultCourse, setDefaultCourse] = useState("");
   const [sendWelcomeWhatsApp, setSendWelcomeWhatsApp] = useState(true);
@@ -164,17 +176,25 @@ export default function FacebookLeadsIntegrationModal({
           return;
         }
         const d = result.data;
+        setAppId(d.appId || "");
+        setHasAppId(Boolean(d.hasAppId));
         setPageId(d.pageId || "");
         setPageName(d.pageName || "");
         setGraphApiVersion(d.graphApiVersion || "v26.0");
         setVerifyToken(d.verifyToken || "");
         setHasPageAccessToken(Boolean(d.hasPageAccessToken));
         setHasAppSecret(Boolean(d.hasAppSecret));
+        setIsConnected(Boolean(d.isConnected));
+        setConnectedAt(d.connectedAt || null);
+        setConnectedUserMetaName(d.connectedUserMetaName || "");
+        setConnectedUserMetaId(d.connectedUserMetaId || "");
+        setAvailablePages(Array.isArray(d.availablePages) ? d.availablePages : []);
+        if (d.pageId) setSelectedSwitchPageId(d.pageId);
         setPageAccessToken("");
         setAppSecret("");
         setLeadSource(d.leadSource || "Meta Ads");
         setLeadStage(d.leadStage || "New / Fresh Inquiry");
-        setDefaultBrand(d.defaultBrand || "CADD MANTRA");
+        setDefaultBrand(d.defaultBrand || "");
         setCounselorName(d.counselorName || "");
         setDefaultCourse(d.defaultCourse || "");
         setSendWelcomeWhatsApp(d.sendWelcomeWhatsApp !== false);
@@ -246,7 +266,8 @@ export default function FacebookLeadsIntegrationModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          pageId,
+          appId: appId.trim(),
+          pageId: pageId.trim(),
           graphApiVersion,
           verifyToken,
           pageAccessToken,
@@ -264,7 +285,7 @@ export default function FacebookLeadsIntegrationModal({
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || "Save failed");
-      setBanner({ type: "success", message: "✅ Facebook Lead Ads connector saved." });
+      setBanner({ type: "success", message: "✅ Facebook Lead Ads settings saved." });
       loadConfig();
       onConfigSaved?.();
       return true;
@@ -273,6 +294,88 @@ export default function FacebookLeadsIntegrationModal({
       return false;
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleConnectWithFacebook = async () => {
+    setIsDiverting(true);
+    setBanner(null);
+    try {
+      if (!appId.trim() && !hasAppId) {
+        setBanner({
+          type: "error",
+          message: "Please enter your Meta App ID in the settings below before connecting.",
+        });
+        setShowManualConfig(true);
+        setIsDiverting(false);
+        return;
+      }
+
+      // If user typed a new App ID or App Secret, save first
+      if (appId.trim() || appSecret.trim()) {
+        const ok = await handleSave();
+        if (!ok) {
+          setIsDiverting(false);
+          return;
+        }
+      }
+
+      const returnPath =
+        typeof window !== "undefined"
+          ? `${window.location.pathname}${window.location.search || "?tab=connectors"}`
+          : "/marketing-dashboard?tab=connectors";
+
+      // Divert browser to Facebook OAuth authorization
+      window.location.href = `/api/facebook-integration/oauth/init?returnUrl=${encodeURIComponent(returnPath)}`;
+    } catch (err: any) {
+      setBanner({ type: "error", message: err.message || "Failed to initiate Facebook OAuth" });
+      setIsDiverting(false);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    if (!confirm("Are you sure you want to disconnect Facebook? Real-time leads will pause until reconnected.")) return;
+    setIsDisconnecting(true);
+    setBanner(null);
+    try {
+      const res = await fetch("/api/facebook-integration/disconnect", { method: "POST" });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || "Failed to disconnect Facebook");
+      setBanner({ type: "success", message: "Facebook account disconnected successfully." });
+      setIsConnected(false);
+      setPageAccessToken("");
+      setHasPageAccessToken(false);
+      setAvailablePages([]);
+      loadConfig();
+      onConfigSaved?.();
+    } catch (err: any) {
+      setBanner({ type: "error", message: err.message });
+    } finally {
+      setIsDisconnecting(false);
+    }
+  };
+
+  const handleSwitchPage = async (targetId: string) => {
+    if (!targetId || targetId === pageId) return;
+    setIsSwitchingPage(true);
+    setBanner(null);
+    try {
+      const res = await fetch("/api/facebook-integration/select-page", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pageId: targetId }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || "Failed to switch active page");
+      setBanner({ type: "success", message: `Active page switched to "${data.page?.name}".` });
+      setPageId(data.page?.id);
+      setPageName(data.page?.name);
+      loadConfig();
+      onConfigSaved?.();
+    } catch (err: any) {
+      setBanner({ type: "error", message: err.message });
+    } finally {
+      setIsSwitchingPage(false);
     }
   };
 
@@ -397,7 +500,8 @@ export default function FacebookLeadsIntegrationModal({
     { id: "logs", label: "📜 Activity Logs" },
   ];
 
-  const isConfigured = hasPageAccessToken && Boolean(pageId);
+  const isConfigured = Boolean(isConnected || (hasPageAccessToken && Boolean(pageId)));
+  const oauthRedirectUri = `${origin}/api/facebook-integration/oauth/callback`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-xs p-2 sm:p-4 overflow-y-auto font-sans">
@@ -428,10 +532,20 @@ export default function FacebookLeadsIntegrationModal({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {!isConnected && (
+              <button
+                onClick={handleConnectWithFacebook}
+                disabled={isDiverting}
+                className="px-4 py-2 bg-[#1877F2] hover:bg-[#166FE5] text-white text-xs font-black rounded-lg cursor-pointer shadow-md flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <span>f</span>
+                <span>{isDiverting ? "Diverting..." : "Connect with Facebook"}</span>
+              </button>
+            )}
             <button
               onClick={handleSave}
               disabled={isSaving}
-              className="px-4 py-2 bg-[#1877F2] hover:bg-[#166FE5] text-white text-xs font-black rounded-lg cursor-pointer shadow-md disabled:opacity-50"
+              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-black rounded-lg cursor-pointer shadow-md disabled:opacity-50"
             >
               {isSaving ? "Saving..." : "💾 Save Settings"}
             </button>
@@ -507,206 +621,353 @@ export default function FacebookLeadsIntegrationModal({
         <div className="flex-1 overflow-y-auto p-6 bg-white">
           {activeTab === "connection" && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Setup guide */}
+              {/* Left Column: 1-Click Connect & Webhooks */}
               <div className="space-y-4">
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-2">
-                  <h3 className="text-sm font-black text-slate-800">Setup in 4 steps</h3>
-                  <ol className="list-decimal pl-5 text-xs text-slate-700 space-y-1.5 font-medium">
-                    <li>
-                      In <b>Meta for Developers</b>, open your app → <b>Webhooks</b> → choose <b>Page</b> → paste the
-                      Callback URL and Verify Token below → subscribe to the <b>leadgen</b> field.
-                    </li>
-                    <li>
-                      Generate a long-lived <b>Page Access Token</b> for your page with permissions{" "}
-                      <code className="text-[10px] bg-white px-1 rounded">leads_retrieval</code>,{" "}
-                      <code className="text-[10px] bg-white px-1 rounded">pages_manage_metadata</code>,{" "}
-                      <code className="text-[10px] bg-white px-1 rounded">pages_show_list</code>,{" "}
-                      <code className="text-[10px] bg-white px-1 rounded">pages_read_engagement</code>,{" "}
-                      <code className="text-[10px] bg-white px-1 rounded">ads_management</code>.
-                    </li>
-                    <li>Enter the Page ID, Page Access Token and App Secret here, then click <b>Check Connection</b>.</li>
-                    <li>
-                      Click <b>Subscribe Page</b>, map your forms in <b>Form Routing</b>, and send a test lead from
-                      Meta&apos;s <b>Lead Ads Testing Tool</b>.
-                    </li>
-                  </ol>
-                </div>
+                {/* 1-CLICK OAUTH CARD */}
+                {isConnected ? (
+                  <div className="bg-gradient-to-br from-blue-50/80 via-indigo-50/50 to-slate-50 border-2 border-blue-200 rounded-2xl p-5 shadow-sm space-y-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-11 h-11 rounded-2xl bg-[#1877F2] text-white flex items-center justify-center text-2xl font-black shadow-md">
+                          f
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-sm font-black text-slate-900">Facebook Account Connected</h3>
+                            <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Live
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-600 font-medium">
+                            Authorized as <b>{connectedUserMetaName || "Meta User"}</b>
+                          </p>
+                        </div>
+                      </div>
+                    </div>
 
-                <CopyRow
-                  label="Webhook Callback URL"
-                  value={webhookUrl}
-                  hint={
-                    isLocalOrigin
-                      ? "⚠ This is a localhost address. Meta needs a public HTTPS URL — use your deployed domain."
-                      : "Meta must be able to reach this over HTTPS."
-                  }
-                />
-                <div className="space-y-1">
-                  <CopyRow label="Verify Token" value={verifyToken || "(save to generate)"} />
-                  <button
-                    type="button"
-                    onClick={regenerateVerifyToken}
-                    className="text-[11px] font-bold text-[#1877F2] hover:underline cursor-pointer"
-                  >
-                    ↻ Generate a new token (then Save, and update it in Meta)
-                  </button>
-                </div>
+                    <div className="bg-white/90 border border-blue-100 rounded-xl p-3.5 space-y-2 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500 font-bold">Active Facebook Page:</span>
+                        <span className="font-black text-slate-900 text-sm">{pageName || "(Page ID: " + pageId + ")"}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] text-slate-500">
+                        <span>Page ID: <code className="bg-slate-100 px-1 py-0.5 rounded font-mono">{pageId}</code></span>
+                        <span>Leadgen Webhook: <b className="text-emerald-700">Subscribed</b></span>
+                      </div>
 
-                {/* Connection status */}
-                <div className="border border-slate-200 rounded-xl p-4 space-y-3">
-                  <div className="flex flex-wrap gap-2">
+                      {/* Multiple pages dropdown switcher */}
+                      {availablePages.length > 1 && (
+                        <div className="pt-2 border-t border-slate-100 space-y-1.5">
+                          <label className="text-[11px] font-extrabold text-slate-700 block">
+                            Switch Active Facebook Page ({availablePages.length} authorized):
+                          </label>
+                          <div className="flex gap-2">
+                            <select
+                              value={selectedSwitchPageId}
+                              onChange={(e) => setSelectedSwitchPageId(e.target.value)}
+                              className="flex-1 bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-800"
+                            >
+                              {availablePages.map((p: any) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.name} (ID: {p.id})
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              onClick={() => handleSwitchPage(selectedSwitchPageId)}
+                              disabled={isSwitchingPage || selectedSwitchPageId === pageId}
+                              className="px-3 py-1.5 bg-[#1877F2] hover:bg-[#166FE5] text-white text-xs font-bold rounded-lg cursor-pointer disabled:opacity-40"
+                            >
+                              {isSwitchingPage ? "Switching..." : "Switch Page"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <button
+                        onClick={handleConnectWithFacebook}
+                        disabled={isDiverting}
+                        className="px-3.5 py-2 bg-[#1877F2] hover:bg-[#166FE5] text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                      >
+                        <span>🔄</span>
+                        <span>{isDiverting ? "Diverting..." : "Reconnect / Add Pages"}</span>
+                      </button>
+                      <button
+                        onClick={handleCheckConnection}
+                        disabled={isChecking}
+                        className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl cursor-pointer disabled:opacity-50"
+                      >
+                        {isChecking ? "Checking..." : "🔍 Check Health"}
+                      </button>
+                      <button
+                        onClick={handleDisconnect}
+                        disabled={isDisconnecting}
+                        className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold rounded-xl cursor-pointer disabled:opacity-50"
+                      >
+                        {isDisconnecting ? "Disconnecting..." : "Disconnect"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-gradient-to-br from-blue-600 via-[#1877F2] to-indigo-700 text-white rounded-2xl p-6 shadow-lg shadow-blue-500/15 space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-2xl bg-white text-[#1877F2] flex items-center justify-center text-3xl font-black shadow-md shrink-0">
+                        f
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider bg-white/20 text-white px-2 py-0.5 rounded-full inline-block mb-1">
+                          Official Meta Integration
+                        </span>
+                        <h3 className="text-base font-black tracking-tight leading-snug">Connect with Facebook in 1 Click</h3>
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-blue-100 font-medium leading-relaxed">
+                      Click below to divert to Facebook. You can log into your Facebook account, select your business page,
+                      and approve Lead Ads access. We will automatically fetch permanent Page credentials and subscribe to
+                      leads in real time.
+                    </p>
+
+                    <div className="pt-2">
+                      <button
+                        onClick={handleConnectWithFacebook}
+                        disabled={isDiverting}
+                        className="w-full py-3.5 px-5 bg-white hover:bg-blue-50 text-[#1877F2] text-sm font-black rounded-xl shadow-lg transition-all transform hover:scale-[1.01] flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-50"
+                      >
+                        <span className="w-5 h-5 rounded-full bg-[#1877F2] text-white font-black flex items-center justify-center text-xs">
+                          f
+                        </span>
+                        <span>{isDiverting ? "Diverting to Facebook..." : "Connect with Facebook"}</span>
+                        <span>→</span>
+                      </button>
+                    </div>
+
+                    {(!appId || !hasAppSecret) && (
+                      <p className="text-[11px] text-blue-200/90 text-center font-medium">
+                        Need to configure your Meta App ID & Secret? Set them in the fields on the right, then click Connect.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* OAuth Redirect URI & Webhook Callback */}
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                  <h4 className="text-xs font-black text-slate-800">Meta Developer Portal URLs</h4>
+                  <CopyRow
+                    label="OAuth Redirect URI (For Facebook Login Settings)"
+                    value={oauthRedirectUri}
+                    hint="Add to Meta for Developers → Your App → Facebook Login for Business → Settings → Valid OAuth Redirect URIs."
+                  />
+                  <CopyRow
+                    label="Webhook Callback URL"
+                    value={webhookUrl}
+                    hint={
+                      isLocalOrigin
+                        ? "⚠ Localhost URL: Meta needs a public HTTPS URL for production webhooks."
+                        : "Add to Meta for Developers → App → Webhooks → Page → leadgen field."
+                    }
+                  />
+                  <div className="space-y-1">
+                    <CopyRow label="Verify Token" value={verifyToken || "(save to generate)"} />
                     <button
-                      onClick={handleCheckConnection}
-                      disabled={isChecking}
-                      className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-black rounded-lg cursor-pointer disabled:opacity-50"
+                      type="button"
+                      onClick={regenerateVerifyToken}
+                      className="text-[11px] font-bold text-[#1877F2] hover:underline cursor-pointer"
                     >
-                      {isChecking ? "Checking..." : "🔍 Save & Check Connection"}
-                    </button>
-                    <button
-                      onClick={handleSubscribe}
-                      disabled={isSubscribing || !connection?.success}
-                      title={!connection?.success ? "Check the connection first" : ""}
-                      className="px-4 py-2 bg-[#1877F2] hover:bg-[#166FE5] text-white text-xs font-black rounded-lg cursor-pointer disabled:opacity-40"
-                    >
-                      {isSubscribing ? "Subscribing..." : "🔔 Subscribe Page to Leads"}
+                      ↻ Generate a new token (then Save)
                     </button>
                   </div>
-                  {connection && !connection.success && (
-                    <p className="text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg p-2">
-                      ✕ {connection.error}
-                    </p>
-                  )}
-                  {connection?.success && (
-                    <div className="text-xs space-y-1 text-slate-700">
-                      <p>
-                        ✅ Token valid for page <b>{connection.page?.name}</b> ({connection.page?.id})
+                </div>
+
+                {/* Connection Status details if checked */}
+                {connection && (
+                  <div className="border border-slate-200 rounded-xl p-4 space-y-2">
+                    {connection.success ? (
+                      <div className="text-xs space-y-1 text-slate-700">
+                        <p>
+                          ✅ Token verified for page <b>{connection.page?.name}</b> ({connection.page?.id})
+                        </p>
+                        <p>
+                          {connection.leadgenSubscribed ? "✅" : "⚠"} Page lead notifications:{" "}
+                          <b>{connection.leadgenSubscribed ? "subscribed" : "not subscribed — click Subscribe Page"}</b>
+                        </p>
+                        <p>
+                          📋 {connection.forms?.length || 0} Lead Ads form(s) found
+                          {connection.forms?.length > 0 && (
+                            <button
+                              onClick={() => {
+                                addFormsFromPage();
+                                setActiveTab("routing");
+                              }}
+                              className="ml-2 text-[#1877F2] font-bold hover:underline cursor-pointer"
+                            >
+                              → map them
+                            </button>
+                          )}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg p-2">
+                        ✕ {connection.error}
                       </p>
-                      <p>
-                        {connection.leadgenSubscribed ? "✅" : "⚠"} Page lead notifications:{" "}
-                        <b>{connection.leadgenSubscribed ? "subscribed" : "not subscribed — click Subscribe Page"}</b>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Right Column: Credentials & Defaults */}
+              <div className="space-y-4">
+                {/* Meta App Credentials for OAuth */}
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">
+                      Meta App Credentials (For OAuth Divert)
+                    </h3>
+                    <span className="text-[10px] font-bold text-slate-400">developers.facebook.com</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1 sm:col-span-2">
+                      <label className={labelCls}>Meta App ID</label>
+                      <input
+                        value={appId}
+                        onChange={(e) => setAppId(e.target.value.trim())}
+                        placeholder={hasAppId ? "Configured in settings" : "e.g. 123456789012345"}
+                        className={`${inputCls} font-mono`}
+                      />
+                    </div>
+                    <div className="space-y-1 sm:col-span-2">
+                      <label className={labelCls}>Meta App Secret</label>
+                      <input
+                        type="password"
+                        autoComplete="off"
+                        value={appSecret}
+                        onChange={(e) => setAppSecret(e.target.value)}
+                        placeholder={hasAppSecret ? "Saved (leave blank to keep)" : "From App Settings → Basic"}
+                        className={`${inputCls} font-mono`}
+                      />
+                      <p className="text-[11px] text-slate-500">
+                        Used to exchange authorization codes during Facebook OAuth divert.
                       </p>
-                      <p>
-                        📋 {connection.forms?.length || 0} Lead Ads form(s) found
-                        {connection.forms?.length > 0 && (
-                          <button
-                            onClick={() => {
-                              addFormsFromPage();
-                              setActiveTab("routing");
-                            }}
-                            className="ml-2 text-[#1877F2] font-bold hover:underline cursor-pointer"
-                          >
-                            → map them
-                          </button>
-                        )}
-                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Advanced manual override toggle */}
+                <div className="border border-slate-200 rounded-xl p-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowManualConfig(!showManualConfig)}
+                    className="w-full flex items-center justify-between text-xs font-black text-slate-700 cursor-pointer"
+                  >
+                    <span>🛠️ Advanced / Manual Page Token Override</span>
+                    <span>{showManualConfig ? "▲ Hide" : "▼ Show"}</span>
+                  </button>
+
+                  {showManualConfig && (
+                    <div className="mt-3 pt-3 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className={labelCls}>Facebook Page ID</label>
+                        <input
+                          value={pageId}
+                          onChange={(e) => setPageId(e.target.value.trim())}
+                          placeholder="e.g. 1234567890"
+                          className={inputCls}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className={labelCls}>Graph API Version</label>
+                        <input
+                          value={graphApiVersion}
+                          onChange={(e) => setGraphApiVersion(e.target.value.trim())}
+                          className={inputCls}
+                        />
+                      </div>
+                      <div className="space-y-1 sm:col-span-2">
+                        <label className={labelCls}>Manual Page Access Token</label>
+                        <input
+                          type="password"
+                          autoComplete="off"
+                          value={pageAccessToken}
+                          onChange={(e) => setPageAccessToken(e.target.value)}
+                          placeholder={hasPageAccessToken ? "Saved (leave blank to keep)" : "EAAG..."}
+                          className={`${inputCls} font-mono`}
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
-              </div>
 
-              {/* Credentials + defaults */}
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className={labelCls}>Facebook Page ID*</label>
-                    <input value={pageId} onChange={(e) => setPageId(e.target.value.trim())} placeholder="e.g. 1234567890" className={inputCls} />
-                  </div>
-                  <div className="space-y-1">
-                    <label className={labelCls}>Graph API Version</label>
-                    <input value={graphApiVersion} onChange={(e) => setGraphApiVersion(e.target.value.trim())} className={inputCls} />
-                  </div>
-                  <div className="space-y-1 sm:col-span-2">
-                    <label className={labelCls}>Page Access Token*</label>
-                    <input
-                      type="password"
-                      autoComplete="off"
-                      value={pageAccessToken}
-                      onChange={(e) => setPageAccessToken(e.target.value)}
-                      placeholder={hasPageAccessToken ? "Saved (leave blank to keep)" : "EAAG..."}
-                      className={`${inputCls} font-mono`}
-                    />
-                  </div>
-                  <div className="space-y-1 sm:col-span-2">
-                    <label className={labelCls}>App Secret (recommended)</label>
-                    <input
-                      type="password"
-                      autoComplete="off"
-                      value={appSecret}
-                      onChange={(e) => setAppSecret(e.target.value)}
-                      placeholder={hasAppSecret ? "Saved (leave blank to keep)" : "From App Settings → Basic"}
-                      className={`${inputCls} font-mono`}
-                    />
-                    <p className="text-[11px] text-slate-500">
-                      Used to verify that webhook calls really come from Meta (X-Hub-Signature-256).
-                    </p>
-                  </div>
-                </div>
-
-                <div className="border-t border-slate-200 pt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <h3 className="sm:col-span-2 text-sm font-black text-slate-800">Defaults for new enquiries</h3>
-                  <div className="space-y-1">
-                    <label className={labelCls}>Lead Source</label>
-                    <select value={leadSource} onChange={(e) => setLeadSource(e.target.value)} className={inputCls}>
-                      {!sourcesList.some((s: any) => (s.name || s.sourceName) === leadSource) && (
-                        <option value={leadSource}>{leadSource}</option>
-                      )}
-                      {sourcesList.map((s: any) => (
-                        <option key={s._id || s.name || s.sourceName} value={s.name || s.sourceName}>
-                          {s.name || s.sourceName}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className={labelCls}>Initial Lead Stage</label>
-                    <select value={leadStage} onChange={(e) => setLeadStage(e.target.value)} className={inputCls}>
-                      {LEAD_STAGES.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className={labelCls}>Default Brand</label>
-                    <select value={defaultBrand} onChange={(e) => setDefaultBrand(e.target.value)} className={inputCls}>
-                      {!brandsList.some((b: any) => b.name === defaultBrand) && <option value={defaultBrand}>{defaultBrand}</option>}
-                      {brandsList.map((b: any) => (
-                        <option key={b._id || b.name} value={b.name}>
-                          {b.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className={labelCls}>Default Counsellor</label>
-                    <select value={counselorName} onChange={(e) => setCounselorName(e.target.value)} className={inputCls}>
-                      <option value="">HO (default)</option>
-                      {counselorName && !counsellorsList.some((c) => counsellorName(c) === counselorName) && (
-                        <option value={counselorName}>{counselorName}</option>
-                      )}
-                      {counsellorsList.map((c: any) => (
-                        <option key={c._id || counsellorName(c)} value={counsellorName(c)}>
-                          {counsellorName(c)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-1 sm:col-span-2">
-                    <label className={labelCls}>Default Course (when the form doesn&apos;t say)</label>
-                    <select value={defaultCourse} onChange={(e) => setDefaultCourse(e.target.value)} className={inputCls}>
-                      <option value="">General Course</option>
-                      {coursesList.map((c: any) => (
-                        <option key={c._id || c.code || c.name} value={c.name}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="sm:col-span-2 flex flex-wrap gap-x-5 gap-y-2 pt-1">
-                    <Toggle label="Welcome WhatsApp to student" checked={sendWelcomeWhatsApp} onChange={setSendWelcomeWhatsApp} />
-                    <Toggle label="WhatsApp alert to admin" checked={sendAdminAlertWhatsApp} onChange={setSendAdminAlertWhatsApp} />
-                    <Toggle label="Create follow-up task" checked={createFollowUpTask} onChange={setCreateFollowUpTask} />
+                {/* Enquiry defaults */}
+                <div className="border border-slate-200 rounded-xl p-4 space-y-3">
+                  <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">Defaults for new leads</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className={labelCls}>Lead Source</label>
+                      <select value={leadSource} onChange={(e) => setLeadSource(e.target.value)} className={inputCls}>
+                        {!sourcesList.some((s: any) => (s.name || s.sourceName) === leadSource) && (
+                          <option value={leadSource}>{leadSource}</option>
+                        )}
+                        {sourcesList.map((s: any) => (
+                          <option key={s._id || s.name || s.sourceName} value={s.name || s.sourceName}>
+                            {s.name || s.sourceName}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className={labelCls}>Initial Lead Stage</label>
+                      <select value={leadStage} onChange={(e) => setLeadStage(e.target.value)} className={inputCls}>
+                        {LEAD_STAGES.map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className={labelCls}>Default Brand</label>
+                      <select value={defaultBrand} onChange={(e) => setDefaultBrand(e.target.value)} className={inputCls}>
+                        {!brandsList.some((b: any) => b.name === defaultBrand) && <option value={defaultBrand}>{defaultBrand}</option>}
+                        {brandsList.map((b: any) => (
+                          <option key={b._id || b.name} value={b.name}>
+                            {b.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className={labelCls}>Default Counsellor</label>
+                      <select value={counselorName} onChange={(e) => setCounselorName(e.target.value)} className={inputCls}>
+                        <option value="">HO (default)</option>
+                        {counselorName && !counsellorsList.some((c) => counsellorName(c) === counselorName) && (
+                          <option value={counselorName}>{counselorName}</option>
+                        )}
+                        {counsellorsList.map((c: any) => (
+                          <option key={c._id || counsellorName(c)} value={counsellorName(c)}>
+                            {counsellorName(c)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1 sm:col-span-2">
+                      <label className={labelCls}>Default Course (when form doesn&apos;t specify)</label>
+                      <select value={defaultCourse} onChange={(e) => setDefaultCourse(e.target.value)} className={inputCls}>
+                        <option value="">General Course</option>
+                        {coursesList.map((c: any) => (
+                          <option key={c._id || c.code || c.name} value={c.name}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="sm:col-span-2 flex flex-wrap gap-x-5 gap-y-2 pt-1">
+                      <Toggle label="Welcome WhatsApp to student" checked={sendWelcomeWhatsApp} onChange={setSendWelcomeWhatsApp} />
+                      <Toggle label="WhatsApp alert to admin" checked={sendAdminAlertWhatsApp} onChange={setSendAdminAlertWhatsApp} />
+                      <Toggle label="Create follow-up task" checked={createFollowUpTask} onChange={setCreateFollowUpTask} />
+                    </div>
                   </div>
                 </div>
               </div>

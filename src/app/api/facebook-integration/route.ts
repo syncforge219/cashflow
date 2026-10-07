@@ -7,6 +7,7 @@ import FacebookLeadLog from "@/models/FacebookLeadLog";
 import { loadFacebookConfig, generateVerifyToken } from "@/lib/facebookLeads";
 
 const EDITABLE_FIELDS = [
+  "appId",
   "pageId",
   "pageName",
   "graphApiVersion",
@@ -28,7 +29,8 @@ const BOOLEAN_FIELDS = new Set<string>(["sendWelcomeWhatsApp", "sendAdminAlertWh
 export async function GET() {
   try {
     await dbConnect();
-    const { appSecret, pageAccessToken, ...config } = await loadFacebookConfig();
+    const { appSecret, pageAccessToken, userAccessToken, availablePagesWithTokens, ...config } =
+      await loadFacebookConfig();
 
     const [totalLogsCount, successLogsCount, failedLogsCount] = await Promise.all([
       FacebookLeadLog.countDocuments({}),
@@ -36,12 +38,25 @@ export async function GET() {
       FacebookLeadLog.countDocuments({ status: "FAILED" }),
     ]);
 
+    const isConnected = Boolean(config.isConnected && Boolean(pageAccessToken) && Boolean(config.pageId));
+
     return NextResponse.json({
       success: true,
       data: {
         ...config,
+        appId: config.appId || "",
+        hasAppId: Boolean(config.appId),
         hasAppSecret: Boolean(appSecret),
         hasPageAccessToken: Boolean(pageAccessToken),
+        isConnected,
+        connectedAt: config.connectedAt || null,
+        connectedUserMetaName: config.connectedUserMetaName || "",
+        connectedUserMetaId: config.connectedUserMetaId || "",
+        availablePages: (config.availablePages || []).map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          category: p.category || "",
+        })),
         stats: {
           totalLeadsReceived: config.totalLeadsReceived || 0,
           lastLeadReceivedAt: config.lastLeadReceivedAt || null,

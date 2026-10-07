@@ -10,11 +10,18 @@ const FormMappingSchema = new Schema({
   counselorName: { type: String, default: "", trim: true },
 });
 
-const SECRET_FIELDS = ["appSecret", "pageAccessToken"] as const;
+const SECRET_FIELDS = ["appSecret", "pageAccessToken", "userAccessToken", "encryptedPagesData"] as const;
+
+const AvailablePageSchema = new Schema({
+  id: { type: String, default: "", trim: true },
+  name: { type: String, default: "", trim: true },
+  category: { type: String, default: "", trim: true },
+});
 
 const FacebookLeadConfigSchema = new Schema(
   {
     // Meta App / Page credentials
+    appId: { type: String, default: "", trim: true },
     pageId: { type: String, default: "", trim: true },
     pageName: { type: String, default: "", trim: true },
     graphApiVersion: { type: String, default: "v26.0", trim: true },
@@ -22,12 +29,21 @@ const FacebookLeadConfigSchema = new Schema(
     verifyToken: { type: String, default: "", trim: true },
     appSecret: { type: String, default: "", trim: true, select: false },
     pageAccessToken: { type: String, default: "", trim: true, select: false },
+    userAccessToken: { type: String, default: "", trim: true, select: false },
+    encryptedPagesData: { type: String, default: "", select: false },
+
+    // OAuth status & Meta User details
+    isConnected: { type: Boolean, default: false },
+    connectedAt: { type: Date, default: null },
+    connectedUserMetaId: { type: String, default: "", trim: true },
+    connectedUserMetaName: { type: String, default: "", trim: true },
+    availablePages: [AvailablePageSchema],
 
     // Enquiry defaults
     leadSource: { type: String, default: "Meta Ads", trim: true },
     leadStage: { type: String, default: "New / Fresh Inquiry", trim: true },
-    defaultBrand: { type: String, default: "CADD MANTRA", trim: true },
-    counselorName: { type: String, default: "HO - TARANG SINGHAL - SICCES PVT LTD", trim: true },
+    defaultBrand: { type: String, default: "", trim: true }, // empty = Brands page default
+    counselorName: { type: String, default: "", trim: true }, // empty = "Unassigned"
     defaultCourse: { type: String, default: "", trim: true },
 
     // Automation toggles

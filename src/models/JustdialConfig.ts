@@ -26,12 +26,14 @@ const JustdialConfigSchema = new Schema(
     },
     defaultBrand: {
       type: String,
-      default: "CADD MANTRA",
+      // Empty = use the brand marked Default on the Brands page
+      default: "",
       trim: true,
     },
     counselorName: {
       type: String,
-      default: "HO - TARANG SINGHAL - SICCES PVT LTD",
+      // Empty = lead stays "Unassigned" until auto-assignment or staff pick a counsellor
+      default: "",
       trim: true,
     },
     defaultCourse: {
@@ -41,7 +43,7 @@ const JustdialConfigSchema = new Schema(
     },
     apiKey: {
       type: String,
-      default: "JD-CF-API-KEY-984729103847",
+      default: () => generateConnectorApiKey(),
       trim: true,
       select: false,
     },
@@ -117,6 +119,7 @@ const JustdialConfigSchema = new Schema(
 );
 
 import { encryptField } from "@/lib/encryption";
+import { generateConnectorApiKey } from "@/lib/connectorKeys";
 
 // Automatically encrypt secrets at rest before save
 JustdialConfigSchema.pre("save", async function () {

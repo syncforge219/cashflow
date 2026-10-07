@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { BRAND_CATEGORIES, BRAND_CATEGORY_LABELS, brandCategoryOf, type BrandCategory } from "@/lib/brandCategory";
 
 import { extractDominantColor, applyBrandTheme } from "@/lib/theme";
 
@@ -27,6 +28,12 @@ export default function RegisterBrandModal({ isOpen, onClose, brandToEdit }: Reg
     facebookUrl: "",
     instagramUrl: "",
     brochureDriveUrl: "",
+    businessCategory: "TRAINING" as BrandCategory,
+    isDefault: false,
+    sendTeacherDemoAlert: false,
+    integratedNumber: "",
+    whatsappNamespace: "",
+    whatsappWelcomeTemplate: "",
   });
 
   const [availableCompanies, setAvailableCompanies] = useState<{ id: string; name: string }[]>([]);
@@ -128,6 +135,12 @@ export default function RegisterBrandModal({ isOpen, onClose, brandToEdit }: Reg
         facebookUrl: brandToEdit.facebookUrl || "",
         instagramUrl: brandToEdit.instagramUrl || "",
         brochureDriveUrl: brandToEdit.brochureDriveUrl || "",
+        businessCategory: brandCategoryOf(brandToEdit),
+        isDefault: Boolean(brandToEdit.isDefault),
+        sendTeacherDemoAlert: Boolean(brandToEdit.sendTeacherDemoAlert),
+        integratedNumber: brandToEdit.integratedNumber || "",
+        whatsappNamespace: brandToEdit.whatsappNamespace || "",
+        whatsappWelcomeTemplate: brandToEdit.whatsappWelcomeTemplate || "",
       });
     } else {
       setFormData({
@@ -146,6 +159,12 @@ export default function RegisterBrandModal({ isOpen, onClose, brandToEdit }: Reg
         facebookUrl: "",
         instagramUrl: "",
         brochureDriveUrl: "",
+        businessCategory: "TRAINING",
+        isDefault: false,
+        sendTeacherDemoAlert: false,
+        integratedNumber: "",
+        whatsappNamespace: "",
+        whatsappWelcomeTemplate: "",
       });
     }
   }, [brandToEdit, isOpen]);
@@ -245,6 +264,62 @@ export default function RegisterBrandModal({ isOpen, onClose, brandToEdit }: Reg
                 style={{ textTransform: "uppercase" }}
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Business Category *</label>
+            <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Business category">
+              {BRAND_CATEGORIES.map((cat) => {
+                const selected = formData.businessCategory === cat;
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => setFormData((prev) => ({ ...prev, businessCategory: cat }))}
+                    className={`text-left px-3 py-2.5 rounded-xl border transition-all cursor-pointer ${
+                      selected ? "border-indigo-600 bg-indigo-50 ring-2 ring-indigo-500/20" : "border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    <span className="block text-xs font-extrabold text-slate-800">
+                      {cat === "TRAINING" ? "🎓 " : "💼 "}
+                      {BRAND_CATEGORY_LABELS[cat]}
+                    </span>
+                    <span className="block text-[10px] text-slate-500 mt-0.5">
+                      {cat === "TRAINING" ? "Courses, students, admissions & fees" : "Client services, e.g. digital marketing"}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="space-y-2 rounded-xl border border-slate-200 p-3">
+            <label className="flex items-start gap-2 text-xs text-slate-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.isDefault}
+                onChange={(e) => setFormData((prev) => ({ ...prev, isDefault: e.target.checked }))}
+                className="w-4 h-4 mt-0.5"
+              />
+              <span>
+                <span className="font-extrabold text-slate-800">Default brand</span>
+                <span className="block text-[11px] text-slate-500">Used when a lead or record arrives without a brand (public forms, lead connectors). Only one brand can be the default.</span>
+              </span>
+            </label>
+            <label className="flex items-start gap-2 text-xs text-slate-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.sendTeacherDemoAlert}
+                onChange={(e) => setFormData((prev) => ({ ...prev, sendTeacherDemoAlert: e.target.checked }))}
+                className="w-4 h-4 mt-0.5"
+              />
+              <span>
+                <span className="font-extrabold text-slate-800">WhatsApp the teacher when a demo is scheduled</span>
+                <span className="block text-[11px] text-slate-500">Sends the demo alert to the assigned teacher for this brand&apos;s leads.</span>
+              </span>
+            </label>
           </div>
 
           {/* BRAND LOGO FILE UPLOAD SECTION */}
@@ -367,6 +442,49 @@ export default function RegisterBrandModal({ isOpen, onClose, brandToEdit }: Reg
               placeholder="12/A, Corporate Plaza, Connaught Place, New Delhi"
               className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
             />
+          </div>
+
+          {/* WhatsApp (MSG91) */}
+          <div className="bg-emerald-50/50 border border-emerald-200/80 rounded-2xl p-4 space-y-3">
+            <h4 className="text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider">💬 WhatsApp (MSG91)</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Sender Number</label>
+                <input
+                  type="text"
+                  name="integratedNumber"
+                  value={formData.integratedNumber}
+                  onChange={handleChange}
+                  placeholder="91XXXXXXXXXX"
+                  className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                />
+                <span className="block text-[10px] text-slate-400 mt-1">Messages for this brand are sent from this number. Empty = first number in server settings.</span>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Template Namespace</label>
+                <input
+                  type="text"
+                  name="whatsappNamespace"
+                  value={formData.whatsappNamespace}
+                  onChange={handleChange}
+                  placeholder="Optional"
+                  className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                />
+                <span className="block text-[10px] text-slate-400 mt-1">Only if this brand uses its own WhatsApp Business account.</span>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Welcome Template Name</label>
+                <input
+                  type="text"
+                  name="whatsappWelcomeTemplate"
+                  value={formData.whatsappWelcomeTemplate}
+                  onChange={handleChange}
+                  placeholder="Optional"
+                  className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                />
+                <span className="block text-[10px] text-slate-400 mt-1">Overrides the default welcome_enquiry template.</span>
+              </div>
+            </div>
           </div>
 
           {/* Social Media Links */}

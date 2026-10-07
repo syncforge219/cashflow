@@ -39,11 +39,11 @@ function escapePdfText(text: any): string {
  * Generate 2-Page Native PDF Buffer (PDF-1.4 format) for Fee Receipts
  */
 export function generateReceiptPdfBuffer(data: ReceiptPdfData): Buffer {
-  const brand = (data.brandName || "CADD MANTRA").replace(/[()]/g, "");
-  const brandAddress = (data.brandAddress || "G 11 , Murli Bhawan , 10- A, Ashok Marg , Lucknow").replace(/[()]/g, "");
+  const brand = (data.brandName || "").replace(/[()]/g, "");
+  const brandAddress = (data.brandAddress || "").replace(/[()]/g, "");
   const student = (data.studentName || "Student").replace(/[()]/g, "");
   const course = (data.courseName || "Course").replace(/[()]/g, "");
-  const company = (data.companyName || "INSTITUTE OF CREATIVE STUDIES").replace(/[()]/g, "");
+  const company = (data.companyName || "").replace(/[()]/g, "");
   const companyAddress = (data.companyAddress || "No listed street, No City, No State, PIN").replace(/[()]/g, "");
   const mode = (data.paymentMode || "Online").replace(/[()]/g, "");
   const ref = (data.referenceNo || "N/A").replace(/[()]/g, "");
@@ -361,9 +361,9 @@ function buildEnhancedBiReportPdfBuffer(data: DailyBiReportData): Buffer {
         }))
       : [
           {
-            brandName: "CADD MANTRA",
-            brandCode: "CADD_MANTRA",
-            brandInitials: "CM",
+            brandName: "ALL BRANDS",
+            brandCode: "ALL_BRANDS",
+            brandInitials: "ALL",
             todayLeads: data.executiveSummary?.totalLeads?.value || 0,
             todayWalkins: 0,
             todayAdmissions: data.executiveSummary?.admissions?.value || 0,
@@ -679,9 +679,9 @@ function buildMonthlyBiReportPdfBuffer(data: MonthlyBiReportData): Buffer {
     ? data.brandMonthlyReports
     : [
         {
-          brandName: "CADD MANTRA",
-          brandCode: "CADD_MANTRA",
-          brandInitials: "CM",
+          brandName: "ALL BRANDS",
+          brandCode: "ALL_BRANDS",
+          brandInitials: "ALL",
           mtdLeads: 0,
           mtdAdmissions: 0,
           mtdCollections: 0,

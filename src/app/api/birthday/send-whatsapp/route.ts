@@ -7,7 +7,7 @@ import { sendWhatsAppBirthdayReminder } from "@/lib/msg91";
  * Body parameters:
  *   - studentName: string
  *   - mobileNumber: string
- *   - brandName: string (optional, defaults to "CADD Mantra")
+ *   - brandName: string (optional, defaults to the brand marked Default on the Brands page)
  */
 export async function POST(req: Request) {
   try {

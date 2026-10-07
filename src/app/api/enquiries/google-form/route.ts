@@ -9,6 +9,7 @@ import { sendWhatsAppWelcomeEnquiry, sendWhatsAppSuperAdminEnquiryAlert } from "
 
 import { verifyRecaptchaToken } from "@/lib/recaptcha";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
+import { getDefaultBrandName } from "@/lib/brandDefaults";
 
 // Handling OPTIONS request for CORS preflight
 export async function OPTIONS() {
@@ -110,12 +111,13 @@ export async function POST(req: Request) {
       body["Current City"] ||
       "N/A";
 
-    const targetBrand = (
+    // Form did not say which brand: use the brand marked Default on the Brands page (else left empty)
+    const targetBrand = String(
       body.targetBrand ||
       body.brand ||
       body["Target Brand"] ||
       body["Brand"] ||
-      "CADD MANTRA"
+      (await getDefaultBrandName())
     ).toUpperCase().trim();
 
     let coursesList: string[] = [];
@@ -255,7 +257,7 @@ export async function POST(req: Request) {
         sendWhatsAppWelcomeEnquiry({
           studentName: studentFullName || "Student",
           mobileNumber: primaryPhoneMobile,
-          brandName: targetBrand || "CADD Mantra",
+          brandName: targetBrand || "",
           courseName: targetCourse || "Course",
         }).then((res) => console.log(`[Public Form API] Welcome enquiry WhatsApp sent to ${primaryPhoneMobile}:`, res))
           .catch((err) => console.error("[Public Form API] Welcome enquiry WhatsApp error:", err));
@@ -266,7 +268,7 @@ export async function POST(req: Request) {
         studentName: studentFullName || "Student",
         studentMobile: primaryPhoneMobile || "N/A",
         courseName: targetCourse || "General Course",
-        brandName: targetBrand || "CADD Mantra",
+        brandName: targetBrand || "",
         counsellorName: assignedAdvisor || "Unassigned",
         leadSource: leadSource || "Google Form",
         date: newEnquiry.date,

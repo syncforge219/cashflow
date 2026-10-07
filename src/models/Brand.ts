@@ -21,8 +21,18 @@ const BrandSchema = new mongoose.Schema(
     whatsappNumber: {
       type: String,
     },
+    // MSG91 WhatsApp sender number for this brand (falls back to the first MSG91_INTEGRATED_NUMBER in .env)
     integratedNumber: {
       type: String,
+    },
+    // Optional per-brand WhatsApp template overrides, for brands on their own WhatsApp Business account
+    whatsappNamespace: {
+      type: String,
+      trim: true,
+    },
+    whatsappWelcomeTemplate: {
+      type: String,
+      trim: true,
     },
     email: {
       type: String,
@@ -41,6 +51,24 @@ const BrandSchema = new mongoose.Schema(
     companies: {
       type: [String],
       default: [],
+    },
+    // Training institute vs service business (e.g. digital marketing agency).
+    // Older brands have no value and are treated as TRAINING (see brandCategoryOf).
+    businessCategory: {
+      type: String,
+      enum: ["TRAINING", "SERVICE"],
+      index: true,
+    },
+    // The brand used when a record arrives without one (public forms, lead connectors).
+    // At most one brand should have this set; see lib/brandDefaults.ts.
+    isDefault: {
+      type: Boolean,
+      default: false,
+    },
+    // WhatsApp the assigned teacher when a demo class is scheduled for this brand's leads
+    sendTeacherDemoAlert: {
+      type: Boolean,
+      default: false,
     },
     brandId: {
       type: String,

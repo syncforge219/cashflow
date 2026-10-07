@@ -104,6 +104,15 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ success: false, error: "Customer ID is required" }, { status: 400 });
     }
 
+    // Billing clients are managed from Billing Setup (where they are deactivated, never deleted)
+    const existing: any = await QuotationCustomer.findById(id).select("isBillingClient name").lean();
+    if (existing?.isBillingClient) {
+      return NextResponse.json(
+        { success: false, error: `'${existing.name}' is a billing client. Deactivate it from Billing Setup instead.` },
+        { status: 400 }
+      );
+    }
+
     await QuotationCustomer.findByIdAndDelete(id);
     return NextResponse.json({ success: true, message: "Customer deleted successfully" });
   } catch (error: any) {

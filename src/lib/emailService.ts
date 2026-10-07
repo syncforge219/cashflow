@@ -10,11 +10,12 @@ import Company from "@/models/Company";
 import Brand from "@/models/Brand";
 import User from "@/models/User";
 
-const SMTP_USER = process.env.SMTP_USER || "sc@caddmantra.com";
-const SMTP_PASS = (process.env.SMTP_PASS || "uqpbmaxoashfpauk").replace(/\s+/g, "");
+// Mail credentials come only from .env; nothing is sent if they are missing
+const SMTP_USER = process.env.SMTP_USER || "";
+const SMTP_PASS = (process.env.SMTP_PASS || "").replace(/\s+/g, "");
 const SMTP_HOST = process.env.SMTP_HOST || "smtp.gmail.com";
 const SMTP_PORT = Number(process.env.SMTP_PORT) || 587;
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "sc@caddmantra.com";
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || SMTP_USER;
 
 const transporter = nodemailer.createTransport({
   host: SMTP_HOST || "smtp.gmail.com",
@@ -42,8 +43,8 @@ export async function generateAdmissionReceiptPDF(admissionData: any): Promise<B
     paymentDate: admissionData.admissionDate ? new Date(admissionData.admissionDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }) : new Date().toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }),
     paymentMode: admissionData.paymentMode || "UPI",
     referenceNo: admissionData.referenceNo || "N/A",
-    brandName: admissionData.brand || "CADD MANTRA",
-    companyName: admissionData.companyAssigned || "INSTITUTE OF CREATIVE STUDIES",
+    brandName: admissionData.brand || "",
+    companyName: admissionData.companyAssigned || "",
     totalFee: admissionData.finalFee || admissionData.courseFee || 0,
     remainingBalance: admissionData.remainingBalance || 0
   });
@@ -129,7 +130,7 @@ export async function sendAdmissionConfirmationEmail(admissionData: any) {
                 </tr>
                 <tr>
                   <td style="font-size: 13px; color: #64748b; border-bottom: 1px solid #f1f5f9;">Brand Domain:</td>
-                  <td style="font-size: 13px; font-weight: 700; color: #1e293b; border-bottom: 1px solid #f1f5f9;">${admissionData.brand || "Design Gateway"}</td>
+                  <td style="font-size: 13px; font-weight: 700; color: #1e293b; border-bottom: 1px solid #f1f5f9;">${admissionData.brand || "—"}</td>
                 </tr>
                 <tr>
                   <td style="font-size: 13px; color: #64748b; border-bottom: 1px solid #f1f5f9;">Total Final Fee:</td>

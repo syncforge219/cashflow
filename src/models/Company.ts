@@ -85,6 +85,35 @@ const CompanySchema = new Schema(
       type: Boolean,
       default: false,
     },
+
+    // ---- Billing setup (agency billing) ----
+    // GST company raises PI -> tax invoice; Non-GST company raises direct invoices.
+    // Unset on older companies: effectiveGstType() falls back to "has a valid GSTIN".
+    gstType: {
+      type: String,
+      enum: ["GST", "NON_GST"],
+    },
+    // Two-digit GST state code; compared with the client's state to pick CGST+SGST or IGST
+    stateCode: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    businessTypes: {
+      type: [String],
+      enum: ["DIGITAL_MARKETING", "TRAINING", "BOOKS_MATERIAL"],
+      default: [],
+    },
+    taxDefaults: {
+      cgstRate: { type: Number, default: 9, min: 0, max: 28 },
+      sgstRate: { type: Number, default: 9, min: 0, max: 28 },
+      igstRate: { type: Number, default: 18, min: 0, max: 28 },
+    },
+    invoiceSeries: {
+      piPrefix: { type: String, default: "", trim: true, uppercase: true },
+      taxInvoicePrefix: { type: String, default: "", trim: true, uppercase: true },
+      nonGstInvoicePrefix: { type: String, default: "", trim: true, uppercase: true },
+    },
   },
   {
     timestamps: true,

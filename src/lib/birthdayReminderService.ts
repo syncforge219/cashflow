@@ -87,7 +87,7 @@ export async function checkAndSendBirthdayReminders(options?: { force?: boolean 
     try {
       const studentName = String(admission.fullName || "Student").trim();
       const phone = String(admission.mobileNumber || "").trim();
-      const brandName = String((admission as any).brand || (admission as any).brandName || "CADD Mantra").trim();
+      const brandName = String((admission as any).brand || (admission as any).brandName || "").trim();
       const dobRaw = String((admission as any).dob || "").trim();
 
       if (!phone) {
