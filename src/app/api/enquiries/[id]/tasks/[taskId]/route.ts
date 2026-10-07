@@ -17,8 +17,9 @@ export async function PATCH(
     if (typeof isCompleted === "boolean") {
       setObj["followUps.$.isCompleted"] = isCompleted;
       setObj["followUps.$.status"] = status || (isCompleted ? "Completed" : "Pending");
+      setObj["followUps.$.completedAt"] = isCompleted ? new Date() : null;
     }
-    if (remarks !== undefined && remarks.trim() !== "") {
+    if (typeof remarks === "string" && remarks.trim() !== "") {
       setObj["followUps.$.remarks"] = remarks;
       setObj["followUpNotes"] = remarks;
     }
@@ -27,6 +28,13 @@ export async function PATCH(
     }
     if (leadStatus) {
       setObj["status"] = leadStatus;
+    }
+
+    if (Object.keys(setObj).length === 0) {
+      return NextResponse.json(
+        { success: false, error: "Nothing to update" },
+        { status: 400 }
+      );
     }
 
     const updatedEnquiry = await Enquiry.findOneAndUpdate(

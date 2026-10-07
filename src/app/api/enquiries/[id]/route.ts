@@ -70,10 +70,21 @@ export async function PATCH(
         }
         (enquiry as any).status = "Admitted";
         (enquiry as any).isAdmitted = true;
-        if (body.$set) {
-          Object.assign(enquiry, body.$set);
-        } else if (!body.$push && !body.$pull) {
-          Object.assign(enquiry, body);
+        const changes = body.$set || (!body.$push && !body.$pull ? body : null);
+        if (changes) {
+          // A name change without its id must re-resolve the id in the pre-save hook,
+          // otherwise the old brand/advisor id stays attached to the lead.
+          if (changes.targetBrand && !changes.targetBrandId && changes.targetBrand !== enquiry.targetBrand) {
+            (enquiry as any).targetBrandId = undefined;
+          }
+          if (
+            changes.assignedCrmAdvisor &&
+            !changes.assignedCrmAdvisorId &&
+            changes.assignedCrmAdvisor !== enquiry.assignedCrmAdvisor
+          ) {
+            (enquiry as any).assignedCrmAdvisorId = undefined;
+          }
+          Object.assign(enquiry, changes);
         }
         await enquiry.save();
         return NextResponse.json({
@@ -97,6 +108,14 @@ export async function PATCH(
 
     await syncEnquiryRefs(updateQuery.$set || updateQuery);
 
+    // Remember the demo as it was, so the teacher is only alerted when the demo actually changes
+    // (the edit form re-sends every field, which used to re-trigger the WhatsApp on each save).
+    const setData = body.$set || body;
+    const touchesDemo = setData.isDemoScheduled === true || setData.demoDate || setData.demoTeacher;
+    const previousDemo: any = touchesDemo
+      ? await Enquiry.findById(id).select("demoDate demoTeacher").lean()
+      : null;
+
     const updatedEnquiry = await Enquiry.findByIdAndUpdate(
       id,
       updateQuery,
@@ -111,9 +130,11 @@ export async function PATCH(
     }
 
     // AUTO WHATSAPP TEACHER DEMO ALERT (Design Gateway): Notify teacher when demo is being scheduled via PATCH
-    const setData = body.$set || body;
-    const isDemoBeingScheduled = setData.isDemoScheduled === true || setData.demoDate;
-    if (isDemoBeingScheduled) {
+    const demoChanged =
+      touchesDemo &&
+      (String(previousDemo?.demoDate || "") !== String((updatedEnquiry as any).demoDate || "") ||
+        String(previousDemo?.demoTeacher || "") !== String((updatedEnquiry as any).demoTeacher || ""));
+    if (demoChanged) {
       const brandName = ((updatedEnquiry as any).targetBrand || "").trim();
       const upperBrand = brandName.toUpperCase();
       const isDesignGateway = upperBrand.includes("DESIGN") || upperBrand.includes("GATEWAY");

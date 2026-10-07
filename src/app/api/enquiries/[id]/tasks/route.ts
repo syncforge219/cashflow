@@ -1,4 +1,4 @@
-import { todayKey, toDateKey } from "@/lib/dates";
+import { todayKey, toDateKey, addDaysKey } from "@/lib/dates";
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Enquiry from "@/models/Enquiry";
@@ -32,10 +32,11 @@ export async function POST(
       callStart,
       callEnd,
       selectedCourses,
+      leadType,
     } = body;
 
     const newFollowup: any = {
-      date: date || todayKey(),
+      date: toDateKey(date) || todayKey(),
       time: time || "11:00 AM",
       priority,
       typeOfContact,
@@ -64,9 +65,7 @@ export async function POST(
       else if (recurringRule === "14_days") daysToAdd = 14;
       else if (recurringRule === "30_days") daysToAdd = 30;
 
-      const baseDate = new Date(newFollowup.date);
-      baseDate.setDate(baseDate.getDate() + daysToAdd);
-      const nextDateStr = toDateKey(baseDate);
+      const nextDateStr = addDaysKey(newFollowup.date, daysToAdd);
 
       pushItems.push({
         date: nextDateStr,
@@ -85,20 +84,36 @@ export async function POST(
       });
     }
 
+    // Enquiry-level fields go in an explicit $set so the model's pre-update hook can
+    // re-resolve assignedCrmAdvisorId from the new advisor name.
+    const setFields: any = {};
+    if (assignedTo) {
+      setFields.assignedCrmAdvisor = assignedTo;
+    }
+    if (priority) {
+      setFields.priorityLevel = priority;
+    }
+    if (typeof leadType === "string" && leadType.trim()) {
+      setFields.leadType = leadType.trim();
+    }
+    if (Array.isArray(selectedCourses)) {
+      const coursesList = selectedCourses.map((c: any) => String(c).trim()).filter(Boolean);
+      if (coursesList.length > 0) {
+        // Keep all three course fields in step, as POST/PATCH /api/enquiries do
+        setFields.courses = coursesList;
+        setFields.targetCourses = coursesList;
+        setFields.targetCourse = coursesList.join(", ");
+        setFields.isLookingForJob = coursesList.length === 1 && coursesList[0] === "Looking for Job";
+      }
+    }
+
     const updateQuery: any = {
       $push: {
         followUps: { $each: pushItems },
       },
     };
-
-    if (assignedTo) {
-      updateQuery.assignedCrmAdvisor = assignedTo;
-    }
-    if (priority) {
-      updateQuery.priorityLevel = priority;
-    }
-    if (selectedCourses && Array.isArray(selectedCourses) && selectedCourses.length > 0) {
-      updateQuery.courses = selectedCourses;
+    if (Object.keys(setFields).length > 0) {
+      updateQuery.$set = setFields;
     }
 
     const updatedEnquiry = await Enquiry.findByIdAndUpdate(id, updateQuery, {
@@ -163,9 +178,7 @@ export async function PATCH(
       const targetStatus = status || (targetCompleted ? "Completed" : "Pending");
       item.status = targetStatus;
       item.isCompleted = targetCompleted;
-      if (targetCompleted) {
-        item.completedAt = new Date();
-      }
+      item.completedAt = targetCompleted ? item.completedAt || new Date() : undefined;
 
       if (remarks !== undefined) item.remarks = remarks;
       if (priority) item.priority = priority;
@@ -183,13 +196,22 @@ export async function PATCH(
       const targetStatus = status || (targetCompleted ? "Completed" : "Pending");
 
       if (enquiry.followUps && enquiry.followUps.length > 0) {
-        enquiry.followUps.forEach((item: any) => {
-          item.status = targetStatus;
-          item.isCompleted = targetCompleted;
-          if (targetCompleted) {
+        if (targetCompleted) {
+          // Close only the open follow-ups; history (completed/cancelled) keeps its own status and completedAt
+          enquiry.followUps.forEach((item: any) => {
+            const s = (item.status || "").toLowerCase();
+            if (item.isCompleted || s === "completed" || s === "cancelled") return;
+            item.status = targetStatus;
+            item.isCompleted = true;
             item.completedAt = new Date();
-          }
-        });
+          });
+        } else {
+          // Re-opening: only the most recent follow-up goes back to pending, not the whole history
+          const latest: any = enquiry.followUps[enquiry.followUps.length - 1];
+          latest.status = targetStatus;
+          latest.isCompleted = false;
+          latest.completedAt = undefined;
+        }
       } else {
         enquiry.followUps.push({
           date: enquiry.followUpDate || enquiry.date || todayKey(),
@@ -211,8 +233,11 @@ export async function PATCH(
       }
     }
 
-    if (assignedTo) {
+    if (assignedTo && assignedTo !== enquiry.assignedCrmAdvisor) {
       enquiry.assignedCrmAdvisor = assignedTo;
+      // Drop the old advisor's id so the pre-save hook re-resolves it from the new name;
+      // otherwise the lead stays linked to (and visible for) the previous advisor.
+      (enquiry as any).assignedCrmAdvisorId = undefined;
     }
     if (priority) {
       enquiry.priorityLevel = priority;

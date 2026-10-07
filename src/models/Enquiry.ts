@@ -91,6 +91,9 @@ const EnquirySchema = new Schema(
       type: String,
       default: "Medium",
     },
+    leadType: {
+      type: String, // walkin, telephonic, whatsapp, email, campus visit (set from the follow-up modal)
+    },
     remarks: {
       type: String,
     },

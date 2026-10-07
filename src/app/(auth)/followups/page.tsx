@@ -1,7 +1,7 @@
 "use client";
 
-import { todayKey, toDateKey } from "@/lib/dates";
-import React, { useState, useEffect, useMemo } from "react";
+import { todayKey, toDateKey, daysBetween, addDaysKey, formatDate } from "@/lib/dates";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import Sidebar from "@/components/Sidebar";
 import ProfileDisplay from "@/components/ProfileDisplay";
 import { useUser } from "@/app/component/context/user-context";
@@ -68,6 +68,61 @@ interface FeesFollowupRecord {
   dueAmount: number;
   installmentIndex?: number;
 }
+
+const phoneDigits = (phone?: string) => (phone || "").replace(/\D/g, "");
+
+// Leads created without a number get the "+91 0000000000" placeholder; don't offer to call those.
+const hasRealPhone = (phone?: string) => {
+  const last10 = phoneDigits(phone).slice(-10);
+  return last10.length === 10 && !/^0+$/.test(last10);
+};
+
+// wa.me needs the country code; most numbers here are stored as 10 digits or "+91 XXXXXXXXXX".
+const whatsAppLink = (phone: string | undefined, text: string) => {
+  const digits = phoneDigits(phone);
+  const withCountry = digits.length === 10 ? `91${digits}` : digits;
+  return `https://wa.me/${withCountry}?text=${encodeURIComponent(text)}`;
+};
+
+const isClosedFollowup = (f: any) => {
+  const s = (f?.status || "").toLowerCase();
+  return Boolean(f?.isCompleted) || s === "completed" || s === "cancelled";
+};
+
+const isFollowupDone = (rec: EnquiryFollowupRecord) =>
+  rec.followUps && rec.followUps.length > 0
+    ? rec.followUps.every(isClosedFollowup)
+    : (rec.status || "").toLowerCase() === "completed";
+
+// "Today", "Tomorrow", "3 days overdue"... easier to scan than a bare date.
+const describeDueKey = (dueKey?: string): { label: string; className: string } => {
+  const key = toDateKey(dueKey);
+  if (!key) return { label: "No date", className: "text-slate-400" };
+  const diff = daysBetween(todayKey(), key);
+  if (diff === 0) return { label: "Today", className: "text-orange-600" };
+  if (diff === 1) return { label: "Tomorrow", className: "text-indigo-600" };
+  if (diff > 1) return { label: `In ${diff} days`, className: "text-indigo-600" };
+  if (diff === -1) return { label: "1 day overdue", className: "text-rose-600" };
+  return { label: `${-diff} days overdue`, className: "text-rose-700" };
+};
+
+const describeDue = (rec: EnquiryFollowupRecord) =>
+  rec.hasScheduledFollowup && rec.dueDateStr
+    ? describeDueKey(rec.dueDateStr)
+    : { label: "Not scheduled", className: "text-slate-400" };
+
+const feeReminderText = (rec: FeesFollowupRecord) =>
+  `Hello ${rec.fullName}, this is a reminder that your fee instalment of ₹${rec.dueAmount.toLocaleString("en-IN")} for ${rec.course} ` +
+  `is due on ${formatDate(rec.feesDueDate)}. Please ignore this message if already paid. Thank you.`;
+
+const priorityTextClass = (priority?: string) =>
+  priority === "Urgent"
+    ? "text-rose-600"
+    : priority === "High"
+    ? "text-orange-600"
+    : priority === "Low"
+    ? "text-sky-600"
+    : "text-amber-600";
 
 export default function FollowupPage() {
   const { user, logout } = useUser();
@@ -136,8 +191,23 @@ export default function FollowupPage() {
 
   // Search and View Mode
   const [searchQuery, setSearchQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [viewType, setViewType] = useState<"list" | "grid">("list");
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
+
+  // Press "/" anywhere on the page to jump to search (ignored while typing in a field)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target?.isContentEditable) return;
+      e.preventDefault();
+      searchInputRef.current?.focus();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
   const [currentPage, setCurrentPage] = useState(1);
 
   // Tab Selection
@@ -203,13 +273,6 @@ export default function FollowupPage() {
   // Quick Add Followup Modal State
   const [isQuickFollowupModalOpen, setIsQuickFollowupModalOpen] = useState(false);
   const [activeRecordForFollowup, setActiveRecordForFollowup] = useState<any | null>(null);
-  const [quickDate, setQuickDate] = useState(todayKey());
-  const [quickTime, setQuickTime] = useState("11:00 AM");
-  const [quickRemarks, setQuickRemarks] = useState("");
-  const [quickStatus, setQuickStatus] = useState("In Progress");
-  const [quickPriority, setQuickPriority] = useState("Medium");
-  const [quickAssignedTo, setQuickAssignedTo] = useState("");
-  const [isSavingQuickFollowup, setIsSavingQuickFollowup] = useState(false);
 
   // Centre Head Pending Lead Transfer & Bulk Selection State
   const [counsellorsList, setCounsellorsList] = useState<any[]>([]);
@@ -331,7 +394,7 @@ export default function FollowupPage() {
         setSelectedEnquiryIds([]);
         fetchData();
       } else {
-        alert(data.error || "Failed to transfer leads.");
+        alert(data.error || data.message || "Failed to transfer leads.");
       }
     } catch (err) {
       console.error("Failed to execute quick transfer:", err);
@@ -465,12 +528,17 @@ export default function FollowupPage() {
           let updatedFollowups: any[] = [];
 
           if (rawFollowups.length > 0) {
-            updatedFollowups = rawFollowups.map((f: any) => ({
-              ...f,
-              status: newStatus,
-              isCompleted: isChecked,
-              completedAt: isChecked ? new Date().toISOString() : null,
-            }));
+            // Mirror the API: completing closes only open follow-ups, un-checking re-opens only the latest one
+            updatedFollowups = rawFollowups.map((f: any, idx: number) => {
+              const s = (f.status || "").toLowerCase();
+              const isClosed = f.isCompleted || s === "completed" || s === "cancelled";
+              if (isChecked) {
+                return isClosed ? f : { ...f, status: newStatus, isCompleted: true, completedAt: new Date().toISOString() };
+              }
+              return idx === rawFollowups.length - 1
+                ? { ...f, status: newStatus, isCompleted: false, completedAt: null }
+                : f;
+            });
           } else {
             updatedFollowups = [
               {
@@ -487,9 +555,9 @@ export default function FollowupPage() {
             ];
           }
 
+          // The API does not change the lead's status, so neither does the optimistic update
           return {
             ...enq,
-            status: isChecked ? "Completed" : enq.status,
             followUps: updatedFollowups,
           };
         }
@@ -546,7 +614,6 @@ export default function FollowupPage() {
   // -------------------------------------------------------------
   const processedEnquiryFollowups = useMemo(() => {
     const todayStr = todayKey();
-    const todayTime = new Date().setHours(0, 0, 0, 0);
 
     const list: EnquiryFollowupRecord[] = [];
 
@@ -561,23 +628,29 @@ export default function FollowupPage() {
       let dueDateStr = "";
       let hasScheduledFollowup = false;
 
-      if (pendingFollowups.length > 0 && pendingFollowups[0].date) {
-        dueDateStr = pendingFollowups[0].date;
+      // Earliest open follow-up is the one due next (the recurring engine adds a later one alongside it)
+      const pendingDates = pendingFollowups
+        .map((f: any) => toDateKey(f.date))
+        .filter(Boolean)
+        .sort();
+
+      if (pendingDates.length > 0) {
+        dueDateStr = pendingDates[0];
         hasScheduledFollowup = true;
-      } else if (e.nextFollowUpDate) {
-        dueDateStr = e.nextFollowUpDate;
+      } else if (toDateKey(e.nextFollowUpDate)) {
+        dueDateStr = toDateKey(e.nextFollowUpDate);
         hasScheduledFollowup = true;
-      } else if (lastFollowup?.date) {
-        dueDateStr = lastFollowup.date;
+      } else if (toDateKey(lastFollowup?.date)) {
+        dueDateStr = toDateKey(lastFollowup.date);
       } else if (e.createdAt) {
         dueDateStr = getLocalDateStr(e.createdAt);
       } else {
         dueDateStr = todayStr;
       }
 
-      const dueDateTime = dueDateStr ? new Date(dueDateStr).getTime() : 0;
-      const isOverdue = hasScheduledFollowup && dueDateTime < todayTime;
-      const isEscalated = rawFollowups.some((f: any) => f.escalatedToManager) || (isOverdue && (todayTime - dueDateTime) > 86400000);
+      // Date keys (YYYY-MM-DD, IST) compare correctly as strings
+      const isOverdue = hasScheduledFollowup && dueDateStr < todayStr;
+      const isEscalated = rawFollowups.some((f: any) => f.escalatedToManager) || (isOverdue && daysBetween(dueDateStr, todayStr) > 1);
 
       list.push({
         _id: e._id,
@@ -922,56 +995,12 @@ export default function FollowupPage() {
     return { today, overdue, upcoming };
   }, [processedFeesFollowups, isUserBrandRestricted, allowedUserBrands, filterBrand]);
 
-  // Handle Quick Add Followup Submit
-  const handleQuickFollowupSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeRecordForFollowup || !quickRemarks.trim()) {
-      alert("Please enter follow-up remarks.");
-      return;
-    }
-
-    setIsSavingQuickFollowup(true);
-    try {
-      if (activeMode === "enquiry") {
-        const res = await fetch(`/api/enquiries/${activeRecordForFollowup._id}/tasks`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            date: quickDate,
-            time: quickTime,
-            remarks: quickRemarks,
-            typeOfContact: "Telephonic",
-            status: quickStatus,
-          }),
-        });
-        const data = await res.json();
-        if (res.ok && data.success) {
-          alert("Enquiry follow-up logged successfully!");
-          setIsQuickFollowupModalOpen(false);
-          setQuickRemarks("");
-          fetchData();
-        } else {
-          alert(data.error || "Failed to add follow-up.");
-        }
-      } else {
-        // Fees Followup recording
-        alert("Fee reminder logged successfully!");
-        setIsQuickFollowupModalOpen(false);
-        setQuickRemarks("");
-        fetchData();
-      }
-    } catch (err) {
-      console.error("Error adding quick followup:", err);
-      alert("Failed to submit follow-up.");
-    } finally {
-      setIsSavingQuickFollowup(false);
-    }
-  };
-
   // Pagination for Active Mode
   const activeRecordsLength = activeMode === "enquiry" ? filteredEnquiryRecords.length : filteredFeesRecords.length;
   const totalPages = Math.max(1, Math.ceil(activeRecordsLength / itemsPerPage));
-  const startIndex = (currentPage - 1) * itemsPerPage;
+  // Clamp so a search or filter that shrinks the list never leaves you on an empty page
+  const safePage = Math.min(currentPage, totalPages);
+  const startIndex = (safePage - 1) * itemsPerPage;
 
   const paginatedEnquiryRecords = useMemo(() => {
     return filteredEnquiryRecords.slice(startIndex, startIndex + itemsPerPage);
@@ -1020,26 +1049,81 @@ export default function FollowupPage() {
   // Set default filterBrand when user is restricted
   useEffect(() => {
     if (isUserBrandRestricted && allowedUserBrands.length > 0) {
-      const matched = availableBrandOptions.find((bName) =>
+      const isAllowed = (bName: string) =>
         allowedUserBrands.some(
           (ub) =>
             bName.toLowerCase().trim() === ub ||
             bName.toLowerCase().includes(ub) ||
             ub.includes(bName.toLowerCase().trim())
-        )
-      );
-      if (matched) {
-        setFilterBrand(matched);
-      } else {
-        const first = allowedUserBrands[0];
-        setFilterBrand(first.charAt(0).toUpperCase() + first.slice(1));
-      }
+        );
+      const matched = availableBrandOptions.find(isAllowed);
+      const fallback = matched || allowedUserBrands[0].charAt(0).toUpperCase() + allowedUserBrands[0].slice(1);
+      // Only pick a default when the current choice is not one of the user's brands. This effect re-runs
+      // after every data fetch, and used to snap multi-brand users back to their first brand each time.
+      setFilterBrand((prev) => (prev && prev !== "All" && prev !== "All Brands" && isAllowed(prev) ? prev : fallback));
     }
   }, [isUserBrandRestricted, allowedUserBrands, availableBrandOptions]);
 
-  const uniqueBrands = availableBrandOptions;
-  const uniqueAdvisors = useMemo(() => Array.from(new Set(enquiries.map(e => e.assignedCrmAdvisor).filter(Boolean))), [enquiries]);
   const uniqueCourses = useMemo(() => Array.from(new Set(enquiries.map(e => e.targetCourse).filter(Boolean))), [enquiries]);
+
+  // Human-readable list of the filters currently narrowing the list
+  const activeFilterChips = useMemo(() => {
+    const chips: string[] = [];
+    if (filterAdvisor !== "All") chips.push(`Counsellor: ${filterAdvisor}`);
+    if (filterCourse !== "All") chips.push(`Course: ${filterCourse}`);
+    if (filterStage !== "All") chips.push(`Stage: ${filterStage}`);
+    if (advancedFilters) {
+      if (advancedFilters.coursePackage) chips.push(`Course: ${advancedFilters.coursePackage}`);
+      if (advancedFilters.studentQuery) chips.push(`Student: ${advancedFilters.studentQuery}`);
+      const statuses = (advancedFilters.status || []).filter((s: string) => s !== "All");
+      if (statuses.length > 0) chips.push(`Stage: ${statuses.join(", ")}`);
+      if (advancedFilters.enableFromDate && advancedFilters.fromDate) chips.push(`From ${formatDate(advancedFilters.fromDate)}`);
+      if (advancedFilters.enableTillDate && advancedFilters.tillDate) chips.push(`Till ${formatDate(advancedFilters.tillDate)}`);
+    }
+    return chips;
+  }, [filterAdvisor, filterCourse, filterStage, advancedFilters]);
+
+  const clearAllFilters = () => {
+    setAdvancedFilters(null);
+    setFilterAdvisor("All");
+    setFilterCourse("All");
+    setFilterStage("All");
+    setSearchQuery("");
+    setCurrentPage(1);
+  };
+
+  const enquiryTabs = [
+    { key: "today", label: "Due today", count: enquiryCounts.today, hint: "Follow-ups scheduled for today", activeClass: "border-orange-500 text-orange-600", badgeClass: "bg-orange-100 text-orange-700" },
+    { key: "pending", label: "Overdue", count: enquiryCounts.pending, hint: "Follow-ups whose date has passed", activeClass: "border-rose-500 text-rose-600", badgeClass: "bg-rose-100 text-rose-700" },
+    { key: "upcoming", label: "Upcoming", count: enquiryCounts.upcoming, hint: "Follow-ups scheduled after today", activeClass: "border-blue-500 text-blue-600", badgeClass: "bg-blue-100 text-blue-700" },
+    { key: "new", label: "New leads", count: enquiryCounts.newLeads, hint: "Leads created on the chosen day", activeClass: "border-emerald-500 text-emerald-600", badgeClass: "bg-emerald-100 text-emerald-700" },
+    { key: "donot", label: "Lost / don't follow up", count: enquiryCounts.donot, hint: "Leads marked Lost or Do not follow up", activeClass: "border-slate-600 text-slate-800", badgeClass: "bg-slate-200 text-slate-700" },
+  ];
+
+  const feesTabs = [
+    { key: "today", label: "Due by today", count: feesCounts.today, hint: "Instalments due today, including overdue ones", activeClass: "border-orange-500 text-orange-600", badgeClass: "bg-orange-100 text-orange-700" },
+    { key: "overdue", label: "Overdue", count: feesCounts.overdue, hint: "Instalments whose due date has passed", activeClass: "border-rose-500 text-rose-600", badgeClass: "bg-rose-100 text-rose-700" },
+    { key: "upcoming", label: "Upcoming", count: feesCounts.upcoming, hint: "Instalments due after today", activeClass: "border-emerald-500 text-emerald-600", badgeClass: "bg-emerald-100 text-emerald-700" },
+  ];
+
+  const emptyStateMessage = (() => {
+    if (searchQuery.trim() || activeFilterChips.length > 0) return "No follow-ups match your search or filters.";
+    if (activeMode === "fees") {
+      return feesTab === "upcoming" ? "No upcoming fee instalments." : "No fee instalments due. 🎉";
+    }
+    switch (enquiryTab) {
+      case "today":
+        return "Nothing due today. 🎉 Check the Overdue tab for anything missed.";
+      case "pending":
+        return "No overdue follow-ups. 🎉";
+      case "upcoming":
+        return "No follow-ups scheduled after today.";
+      case "new":
+        return `No new leads created on ${formatDate(selectedNewLeadDate)}.`;
+      default:
+        return "No lost or do-not-follow-up leads.";
+    }
+  })();
 
   return (
     <div className="flex h-screen bg-slate-100 font-sans overflow-hidden text-slate-800 selection:bg-orange-500 selection:text-white">
@@ -1049,141 +1133,141 @@ export default function FollowupPage() {
       {/* Main Container */}
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
         
-        {/* Top Header Controls Bar (Sleek Single-Row Layout) */}
-        <div className="bg-white/95 backdrop-blur-md border-b border-slate-200/90 px-6 py-2.5 flex items-center justify-between gap-4 shadow-2xs shrink-0 z-30">
-          
-          {/* Left: Mode Title & Pill Selector */}
+        {/* Top bar: title, mode switch and page-level actions */}
+        <div className="bg-white border-b border-slate-200 px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 shrink-0 z-30">
           <div className="flex items-center gap-4">
-            <h1 className="text-lg font-black tracking-tight text-slate-900 font-sans">
-              Followup CRM
-            </h1>
+            <h1 className="text-lg font-black tracking-tight text-slate-900">Follow-ups</h1>
 
-            {/* Mode Switcher Pill */}
-            <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200/80">
+            <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200" role="tablist" aria-label="Follow-up type">
               <button
+                role="tab"
+                aria-selected={activeMode === "enquiry"}
                 onClick={() => {
                   setActiveMode("enquiry");
                   setCurrentPage(1);
                 }}
                 className={`px-3.5 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
-                  activeMode === "enquiry"
-                    ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-xs"
-                    : "text-slate-600 hover:text-slate-900"
+                  activeMode === "enquiry" ? "bg-indigo-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                Enquiry Followups
+                Enquiries
               </button>
               <button
+                role="tab"
+                aria-selected={activeMode === "fees"}
                 onClick={() => {
                   setActiveMode("fees");
                   setCurrentPage(1);
                 }}
                 className={`px-3.5 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
-                  activeMode === "fees"
-                    ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-xs"
-                    : "text-slate-600 hover:text-slate-900"
+                  activeMode === "fees" ? "bg-emerald-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                Fees Followups
+                Fees
               </button>
             </div>
           </div>
 
-          {/* Right Controls: Unified Alerts Capsule, Performance Reports, Filter, Add New */}
-          <div className="flex items-center gap-2.5">
-            
-            {/* Unified Alerts Capsule (Sound & Desktop Notifications) */}
-            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 px-2.5 py-1 rounded-xl shadow-2xs">
-              {/* Sound Test / Toggle Button */}
-              <button
-                type="button"
-                onClick={() => {
-                  const nextState = !soundEnabled;
-                  setSoundEnabled(nextState);
-                  playChimeSound("notification");
-                }}
-                className={`px-2 py-0.5 rounded-lg text-[11px] font-black transition-all cursor-pointer flex items-center gap-1 ${
-                  soundEnabled
-                    ? "bg-indigo-100/80 text-indigo-700 hover:bg-indigo-200/80"
-                    : "bg-slate-200 text-slate-400"
-                }`}
-                title="Click to Test Audio Chime"
-              >
-                <span className="animate-pulse">🔊</span>
-                <span>Sound: {soundEnabled ? "ON" : "OFF"}</span>
-              </button>
+          <div className="flex items-center gap-2">
+            {/* Alert toggles, compact */}
+            <button
+              type="button"
+              aria-pressed={soundEnabled}
+              onClick={() => {
+                const nextState = !soundEnabled;
+                setSoundEnabled(nextState);
+                if (nextState) playChimeSound("notification");
+              }}
+              className={`w-8 h-8 rounded-lg text-sm flex items-center justify-center border transition-colors cursor-pointer ${
+                soundEnabled ? "bg-indigo-50 border-indigo-200" : "bg-slate-100 border-slate-200 opacity-50"
+              }`}
+              title={soundEnabled ? "Sound on (click to mute)" : "Sound off (click to turn on)"}
+            >
+              {soundEnabled ? "🔊" : "🔇"}
+            </button>
+            <button
+              type="button"
+              aria-pressed={notificationsEnabled}
+              onClick={toggleNotifications}
+              className={`w-8 h-8 rounded-lg text-sm flex items-center justify-center border transition-colors cursor-pointer ${
+                notificationsEnabled ? "bg-emerald-50 border-emerald-200" : "bg-slate-100 border-slate-200 opacity-50"
+              }`}
+              title={notificationsEnabled ? "Desktop notifications on (click to turn off)" : "Desktop notifications off (click to turn on)"}
+            >
+              🔔
+            </button>
 
-              <div className="h-3 w-px bg-slate-200" />
-
-              {/* Desktop Notification Toggle Switch */}
-              <button
-                type="button"
-                onClick={toggleNotifications}
-                className={`px-2 py-0.5 rounded-lg text-[11px] font-black transition-all cursor-pointer flex items-center gap-1 ${
-                  notificationsEnabled
-                    ? "bg-emerald-100/80 text-emerald-800 hover:bg-emerald-200/80"
-                    : "bg-slate-200 text-slate-400"
-                }`}
-                title="Toggle Desktop Notifications"
-              >
-                <span>🔔 Desktop: {notificationsEnabled ? "ON" : "OFF"}</span>
-              </button>
-            </div>
-
-            {/* Performance Reports Button */}
             <button
               onClick={() => setIsPerformanceModalOpen(true)}
-              className="px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-xs rounded-xl shadow-2xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+              className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs rounded-xl transition-colors cursor-pointer"
             >
-              <span>📊 Performance Reports</span>
+              📊 Reports
             </button>
 
-            {/* Advanced Filter Button */}
-            <button
-              onClick={() => setIsFilterModalOpen(true)}
-              className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-2xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
-              </svg>
-              <span>Filter</span>
-            </button>
-
-            {/* Add New Button */}
             <button
               onClick={() => setIsAddEnquiryModalOpen(true)}
-              className="px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-extrabold text-xs rounded-xl shadow-2xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+              className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-2xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
               </svg>
-              <span>Add New</span>
+              <span>New Enquiry</span>
             </button>
 
             <ProfileDisplay isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} user={user} logout={logout} />
           </div>
         </div>
 
-        {/* Search Bar & View Mode Line */}
-        <div className="bg-white border-b border-slate-200/80 px-6 py-3 flex items-center gap-3 shrink-0">
-          <div className="relative flex-1">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search Followup by Student, Student Mobile, Follow-up Time, Course Package, Lead Source, Lead Type & Remarks..."
-              className="w-full pl-4 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all shadow-xs"
-            />
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 absolute right-3 top-2.5 text-slate-400">
+        {/* Search, brand, filters and view */}
+        <div className="bg-white border-b border-slate-200 px-6 py-3 flex flex-wrap items-center gap-2.5 shrink-0">
+          <div className="relative flex-1 min-w-[240px]">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.637 10.637z" />
             </svg>
+            <input
+              ref={searchInputRef}
+              type="search"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setSearchQuery("");
+                  setCurrentPage(1);
+                }
+              }}
+              placeholder={
+                activeMode === "enquiry"
+                  ? "Search name, phone, course, enquiry ID or remark…"
+                  : "Search student, phone, course, admission ID or counsellor…"
+              }
+              aria-label="Search follow-ups"
+              className="w-full pl-9 pr-16 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all"
+            />
+            {searchQuery ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery("");
+                  setCurrentPage(1);
+                  searchInputRef.current?.focus();
+                }}
+                className="absolute right-2 top-1.5 px-1.5 py-0.5 text-slate-400 hover:text-slate-700 text-xs font-bold cursor-pointer"
+                aria-label="Clear search"
+              >
+                ✕
+              </button>
+            ) : (
+              <kbd className="absolute right-2.5 top-2 px-1.5 rounded border border-slate-200 bg-white text-[10px] font-bold text-slate-400" title="Press / to search">
+                /
+              </kbd>
+            )}
           </div>
 
-          {/* Active Brand Filter Dropdown */}
-          <div className="flex items-center gap-1.5 shrink-0 bg-slate-50 border border-slate-200/90 rounded-xl px-2.5 py-1 shadow-xs">
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1">
-              <span>🏷️</span> Brand:
-            </span>
+          <label className="flex items-center gap-1.5 shrink-0 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Brand</span>
             <select
               id="followup-brand-filter"
               value={filterBrand}
@@ -1194,289 +1278,185 @@ export default function FollowupPage() {
                 fetchData(selected);
               }}
               disabled={isUserBrandRestricted && allowedUserBrands.length <= 1}
-              className={`bg-transparent text-xs font-extrabold outline-none cursor-pointer ${
-                isUserBrandRestricted && allowedUserBrands.length <= 1
-                  ? "text-slate-500 cursor-not-allowed"
-                  : "text-slate-800 hover:text-indigo-600"
+              className={`bg-transparent text-xs font-extrabold outline-none ${
+                isUserBrandRestricted && allowedUserBrands.length <= 1 ? "text-slate-500 cursor-not-allowed" : "text-slate-800 cursor-pointer"
               }`}
               title={
                 isUserBrandRestricted && allowedUserBrands.length <= 1
-                  ? `Locked to assigned brand scope (${allowedUserBrands[0]})`
-                  : "Filter followups by brand"
+                  ? `Locked to your brand (${allowedUserBrands[0]})`
+                  : "Filter follow-ups by brand"
               }
             >
-              {!isUserBrandRestricted && (
-                <option value="All">All Brands</option>
-              )}
+              {!isUserBrandRestricted && <option value="All">All Brands</option>}
               {availableBrandOptions.map((brandName) => (
                 <option key={brandName} value={brandName}>
                   {brandName}
                 </option>
               ))}
             </select>
-          </div>
+          </label>
 
-          <div className="shrink-0 flex items-center gap-2">
-            {/* Segmented View Toggle Buttons */}
-            <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
-              <button
-                type="button"
-                onClick={() => setViewType("list")}
-                className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1 ${
-                  viewType === "list"
-                    ? "bg-white text-indigo-600 shadow-xs"
-                    : "text-slate-500 hover:text-slate-800"
-                }`}
-              >
-                <span>📋 List</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewType("grid")}
-                className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1 ${
-                  viewType === "grid"
-                    ? "bg-white text-indigo-600 shadow-xs"
-                    : "text-slate-500 hover:text-slate-800"
-                }`}
-              >
-                <span>🎴 Grid Cards</span>
-              </button>
-            </div>
-
-            {/* View Mode Select Dropdown */}
-            <select
-              id="followup-view-select"
-              value={viewType}
-              onChange={(e) => {
-                const newView = e.target.value as "list" | "grid";
-                console.log("[FollowupPage] Switching viewType to:", newView);
-                setViewType(newView);
-              }}
-              className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-700 outline-none focus:border-indigo-600 cursor-pointer shadow-xs"
+          {activeMode === "enquiry" && (
+            <button
+              onClick={() => setIsFilterModalOpen(true)}
+              className={`px-3 py-1.5 border font-bold text-xs rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer ${
+                activeFilterChips.length > 0
+                  ? "bg-indigo-50 border-indigo-300 text-indigo-700"
+                  : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+              }`}
             >
-              <option value="list">List View</option>
-              <option value="grid">Grid Card View</option>
-            </select>
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
+              </svg>
+              <span>Filters</span>
+              {activeFilterChips.length > 0 && (
+                <span className="px-1.5 rounded-full bg-indigo-600 text-white text-[10px] font-black">{activeFilterChips.length}</span>
+              )}
+            </button>
+          )}
+
+          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0" role="group" aria-label="Layout">
+            <button
+              type="button"
+              aria-pressed={viewType === "list"}
+              onClick={() => setViewType("list")}
+              className={`px-2.5 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+                viewType === "list" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              ☰ List
+            </button>
+            <button
+              type="button"
+              aria-pressed={viewType === "grid"}
+              onClick={() => setViewType("grid")}
+              className={`px-2.5 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+                viewType === "grid" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              ▦ Cards
+            </button>
           </div>
         </div>
 
-        {/* Tab Navigation Bars */}
-        <div className="bg-white border-b border-slate-200 px-6 pt-3 flex flex-wrap items-center justify-between gap-3 select-none shrink-0">
-          <div className="flex items-center gap-2 overflow-x-auto">
-            {activeMode === "enquiry" ? (
-              <>
+        {/* Applied filters, so it is always visible why rows are hidden */}
+        {activeMode === "enquiry" && activeFilterChips.length > 0 && (
+          <div className="bg-indigo-50/60 border-b border-indigo-100 px-6 py-2 flex flex-wrap items-center gap-1.5 shrink-0 text-[11px]">
+            <span className="font-bold text-indigo-900 mr-1">Filtered by:</span>
+            {activeFilterChips.map((chip) => (
+              <span key={chip} className="px-2 py-0.5 rounded-full bg-white border border-indigo-200 text-indigo-800 font-bold">
+                {chip}
+              </span>
+            ))}
+            <button
+              type="button"
+              onClick={clearAllFilters}
+              className="ml-1 px-2 py-0.5 rounded-full text-indigo-700 hover:bg-indigo-100 font-extrabold cursor-pointer"
+            >
+              ✕ Clear all
+            </button>
+          </div>
+        )}
+
+        {/* Tabs + tab-specific tools */}
+        <div className="bg-white border-b border-slate-200 px-6 flex flex-wrap items-center justify-between gap-x-3 select-none shrink-0">
+          <div className="flex items-center gap-1 overflow-x-auto" role="tablist" aria-label="Follow-up list">
+            {(activeMode === "enquiry" ? enquiryTabs : feesTabs).map((tab) => {
+              const isActive = activeMode === "enquiry" ? enquiryTab === tab.key : feesTab === tab.key;
+              return (
                 <button
+                  key={tab.key}
+                  role="tab"
+                  aria-selected={isActive}
+                  title={tab.hint}
                   onClick={() => {
-                    setEnquiryTab("today");
+                    if (activeMode === "enquiry") setEnquiryTab(tab.key as typeof enquiryTab);
+                    else setFeesTab(tab.key as typeof feesTab);
                     setCurrentPage(1);
                   }}
-                  className={`px-5 py-3 font-extrabold text-xs border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-                    enquiryTab === "today"
-                      ? "border-orange-500 text-orange-600 bg-orange-50/50"
-                      : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+                  className={`px-4 py-3 font-extrabold text-xs border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                    isActive ? tab.activeClass : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
                   }`}
                 >
-                  <span>★ Today&apos;s Due Followup(s)</span>
-                  <span className="px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 text-[10px] font-black">
-                    {enquiryCounts.today}
-                  </span>
+                  <span>{tab.label}</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${tab.badgeClass}`}>{tab.count}</span>
                 </button>
-
-                <button
-                  onClick={() => {
-                    setEnquiryTab("new");
-                    setCurrentPage(1);
-                  }}
-                  className={`px-5 py-3 font-extrabold text-xs border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-                    enquiryTab === "new"
-                      ? "border-emerald-500 text-emerald-600 bg-emerald-50/50"
-                      : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
-                  }`}
-                >
-                  <span>✦ New Lead(s)</span>
-                  <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-black">
-                    {enquiryCounts.newLeads}
-                  </span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setEnquiryTab("pending");
-                    setCurrentPage(1);
-                  }}
-                  className={`px-5 py-3 font-extrabold text-xs border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-                    enquiryTab === "pending"
-                      ? "border-rose-500 text-rose-600 bg-rose-50/50"
-                      : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
-                  }`}
-                >
-                  <span>Pending Followup(s)</span>
-                  <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-black">
-                    {enquiryCounts.pending}
-                  </span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setEnquiryTab("upcoming");
-                    setCurrentPage(1);
-                  }}
-                  className={`px-5 py-3 font-extrabold text-xs border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-                    enquiryTab === "upcoming"
-                      ? "border-blue-500 text-blue-600 bg-blue-50/50"
-                      : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
-                  }`}
-                >
-                  <span>Upcoming Followup(s)</span>
-                  <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-black">
-                    {enquiryCounts.upcoming}
-                  </span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setEnquiryTab("donot");
-                    setCurrentPage(1);
-                  }}
-                  className={`px-5 py-3 font-extrabold text-xs border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-                    enquiryTab === "donot"
-                      ? "border-slate-600 text-slate-800 bg-slate-100"
-                      : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
-                  }`}
-                >
-                  <span>Do not Followup(s)</span>
-                  <span className="px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-black">
-                    {enquiryCounts.donot}
-                  </span>
-                </button>
-
-                {isCentreHead && (
-                  <button
-                    type="button"
-                    onClick={handleOpenTransferModalForBulk}
-                    className="px-3.5 py-1.5 ml-2 bg-gradient-to-r from-rose-600 via-indigo-600 to-violet-600 hover:from-rose-700 hover:to-violet-700 text-white font-black text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer shrink-0 active:scale-95"
-                    title="Transfer pending followups to counsellors of your branch"
-                  >
-                    <span>🔄 Transfer Pending Followups</span>
-                    {selectedEnquiryIds.length > 0 && (
-                      <span className="px-1.5 py-0.5 rounded-full bg-white text-rose-700 text-[10px] font-black">
-                        {selectedEnquiryIds.length}
-                      </span>
-                    )}
-                  </button>
-                )}
-
-                {isCentreHead && (
-                  <button
-                    type="button"
-                    onClick={handleSendPendingFollowupsEmailAlert}
-                    disabled={isSendingReminderEmail || enquiryCounts.pending === 0}
-                    className="px-3.5 py-1.5 ml-2 bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-700 hover:to-rose-700 disabled:opacity-50 text-white font-black text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer shrink-0 active:scale-95"
-                    title="Send email alert to Centre Heads and inform Admin about overdue follow-ups"
-                  >
-                    <span>{isSendingReminderEmail ? "⏳ Dispatching Alert..." : "📧 Remind Centre Heads & Admin"}</span>
-                    {enquiryCounts.pending > 0 && (
-                      <span className="px-1.5 py-0.5 rounded-full bg-white text-rose-700 text-[10px] font-black">
-                        {enquiryCounts.pending}
-                      </span>
-                    )}
-                  </button>
-                )}
-              </>
-            ) : (
-            <>
-              <button
-                onClick={() => {
-                  setFeesTab("today");
-                  setCurrentPage(1);
-                }}
-                className={`px-5 py-3 font-extrabold text-xs border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-                  feesTab === "today"
-                    ? "border-orange-500 text-orange-600 bg-orange-50/50"
-                    : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
-                }`}
-              >
-                <span>★ Today&apos;s Fees Due Followup(s)</span>
-                <span className="px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 text-[10px] font-black">
-                  {feesCounts.today}
-                </span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setFeesTab("overdue");
-                  setCurrentPage(1);
-                }}
-                className={`px-5 py-3 font-extrabold text-xs border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-                  feesTab === "overdue"
-                    ? "border-rose-500 text-rose-600 bg-rose-50/50"
-                    : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
-                }`}
-              >
-                <span>Overdue Fees Followup(s)</span>
-                <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-black">
-                  {feesCounts.overdue}
-                </span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setFeesTab("upcoming");
-                  setCurrentPage(1);
-                }}
-                className={`px-5 py-3 font-extrabold text-xs border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-                  feesTab === "upcoming"
-                    ? "border-emerald-500 text-emerald-600 bg-emerald-50/50"
-                    : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
-                }`}
-              >
-                <span>Upcoming Fees Due Followup(s)</span>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-black">
-                  {feesCounts.upcoming}
-                </span>
-              </button>
-            </>
-          )}
+              );
+            })}
           </div>
 
-          {/* New Lead Creation Date Picker Controls */}
-          {activeMode === "enquiry" && enquiryTab === "new" && (
-            <div className="flex items-center gap-2 py-2 shrink-0">
-              <span className="text-xs font-black text-slate-500 uppercase tracking-wider">Creation Date:</span>
-              <input
-                type="date"
-                value={selectedNewLeadDate}
-                onChange={(e) => {
-                  setSelectedNewLeadDate(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="bg-emerald-50/60 border border-emerald-300 text-slate-800 text-xs font-extrabold rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-600 transition-all cursor-pointer shadow-xs"
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  const todayStr = getLocalDateStr(new Date());
-                  setSelectedNewLeadDate(todayStr);
-                  setCurrentPage(1);
-                }}
-                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[11px] rounded-lg shadow-xs transition-colors cursor-pointer"
-              >
-                Today
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const yesterday = new Date();
-                  yesterday.setDate(yesterday.getDate() - 1);
-                  setSelectedNewLeadDate(getLocalDateStr(yesterday));
-                  setCurrentPage(1);
-                }}
-                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-[11px] rounded-lg border border-slate-200 transition-colors cursor-pointer"
-              >
-                Yesterday
-              </button>
-            </div>
-          )}
+          <div className="flex items-center gap-2 py-2 shrink-0">
+            {/* New leads: pick the creation day */}
+            {activeMode === "enquiry" && enquiryTab === "new" && (
+              <>
+                <span className="text-[11px] font-bold text-slate-500">Created on</span>
+                <input
+                  type="date"
+                  value={selectedNewLeadDate}
+                  max={todayKey()}
+                  onChange={(e) => {
+                    setSelectedNewLeadDate(e.target.value || todayKey());
+                    setCurrentPage(1);
+                  }}
+                  className="bg-white border border-slate-300 text-slate-800 text-xs font-bold rounded-lg px-2.5 py-1 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-600 cursor-pointer"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedNewLeadDate(todayKey());
+                    setCurrentPage(1);
+                  }}
+                  className={`px-2.5 py-1 font-bold text-[11px] rounded-lg border transition-colors cursor-pointer ${
+                    selectedNewLeadDate === todayKey()
+                      ? "bg-emerald-600 border-emerald-600 text-white"
+                      : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  Today
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedNewLeadDate(addDaysKey(todayKey(), -1));
+                    setCurrentPage(1);
+                  }}
+                  className={`px-2.5 py-1 font-bold text-[11px] rounded-lg border transition-colors cursor-pointer ${
+                    selectedNewLeadDate === addDaysKey(todayKey(), -1)
+                      ? "bg-emerald-600 border-emerald-600 text-white"
+                      : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  Yesterday
+                </button>
+              </>
+            )}
+
+            {/* Centre head tools */}
+            {activeMode === "enquiry" && isCentreHead && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleOpenTransferModalForBulk}
+                  className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
+                  title="Move follow-ups to another counsellor in your branch"
+                >
+                  🔄 Transfer leads
+                  {selectedEnquiryIds.length > 0 && (
+                    <span className="px-1.5 rounded-full bg-rose-600 text-white text-[10px] font-black">{selectedEnquiryIds.length}</span>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSendPendingFollowupsEmailAlert}
+                  disabled={isSendingReminderEmail || enquiryCounts.pending === 0}
+                  className="px-3 py-1.5 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-slate-700 border border-slate-200 font-bold text-xs rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
+                  title="Email the centre heads (Admin in copy) about overdue follow-ups"
+                >
+                  {isSendingReminderEmail ? "⏳ Sending…" : "📧 Email overdue reminder"}
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Table / Grid Area */}
@@ -1606,9 +1586,16 @@ export default function FollowupPage() {
                 /* GRID CARD VIEW FOR ENQUIRIES */
                 <div className="overflow-auto flex-1 p-5">
                   {isLoading ? (
-                    <div className="py-20 text-center text-slate-400 font-bold animate-pulse">Loading enquiry grid cards...</div>
+                    <div className="py-20 text-center text-slate-400 font-bold animate-pulse">Loading follow-ups…</div>
                   ) : paginatedEnquiryRecords.length === 0 ? (
-                    <div className="py-20 text-center text-slate-400 font-bold">No enquiry follow-up records found matching filters.</div>
+                    <div className="py-20 text-center">
+                      <p className="text-slate-500 font-bold">{emptyStateMessage}</p>
+                      {(searchQuery || activeFilterChips.length > 0) && (
+                        <button type="button" onClick={clearAllFilters} className="mt-2 text-xs text-indigo-600 hover:underline font-bold cursor-pointer">
+                          Clear search and filters
+                        </button>
+                      )}
+                    </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                       {paginatedEnquiryRecords.map((rec: EnquiryFollowupRecord) => {
@@ -1675,11 +1662,7 @@ export default function FollowupPage() {
                                   </span>
                                 )}
                                 {(() => {
-                                  const isDone = Boolean(
-                                    rec.followUps && rec.followUps.length > 0
-                                      ? rec.followUps.every((f: any) => f.isCompleted || (f.status || "").toLowerCase() === "completed")
-                                      : (rec.status || "").toLowerCase() === "completed"
-                                  );
+                                  const isDone = isFollowupDone(rec);
                                   return (
                                     <label className="inline-flex items-center gap-1.5 cursor-pointer bg-slate-100 hover:bg-slate-200/80 px-2 py-0.5 rounded-md border border-slate-200 text-[10px] font-extrabold text-slate-700 transition-all select-none" onClick={(e) => e.stopPropagation()}>
                                       <input
@@ -1689,7 +1672,7 @@ export default function FollowupPage() {
                                         className="w-3 h-3 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500 cursor-pointer"
                                       />
                                       <span className={isDone ? "text-emerald-700 font-extrabold uppercase" : "text-slate-600 uppercase"}>
-                                        {isDone ? "✓ Completed" : (rec.status || "In Progress")}
+                                        {isDone ? "✓ Done" : "Mark done"}
                                       </span>
                                     </label>
                                   );
@@ -1699,19 +1682,23 @@ export default function FollowupPage() {
                               {/* Due Date & Course Details */}
                               <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-1.5 text-xs">
                                 <div className="flex items-center justify-between text-[11px]">
-                                  <span className="text-slate-400 font-semibold uppercase text-[9px] tracking-wider">Due Date</span>
-                                  <span className={`font-black ${rec.isOverdue ? "text-rose-600" : "text-indigo-600"}`}>
-                                    📅 {rec.dueDateStr ? new Date(rec.dueDateStr).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Today"}
+                                  <span className="text-slate-400 font-semibold uppercase text-[9px] tracking-wider">Due</span>
+                                  <span className={`font-black ${describeDue(rec).className}`} title={formatDate(rec.dueDateStr)}>
+                                    📅 {describeDue(rec).label}
                                   </span>
                                 </div>
                                 <div className="flex items-center justify-between text-[11px]">
-                                  <span className="text-slate-400 font-semibold uppercase text-[9px] tracking-wider">Target Course</span>
+                                  <span className="text-slate-400 font-semibold uppercase text-[9px] tracking-wider">Stage</span>
+                                  <span className="font-bold text-slate-700 truncate max-w-[140px]">{rec.status || "In Progress"}</span>
+                                </div>
+                                <div className="flex items-center justify-between text-[11px]">
+                                  <span className="text-slate-400 font-semibold uppercase text-[9px] tracking-wider">Course</span>
                                   <span className="font-extrabold text-slate-800 truncate max-w-[140px]" title={rec.targetCourse}>
                                     🎓 {rec.targetCourse}
                                   </span>
                                 </div>
                                 <div className="flex items-center justify-between text-[11px]">
-                                  <span className="text-slate-400 font-semibold uppercase text-[9px] tracking-wider">Assigned Advisor</span>
+                                  <span className="text-slate-400 font-semibold uppercase text-[9px] tracking-wider">Counsellor</span>
                                   <span className="font-bold text-slate-700 truncate max-w-[130px]" title={rec.assignedCrmAdvisor}>
                                     👤 {rec.assignedCrmAdvisor || "Unassigned"}
                                   </span>
@@ -1736,26 +1723,37 @@ export default function FollowupPage() {
                                     🔄 Transfer
                                   </button>
                                 )}
-                                <button
-                                  onClick={() => {
-                                    const text = encodeURIComponent(`Hello ${rec.studentFullName}, regarding your course inquiry for ${rec.targetCourse}...`);
-                                    const phone = rec.primaryPhoneMobile.replace(/\D/g, "");
-                                    if (phone) window.open(`https://wa.me/${phone}?text=${text}`, "_blank");
-                                  }}
-                                  className="w-8 h-8 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200 flex items-center justify-center font-bold text-xs transition-transform active:scale-95 cursor-pointer"
-                                  title="WhatsApp Chat"
-                                >
-                                  💬
-                                </button>
+                                {hasRealPhone(rec.primaryPhoneMobile) && (
+                                  <>
+                                    <a
+                                      href={`tel:${phoneDigits(rec.primaryPhoneMobile)}`}
+                                      className="w-8 h-8 rounded-xl bg-sky-50 hover:bg-sky-100 border border-sky-200 flex items-center justify-center text-xs"
+                                      title={`Call ${rec.primaryPhoneMobile}`}
+                                      aria-label={`Call ${rec.studentFullName}`}
+                                    >
+                                      📞
+                                    </a>
+                                    <a
+                                      href={whatsAppLink(rec.primaryPhoneMobile, `Hello ${rec.studentFullName}, regarding your enquiry for ${rec.targetCourse}...`)}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="w-8 h-8 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 flex items-center justify-center text-xs"
+                                      title="WhatsApp"
+                                      aria-label={`WhatsApp ${rec.studentFullName}`}
+                                    >
+                                      💬
+                                    </a>
+                                  </>
+                                )}
                                 <button
                                   onClick={() => {
                                     setTimelineRecord(rec);
                                     setIsTimelineOpen(true);
                                   }}
                                   className="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-[11px] font-extrabold transition-all shadow-2xs cursor-pointer"
-                                  title="View Interaction Timeline"
+                                  title="Follow-up history"
                                 >
-                                  🕒 Timeline
+                                  🕒 History
                                 </button>
                               </div>
 
@@ -1764,9 +1762,9 @@ export default function FollowupPage() {
                                   setActiveRecordForFollowup(rec);
                                   setIsQuickFollowupModalOpen(true);
                                 }}
-                                className="px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-xl text-[11px] font-extrabold transition-all shadow-md shadow-indigo-600/20 active:scale-95 cursor-pointer"
+                                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[11px] font-extrabold transition-colors active:scale-95 cursor-pointer"
                               >
-                                ✏️ Add Followup
+                                + Log follow-up
                               </button>
                             </div>
                           </div>
@@ -1780,187 +1778,204 @@ export default function FollowupPage() {
                 <div className="overflow-auto flex-1 min-h-0">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead className="sticky top-0 z-10 bg-slate-100/95 backdrop-blur-xs shadow-2xs">
-                      <tr className="border-b border-slate-200 text-[10px] font-black text-slate-600 uppercase tracking-wider select-none">
+                      <tr className="border-b border-slate-200 text-[10px] font-black text-slate-500 uppercase tracking-wider select-none">
                         {isCentreHead && (
-                          <th className="py-3 px-3 w-[45px] text-center min-w-[45px]">
+                          <th className="py-3 px-3 w-[40px] text-center">
                             <input
                               type="checkbox"
                               checked={isAllPaginatedSelected}
                               onChange={(e) => handleToggleSelectAll(e.target.checked, paginatedEnquiryRecords)}
                               className="w-4 h-4 text-rose-600 bg-white border-slate-300 rounded focus:ring-rose-500 cursor-pointer"
+                              aria-label="Select all leads on this page"
                               title="Select all leads on this page"
                             />
                           </th>
                         )}
-                        <th className="py-3 px-3 w-[70px] text-center min-w-[70px]">DONE ▾</th>
-                        <th className="py-3 px-4 min-w-[125px]">DUE DATE ▾</th>
-                        <th className="py-3 px-4 min-w-[100px]">PRIORITY ▾</th>
-                        <th className="py-3 px-4 min-w-[120px]">BRAND ▾</th>
-                        <th className="py-3 px-4 min-w-[145px]">ENQUIRY/WALKIN DATE ▾</th>
-                        <th className="py-3 px-4 min-w-[150px]">STUDENT ▾</th>
-                        <th className="py-3 px-4 min-w-[140px]">STUDENT MOBILE NO ▾</th>
-                        <th className="py-3 px-4 min-w-[140px]">PRIMARY MOBILE NO ▾</th>
-                        <th className="py-3 px-4 min-w-[110px]">AREA ▾</th>
-                        <th className="py-3 px-4 min-w-[150px]">COURSE PACKAGE ▾</th>
-                        <th className="py-3 px-4 min-w-[130px]">FOLLOWUP BY ▾</th>
-                        <th className="py-3 px-4 min-w-[110px]">LEAD STAGE ▾</th>
-                        <th className="py-3 px-4 min-w-[100px]">LEAD TYPE ▾</th>
-                        <th className="py-3 px-4 min-w-[160px]">LAST REMARK ▾</th>
-                        <th className="py-3 px-4 text-right min-w-[240px]">ACTION ▾</th>
+                        <th className="py-3 px-3 w-[56px] text-center" title="Tick when the follow-up is done">Done</th>
+                        <th className="py-3 px-4 min-w-[120px]">Due</th>
+                        <th className="py-3 px-4 min-w-[170px]">Student</th>
+                        <th className="py-3 px-4 min-w-[130px]">Phone</th>
+                        <th className="py-3 px-4 min-w-[160px]">Course</th>
+                        <th className="py-3 px-4 min-w-[120px]">Counsellor</th>
+                        <th className="py-3 px-4 min-w-[120px]">Stage</th>
+                        <th className="py-3 px-4 min-w-[180px]">Last remark</th>
+                        <th className="py-3 px-4 text-right min-w-[210px]">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
                       {isLoading ? (
                         <tr>
-                          <td colSpan={isCentreHead ? 16 : 15} className="py-12 text-center text-slate-400">Loading enquiry follow-ups...</td>
+                          <td colSpan={isCentreHead ? 10 : 9} className="py-12 text-center text-slate-400 animate-pulse">Loading follow-ups…</td>
                         </tr>
                       ) : paginatedEnquiryRecords.length === 0 ? (
                         <tr>
-                          <td colSpan={isCentreHead ? 16 : 15} className="py-12 text-center text-slate-400">No enquiry follow-up records found matching filters.</td>
+                          <td colSpan={isCentreHead ? 10 : 9} className="py-14 text-center">
+                            <p className="text-slate-500 font-bold">{emptyStateMessage}</p>
+                            {(searchQuery || activeFilterChips.length > 0) && (
+                              <button
+                                type="button"
+                                onClick={clearAllFilters}
+                                className="mt-2 text-indigo-600 hover:underline font-bold cursor-pointer"
+                              >
+                                Clear search and filters
+                              </button>
+                            )}
+                          </td>
                         </tr>
                       ) : (
-                        paginatedEnquiryRecords.map((rec: EnquiryFollowupRecord) => (
-                          <tr
-                            key={rec._id}
-                            onClick={() => setSelectedLead(rec)}
-                            className={`transition-colors cursor-pointer ${
-                              selectedEnquiryIds.includes(rec._id)
-                                ? "bg-rose-50/90 border-l-4 border-l-rose-500"
-                                : rec.isOverdue
-                                ? "bg-rose-50/70 hover:bg-rose-100/80 border-l-4 border-l-rose-500"
-                                : "hover:bg-slate-50/80"
-                            }`}
-                          >
-                            {isCentreHead && (
-                              <td className="py-3.5 px-3 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        paginatedEnquiryRecords.map((rec: EnquiryFollowupRecord) => {
+                          const isDone = isFollowupDone(rec);
+                          const due = describeDue(rec);
+                          const isSelected = selectedEnquiryIds.includes(rec._id);
+                          return (
+                            <tr
+                              key={rec._id}
+                              onClick={() => setSelectedLead(rec)}
+                              className={`transition-colors cursor-pointer ${
+                                isSelected
+                                  ? "bg-rose-50/90"
+                                  : rec.isOverdue && !isDone
+                                  ? "bg-rose-50/40 hover:bg-rose-50"
+                                  : "hover:bg-slate-50"
+                              } ${isDone ? "opacity-60" : ""}`}
+                              title="Click to open the lead profile"
+                            >
+                              {isCentreHead && (
+                                <td className="py-3 px-3 text-center" onClick={(e) => e.stopPropagation()}>
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={(e) => handleToggleSelectRow(rec._id, e.target.checked)}
+                                    className="w-4 h-4 text-rose-600 bg-white border-slate-300 rounded focus:ring-rose-500 cursor-pointer"
+                                    aria-label={`Select ${rec.studentFullName}`}
+                                  />
+                                </td>
+                              )}
+                              <td className="py-3 px-3 text-center" onClick={(e) => e.stopPropagation()}>
                                 <input
                                   type="checkbox"
-                                  checked={selectedEnquiryIds.includes(rec._id)}
-                                  onChange={(e) => handleToggleSelectRow(rec._id, e.target.checked)}
-                                  className="w-4 h-4 text-rose-600 bg-white border-slate-300 rounded focus:ring-rose-500 cursor-pointer"
+                                  checked={isDone}
+                                  onChange={(e) => handleToggleFollowupDone(rec, e.target.checked)}
+                                  className="w-4 h-4 text-emerald-600 bg-white border-slate-300 rounded focus:ring-emerald-500 cursor-pointer"
+                                  aria-label={isDone ? `Re-open follow-up for ${rec.studentFullName}` : `Mark follow-up done for ${rec.studentFullName}`}
+                                  title={isDone ? "Done. Untick to re-open" : "Mark follow-up as done"}
                                 />
                               </td>
-                            )}
-                            <td className="py-3.5 px-3 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                              {(() => {
-                                const isDone = Boolean(
-                                  rec.followUps && rec.followUps.length > 0
-                                    ? rec.followUps.every((f: any) => f.isCompleted || (f.status || "").toLowerCase() === "completed")
-                                    : (rec.status || "").toLowerCase() === "completed"
-                                );
-                                return (
-                                  <label className="inline-flex items-center justify-center cursor-pointer p-1 group" title={isDone ? "Mark as Pending" : "Mark Follow-up as Completed"}>
-                                    <input
-                                      type="checkbox"
-                                      checked={isDone}
-                                      onChange={(e) => handleToggleFollowupDone(rec, e.target.checked)}
-                                      className="w-4 h-4 text-emerald-600 bg-slate-100 border-slate-300 rounded focus:ring-emerald-500 focus:ring-2 cursor-pointer transition-all"
-                                    />
-                                  </label>
-                                );
-                              })()}
-                            </td>
-                            <td className="py-3.5 px-4 font-bold whitespace-nowrap">
-                              <div className="flex flex-col">
-                                {rec.hasScheduledFollowup ? (
-                                  <span className={rec.isOverdue ? "text-rose-700 font-black" : "text-indigo-600"}>
-                                    {rec.dueDateStr ? new Date(rec.dueDateStr).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Today"}
-                                  </span>
+                              <td className="py-3 px-4 whitespace-nowrap">
+                                <div className="flex flex-col">
+                                  <span className={`font-black ${due.className}`}>{due.label}</span>
+                                  <span className="text-[10px] text-slate-400 font-semibold">{formatDate(rec.dueDateStr)}</span>
+                                  {rec.isEscalated && !isDone && (
+                                    <span className="text-[9px] font-black text-purple-700 tracking-wider">⚡ ESCALATED</span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="py-3 px-4 max-w-[220px]">
+                                <div className="font-extrabold text-slate-900 truncate" title={rec.studentFullName}>
+                                  {rec.studentFullName}
+                                </div>
+                                <div className="text-[10px] text-slate-400 font-semibold truncate">
+                                  {rec.enquiryId}
+                                  {rec.currentCity && rec.currentCity !== "N/A" ? ` · ${rec.currentCity}` : ""}
+                                  {rec.createdAt ? ` · enquired ${formatDate(rec.createdAt)}` : ""}
+                                </div>
+                              </td>
+                              <td className="py-3 px-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                                {hasRealPhone(rec.primaryPhoneMobile) ? (
+                                  <a href={`tel:${phoneDigits(rec.primaryPhoneMobile)}`} className="font-mono text-slate-700 hover:text-indigo-600 hover:underline" title="Call student">
+                                    {rec.primaryPhoneMobile}
+                                  </a>
                                 ) : (
-                                  <span className="text-slate-400 font-medium text-xs">
-                                    {rec.dueDateStr ? new Date(rec.dueDateStr).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Not Scheduled"}
-                                  </span>
+                                  <span className="text-slate-400">No phone</span>
                                 )}
-                                {rec.isOverdue && (
-                                  <span className="text-[9px] font-black text-rose-600 tracking-wider animate-pulse">🚨 OVERDUE</span>
+                                {hasRealPhone(rec.parentsPhoneNumber) && (
+                                  <div className="text-[10px] text-slate-400">
+                                    Parent:{" "}
+                                    <a href={`tel:${phoneDigits(rec.parentsPhoneNumber)}`} className="font-mono hover:text-indigo-600 hover:underline" title="Call parent">
+                                      {rec.parentsPhoneNumber}
+                                    </a>
+                                  </div>
                                 )}
-                                {rec.isEscalated && (
-                                  <span className="text-[9px] font-black text-purple-700 tracking-wider">⚡ ESCALATED TO MGR</span>
-                                )}
-                              </div>
-                            </td>
-                            <td className="py-3.5 px-4 whitespace-nowrap">
-                              {rec.priorityLevel === "Urgent" ? (
-                                <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 font-black text-[10px]">🔴 URGENT</span>
-                              ) : rec.priorityLevel === "High" ? (
-                                <span className="px-2 py-0.5 rounded-md bg-orange-100 text-orange-700 font-black text-[10px]">🟠 HIGH</span>
-                              ) : rec.priorityLevel === "Low" ? (
-                                <span className="px-2 py-0.5 rounded-md bg-sky-100 text-sky-700 font-black text-[10px]">🔵 LOW</span>
-                              ) : (
-                                <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-700 font-black text-[10px]">🟡 MEDIUM</span>
-                              )}
-                            </td>
-                            <td className="py-3.5 px-4 whitespace-nowrap">
-                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-violet-50 text-violet-700 border border-violet-200/80">
-                                {rec.targetBrand || "General"}
-                              </span>
-                            </td>
-                            <td className="py-3.5 px-4 text-slate-500 whitespace-nowrap">
-                              {rec.createdAt ? new Date(rec.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "N/A"}
-                            </td>
-                            <td className="py-3.5 px-4 font-extrabold text-slate-900 max-w-[170px] truncate" title={rec.studentFullName}>
-                              {rec.studentFullName}
-                            </td>
-                            <td className="py-3.5 px-4 font-mono text-slate-600 whitespace-nowrap">{rec.primaryPhoneMobile}</td>
-                            <td className="py-3.5 px-4 font-mono text-slate-400 whitespace-nowrap">{rec.parentsPhoneNumber || "-"}</td>
-                            <td className="py-3.5 px-4 text-slate-600 max-w-[130px] truncate">{rec.currentCity || "N/A"}</td>
-                            <td className="py-3.5 px-4 font-bold text-slate-800 max-w-[160px] truncate" title={rec.targetCourse}>{rec.targetCourse}</td>
-                            <td className="py-3.5 px-4 text-slate-700 max-w-[140px] truncate">{rec.assignedCrmAdvisor}</td>
-                            <td className="py-3.5 px-4">
-                              {(() => {
-                                const isDone = Boolean(
-                                  rec.followUps && rec.followUps.length > 0
-                                    ? rec.followUps.every((f: any) => f.isCompleted || (f.status || "").toLowerCase() === "completed")
-                                    : (rec.status || "").toLowerCase() === "completed"
-                                );
-                                const displayStatus = isDone ? "Completed" : (rec.status || "In Progress");
-                                return (
-                                  <span className={`px-2.5 py-0.5 border rounded-lg text-[10px] font-extrabold uppercase whitespace-nowrap shadow-2xs ${
-                                    isDone
-                                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                      : "bg-indigo-50 text-indigo-700 border-indigo-200/80"
+                              </td>
+                              <td className="py-3 px-4 max-w-[200px]">
+                                <div className="font-bold text-slate-800 truncate" title={rec.targetCourse}>{rec.targetCourse}</div>
+                                {rec.targetBrand && <div className="text-[10px] font-bold text-violet-600 uppercase tracking-wide truncate">{rec.targetBrand}</div>}
+                              </td>
+                              <td className="py-3 px-4 text-slate-700 max-w-[140px] truncate" title={rec.assignedCrmAdvisor}>{rec.assignedCrmAdvisor}</td>
+                              <td className="py-3 px-4">
+                                <div className="flex flex-col items-start gap-1">
+                                  <span className={`px-2 py-0.5 border rounded-md text-[10px] font-extrabold uppercase whitespace-nowrap ${
+                                    isDone ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-slate-50 text-slate-700 border-slate-200"
                                   }`}>
-                                    {displayStatus}
+                                    {isDone ? "Done" : rec.status || "In Progress"}
                                   </span>
-                                );
-                              })()}
-                            </td>
-                            <td className="py-3.5 px-4 text-slate-600 capitalize whitespace-nowrap">{rec.leadType || "Telephonic"}</td>
-                            <td className="py-3.5 px-4 text-slate-500 max-w-[180px] truncate" title={rec.lastRemarkStr}>
-                              {rec.lastRemarkStr || "-"}
-                            </td>
-                            <td className="py-3.5 px-4 text-right whitespace-nowrap space-x-1.5" onClick={(e) => e.stopPropagation()}>
-                              {isCentreHead && (
-                                <button
-                                  onClick={() => handleOpenTransferModalForSingleLead(rec)}
-                                  className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-[11px] font-black transition-all shadow-2xs cursor-pointer active:scale-95"
-                                  title="Transfer lead to another counsellor"
-                                >
-                                  🔄 Transfer
-                                </button>
-                              )}
-                              <button
-                                onClick={() => {
-                                  setTimelineRecord(rec);
-                                  setIsTimelineOpen(true);
-                                }}
-                                className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-xl text-[11px] font-bold transition-all cursor-pointer"
-                                title="View Interaction Timeline"
-                              >
-                                🕒 Timeline
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setActiveRecordForFollowup(rec);
-                                  setIsQuickFollowupModalOpen(true);
-                                }}
-                                className="px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-xl text-[11px] font-extrabold transition-all shadow-md shadow-indigo-600/20 active:scale-95 cursor-pointer"
-                              >
-                                ✏️ Add Followup
-                              </button>
-                            </td>
-                          </tr>
-                        ))
+                                  <span className={`text-[10px] font-black ${priorityTextClass(rec.priorityLevel)}`}>
+                                    ● {(rec.priorityLevel || "Medium").toUpperCase()}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="py-3 px-4 text-slate-500 max-w-[220px]">
+                                <p className="line-clamp-2 font-medium" title={rec.lastRemarkStr}>{rec.lastRemarkStr || "-"}</p>
+                              </td>
+                              <td className="py-3 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                                <div className="inline-flex items-center gap-1.5">
+                                  {hasRealPhone(rec.primaryPhoneMobile) && (
+                                    <>
+                                      <a
+                                        href={`tel:${phoneDigits(rec.primaryPhoneMobile)}`}
+                                        className="w-8 h-8 rounded-lg bg-sky-50 hover:bg-sky-100 border border-sky-200 flex items-center justify-center"
+                                        title="Call"
+                                        aria-label={`Call ${rec.studentFullName}`}
+                                      >
+                                        📞
+                                      </a>
+                                      <a
+                                        href={whatsAppLink(rec.primaryPhoneMobile, `Hello ${rec.studentFullName}, regarding your enquiry for ${rec.targetCourse}...`)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 flex items-center justify-center"
+                                        title="WhatsApp"
+                                        aria-label={`WhatsApp ${rec.studentFullName}`}
+                                      >
+                                        💬
+                                      </a>
+                                    </>
+                                  )}
+                                  <button
+                                    onClick={() => {
+                                      setTimelineRecord(rec);
+                                      setIsTimelineOpen(true);
+                                    }}
+                                    className="w-8 h-8 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 flex items-center justify-center cursor-pointer"
+                                    title="Follow-up history"
+                                    aria-label={`Follow-up history for ${rec.studentFullName}`}
+                                  >
+                                    🕒
+                                  </button>
+                                  {isCentreHead && (
+                                    <button
+                                      onClick={() => handleOpenTransferModalForSingleLead(rec)}
+                                      className="w-8 h-8 rounded-lg bg-white hover:bg-rose-50 border border-slate-200 flex items-center justify-center cursor-pointer"
+                                      title="Transfer to another counsellor"
+                                      aria-label={`Transfer ${rec.studentFullName}`}
+                                    >
+                                      🔄
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => {
+                                      setActiveRecordForFollowup(rec);
+                                      setIsQuickFollowupModalOpen(true);
+                                    }}
+                                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[11px] font-extrabold transition-colors active:scale-95 cursor-pointer"
+                                  >
+                                    + Log follow-up
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
                       )}
                     </tbody>
                   </table>
@@ -1972,17 +1987,18 @@ export default function FollowupPage() {
                 /* GRID CARD VIEW FOR FEES */
                 <div className="overflow-auto flex-1 p-5">
                   {isLoading ? (
-                    <div className="py-20 text-center text-slate-400 font-bold animate-pulse">Loading fees grid cards...</div>
+                    <div className="py-20 text-center text-slate-400 font-bold animate-pulse">Loading fee follow-ups…</div>
                   ) : paginatedFeesRecords.length === 0 ? (
-                    <div className="py-20 text-center text-slate-400 font-bold">No fees due follow-up records found matching filters.</div>
+                    <div className="py-20 text-center text-slate-500 font-bold">{emptyStateMessage}</div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                       {paginatedFeesRecords.map((rec: FeesFollowupRecord, idx: number) => {
                         const initial = (rec.fullName || "S").charAt(0).toUpperCase();
+                        const due = describeDueKey(rec.feesDueDate);
                         return (
                           <div
                             key={`${rec._id}-${idx}`}
-                            className="bg-white rounded-2xl border border-slate-200/90 hover:border-emerald-500/50 transition-all duration-300 shadow-xs hover:shadow-xl hover:-translate-y-1 overflow-hidden flex flex-col justify-between group"
+                            className="bg-white rounded-2xl border border-slate-200/90 hover:border-emerald-500/50 transition-all duration-300 shadow-xs hover:shadow-lg overflow-hidden flex flex-col justify-between"
                           >
                             <div className="p-4 space-y-3">
                               <div className="flex items-center justify-between gap-2">
@@ -1991,39 +2007,35 @@ export default function FollowupPage() {
                                     {initial}
                                   </div>
                                   <div className="min-w-0">
-                                    <h3 className="font-extrabold text-slate-900 text-sm truncate group-hover:text-emerald-600 transition-colors" title={rec.fullName}>
+                                    <h3 className="font-extrabold text-slate-900 text-sm truncate" title={rec.fullName}>
                                       {rec.fullName}
                                     </h3>
                                     <span className="text-[10px] font-mono font-extrabold text-slate-400 block truncate">
                                       {rec.admissionId}
+                                      {rec.installmentIndex ? ` · Instalment ${rec.installmentIndex}` : ""}
                                     </span>
                                   </div>
                                 </div>
-                                <div className="flex flex-col items-end gap-1 shrink-0">
-                                  {rec.brand && (
-                                    <span className="px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 font-extrabold text-[9px] uppercase tracking-wider">
-                                      {rec.brand}
-                                    </span>
-                                  )}
-                                  <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-black text-[10px]">
-                                    FEES DUE
+                                {rec.brand && (
+                                  <span className="px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 font-extrabold text-[9px] uppercase tracking-wider shrink-0">
+                                    {rec.brand}
                                   </span>
-                                </div>
+                                )}
                               </div>
 
                               <div className="bg-emerald-50/70 p-3 rounded-xl border border-emerald-100 space-y-1 text-xs">
                                 <div className="flex items-center justify-between text-[11px]">
-                                  <span className="text-slate-400 font-semibold uppercase text-[9px] tracking-wider">Due Amount</span>
+                                  <span className="text-slate-400 font-semibold uppercase text-[9px] tracking-wider">Amount due</span>
                                   <span className="font-black text-rose-600 text-sm">₹{rec.dueAmount.toLocaleString("en-IN")}</span>
                                 </div>
                                 <div className="flex items-center justify-between text-[11px]">
-                                  <span className="text-slate-400 font-semibold uppercase text-[9px] tracking-wider">Fees Due Date</span>
-                                  <span className="font-bold text-slate-800">
-                                    📅 {new Date(rec.feesDueDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                                  <span className="text-slate-400 font-semibold uppercase text-[9px] tracking-wider">Due</span>
+                                  <span className={`font-black ${due.className}`} title={formatDate(rec.feesDueDate)}>
+                                    📅 {due.label}
                                   </span>
                                 </div>
                                 <div className="flex items-center justify-between text-[11px]">
-                                  <span className="text-slate-400 font-semibold uppercase text-[9px] tracking-wider">Course / Brand</span>
+                                  <span className="text-slate-400 font-semibold uppercase text-[9px] tracking-wider">Course</span>
                                   <span className="font-extrabold text-slate-800 truncate max-w-[140px]" title={rec.course}>
                                     🎓 {rec.course}
                                   </span>
@@ -2033,17 +2045,31 @@ export default function FollowupPage() {
 
                             <div className="bg-slate-50 px-4 py-3 border-t border-slate-100 flex items-center justify-between gap-2 shrink-0">
                               <span className="text-[11px] font-bold text-slate-500 truncate" title={rec.counsellor}>
-                                👤 {rec.counsellor || "Advisor"}
+                                👤 {rec.counsellor || "Unassigned"}
                               </span>
-                              <button
-                                onClick={() => {
-                                  setActiveRecordForFollowup(rec);
-                                  setIsQuickFollowupModalOpen(true);
-                                }}
-                                className="px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-[11px] font-extrabold transition-all shadow-md shadow-emerald-600/20 active:scale-95 cursor-pointer"
-                              >
-                                ✏️ Add Followup
-                              </button>
+                              {hasRealPhone(rec.mobileNumber) ? (
+                                <div className="flex items-center gap-1.5">
+                                  <a
+                                    href={`tel:${phoneDigits(rec.mobileNumber)}`}
+                                    className="w-8 h-8 rounded-xl bg-sky-50 hover:bg-sky-100 border border-sky-200 flex items-center justify-center text-xs"
+                                    title={`Call ${rec.mobileNumber}`}
+                                    aria-label={`Call ${rec.fullName}`}
+                                  >
+                                    📞
+                                  </a>
+                                  <a
+                                    href={whatsAppLink(rec.mobileNumber, feeReminderText(rec))}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[11px] font-extrabold transition-colors"
+                                    title="Send a fee reminder on WhatsApp"
+                                  >
+                                    💬 Send reminder
+                                  </a>
+                                </div>
+                              ) : (
+                                <span className="text-[11px] text-slate-400">No phone</span>
+                              )}
                             </div>
                           </div>
                         );
@@ -2056,61 +2082,84 @@ export default function FollowupPage() {
               <div className="overflow-auto flex-1 min-h-0">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead className="sticky top-0 z-10 bg-slate-100/95 backdrop-blur-xs shadow-2xs">
-                    <tr className="border-b border-slate-200 text-[10px] font-black text-slate-600 uppercase tracking-wider select-none">
-                      <th className="py-3 px-4 min-w-[140px]">FOLLOWUP DUE DATE ▾</th>
-                      <th className="py-3 px-4 min-w-[125px]">FEES DUE DATE ▾</th>
-                      <th className="py-3 px-4 min-w-[120px]">BRAND ▾</th>
-                      <th className="py-3 px-4 min-w-[150px]">STUDENT ▾</th>
-                      <th className="py-3 px-4 min-w-[140px]">STUDENT MOBILE NO ▾</th>
-                      <th className="py-3 px-4 min-w-[120px]">ID CARD ▾</th>
-                      <th className="py-3 px-4 min-w-[120px]">DUE AMOUNT ▾</th>
-                      <th className="py-3 px-4 min-w-[130px]">FOLLOWUP BY ▾</th>
-                      <th className="py-3 px-4 text-right min-w-[120px]">ACTION ▾</th>
+                    <tr className="border-b border-slate-200 text-[10px] font-black text-slate-500 uppercase tracking-wider select-none">
+                      <th className="py-3 px-4 min-w-[120px]">Due</th>
+                      <th className="py-3 px-4 min-w-[110px]">Amount</th>
+                      <th className="py-3 px-4 min-w-[170px]">Student</th>
+                      <th className="py-3 px-4 min-w-[130px]">Phone</th>
+                      <th className="py-3 px-4 min-w-[160px]">Course</th>
+                      <th className="py-3 px-4 min-w-[120px]">Counsellor</th>
+                      <th className="py-3 px-4 text-right min-w-[170px]">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
                     {isLoading ? (
                       <tr>
-                        <td colSpan={9} className="py-12 text-center text-slate-400">Loading fees follow-ups...</td>
+                        <td colSpan={7} className="py-12 text-center text-slate-400 animate-pulse">Loading fee follow-ups…</td>
                       </tr>
                     ) : paginatedFeesRecords.length === 0 ? (
                       <tr>
-                        <td colSpan={9} className="py-12 text-center text-slate-400">No fees due follow-up records found matching filters.</td>
+                        <td colSpan={7} className="py-14 text-center text-slate-500 font-bold">{emptyStateMessage}</td>
                       </tr>
                     ) : (
-                      paginatedFeesRecords.map((rec: FeesFollowupRecord, idx: number) => (
-                        <tr key={`${rec._id}-${idx}`} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="py-3.5 px-4 font-bold text-emerald-600 whitespace-nowrap">
-                            {new Date(rec.followupDueDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
-                          </td>
-                          <td className="py-3.5 px-4 text-slate-500 whitespace-nowrap">
-                            {new Date(rec.feesDueDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
-                          </td>
-                          <td className="py-3.5 px-4 whitespace-nowrap">
-                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200/80">
-                              {rec.brand || "General"}
-                            </span>
-                          </td>
-                          <td className="py-3.5 px-4 font-extrabold text-slate-900 max-w-[170px] truncate" title={rec.fullName}>
-                            {rec.fullName}
-                          </td>
-                          <td className="py-3.5 px-4 font-mono text-slate-600 whitespace-nowrap">{rec.mobileNumber}</td>
-                          <td className="py-3.5 px-4 font-mono text-slate-500 font-bold whitespace-nowrap">{rec.admissionId}</td>
-                          <td className="py-3.5 px-4 font-black text-rose-600 whitespace-nowrap">₹{rec.dueAmount.toLocaleString("en-IN")}</td>
-                          <td className="py-3.5 px-4 text-slate-700 max-w-[140px] truncate">{rec.counsellor}</td>
-                          <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                            <button
-                              onClick={() => {
-                                setActiveRecordForFollowup(rec);
-                                setIsQuickFollowupModalOpen(true);
-                              }}
-                              className="px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-xl text-xs font-extrabold transition-all shadow-md shadow-indigo-600/20 active:scale-95 cursor-pointer flex items-center gap-1 ml-auto"
-                            >
-                              ✏️ Add Followup
-                            </button>
-                          </td>
-                        </tr>
-                      ))
+                      paginatedFeesRecords.map((rec: FeesFollowupRecord, idx: number) => {
+                        const due = describeDueKey(rec.feesDueDate);
+                        return (
+                          <tr key={`${rec._id}-${idx}`} className="hover:bg-slate-50 transition-colors">
+                            <td className="py-3 px-4 whitespace-nowrap">
+                              <div className={`font-black ${due.className}`}>{due.label}</div>
+                              <div className="text-[10px] text-slate-400 font-semibold">{formatDate(rec.feesDueDate)}</div>
+                            </td>
+                            <td className="py-3 px-4 font-black text-rose-600 whitespace-nowrap">
+                              ₹{rec.dueAmount.toLocaleString("en-IN")}
+                              {rec.installmentIndex ? (
+                                <div className="text-[10px] text-slate-400 font-semibold">Instalment {rec.installmentIndex}</div>
+                              ) : null}
+                            </td>
+                            <td className="py-3 px-4 max-w-[220px]">
+                              <div className="font-extrabold text-slate-900 truncate" title={rec.fullName}>{rec.fullName}</div>
+                              <div className="text-[10px] text-slate-400 font-mono font-semibold">{rec.admissionId}</div>
+                            </td>
+                            <td className="py-3 px-4 whitespace-nowrap">
+                              {hasRealPhone(rec.mobileNumber) ? (
+                                <a href={`tel:${phoneDigits(rec.mobileNumber)}`} className="font-mono text-slate-700 hover:text-indigo-600 hover:underline" title="Call student">
+                                  {rec.mobileNumber}
+                                </a>
+                              ) : (
+                                <span className="text-slate-400">No phone</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 max-w-[200px]">
+                              <div className="font-bold text-slate-800 truncate" title={rec.course}>{rec.course}</div>
+                              {rec.brand && <div className="text-[10px] font-bold text-emerald-700 uppercase tracking-wide truncate">{rec.brand}</div>}
+                            </td>
+                            <td className="py-3 px-4 text-slate-700 max-w-[140px] truncate" title={rec.counsellor}>{rec.counsellor}</td>
+                            <td className="py-3 px-4 text-right whitespace-nowrap">
+                              {hasRealPhone(rec.mobileNumber) && (
+                                <div className="inline-flex items-center gap-1.5">
+                                  <a
+                                    href={`tel:${phoneDigits(rec.mobileNumber)}`}
+                                    className="w-8 h-8 rounded-lg bg-sky-50 hover:bg-sky-100 border border-sky-200 flex items-center justify-center"
+                                    title="Call"
+                                    aria-label={`Call ${rec.fullName}`}
+                                  >
+                                    📞
+                                  </a>
+                                  <a
+                                    href={whatsAppLink(rec.mobileNumber, feeReminderText(rec))}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-extrabold transition-colors"
+                                    title="Send a fee reminder on WhatsApp"
+                                  >
+                                    💬 Send reminder
+                                  </a>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
@@ -2120,23 +2169,23 @@ export default function FollowupPage() {
             {/* Pagination Controls */}
             {activeRecordsLength > 0 && (
               <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 bg-slate-50/50 text-xs font-semibold text-slate-600">
-                <span>Page {currentPage} of {totalPages}</span>
+                <span>Page {safePage} of {totalPages}</span>
                 <div className="flex items-center gap-1.5">
                   <button
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage(Math.max(1, safePage - 1))}
+                    disabled={safePage === 1}
                     className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 cursor-pointer shadow-xs"
                   >
                     &lt;
                   </button>
                   {Array.from({ length: totalPages }, (_, i) => i + 1)
-                    .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                    .filter((p) => p === 1 || p === totalPages || Math.abs(p - safePage) <= 1)
                     .map((page) => (
                       <button
                         key={page}
                         onClick={() => setCurrentPage(page)}
                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                          currentPage === page
+                          safePage === page
                             ? "bg-orange-500 text-white shadow-xs"
                             : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
                         }`}
@@ -2145,8 +2194,8 @@ export default function FollowupPage() {
                       </button>
                     ))}
                   <button
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage(Math.min(totalPages, safePage + 1))}
+                    disabled={safePage === totalPages}
                     className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 cursor-pointer shadow-xs"
                   >
                     &gt;

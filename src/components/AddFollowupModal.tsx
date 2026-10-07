@@ -22,6 +22,11 @@ const DEFAULT_COURSES = [
   "Advance Course in AutoCAD Electrical-30000",
 ];
 
+// Dual-list items are shown as "Course Name-15000"; strip the fee to get the stored course name.
+function courseNameFromLabel(label: string): string {
+  return String(label).replace(/-\s*₹?\s*[\d,]+(\.\d+)?$/, "").trim();
+}
+
 export default function AddFollowupModal({
   isOpen,
   onClose,
@@ -111,8 +116,10 @@ export default function AddFollowupModal({
           courseList = Array.from(new Set(DEFAULT_COURSES));
         }
 
-        if (counsRes.success && Array.isArray(counsRes.data)) {
-          setCounsellorsList(counsRes.data);
+        // /api/counsellors responds with { counsellors: [...] }
+        const counsellors = Array.isArray(counsRes.counsellors) ? counsRes.counsellors : counsRes.data;
+        if (counsRes.success && Array.isArray(counsellors)) {
+          setCounsellorsList(counsellors);
         }
 
         if (respRes.success && Array.isArray(respRes.data) && respRes.data.length > 0) {
@@ -120,10 +127,16 @@ export default function AddFollowupModal({
           setResponseTypes(names);
         }
 
-        if (record && (record.targetCourse || record.course)) {
-          const selected = record.targetCourse || record.course;
-          setSelectedCourses(Array.from(new Set([selected])));
-          setAvailableCourses(Array.from(new Set(courseList.filter((item) => item !== selected))));
+        const recordCourses: string[] =
+          Array.isArray(record?.courses) && record.courses.length > 0
+            ? record.courses.map((c: any) => String(c).trim()).filter(Boolean)
+            : String(record?.targetCourse || record?.course || "")
+                .split(",")
+                .map((c) => c.trim())
+                .filter(Boolean);
+        if (recordCourses.length > 0) {
+          setSelectedCourses(Array.from(new Set(recordCourses)));
+          setAvailableCourses(courseList.filter((item) => !recordCourses.includes(courseNameFromLabel(item))));
         } else {
           setAvailableCourses(Array.from(new Set(courseList)));
         }
@@ -217,8 +230,11 @@ export default function AddFollowupModal({
         nextAction,
         currentDate,
         currentTime,
-        typeOfContact: leadType,
-        selectedCourses,
+        // "Response Type" is what the history table shows as the contact type
+        typeOfContact: responseType || leadType,
+        leadType,
+        // Course list items are labelled "Name-Fee"; store the plain course names
+        selectedCourses: Array.from(new Set(selectedCourses.map(courseNameFromLabel))),
         callStart,
         callEnd,
         status,
