@@ -141,27 +141,67 @@ export default function CounsellorDashboardPage() {
           return false;
         };
 
+        const admittedPhoneSet = new Set<string>();
+        const admittedEnquiryIdSet = new Set<string>();
+        const admittedStudentNames = new Set<string>();
+
+        allAdmissions.forEach((a: any) => {
+          if (a.enquiryId) admittedEnquiryIdSet.add(String(a.enquiryId).trim());
+          if (a._id) admittedEnquiryIdSet.add(String(a._id).trim());
+          if (a.admissionId) admittedEnquiryIdSet.add(String(a.admissionId).trim());
+          const p1 = String(a.mobileNumber || a.primaryPhoneMobile || a.phone || "").replace(/\D/g, "").slice(-10);
+          if (p1.length === 10) admittedPhoneSet.add(p1);
+          const p2 = String(a.parentPhone || a.parentsPhoneNumber || "").replace(/\D/g, "").slice(-10);
+          if (p2.length === 10) admittedPhoneSet.add(p2);
+          if (a.fullName) admittedStudentNames.add(a.fullName.trim().toLowerCase());
+          if (a.studentFullName) admittedStudentNames.add(a.studentFullName.trim().toLowerCase());
+        });
+
+        const isLeadAdmitted = (e: any) => {
+          if (e.isAdmitted === true) return true;
+          const s = (e.status || "").toLowerCase().trim();
+          if (s.includes("admitted") || s.includes("admission") || s.includes("enrolled") || s.includes("converted")) return true;
+          if (e._id && admittedEnquiryIdSet.has(String(e._id).trim())) return true;
+          if (e.enquiryId && admittedEnquiryIdSet.has(String(e.enquiryId).trim())) return true;
+          if (e.primaryPhoneMobile) {
+            const clean = String(e.primaryPhoneMobile).replace(/\D/g, "").slice(-10);
+            if (clean.length === 10 && admittedPhoneSet.has(clean)) return true;
+          }
+          if (e.parentsPhoneNumber) {
+            const clean = String(e.parentsPhoneNumber).replace(/\D/g, "").slice(-10);
+            if (clean.length === 10 && admittedPhoneSet.has(clean)) return true;
+          }
+          return false;
+        };
+
         const myEnquiries = allEnquiries.filter((e: any) => isMatch(e.assignedCrmAdvisor));
         const counsellorAdmissions = allAdmissions.filter((a: any) => isMatch(a.counsellor || a.assignedCrmAdvisor));
 
         const todayStr = todayKey();
 
-        // Today's Calls
-        const todaysCallsCount = (taskData.tasks || []).filter(
-          (t: any) => t.taskType === "Lead Call" && toDateKey(new Date(t.dueDate)) === todayStr
-        ).length;
+        // Today's Calls (exclude admitted students)
+        const todaysCallsCount = (taskData.tasks || []).filter((t: any) => {
+          if (t.taskType !== "Lead Call") return false;
+          if (toDateKey(new Date(t.dueDate)) !== todayStr) return false;
+          if (t.isAdmittedStudent || t.status === "Completed") return false;
+          if (t.linkedStudentName && admittedStudentNames.has(t.linkedStudentName.trim().toLowerCase())) return false;
+          if (t.linkedEnquiryId && admittedEnquiryIdSet.has(String(t.linkedEnquiryId).trim())) return false;
+          return true;
+        }).length;
 
-        // Today's Demos
-        const todaysDemosList = myEnquiries.filter((e: any) => e.isDemoScheduled || e.status === "Demo Attended");
+        // Today's Demos (exclude admitted students)
+        const todaysDemosList = myEnquiries.filter((e: any) => !isLeadAdmitted(e) && (e.isDemoScheduled || e.status === "Demo Attended"));
 
-        // Follow ups Due
+        // Follow ups Due (exclude admitted students)
         let followupsDueCount = 0;
         const todayFollowupsList: any[] = [];
 
         myEnquiries.forEach((e: any) => {
+          if (isLeadAdmitted(e)) return;
           if (e.followUps && e.followUps.length > 0) {
             e.followUps.forEach((f: any) => {
-              if (!f.isCompleted) {
+              const fStatus = (f.status || "").toLowerCase();
+              if (!f.isCompleted && fStatus !== "completed" && fStatus !== "cancelled") {
                 followupsDueCount++;
                 todayFollowupsList.push({
                   id: e._id,

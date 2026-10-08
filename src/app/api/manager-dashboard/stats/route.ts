@@ -120,9 +120,11 @@ export async function GET(req: Request) {
       isFiltered ? { ...enquiryQuery, status: "New" } : { ...enquiryQuery, status: "New", createdAt: dateRangeFilter }
     );
 
-    // Follow-ups scheduled in date range
+    // Follow-ups scheduled in date range (excluding admitted students)
     const followUpsToday = await Enquiry.countDocuments({
       ...enquiryQuery,
+      isAdmitted: { $ne: true },
+      status: { $nin: ["Admitted", "Admission", "Converted", "Enrolled"] },
       "followUps.date": stringDateFilter
     });
 
@@ -396,9 +398,11 @@ export async function GET(req: Request) {
       ];
     }
 
-    // 6. Follow-ups List in date range
+    // 6. Follow-ups List in date range (excluding admitted students)
     const todayEnquiries = await Enquiry.find({
       ...enquiryQuery,
+      isAdmitted: { $ne: true },
+      status: { $nin: ["Admitted", "Admission", "Converted", "Enrolled"] },
       "followUps.date": stringDateFilter
     }).limit(5).lean();
 

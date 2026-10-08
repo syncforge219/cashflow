@@ -285,7 +285,7 @@ export async function GET(req: Request) {
     // 7. Dynamic Counts strictly from MongoDB
     const assignedSubjectsCount = teacherCourses.length > 0 ? teacherCourses.length : assignedSubjects.length;
     const activeBatches = teacherBatches.filter(
-      (b: any) => computeBatchStatus(b.startDate, b.endDate, b.status) === "Active"
+      (b: any) => computeBatchStatus(b.startDate, b.endDate, b.status, new Date(), b.statusLocked) === "Active"
     );
     const activeBatchesCount = activeBatches.length;
     const totalDemosScheduled = extractedDemos.length;

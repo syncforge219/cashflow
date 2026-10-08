@@ -116,6 +116,18 @@ export default function EditBatchModal({
       setErrorMsg("Please select at least one course.");
       return;
     }
+    if (!startDate) {
+      setErrorMsg("Start date is required.");
+      return;
+    }
+    if (endDate && endDate < startDate) {
+      setErrorMsg("End date is before the start date.");
+      return;
+    }
+    if (selectedDays.length === 0) {
+      setErrorMsg("Select at least one class day.");
+      return;
+    }
 
     setIsSubmitting(true);
     setErrorMsg("");
@@ -134,8 +146,8 @@ export default function EditBatchModal({
           teacherId,
           teacherName: selectedTeacher ? selectedTeacher.name : batch.teacherName,
           brand,
-          startDate: startDate ? new Date(startDate) : undefined,
-          endDate: endDate ? new Date(endDate) : undefined,
+          startDate,
+          endDate: endDate || null,
           timing,
           days: selectedDays,
           status,

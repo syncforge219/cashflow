@@ -76,14 +76,22 @@ const BatchSchema = new Schema(
       enum: ["Upcoming", "Active", "Completed", "Cancelled"],
       default: "Upcoming",
     },
+    // True when Completed / Cancelled was chosen by hand; otherwise status follows the dates
+    statusLocked: {
+      type: Boolean,
+      default: false,
+    },
     createdBy: {
       type: String,
       trim: true,
     },
+    // Role of the user who created the batch, taken from their session. Roles are free text in this
+    // app ("admin", "Super Admin", "director", ...), so this is not restricted to a fixed list; the old
+    // list made batch creation fail for admins, managers and directors.
     creatorRole: {
       type: String,
-      enum: ["super admin", "brand manager", "centre head", "counsellor", "sales executive", "teacher", "system"],
-      default: "super admin",
+      trim: true,
+      default: "",
     },
     notes: {
       type: String,

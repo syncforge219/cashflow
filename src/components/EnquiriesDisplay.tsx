@@ -266,18 +266,6 @@ export default function EnquiriesDisplay() {
   );
   const isCustomDateRangeActive = startDateFilter !== "" || endDateFilter !== "" || dateFilterMode !== "all";
 
-  // Dynamic metric computations calculated on dateFilteredEnquiries
-  const totalPeriodEnquiries = dateFilteredEnquiries.length;
-
-  const pendingFollowupsCount = dateFilteredEnquiries.reduce((acc, lead) => {
-    const pendingTasks = lead.followUps?.filter((t: any) => !t.isCompleted && t.status !== "Completed").length || 0;
-    if (pendingTasks > 0) return acc + pendingTasks;
-    if (lead.status === "Pending" || lead.status === "Hot Follow-up" || lead.status === "Cold Follow-up" || lead.status === "Follow-up") {
-      return acc + 1;
-    }
-    return acc;
-  }, 0);
-
   // Calculate official admissions for the period matching date & brand filters
   const dateFilteredAdmissions = admissionsList.filter((adm) => {
     const rawDateVal = adm.admissionDate || adm.createdAt;
@@ -324,17 +312,6 @@ export default function EnquiriesDisplay() {
     return true;
   });
 
-  const admissionsConvertedCount = finalAdmissions.length > 0
-    ? finalAdmissions.length
-    : dateFilteredEnquiries.filter((e) => e.status === "Admission" || e.status === "Admitted" || e.status === "Converted").length;
-
-  const lostLeadsCount = dateFilteredEnquiries.filter(
-    (e) => e.status === "Lost" || e.status === "Closed"
-  ).length;
-
-  const rawRate = totalPeriodEnquiries > 0 ? (admissionsConvertedCount / totalPeriodEnquiries) * 100 : 0;
-  const conversionRateStr = totalPeriodEnquiries > 0 ? `${Math.min(100, Number(rawRate.toFixed(1)))}%` : "0%";
-
   // Pre-calculate admitted IDs and phone numbers from finalAdmissions for reliable matching
   const admittedEnquiryIdSet = React.useMemo(() => {
     const set = new Set<string>();
@@ -366,6 +343,30 @@ export default function EnquiriesDisplay() {
     }
     return false;
   };
+
+  // Dynamic metric computations calculated on dateFilteredEnquiries
+  const totalPeriodEnquiries = dateFilteredEnquiries.length;
+
+  const pendingFollowupsCount = dateFilteredEnquiries.reduce((acc, lead) => {
+    if (isLeadConverted(lead)) return acc;
+    const pendingTasks = lead.followUps?.filter((t: any) => !t.isCompleted && t.status !== "Completed").length || 0;
+    if (pendingTasks > 0) return acc + pendingTasks;
+    if (lead.status === "Pending" || lead.status === "Hot Follow-up" || lead.status === "Cold Follow-up" || lead.status === "Follow-up") {
+      return acc + 1;
+    }
+    return acc;
+  }, 0);
+
+  const admissionsConvertedCount = finalAdmissions.length > 0
+    ? finalAdmissions.length
+    : dateFilteredEnquiries.filter((e) => e.status === "Admission" || e.status === "Admitted" || e.status === "Converted").length;
+
+  const lostLeadsCount = dateFilteredEnquiries.filter(
+    (e) => e.status === "Lost" || e.status === "Closed"
+  ).length;
+
+  const rawRate = totalPeriodEnquiries > 0 ? (admissionsConvertedCount / totalPeriodEnquiries) * 100 : 0;
+  const conversionRateStr = totalPeriodEnquiries > 0 ? `${Math.min(100, Number(rawRate.toFixed(1)))}%` : "0%";
 
   // Keep all sources visible even when user clicks a specific source to filter table below
   const enquiriesForSourceAnalysis = React.useMemo(() => {

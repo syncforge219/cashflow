@@ -92,13 +92,16 @@ export default function AddBatchModal({
           }
         }
 
+        let bList: string[] = [];
         if (brandsRes.success || brandsRes.brands) {
-          const bList = (brandsRes.brands || brandsRes.data || []).map((b: any) => b.brandName || b.name).filter(Boolean);
+          bList = (brandsRes.brands || brandsRes.data || []).map((b: any) => b.brandName || b.name).filter(Boolean);
           setBrandsList(bList);
         }
 
-        // Set default brand scope
-        const defaultBrand = initialBrandScope || user?.brandScope || brandsList[0] || "";
+        // Default brand: the one passed in, else the user's own single brand, else the first brand.
+        // "All Brands" is a user scope, not a brand a batch can belong to.
+        const isSpecific = (s?: string) => Boolean(s && !/^(all|all brands|global|\*)$/i.test(s.trim()) && !/[,/|]/.test(s));
+        const defaultBrand = isSpecific(initialBrandScope) ? initialBrandScope! : isSpecific(user?.brandScope) ? user!.brandScope! : bList[0] || "";
         setBrand(defaultBrand);
 
         // Default start date = today
@@ -163,6 +166,22 @@ export default function AddBatchModal({
       setErrorMsg("Please select a start date.");
       return;
     }
+    if (endDate && endDate < startDate) {
+      setErrorMsg("End date is before the start date.");
+      return;
+    }
+    if (selectedDays.length === 0) {
+      setErrorMsg("Select at least one class day.");
+      return;
+    }
+    if (!brand) {
+      setErrorMsg("Choose which brand this batch belongs to.");
+      return;
+    }
+    if (!Number.isInteger(maxCapacity) || maxCapacity < 1) {
+      setErrorMsg("Max capacity must be at least 1.");
+      return;
+    }
 
     setIsSubmitting(true);
     setErrorMsg("");
@@ -181,15 +200,13 @@ export default function AddBatchModal({
           courseCode: courseCode.trim() || undefined,
           teacherId,
           teacherName,
-          brand: brand || user?.brandScope || "",
+          brand,
           startDate,
           endDate: endDate || undefined,
           timing,
           days: selectedDays,
           maxCapacity,
           notes: notes.trim(),
-          createdBy: user?.name || "User",
-          creatorRole: user?.role || "counsellor",
         }),
       });
 
@@ -441,9 +458,9 @@ export default function AddBatchModal({
               <input
                 type="number"
                 min={1}
-                max={200}
+                max={500}
                 value={maxCapacity}
-                onChange={(e) => setMaxCapacity(Number(e.target.value))}
+                onChange={(e) => setMaxCapacity(Math.round(Number(e.target.value)) || 0)}
                 className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-semibold transition-all"
               />
             </div>

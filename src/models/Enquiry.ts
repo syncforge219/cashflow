@@ -156,6 +156,10 @@ const EnquirySchema = new Schema(
       type: String,
       default: "New",
     },
+    isAdmitted: {
+      type: Boolean,
+      default: false,
+    },
     // Who brought this lead in: the user who added it, or the marketing user who set up the
     // connector it arrived through. Marketing Executives see only their own leads.
     addedByUserId: {

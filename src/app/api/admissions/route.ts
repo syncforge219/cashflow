@@ -21,6 +21,7 @@ import { validateDeletedAccess } from "@/lib/softDeleteAccess";
 import { withOptionalTransaction } from "@/lib/transactionHelper";
 import { studentBalanceLookupStages } from "@/lib/studentBalanceService";
 import { resolveBrandName } from "@/lib/brandDefaults";
+import { BatchRuleError, resolveBatchForAssignment } from "@/lib/batchRules";
 
 export async function POST(req: NextRequest) {
   try {
@@ -66,16 +67,18 @@ export async function POST(req: NextRequest) {
     const rawBatchId = typeof data.batchId === "string" ? data.batchId.trim() : (data.batchId ? String(data.batchId).trim() : "");
 
     if (rawBatchId && rawBatchId !== "Unassigned" && rawBatchId !== "General Batch") {
-      const bQuery: any[] = [{ batchId: rawBatchId }];
-      if (mongoose.Types.ObjectId.isValid(rawBatchId)) {
-        bQuery.push({ _id: new mongoose.Types.ObjectId(rawBatchId) });
-      }
-      const batchDoc = await Batch.findOne({ $or: bQuery }).lean();
-      if (batchDoc) {
+      // The batch must exist, be open, match the student's brand and have a free seat
+      // (an unknown id used to be stored anyway, pointing at a batch that doesn't exist)
+      try {
+        const batchDoc = await resolveBatchForAssignment(rawBatchId, { studentBrand: data.brand });
         finalBatchName = batchDoc.batchName;
         finalBatchId = batchDoc._id;
-      } else if (mongoose.Types.ObjectId.isValid(rawBatchId)) {
-        finalBatchId = new mongoose.Types.ObjectId(rawBatchId);
+        if (!String(data.brand || "").trim() && batchDoc.brand) data.brand = batchDoc.brand;
+      } catch (err: any) {
+        if (err instanceof BatchRuleError) {
+          return NextResponse.json({ success: false, message: err.message, error: err.message }, { status: err.status });
+        }
+        throw err;
       }
     } else if (finalBatchName && finalBatchName !== "General Batch" && finalBatchName !== "Unassigned") {
       // Only resolve batchId if exactly one batch exists with this name to avoid guessing across duplicate batch names
@@ -292,82 +295,140 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // D. Enquiry cascade (Req 1, 2, 5):
-        // 1. Remove mobile-number fallback. Only cascade to enquiry linked by Admission.enquiryId (exact _id match).
-        // 2. If enquiryId is missing, do not update any enquiry — log a warning instead.
-        // 3. Enquiry.updateOne since an admission links to exactly one enquiry.
-        // 4. Before changing a name, record the old and new values.
-        if (data.enquiryId && mongoose.Types.ObjectId.isValid(String(data.enquiryId))) {
-          const targetEnqId = new mongoose.Types.ObjectId(String(data.enquiryId));
-          const enq = await Enquiry.findById(targetEnqId).session(session);
-          if (enq) {
-            if (enq.studentFullName && admission.fullName && enq.studentFullName.trim() !== admission.fullName.trim()) {
-              const userId = (user as any)?._id || (user as any)?.id || null;
-              await logAuditEntry({
-                collectionName: "enquiries",
-                docId: enq._id,
-                action: "UPDATE",
-                changedFields: [{
-                  field: "studentFullName",
-                  oldValue: enq.studentFullName,
-                  newValue: admission.fullName.trim()
-                }],
-                userId
-              });
-            }
+        // D. Enquiry cascade:
+        let enq: any = null;
+        if (data.enquiryId) {
+          if (mongoose.Types.ObjectId.isValid(String(data.enquiryId))) {
+            enq = await Enquiry.findById(data.enquiryId).session(session);
+          }
+          if (!enq) {
+            enq = await Enquiry.findOne({ enquiryId: String(data.enquiryId) }).session(session);
+          }
+        }
 
-            cancelUncompletedFollowUps(enq);
+        // If enquiryId was not provided or didn't match, check by student phone
+        if (!enq && cleanPhone && cleanPhone !== "0000000000") {
+          const last10 = cleanPhone.slice(-10);
+          enq = await Enquiry.findOne({
+            $or: [
+              { primaryPhoneMobile: { $regex: last10 } },
+              { parentsPhoneNumber: { $regex: last10 } },
+              { secondaryPhone: { $regex: last10 } }
+            ]
+          }).sort({ createdAt: -1 }).session(session);
+        }
+
+        if (enq) {
+          if (enq.studentFullName && admission.fullName && enq.studentFullName.trim() !== admission.fullName.trim()) {
+            const userId = (user as any)?._id || (user as any)?.id || null;
+            await logAuditEntry({
+              collectionName: "enquiries",
+              docId: enq._id,
+              action: "UPDATE",
+              changedFields: [{
+                field: "studentFullName",
+                oldValue: enq.studentFullName,
+                newValue: admission.fullName.trim()
+              }],
+              userId
+            });
+          }
+
+          cancelUncompletedFollowUps(enq);
+          await Enquiry.updateOne(
+            { _id: enq._id },
+            {
+              $set: {
+                status: "Admitted",
+                isAdmitted: true,
+                actualAdmissionFee: Number(admission.finalFee || admission.courseFee || 0),
+                assignedCrmAdvisor: admission.counsellor || enq.assignedCrmAdvisor,
+                assignedCrmAdvisorId: admission.counsellorId || enq.assignedCrmAdvisorId,
+                studentFullName: admission.fullName || enq.studentFullName,
+                followUps: enq.followUps
+              }
+            },
+            session ? { session } : {}
+          );
+          matchedEnquiryIds.push(enq._id.toString());
+          if (enq.enquiryId) matchedEnquiryIds.push(enq.enquiryId);
+        } else {
+          console.warn(`[POST /api/admissions] No matching enquiry found for admission ${admission.admissionId || "new"}.`);
+        }
+
+        // Also check if any other enquiries match this student's phone and mark them admitted/cancelled
+        if (cleanPhone && cleanPhone !== "0000000000") {
+          const last10 = cleanPhone.slice(-10);
+          const validObjectIds = matchedEnquiryIds
+            .filter((id) => mongoose.Types.ObjectId.isValid(id))
+            .map((id) => new mongoose.Types.ObjectId(id));
+
+          const otherEnqs = await Enquiry.find({
+            _id: { $nin: validObjectIds },
+            $or: [
+              { primaryPhoneMobile: { $regex: last10 } },
+              { parentsPhoneNumber: { $regex: last10 } },
+              { secondaryPhone: { $regex: last10 } }
+            ],
+            status: { $ne: "Admitted" }
+          }).session(session);
+
+          for (const otherEnq of otherEnqs) {
+            cancelUncompletedFollowUps(otherEnq);
             await Enquiry.updateOne(
-              { _id: targetEnqId },
+              { _id: otherEnq._id },
               {
                 $set: {
                   status: "Admitted",
                   isAdmitted: true,
-                  actualAdmissionFee: Number(admission.finalFee || admission.courseFee || 0),
-                  assignedCrmAdvisor: admission.counsellor || enq.assignedCrmAdvisor,
-                  assignedCrmAdvisorId: admission.counsellorId || enq.assignedCrmAdvisorId,
-                  studentFullName: admission.fullName || enq.studentFullName,
-                  followUps: enq.followUps
+                  followUps: otherEnq.followUps
                 }
               },
               session ? { session } : {}
             );
-            matchedEnquiryIds.push(enq._id.toString());
-          } else {
-            console.warn(`[POST /api/admissions] Enquiry with _id ${data.enquiryId} not found; skipping enquiry update.`);
+            matchedEnquiryIds.push(otherEnq._id.toString());
+            if (otherEnq.enquiryId) matchedEnquiryIds.push(otherEnq.enquiryId);
           }
-
-          // Interim Cascade Bridge (Prompt 1 Extension - Req 5):
-          if (admission.studentId) {
-            const { syncPrompt1CascadeToStudent } = await import("@/lib/studentHelper");
-            await syncPrompt1CascadeToStudent(
-              admission.studentId,
-              {
-                fullName: admission.fullName,
-                mobileNumber: admission.mobileNumber,
-                email: admission.email,
-                city: admission.city,
-                parentName: admission.parentName || admission.parentsFullName,
-                parentPhone: admission.parentPhone || admission.parentsPhoneNumber,
-              },
-              session
-            );
-          }
-        } else {
-          console.warn(`[POST /api/admissions] No enquiryId provided for admission ${admission.admissionId || "new"}; skipping enquiry update.`);
         }
 
-        // E. Cancel/close any pending lead call tasks for this student/enquiry inside transaction
-        if (matchedEnquiryIds.length > 0 || admission.fullName) {
+        // Interim Cascade Bridge (Prompt 1 Extension - Req 5):
+        if (admission.studentId) {
+          const { syncPrompt1CascadeToStudent } = await import("@/lib/studentHelper");
+          await syncPrompt1CascadeToStudent(
+            admission.studentId,
+            {
+              fullName: admission.fullName,
+              mobileNumber: admission.mobileNumber,
+              email: admission.email,
+              city: admission.city,
+              parentName: admission.parentName || admission.parentsFullName,
+              parentPhone: admission.parentPhone || admission.parentsPhoneNumber,
+            },
+            session
+          );
+        }
+
+        // E. Cancel/close any pending lead call/demo/follow-up tasks for this student/enquiry inside transaction
+        const taskOrFilters: any[] = [];
+        if (matchedEnquiryIds.length > 0) {
+          taskOrFilters.push({ linkedEnquiryId: { $in: matchedEnquiryIds } });
+        }
+        if (admission._id) {
+          taskOrFilters.push({ linkedStudentId: admission._id.toString() });
+        }
+        if (admission.fullName) {
+          taskOrFilters.push({ linkedStudentName: admission.fullName });
+        }
+        if (admission.studentFullName) {
+          taskOrFilters.push({ linkedStudentName: admission.studentFullName });
+        }
+
+        if (taskOrFilters.length > 0) {
           await Task.updateMany(
             {
-              $or: [
-                { linkedEnquiryId: { $in: matchedEnquiryIds } },
-                { linkedStudentId: admission._id.toString() },
-                { linkedStudentName: admission.fullName }
-              ],
-              taskType: { $in: ["Lead Call", "Demo", "General"] },
-              status: { $in: ["Pending", "In Progress"] }
+              $or: taskOrFilters,
+              taskType: { $in: ["Lead Call", "Demo", "Follow-up", "General"] },
+              status: { $in: ["Pending", "In Progress", "Overdue"] }
             },
             {
               $set: {

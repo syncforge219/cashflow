@@ -170,14 +170,6 @@ export default function CounsellorEnquiriesDisplay() {
     const uniqueStatuses = Array.from(new Set(enquiries.map(e => e.status).filter(Boolean)));
     const isCustomDateRangeActive = startDateFilter !== "" || endDateFilter !== "" || dateFilterMode !== "all";
 
-    // Calculate counsellor-specific metrics dynamically based on active Date Preset
-    const totalPeriodCount = counsellorDateFilteredLeads.length;
-
-    const pendingFollowupsCount = counsellorDateFilteredLeads.reduce((acc, lead) => {
-        const pendingTasks = lead.followUps?.filter((t: any) => !t.isCompleted).length || 0;
-        return acc + pendingTasks;
-    }, 0);
-
     // Pre-calculate admitted IDs and phone numbers from admissionsList
     const admittedEnquiryIdSet = React.useMemo(() => {
         const set = new Set<string>();
@@ -209,6 +201,15 @@ export default function CounsellorEnquiriesDisplay() {
         }
         return false;
     };
+
+    // Calculate counsellor-specific metrics dynamically based on active Date Preset
+    const totalPeriodCount = counsellorDateFilteredLeads.length;
+
+    const pendingFollowupsCount = counsellorDateFilteredLeads.reduce((acc, lead) => {
+        if (isLeadConverted(lead)) return acc;
+        const pendingTasks = lead.followUps?.filter((t: any) => !t.isCompleted).length || 0;
+        return acc + pendingTasks;
+    }, 0);
 
     const admissionsConvertedCount = counsellorDateFilteredLeads.filter(isLeadConverted).length;
 

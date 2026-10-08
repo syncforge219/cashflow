@@ -101,7 +101,8 @@ export default function TransferPendingFollowupModal({
           if (data.success && Array.isArray(data.data)) {
             const mapped: TransferLeadItem[] = data.data
               .filter((e: any) => {
-                if (["Lost", "Admitted", "Do Not Call", "Do Not Followup", "Completed"].includes(e.status)) return false;
+                const s = (e.status || "").toLowerCase();
+                if (e.isAdmitted || s.includes("admitted") || s.includes("admission") || s.includes("converted") || s.includes("lost") || s.includes("do not") || s.includes("completed")) return false;
                 if (isGlobalUser) return true;
                 const bLower = (e.targetBrand || e.brand || "").toLowerCase().trim();
                 return userBrands.some((ub) => bLower === ub || bLower.includes(ub) || ub.includes(bLower));

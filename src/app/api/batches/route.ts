@@ -8,372 +8,280 @@ import { getUserFromCookies } from "@/lib/helper";
 import { computeBatchStatus } from "@/lib/batchHelper";
 import { sortBatchesByTiming } from "@/lib/slotHelper";
 import { syncBatchRefs } from "@/lib/referenceHelper";
+import {
+  BatchRuleError,
+  INACTIVE_ADMISSION_STATUSES,
+  assertUniqueBatchName,
+  batchRefConditions,
+  cleanBatchFields,
+  findTeacherClash,
+  isTeacherRole,
+  nextBatchCode,
+  userBrandList,
+  userCanUseBrand,
+} from "@/lib/batchRules";
+
+const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+function ruleErrorResponse(error: any, fallback: string) {
+  if (error instanceof BatchRuleError) {
+    return NextResponse.json({ success: false, error: error.message }, { status: error.status });
+  }
+  if (error?.code === 11000) {
+    return NextResponse.json({ success: false, error: "A batch with this code already exists. Please try again." }, { status: 409 });
+  }
+  if (error?.name === "ValidationError" || error?.name === "CastError") {
+    return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+  }
+  console.error(`[Batches API] ${fallback}:`, error);
+  return NextResponse.json({ success: false, error: fallback }, { status: 500 });
+}
 
 export async function GET(request: Request) {
   try {
     await dbConnect();
     const user = await getUserFromCookies();
     const { searchParams } = new URL(request.url);
-    let brand = searchParams.get("brand");
+    const brandParam = searchParams.get("brand");
     let teacherId = searchParams.get("teacherId");
     const status = searchParams.get("status");
     const course = searchParams.get("course");
     const all = searchParams.get("all");
+    const batchIdParam = searchParams.get("batchId");
 
-    const userBrand = (user?.brandScope || (user as any)?.brand || "").trim();
-    const isBrandRestricted = userBrand && userBrand !== "All Brands" && userBrand !== "All" && userBrand !== "*" && userBrand !== "global";
+    // Every filter is its own AND clause, so one filter can never replace another
+    // (the teacher filter used to overwrite the brand restriction).
+    const and: any[] = [];
 
-    if (isBrandRestricted) {
-      brand = userBrand;
+    // Brand: a brand-restricted user only ever sees their own brand(s)
+    const allowedBrands = userBrandList(user);
+    let brandNames: string[] = [];
+    if (allowedBrands) {
+      const wanted = brandParam && !/^(all|all brands)$/i.test(brandParam) ? brandParam.trim() : "";
+      brandNames = wanted && allowedBrands.some((b) => b.toLowerCase() === wanted.toLowerCase()) ? [wanted] : allowedBrands;
+    } else if (brandParam && !/^(all|all brands)$/i.test(brandParam)) {
+      brandNames = [brandParam.trim()];
+    }
+    if (brandNames.length > 0) {
+      const regexes = brandNames.map((b) => new RegExp(`^${escapeRegex(b)}$`, "i"));
+      const idCandidates = brandNames.filter((b) => mongoose.Types.ObjectId.isValid(b));
+      const brandDocs: any[] = await Brand.find({
+        $or: [{ name: { $in: regexes } }, { code: { $in: regexes } }, ...(idCandidates.length ? [{ _id: { $in: idCandidates } }] : [])],
+      })
+        .select("_id name")
+        .lean();
+      const nameRegexes = [...regexes, ...brandDocs.map((b) => new RegExp(`^${escapeRegex(String(b.name))}$`, "i"))];
+      and.push({ $or: [{ brandId: { $in: brandDocs.map((b) => b._id) } }, { brand: { $in: nameRegexes } }] });
     }
 
-    // Automatically restrict to logged-in teacher's batches if role is teacher/faculty and all!=true
-    if (!teacherId && user && (user.role === "teacher" || user.role === "faculty") && all !== "true") {
-      teacherId = user._id ? user._id.toString() : ((user as any)?.id || "");
+    // Teachers see their own batches unless ?all=true
+    if (!teacherId && user && isTeacherRole(user.role) && all !== "true") {
+      teacherId = user._id ? user._id.toString() : (user as any)?.id || "";
     }
-
-    const query: any = {};
-    if (brand && brand !== "All Brands" && brand !== "All") {
-      const bRegex = new RegExp(`^${brand.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i");
-      const brandDoc = (mongoose.Types.ObjectId.isValid(brand)
-        ? await Brand.findById(brand).lean()
-        : await Brand.findOne({ $or: [{ name: bRegex }, { code: bRegex }] }).lean()) as any;
-      if (brandDoc) {
-        query.$or = [{ brandId: brandDoc._id }, { brand: bRegex }];
-      } else {
-        query.brand = { $regex: bRegex };
-      }
-    }
-
     if (teacherId) {
-      let teacherName = user?.name;
-      if (user?._id?.toString() !== teacherId && (user as any)?.id !== teacherId) {
-        try {
-          if (mongoose.Types.ObjectId.isValid(teacherId)) {
-            const teacherUser = await User.findById(teacherId).lean();
-            if (teacherUser) teacherName = teacherUser.name;
-          }
-        } catch (_) {}
+      let teacherName = "";
+      if (mongoose.Types.ObjectId.isValid(teacherId)) {
+        const teacherUser: any = await User.findById(teacherId).select("name").lean();
+        teacherName = teacherUser?.name || "";
       }
-
-      const teacherOrConditions: any[] = [{ teacherId: teacherId }];
-      if (teacherName) {
-        teacherOrConditions.push({
-          teacherName: { $regex: new RegExp(`^${teacherName.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") }
-        });
+      const teacherOr: any[] = [];
+      if (mongoose.Types.ObjectId.isValid(teacherId)) teacherOr.push({ teacherId: new mongoose.Types.ObjectId(teacherId) });
+      if (teacherName) teacherOr.push({ teacherName: new RegExp(`^${escapeRegex(teacherName.trim())}$`, "i") });
+      if (teacherOr.length === 0) {
+        return NextResponse.json({ success: true, count: 0, data: [], batches: [] });
       }
-      query.$or = teacherOrConditions;
-    }
-
-    if (status && status !== "All Status") {
-      query.status = status;
+      and.push({ $or: teacherOr });
     }
 
     if (course) {
-      const cRegex = new RegExp(course.trim(), "i");
-      const courseQuery = [{ course: { $regex: cRegex } }, { courses: { $regex: cRegex } }];
-      if (query.$or) {
-        query.$and = [{ $or: query.$or }, { $or: courseQuery }];
-        delete query.$or;
-      } else {
-        query.$or = courseQuery;
-      }
+      const cRegex = new RegExp(escapeRegex(course.trim()), "i");
+      and.push({ $or: [{ course: cRegex }, { courses: cRegex }] });
     }
-
-    const batchIdParam = searchParams.get("batchId");
 
     if (batchIdParam) {
-      const trimmedBId = batchIdParam.trim();
-      const bQuery: any[] = [{ batchId: trimmedBId }];
-      if (mongoose.Types.ObjectId.isValid(trimmedBId)) {
-        bQuery.push({ _id: new mongoose.Types.ObjectId(trimmedBId) });
-      }
-      if (query.$or) {
-        query.$and = [{ $or: query.$or }, { $or: bQuery }];
-        delete query.$or;
-      } else {
-        query.$or = bQuery;
-      }
+      const trimmed = batchIdParam.trim();
+      const bQuery: any[] = [{ batchId: trimmed }];
+      if (mongoose.Types.ObjectId.isValid(trimmed)) bQuery.push({ _id: new mongoose.Types.ObjectId(trimmed) });
+      and.push({ $or: bQuery });
     }
 
-    let batches = await Batch.find(query).sort({ createdAt: -1 }).lean();
+    // Status is filtered after it is recalculated below: the stored status can be out of date
+    // (a batch stored as "Upcoming" may be Active today).
+    if (status === "Cancelled") and.push({ status: "Cancelled" });
 
-    // Auto-migrate batch IDs and synchronize dynamic batch status lifecycle (Upcoming -> Active -> Completed)
+    let batches: any[] = await Batch.find(and.length ? { $and: and } : {}).sort({ createdAt: -1 }).lean();
+
+    // Keep stored data in step: missing codes, lifecycle status, timing typo, missing start date
     const updatePromises: Promise<any>[] = [];
-
-    for (let i = 0; i < batches.length; i++) {
-      const b = batches[i];
-      let needsDbUpdate = false;
+    for (const b of batches) {
       const updates: any = {};
 
       if (!b.batchId) {
-        const lastBatchWithId = await Batch.findOne({ batchId: /^BAT\d+$/ }).sort({ batchId: -1 });
-        let nextNum = 1;
-        if (lastBatchWithId && lastBatchWithId.batchId) {
-          const match = lastBatchWithId.batchId.match(/^BAT(\d+)$/);
-          if (match) nextNum = parseInt(match[1], 10) + 1;
-        }
-        const genId = `BAT${String(nextNum).padStart(6, "0")}`;
-        updates.batchId = genId;
-        batches[i].batchId = genId;
-        needsDbUpdate = true;
+        // One at a time through the counter; the old "highest + 1" gave every un-coded batch the same code
+        updates.batchId = await nextBatchCode();
+        b.batchId = updates.batchId;
       }
 
-      const calculatedStatus = computeBatchStatus(b.startDate, b.endDate, b.status);
-      if (calculatedStatus !== b.status && b.status !== "Cancelled") {
+      const calculatedStatus = computeBatchStatus(b.startDate, b.endDate, b.status, new Date(), b.statusLocked);
+      if (calculatedStatus !== b.status) {
         updates.status = calculatedStatus;
-        batches[i].status = calculatedStatus;
-        needsDbUpdate = true;
+        b.status = calculatedStatus;
       }
 
-      if (!b.timing || !b.timing.trim()) {
-        const defaultTiming = "10:00 AM - 12:00 PM";
-        updates.timing = defaultTiming;
-        batches[i].timing = defaultTiming;
-        needsDbUpdate = true;
+      if (!b.timing || !String(b.timing).trim()) {
+        updates.timing = "10:00 AM - 12:00 PM";
+        b.timing = updates.timing;
       } else if (/12:00\s*AM/i.test(b.timing)) {
-        const correctedTiming = b.timing.replace(/12:00\s*AM/gi, "12:00 PM");
-        updates.timing = correctedTiming;
-        batches[i].timing = correctedTiming;
-        needsDbUpdate = true;
+        // Classes never run at midnight: "12:00 AM" is a typo for noon
+        updates.timing = b.timing.replace(/12:00\s*AM/gi, "12:00 PM");
+        b.timing = updates.timing;
       }
 
       if (!b.startDate) {
-        const defaultStart = b.createdAt ? new Date(b.createdAt) : new Date();
-        updates.startDate = defaultStart;
-        batches[i].startDate = defaultStart;
-        needsDbUpdate = true;
+        updates.startDate = b.createdAt ? new Date(b.createdAt) : new Date();
+        b.startDate = updates.startDate;
       }
 
-      if (needsDbUpdate) {
-        updatePromises.push(Batch.findByIdAndUpdate(b._id, updates));
+      if (Object.keys(updates).length > 0) {
+        updatePromises.push(Batch.updateOne({ _id: b._id }, { $set: updates }));
       }
     }
+    if (updatePromises.length > 0) await Promise.all(updatePromises);
 
-    if (updatePromises.length > 0) {
-      await Promise.all(updatePromises);
-    }
-
-    // If a specific status filter was requested in query, re-filter in memory to guarantee synced statuses match
     if (status && status !== "All Status") {
       batches = batches.filter((b) => b.status === status);
     }
 
-    // Attach enrolled student counts strictly by unique batchId
+    // Enrolled students. One query for all batches; older batches without assignments fall back
+    // to their latest attendance sheet, then to name-matched legacy admissions (as before).
     try {
       const Admission = (await import("@/models/Admission")).default;
-      const Enquiry = (await import("@/models/Enquiry")).default;
       const Attendance = (await import("@/models/Attendance")).default;
 
-      for (let i = 0; i < batches.length; i++) {
-        const b = batches[i] as any;
-        const bIdStr = b._id ? b._id.toString() : "";
-        const bCustomId = b.batchId || "";
+      const allConds = batches.flatMap((b) => batchRefConditions(b));
+      const admitted: any[] = allConds.length
+        ? await Admission.find({ $or: allConds, status: { $nin: INACTIVE_ADMISSION_STATUSES } })
+            .select("fullName studentFullName admissionId mobileNumber batchId")
+            .lean()
+        : [];
+      const byRef = new Map<string, any[]>();
+      for (const a of admitted) {
+        const key = String(a.batchId);
+        if (!byRef.has(key)) byRef.set(key, []);
+        byRef.get(key)!.push(a);
+      }
 
-        const batchIdOrConditions: any[] = [];
-        if (b._id) batchIdOrConditions.push({ batchId: b._id });
-        if (bIdStr) batchIdOrConditions.push({ batchId: bIdStr });
-        if (bCustomId && bCustomId !== bIdStr) batchIdOrConditions.push({ batchId: bCustomId });
-
-        let admittedStudents: any[] = [];
-        if (batchIdOrConditions.length > 0) {
-          const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          const activeStatusFilter = { $nin: ["Cancelled", "Refunded", "Dropped", "Transferred"] };
-
-          // 1. Direct query scoped to batch and active admissions
-          const baseMatch: any = {
-            $or: batchIdOrConditions,
-            status: activeStatusFilter,
-          };
-          if (b.brand) {
-            baseMatch.brand = { $regex: new RegExp(`^${escapeRegExp(b.brand.trim())}$`, "i") };
-          }
-
-          admittedStudents = await Admission.find(baseMatch)
-            .select("fullName studentFullName admissionId mobileNumber")
-            .lean();
-
-          // If no direct admissions matched with brand filter, try without brand filter (in case admission brand is unassigned)
-          if (admittedStudents.length === 0) {
-            admittedStudents = await Admission.find({
-              $or: batchIdOrConditions,
-              status: activeStatusFilter,
-            })
-              .select("fullName studentFullName admissionId mobileNumber")
-              .lean();
-          }
-
-          // 2. If still no direct admissions, check if an attendance session was already recorded for this batch
-          if (admittedStudents.length === 0) {
-            const attConditions: any[] = [];
-            if (b._id) attConditions.push({ batchId: b._id });
-            if (bIdStr) attConditions.push({ batchId: bIdStr });
-            if (bCustomId && bCustomId !== bIdStr) attConditions.push({ batchId: bCustomId });
-            const latestAtt = await Attendance.findOne({ $or: attConditions }).sort({ date: -1 }).lean();
-            if (latestAtt && Array.isArray(latestAtt.records) && latestAtt.records.length > 0) {
-              admittedStudents = latestAtt.records.map((r: any) => ({
-                fullName: r.studentName || "Student",
-                studentFullName: r.studentName || "Student",
-                admissionId: r.admissionId || "",
-                mobileNumber: r.mobileNumber || "",
-              }));
-            }
-          }
-
-          // 3. Only if still 0 and batchName exists, check legacy admissions but strictly scoped to the same brand & course
-          if (admittedStudents.length === 0 && b.batchName) {
-            const nameCount = await Batch.countDocuments({
-              batchName: { $regex: new RegExp(`^${escapeRegExp(b.batchName.trim())}$`, "i") }
-            });
-
-            if (nameCount === 1) {
-              const legacyQuery: any = {
-                batch: { $regex: new RegExp(`^${escapeRegExp(b.batchName.trim())}$`, "i") },
-                $or: [{ batchId: { $exists: false } }, { batchId: "" }, { batchId: null }],
-                status: activeStatusFilter,
-              };
-              if (b.brand) {
-                legacyQuery.brand = { $regex: new RegExp(`^${escapeRegExp(b.brand.trim())}$`, "i") };
-              }
-              if (b.course) {
-                legacyQuery.course = { $regex: new RegExp(`^${escapeRegExp(b.course.trim())}$`, "i") };
-              }
-
-              const legacyAdmissions = await Admission.find(legacyQuery)
-                .select("fullName studentFullName admissionId mobileNumber")
-                .lean();
-              if (legacyAdmissions.length > 0) {
-                admittedStudents = legacyAdmissions;
-              }
+      for (const b of batches) {
+        const seen = new Set<string>();
+        let students: any[] = [];
+        for (const key of [String(b._id), b.batchId].filter(Boolean)) {
+          for (const a of byRef.get(key) || []) {
+            if (!seen.has(String(a._id))) {
+              seen.add(String(a._id));
+              students.push(a);
             }
           }
         }
+        let fromAttendance = false;
 
-        const studentNames = admittedStudents.map((a: any) => a.fullName || a.studentFullName || a.admissionId);
-        (batches[i] as any).students = studentNames;
-        (batches[i] as any).enrolledCount = admittedStudents.length;
-        (batches[i] as any).enrolledStudentsCount = admittedStudents.length;
+        if (students.length === 0) {
+          // Raw collection query: attendance stores the batch as an ObjectId, and the model would throw
+          // when also matching the BATxxxxxx code form
+          const latestAtt: any = await Attendance.collection.findOne({ $or: batchRefConditions(b) }, { sort: { date: -1 } });
+          if (latestAtt && Array.isArray(latestAtt.records) && latestAtt.records.length > 0) {
+            fromAttendance = true;
+            students = latestAtt.records.map((r: any) => ({
+              fullName: r.studentName || "Student",
+              admissionId: r.admissionId || "",
+              mobileNumber: r.mobileNumber || "",
+            }));
+          }
+        }
+
+        if (students.length === 0 && b.batchName) {
+          const nameCount = await Batch.countDocuments({ batchName: new RegExp(`^${escapeRegex(b.batchName.trim())}$`, "i") });
+          if (nameCount === 1) {
+            const legacyQuery: any = {
+              batch: new RegExp(`^${escapeRegex(b.batchName.trim())}$`, "i"),
+              $or: [{ batchId: { $exists: false } }, { batchId: "" }, { batchId: null }],
+              status: { $nin: INACTIVE_ADMISSION_STATUSES },
+            };
+            if (b.brand) legacyQuery.brand = new RegExp(`^${escapeRegex(b.brand.trim())}$`, "i");
+            if (b.course) legacyQuery.course = new RegExp(`^${escapeRegex(b.course.trim())}$`, "i");
+            students = await Admission.find(legacyQuery).select("fullName studentFullName admissionId mobileNumber").lean();
+          }
+        }
+
+        b.students = students.map((a: any) => a.fullName || a.studentFullName || a.admissionId);
+        b.enrolledCount = students.length;
+        b.enrolledStudentsCount = students.length;
+        b.enrolledFromAttendance = fromAttendance;
       }
     } catch (e) {
       console.error("Error calculating batch student counts from admissions:", e);
     }
 
     batches = sortBatchesByTiming(batches);
-
-    return NextResponse.json({
-      success: true,
-      count: batches.length,
-      data: batches,
-      batches,
-    });
+    return NextResponse.json({ success: true, count: batches.length, data: batches, batches });
   } catch (error: any) {
-    console.error("GET /api/batches Error:", error);
-    return NextResponse.json(
-      { success: false, error: error.message || "Failed to fetch batches" },
-      { status: 500 }
-    );
+    return ruleErrorResponse(error, "Failed to fetch batches");
   }
 }
 
 export async function POST(request: Request) {
   try {
     await dbConnect();
+    const user = await getUserFromCookies();
+    if (!user) return NextResponse.json({ success: false, error: "Not signed in" }, { status: 401 });
     const body = await request.json();
 
-    const {
-      batchId,
-      batchName,
-      course,
-      courses,
-      courseCode,
-      teacherId,
-      teacherName,
-      brand,
-      startDate,
-      endDate,
-      timing,
-      days,
-      maxCapacity,
-      notes,
-      createdBy,
-      creatorRole,
-    } = body;
+    const fields = await cleanBatchFields(body, false);
+    if (!userCanUseBrand(user, fields.brand)) {
+      return NextResponse.json({ success: false, error: `You can only create batches for ${userBrandList(user)?.join(", ")}.` }, { status: 403 });
+    }
+    if (fields.endDate && fields.startDate && fields.endDate < fields.startDate) {
+      throw new BatchRuleError("End date is before the start date.");
+    }
+    await assertUniqueBatchName(fields.batchName!, fields.brand!);
 
-    const coursesArr: string[] = Array.isArray(courses) && courses.length > 0
-      ? courses.map((c: any) => String(c).trim()).filter(Boolean)
-      : (course ? [String(course).trim()] : []);
-
-    const courseStr = course ? String(course).trim() : coursesArr.join(", ");
-
-    if (!batchName || (coursesArr.length === 0 && !courseStr) || !teacherId || !brand || !startDate || !timing) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Batch Name, Course(s), Faculty, Brand, Start Date, and Timing are required.",
-        },
-        { status: 400 }
+    const clash = await findTeacherClash({
+      teacherId: fields.teacherId,
+      timing: fields.timing!,
+      days: fields.days!,
+      startDate: fields.startDate!,
+      endDate: fields.endDate,
+    });
+    if (clash) {
+      throw new BatchRuleError(
+        `${fields.teacherName} already teaches "${clash.batchName}" (${clash.batchId}) at ${clash.timing} on ${(clash.days || []).join(", ") || "the same days"}. Pick another time or teacher.`,
+        409
       );
     }
 
-    // Verify assigned teacher exists
-    let assignedFacultyName = teacherName;
-    if (teacherId && mongoose.Types.ObjectId.isValid(teacherId)) {
-      const teacher = await User.findById(teacherId);
-      if (teacher) {
-        assignedFacultyName = teacher.name;
-      }
+    // A custom code is accepted only if it is free; otherwise the next BATxxxxxx code is used
+    let batchCode = String(body.batchId || "").trim();
+    if (batchCode) {
+      if (!/^[A-Za-z0-9-]{3,20}$/.test(batchCode)) throw new BatchRuleError("Batch code may only use letters, digits and '-' (3–20 characters).");
+      if (await Batch.exists({ batchId: batchCode })) throw new BatchRuleError(`Batch code ${batchCode} is already used.`, 409);
+    } else {
+      batchCode = await nextBatchCode();
     }
 
-    // Auto-generate unique batchId if not provided
-    let finalBatchId = batchId?.trim();
-    if (!finalBatchId) {
-      const lastBatchWithId = await Batch.findOne({ batchId: /^BAT\d+$/ }).sort({ batchId: -1 });
-      let nextNum = 1;
-      if (lastBatchWithId && lastBatchWithId.batchId) {
-        const match = lastBatchWithId.batchId.match(/^BAT(\d+)$/);
-        if (match) nextNum = parseInt(match[1], 10) + 1;
-      }
-      finalBatchId = `BAT${String(nextNum).padStart(6, "0")}`;
-    }
-
-    const initialStatus = computeBatchStatus(startDate, endDate);
-
-    const batchPayload: any = {
-      batchId: finalBatchId,
-      batchName: batchName.trim(),
-      course: courseStr,
-      courses: coursesArr,
-      courseCode: courseCode?.trim() || undefined,
-      teacherId,
-      teacherName: assignedFacultyName || "Unassigned Faculty",
-      brand,
-      startDate: new Date(startDate),
-      endDate: endDate ? new Date(endDate) : undefined,
-      timing,
-      days: Array.isArray(days) ? days : [days].filter(Boolean),
-      maxCapacity: Number(maxCapacity) || 30,
-      notes,
-      createdBy: createdBy || "System User",
-      creatorRole: creatorRole || "super admin",
-      status: initialStatus,
+    const payload: any = {
+      ...fields,
+      batchId: batchCode,
+      endDate: fields.endDate || undefined,
+      status: computeBatchStatus(fields.startDate, fields.endDate),
+      statusLocked: false,
+      // Who created it comes from the session, not from the request body
+      createdBy: user.name || user.email || "User",
+      creatorRole: String(user.role || ""),
     };
-    await syncBatchRefs(batchPayload);
+    await syncBatchRefs(payload);
+    const newBatch = await Batch.create(payload);
 
-    const newBatch = await Batch.create(batchPayload);
-
-    return NextResponse.json(
-      {
-        success: true,
-        message: "Faculty batch created successfully",
-        data: newBatch,
-      },
-      { status: 201 }
-    );
+    return NextResponse.json({ success: true, message: "Faculty batch created successfully", data: newBatch }, { status: 201 });
   } catch (error: any) {
-    console.error("POST /api/batches Error:", error);
-    return NextResponse.json(
-      { success: false, error: error.message || "Failed to create batch" },
-      { status: 500 }
-    );
+    return ruleErrorResponse(error, "Failed to create batch");
   }
 }

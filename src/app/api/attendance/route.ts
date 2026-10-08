@@ -129,9 +129,12 @@ export async function GET(request: Request) {
 
       // 3. Check Attendance collection strictly for this batch if roster is still empty
       if (studentRoster.length === 0 && batchIdConditions.length > 0) {
-        const attendanceLogs = await Attendance.find({
-          $or: batchIdConditions
-        }).sort({ date: -1 }).limit(10).lean();
+        // Raw collection query: the model casts batchId to ObjectId and threw on the BATxxxxxx code form
+        const attendanceLogs = await Attendance.collection
+          .find({ $or: batchIdConditions })
+          .sort({ date: -1 })
+          .limit(10)
+          .toArray();
 
         const studentMap = new Map<string, any>();
         attendanceLogs.forEach((att: any) => {

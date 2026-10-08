@@ -14,6 +14,7 @@ import { syncAdmissionRefs } from "@/lib/referenceHelper";
 import { getStudentBalance, recomputeAndStoreAdmissionBalance } from "@/lib/studentBalanceService";
 import { logAuditEntry, diffAndLogAudit } from "@/lib/auditLogger";
 import { withOptionalTransaction } from "@/lib/transactionHelper";
+import { BatchRuleError, findBatchByAnyId, resolveBatchForAssignment } from "@/lib/batchRules";
 
 export async function GET(
   req: Request,
@@ -181,7 +182,32 @@ export async function PUT(
       orConditions.push({ fullName: { $regex: new RegExp(`^${escapeRegExp(String(body.fullName).trim())}$`, "i") } });
     }
 
-    let existingDoc = orConditions.length > 0 ? await Admission.findOne({ $or: orConditions }) : null;
+    // Find exactly one student. Most specific first: the record id, then the admission number.
+    // Mobile / name are only used when nothing else identifies the student, and only if they match
+    // a single record. (One combined $or query could pick a different student who shares a name
+    // or phone number, and that student would then be moved between batches.)
+    let existingDoc: any = null;
+    if (mongoose.Types.ObjectId.isValid(trimmedId)) {
+      existingDoc = await Admission.findById(trimmedId);
+    }
+    const admIdCandidates = [trimmedId, body.admissionId ? String(body.admissionId).trim() : ""].filter(Boolean);
+    for (const admId of admIdCandidates) {
+      if (existingDoc) break;
+      existingDoc = await Admission.findOne({ admissionId: new RegExp(`^${escapeRegExp(admId)}$`, "i") });
+    }
+    if (!existingDoc) {
+      const looseConds = orConditions.filter((c) => c.mobileNumber !== undefined || c.fullName !== undefined);
+      if (looseConds.length > 0) {
+        const candidates = await Admission.find({ $or: looseConds }).limit(2);
+        if (candidates.length === 1) existingDoc = candidates[0];
+        else if (candidates.length > 1) {
+          return NextResponse.json(
+            { success: false, message: "More than one student matches this phone number / name. Open the student by their admission ID instead." },
+            { status: 409 }
+          );
+        }
+      }
+    }
     if (!existingDoc) {
       // Check Enquiry collection if only batch update
       if (body.batch !== undefined || body.batchId !== undefined) {
@@ -263,40 +289,57 @@ export async function PUT(
       remainingBalance = calculatedBalance;
     }
 
-    let assignedBatchName = body.batch !== undefined ? body.batch.trim() : existingDoc.batch;
-    let assignedBatchId = body.batchId !== undefined ? body.batchId : existingDoc.batchId;
+    let assignedBatchName = body.batch !== undefined ? String(body.batch ?? "").trim() : existingDoc.batch;
+    let assignedBatchId: any = body.batchId !== undefined ? body.batchId : existingDoc.batchId;
+    const batchTouched = body.batch !== undefined || body.batchId !== undefined;
 
-    if (body.batch === "Unassigned" || body.batch === "General Batch" || body.batch === "" || body.batch === null || body.batchId === "" || body.batchId === null || assignedBatchName === "General Batch" || assignedBatchName === "Unassigned") {
-      assignedBatchName = assignedBatchName === "General Batch" ? "General Batch" : "Unassigned";
+    if (
+      batchTouched &&
+      (body.batch === "Unassigned" || body.batch === "General Batch" || body.batch === "" || body.batch === null ||
+        body.batchId === "" || body.batchId === null)
+    ) {
+      // Removing the student from their batch
+      assignedBatchName = body.batch === "General Batch" ? "General Batch" : "Unassigned";
       assignedBatchId = null;
-    } else if (body.batchId && String(body.batchId).trim()) {
-      const Batch = (await import("@/models/Batch")).default;
-      const trimmedBId = String(body.batchId).trim();
-      const bQuery: any[] = [{ batchId: trimmedBId }];
-      if (mongoose.Types.ObjectId.isValid(trimmedBId)) {
-        bQuery.push({ _id: new mongoose.Types.ObjectId(trimmedBId) });
+    } else if (batchTouched) {
+      // Assigning: find the batch by id/code, else by a name that matches exactly one batch
+      let targetRef: any = body.batchId && String(body.batchId).trim() ? String(body.batchId).trim() : null;
+      if (!targetRef && body.batch) {
+        const Batch = (await import("@/models/Batch")).default;
+        const matchingBatches = await Batch.find({ batchName: String(body.batch).trim() }).select("_id").lean();
+        if (matchingBatches.length === 1) targetRef = String(matchingBatches[0]._id);
+        else {
+          return NextResponse.json(
+            { success: false, message: matchingBatches.length > 1 ? "Several batches have this name. Pick the batch from the list." : "Batch not found." },
+            { status: 400 }
+          );
+        }
       }
-      const batchDoc = await Batch.findOne({ $or: bQuery }).lean();
-      if (batchDoc) {
-        assignedBatchName = batchDoc.batchName;
-        assignedBatchId = batchDoc._id;
-      } else if (mongoose.Types.ObjectId.isValid(trimmedBId)) {
-        assignedBatchId = new mongoose.Types.ObjectId(trimmedBId);
+      const currentRefs = [existingDoc.batchId].filter(Boolean).map(String);
+      const target = await findBatchByAnyId(targetRef);
+      const alreadyThere = target && (currentRefs.includes(String(target._id)) || (target.batchId && currentRefs.includes(target.batchId)));
+      if (!alreadyThere) {
+        try {
+          // Exists, open (not cancelled/completed), same brand, free seat
+          const batchDoc = await resolveBatchForAssignment(targetRef, {
+            admissionId: existingDoc._id,
+            studentBrand: body.brand !== undefined ? body.brand : existingDoc.brand,
+          });
+          assignedBatchName = batchDoc.batchName;
+          assignedBatchId = batchDoc._id;
+        } catch (err: any) {
+          if (err instanceof BatchRuleError) {
+            return NextResponse.json({ success: false, message: err.message, error: err.message }, { status: err.status });
+          }
+          throw err;
+        }
       } else {
-        assignedBatchId = null;
-      }
-    } else if (body.batch && body.batch !== "Unassigned" && body.batch !== "General Batch") {
-      const Batch = (await import("@/models/Batch")).default;
-      const matchingBatches = await Batch.find({ batchName: body.batch.trim() }).lean();
-      if (matchingBatches.length === 1) {
-        assignedBatchId = matchingBatches[0]._id;
-        assignedBatchName = matchingBatches[0].batchName;
-      } else if (!mongoose.Types.ObjectId.isValid(assignedBatchId)) {
-        assignedBatchId = null;
+        assignedBatchName = target.batchName;
+        assignedBatchId = target._id;
       }
     }
 
-    if (assignedBatchId && !mongoose.Types.ObjectId.isValid(assignedBatchId)) {
+    if (assignedBatchId && !mongoose.Types.ObjectId.isValid(String(assignedBatchId))) {
       assignedBatchId = null;
     }
 

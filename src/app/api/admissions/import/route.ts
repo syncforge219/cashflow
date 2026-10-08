@@ -3,6 +3,8 @@ import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
 import Admission from "@/models/Admission";
 import { getUserFromCookies } from "@/lib/helper";
+import { isAdminRole } from "@/lib/roles";
+import { resolveBatchForAssignment } from "@/lib/batchRules";
 import { sendWhatsAppSuperAdminAdmissionAlert } from "@/lib/msg91";
 
 export async function POST(req: NextRequest) {
@@ -10,8 +12,9 @@ export async function POST(req: NextRequest) {
     await dbConnect();
     const user = await getUserFromCookies();
 
-    // Only admins can bulk-import
-    if (!user || (user.role !== "admin" && user.role !== "superadmin")) {
+    // Only admins can bulk-import. Roles are compared normalised: "Super Admin" / "super admin" /
+    // "superadmin" are all the same role (the old exact match refused "super admin").
+    if (!user || !isAdminRole(user.role)) {
       return NextResponse.json(
         { success: false, error: "Unauthorized. Only admins can bulk-import admissions." },
         { status: 403 }
@@ -34,24 +37,20 @@ export async function POST(req: NextRequest) {
       const row = rows[i];
       try {
         let assignedBatchId: any = null;
-        const rawBId = row.batchId?.trim() || "";
+        let assignedBatchName = row.batch?.trim() || "General Batch";
+        const rawBId = String(row.batchId || "").trim();
         if (rawBId && rawBId !== "General Batch" && rawBId !== "Unassigned") {
-          const Batch = (await import("@/models/Batch")).default;
-          const bQuery: any[] = [{ batchId: rawBId }];
-          if (mongoose.Types.ObjectId.isValid(rawBId)) {
-            bQuery.push({ _id: new mongoose.Types.ObjectId(rawBId) });
-          }
-          const batchDoc = await Batch.findOne({ $or: bQuery }).lean();
-          if (batchDoc) {
-            assignedBatchId = batchDoc._id;
-          } else if (mongoose.Types.ObjectId.isValid(rawBId)) {
-            assignedBatchId = new mongoose.Types.ObjectId(rawBId);
-          }
+          // Historical rows may belong to finished batches, so status and capacity aren't checked,
+          // but the batch must exist and match the student's brand (no dangling batch ids)
+          const batchDoc = await resolveBatchForAssignment(rawBId, { studentBrand: row.brand, historical: true });
+          assignedBatchId = batchDoc._id;
+          assignedBatchName = batchDoc.batchName; // keep name and id of the same batch
         } else if (row.batch && row.batch !== "General Batch" && row.batch !== "Unassigned") {
           const Batch = (await import("@/models/Batch")).default;
           const matchingBatches = await Batch.find({ batchName: row.batch.trim() }).lean();
           if (matchingBatches.length === 1) {
             assignedBatchId = matchingBatches[0]._id;
+            assignedBatchName = matchingBatches[0].batchName;
           }
         }
 
@@ -65,7 +64,7 @@ export async function POST(req: NextRequest) {
           pincode: row.pincode?.trim() || "000000",
           counsellor: row.counsellor?.trim() || user.name || "Counsellor",
           course: row.course?.trim() || "General Course",
-          batch: row.batch?.trim() || "General Batch",
+          batch: assignedBatchName,
           batchId: assignedBatchId,
           duration: row.duration?.trim() || "6 Months",
           academicYear: row.academicYear?.trim() || `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,

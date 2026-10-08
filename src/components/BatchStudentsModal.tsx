@@ -81,10 +81,13 @@ export default function BatchStudentsModal({
         }
       });
 
+      const hasAssignments = studentMap.size > 0;
       rosterStudents.forEach((r: any) => {
+        if (hasAssignments) return;
         const key = (r.mobileNumber || r.admissionId || r.studentName || "").trim().toLowerCase();
         if (key && !studentMap.has(key)) {
           studentMap.set(key, {
+            fromAttendance: true,
             _id: r._id || key,
             name: r.studentName || "Student",
             admissionId: r.admissionId || "ADM-N/A",
@@ -142,6 +145,11 @@ export default function BatchStudentsModal({
     if (!batch || !student?._id) return;
     const targetBatchId = batch.batchId || batch._id;
     const targetBatchName = batch.batchName;
+    const currentBatch = (student.batch || "").trim();
+    if (student.batchId && currentBatch && currentBatch !== "Unassigned" && currentBatch !== "General Batch") {
+      const ok = confirm(`${student.fullName || "This student"} is in batch "${currentBatch}". Move them to "${targetBatchName}"?`);
+      if (!ok) return;
+    }
 
     setAllocatingStudentId(student._id);
     try {
@@ -194,9 +202,6 @@ export default function BatchStudentsModal({
         body: JSON.stringify({
           batch: "Unassigned",
           batchId: "",
-          admissionId: student.admissionId,
-          mobileNumber: student.mobile,
-          fullName: studentName,
         }),
       });
 
@@ -483,7 +488,7 @@ export default function BatchStudentsModal({
                               {st.mobile && (
                                 <>
                                   <a
-                                    href={`https://wa.me/91${st.mobile.replace(/[^0-9]/g, "")}`}
+                                    href={`https://wa.me/${(() => { const d = st.mobile.replace(/[^0-9]/g, ""); return d.length === 10 ? `91${d}` : d; })()}`}
                                     target="_blank"
                                     rel="noreferrer"
                                     className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-[11px] font-bold border border-emerald-200 transition-colors inline-flex items-center gap-1"
@@ -500,6 +505,11 @@ export default function BatchStudentsModal({
                                   </a>
                                 </>
                               )}
+                              {st.fromAttendance ? (
+                                <span className="px-2.5 py-1 text-[11px] font-bold text-slate-400" title="From an earlier attendance sheet; not assigned to this batch">
+                                  From attendance
+                                </span>
+                              ) : (
                               <button
                                 onClick={() => handleRemoveStudent(st)}
                                 disabled={allocatingStudentId === st._id || allocatingStudentId === st.admissionId}
@@ -508,6 +518,7 @@ export default function BatchStudentsModal({
                               >
                                 ✕ Remove
                               </button>
+                              )}
                             </div>
                           </td>
                         </tr>

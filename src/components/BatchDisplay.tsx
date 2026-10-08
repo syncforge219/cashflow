@@ -72,7 +72,8 @@ export default function BatchDisplay() {
         setBatchToDelete(null);
         fetchBatches();
       } else {
-        alert("Failed to delete batch");
+        const json = await res.json().catch(() => ({}));
+        alert(json.error || "Failed to delete batch");
       }
     } catch (e) {
       alert("Error deleting batch");
@@ -106,7 +107,8 @@ export default function BatchDisplay() {
 
   const filteredBatches = batches.filter((b) => {
     if (userBrandScope) {
-      if (b.brand?.toLowerCase() !== userBrandScope.toLowerCase()) return false;
+      const allowed = userBrandScope.split(/[,/|]/).map((s: string) => s.trim().toLowerCase()).filter(Boolean);
+      if (!allowed.includes((b.brand || "").trim().toLowerCase())) return false;
     } else if (selectedBrandFilter !== "All Brands") {
       if (b.brand !== selectedBrandFilter) return false;
     }

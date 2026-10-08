@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
 import Task from "@/models/Task";
+import Enquiry from "@/models/Enquiry";
+import Admission from "@/models/Admission";
 
 export async function GET(req: Request) {
   try {
@@ -51,17 +54,112 @@ export async function GET(req: Request) {
     // Derive overdue status dynamically at query time without database mutations
     const rawTasks = await Task.find(query).sort({ dueDate: 1, createdAt: -1 }).lean();
 
-    const tasks = rawTasks.map((t: any) => {
+    // Check for lead follow-up tasks linked to admitted students/enquiries
+    const leadTasks = rawTasks.filter((t: any) =>
+      ["Lead Call", "Demo", "Follow-up", "General"].includes(t.taskType) ||
+      t.linkedType === "Enquiry" ||
+      (t.title && t.title.toLowerCase().startsWith("call lead"))
+    );
+
+    const admittedEnqSet = new Set<string>();
+    const admittedAdmSet = new Set<string>();
+    const admittedStudentNames = new Set<string>();
+
+    if (leadTasks.length > 0) {
+      const enqIds = Array.from(new Set(leadTasks.map((t: any) => t.linkedEnquiryId).filter(Boolean)));
+      const studentNames = Array.from(new Set(leadTasks.map((t: any) => (t.linkedStudentName || "").trim().toLowerCase()).filter(Boolean)));
+      const studentIds = Array.from(new Set(leadTasks.map((t: any) => t.linkedStudentId).filter(Boolean)));
+
+      const validEnqObjectIds = enqIds.filter((id: any) => mongoose.Types.ObjectId.isValid(id)).map((id: any) => new mongoose.Types.ObjectId(id));
+      const validStudentObjectIds = studentIds.filter((id: any) => mongoose.Types.ObjectId.isValid(id)).map((id: any) => new mongoose.Types.ObjectId(id));
+
+      const [admittedEnqs, admissionDocs] = await Promise.all([
+        Enquiry.find({
+          $and: [
+            {
+              $or: [
+                ...(validEnqObjectIds.length > 0 ? [{ _id: { $in: validEnqObjectIds } }] : []),
+                ...(enqIds.length > 0 ? [{ enquiryId: { $in: enqIds } }] : []),
+                ...(studentNames.length > 0 ? [{ studentFullName: { $in: studentNames.map((n) => new RegExp(`^${n}$`, "i")) } }] : [])
+              ]
+            },
+            {
+              $or: [
+                { isAdmitted: true },
+                { status: { $in: ["Admitted", "Admission", "Converted", "Enrolled"] } }
+              ]
+            }
+          ]
+        }).select("_id enquiryId studentFullName").lean(),
+        Admission.find({
+          $or: [
+            ...(enqIds.length > 0 ? [{ enquiryId: { $in: enqIds } }] : []),
+            ...(validEnqObjectIds.length > 0 ? [{ _id: { $in: validEnqObjectIds } }] : []),
+            ...(validStudentObjectIds.length > 0 ? [{ _id: { $in: validStudentObjectIds } }] : []),
+            ...(studentIds.length > 0 ? [{ admissionId: { $in: studentIds } }] : []),
+            ...(studentNames.length > 0 ? [{ fullName: { $in: studentNames.map((n) => new RegExp(`^${n}$`, "i")) } }] : []),
+            ...(studentNames.length > 0 ? [{ studentFullName: { $in: studentNames.map((n) => new RegExp(`^${n}$`, "i")) } }] : [])
+          ]
+        }).select("_id admissionId enquiryId fullName studentFullName").lean()
+      ]);
+
+      admittedEnqs.forEach((e: any) => {
+        if (e._id) admittedEnqSet.add(e._id.toString());
+        if (e.enquiryId) admittedEnqSet.add(e.enquiryId);
+        if (e.studentFullName) admittedStudentNames.add(e.studentFullName.trim().toLowerCase());
+      });
+
+      admissionDocs.forEach((a: any) => {
+        if (a._id) admittedAdmSet.add(a._id.toString());
+        if (a.admissionId) admittedAdmSet.add(a.admissionId);
+        if (a.enquiryId) admittedAdmSet.add(a.enquiryId);
+        if (a.fullName) admittedStudentNames.add(a.fullName.trim().toLowerCase());
+        if (a.studentFullName) admittedStudentNames.add(a.studentFullName.trim().toLowerCase());
+      });
+    }
+
+    const tasksToCompleteIds: any[] = [];
+
+    let tasks = rawTasks.map((t: any) => {
+      const isLeadTask =
+        ["Lead Call", "Demo", "Follow-up", "General"].includes(t.taskType) ||
+        t.linkedType === "Enquiry" ||
+        (t.title && t.title.toLowerCase().startsWith("call lead"));
+
+      const isLinkedToAdmitted =
+        isLeadTask &&
+        ((t.linkedEnquiryId && (admittedEnqSet.has(String(t.linkedEnquiryId)) || admittedAdmSet.has(String(t.linkedEnquiryId)))) ||
+          (t.linkedStudentId && admittedAdmSet.has(String(t.linkedStudentId))) ||
+          (t.linkedStudentName && admittedStudentNames.has((t.linkedStudentName || "").trim().toLowerCase())));
+
+      if (isLinkedToAdmitted && t.status !== "Completed") {
+        tasksToCompleteIds.push(t._id);
+      }
+
+      const effectiveTaskStatus = isLinkedToAdmitted ? "Completed" : t.status;
+
       const isOverdue =
-        t.status === "Overdue" ||
-        ((t.status === "Pending" || t.status === "In Progress") && t.dueDate && new Date(t.dueDate) < now);
+        effectiveTaskStatus === "Overdue" ||
+        ((effectiveTaskStatus === "Pending" || effectiveTaskStatus === "In Progress") && t.dueDate && new Date(t.dueDate) < now);
 
       return {
         ...t,
-        status: isOverdue ? "Overdue" : t.status,
+        status: isOverdue ? "Overdue" : effectiveTaskStatus,
         isOverdue: Boolean(isOverdue),
+        isAdmittedStudent: Boolean(isLinkedToAdmitted),
       };
     });
+
+    if (tasksToCompleteIds.length > 0) {
+      await Task.updateMany(
+        { _id: { $in: tasksToCompleteIds } },
+        { $set: { status: "Completed", completedAt: new Date() } }
+      );
+    }
+
+    if (status && status !== "All") {
+      tasks = tasks.filter((t) => t.status === status);
+    }
 
     return NextResponse.json({
       success: true,

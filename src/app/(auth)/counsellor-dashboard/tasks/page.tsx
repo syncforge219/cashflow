@@ -135,7 +135,7 @@ export default function CounsellorTasksPage() {
 
   // Effective status (merges server status with local detection)
   const effectiveStatus = (t: any) => {
-    if (t.status === "Completed") return "Completed";
+    if (t.status === "Completed" || t.isAdmittedStudent) return "Completed";
     if (t.isEscalated || t.status === "Escalated") return "Escalated";
     if (isTaskOverdue(t) || t.status === "Overdue") return "Overdue";
     return t.status || "Pending";

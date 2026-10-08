@@ -52,6 +52,7 @@ interface EnquiryFollowupRecord {
   lastRemarkStr?: string;
   isOverdue?: boolean;
   isEscalated?: boolean;
+  isAdmitted?: boolean;
 }
 
 interface FeesFollowupRecord {
@@ -677,11 +678,55 @@ export default function FollowupPage() {
         lastRemarkStr,
         isOverdue,
         isEscalated,
+        isAdmitted: Boolean(e.isAdmitted),
       });
     });
 
     return list;
   }, [enquiries]);
+
+  // Pre-calculate admitted phone numbers & enquiry IDs from active admissions
+  const admittedPhoneSet = useMemo(() => {
+    const set = new Set<string>();
+    admissions.forEach((adm: any) => {
+      const p1 = String(adm.mobileNumber || adm.primaryPhoneMobile || adm.phone || "").replace(/\D/g, "").slice(-10);
+      if (p1.length === 10) set.add(p1);
+      const p2 = String(adm.parentPhone || adm.parentsPhoneNumber || "").replace(/\D/g, "").slice(-10);
+      if (p2.length === 10) set.add(p2);
+    });
+    return set;
+  }, [admissions]);
+
+  const admittedEnquiryIdSet = useMemo(() => {
+    const set = new Set<string>();
+    admissions.forEach((adm: any) => {
+      if (adm.enquiryId) set.add(String(adm.enquiryId).trim());
+      if (adm._id) set.add(String(adm._id).trim());
+      if (adm.admissionId) set.add(String(adm.admissionId).trim());
+    });
+    return set;
+  }, [admissions]);
+
+  const isAdmittedLead = (rec: any) => {
+    if (rec.isAdmitted === true) return true;
+    const s = (rec.status || "").toLowerCase().trim();
+    if (s.includes("admitted") || s.includes("admission") || s.includes("enrolled") || s.includes("converted")) return true;
+    if (rec._id && admittedEnquiryIdSet.has(String(rec._id).trim())) return true;
+    if (rec.enquiryId && admittedEnquiryIdSet.has(String(rec.enquiryId).trim())) return true;
+    if (rec.primaryPhoneMobile) {
+      const clean = String(rec.primaryPhoneMobile).replace(/\D/g, "").slice(-10);
+      if (clean.length === 10 && admittedPhoneSet.has(clean)) return true;
+    }
+    if (rec.parentsPhoneNumber) {
+      const clean = String(rec.parentsPhoneNumber).replace(/\D/g, "").slice(-10);
+      if (clean.length === 10 && admittedPhoneSet.has(clean)) return true;
+    }
+    if (rec.secondaryPhone) {
+      const clean = String(rec.secondaryPhone).replace(/\D/g, "").slice(-10);
+      if (clean.length === 10 && admittedPhoneSet.has(clean)) return true;
+    }
+    return false;
+  };
 
   // Filtered Enquiry Records based on Tab & Search & Advanced Filters & Strict Brand Isolation
   const filteredEnquiryRecords = useMemo(() => {
@@ -689,6 +734,9 @@ export default function FollowupPage() {
     const todayTime = new Date(todayStr).getTime();
 
     return processedEnquiryFollowups.filter((rec) => {
+      // Never show admitted students in any prospective lead follow-up queues
+      if (isAdmittedLead(rec)) return false;
+
       const recTime = new Date(rec.dueDateStr || todayStr).getTime();
       const statusLower = (rec.status || "").toLowerCase();
 
@@ -698,6 +746,7 @@ export default function FollowupPage() {
 
       // Tab filtering
       if (enquiryTab === "new") {
+        if (statusLower.includes("lost") || statusLower.includes("do not") || isCompletedLead) return false;
         const createdDateStr = getLocalDateStr(rec.createdAt);
         if (createdDateStr !== selectedNewLeadDate) return false;
       } else if (enquiryTab === "today") {
@@ -792,7 +841,7 @@ export default function FollowupPage() {
 
       return true;
     });
-  }, [processedEnquiryFollowups, enquiryTab, selectedNewLeadDate, searchQuery, filterBrand, filterAdvisor, filterCourse, filterStage, advancedFilters, isUserBrandRestricted, allowedUserBrands, user?.name, user?.role]);
+  }, [processedEnquiryFollowups, enquiryTab, selectedNewLeadDate, searchQuery, filterBrand, filterAdvisor, filterCourse, filterStage, advancedFilters, isUserBrandRestricted, allowedUserBrands, user?.name, user?.role, admittedPhoneSet, admittedEnquiryIdSet]);
 
   // Tab Counters for Enquiry Mode strictly isolated by active Brand / Scope
   const enquiryCounts = useMemo(() => {
@@ -805,6 +854,9 @@ export default function FollowupPage() {
     let today = 0, newLeads = 0, pending = 0, upcoming = 0, donot = 0;
 
     processedEnquiryFollowups.forEach((rec) => {
+      // Exclude admitted students from active follow-up tab counts
+      if (isAdmittedLead(rec)) return;
+
       // 1. User Brand Scope and Active Brand filter isolation for counts
       const recBrandLower = (rec.targetBrand || "").toLowerCase().trim();
       if (isUserBrandRestricted && allowedUserBrands.length > 0) {
@@ -833,13 +885,15 @@ export default function FollowupPage() {
         (Array.isArray(rec.followUps) && rec.followUps.length > 0 && rec.followUps.every((f: any) => f.isCompleted || (f.status || "").toLowerCase() === "completed" || (f.status || "").toLowerCase() === "cancelled"));
 
       if (createdDateStr === selectedNewLeadDate) {
-        newLeads++;
+        if (!statusLower.includes("lost") && !statusLower.includes("do not") && !isCompletedLead) {
+          newLeads++;
+        }
       }
 
       if (statusLower.includes("lost") || statusLower.includes("do not")) {
         donot++;
-      } else if (statusLower.includes("admitted") || isCompletedLead) {
-        // Exclude completed or admitted leads from active follow-up tab counts
+      } else if (isCompletedLead) {
+        // Exclude completed leads from active follow-up tab counts
       } else if (rec.hasScheduledFollowup) {
         if (rec.dueDateStr === todayStr) {
           today++;
@@ -852,7 +906,7 @@ export default function FollowupPage() {
     });
 
     return { today, newLeads, pending, upcoming, donot };
-  }, [processedEnquiryFollowups, selectedNewLeadDate, isUserBrandRestricted, allowedUserBrands, filterBrand, user?.name, user?.role]);
+  }, [processedEnquiryFollowups, selectedNewLeadDate, isUserBrandRestricted, allowedUserBrands, filterBrand, user?.name, user?.role, admittedPhoneSet, admittedEnquiryIdSet]);
 
   // -------------------------------------------------------------
   // PROCESSED FEES FOLLOWUPS DATA

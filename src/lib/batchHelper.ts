@@ -2,26 +2,15 @@
  * Batch Lifecycle & Date Helper Functions
  */
 
+import { toDateKey } from "@/lib/dates";
+
 /**
- * Returns a standardized YYYY-MM-DD date string in local/UTC format
+ * Calendar date "YYYY-MM-DD" in IST. The old version used the machine's time zone, so on the
+ * server (UTC) a batch flipped to Active / Completed 5h30m late, and "today" differed between
+ * the browser and the server.
  */
 export function getLocalDateStr(date: Date | string | undefined | null): string {
-  if (!date) return "";
-  if (typeof date === "string") {
-    if (date.includes("T")) {
-      return date.split("T")[0];
-    }
-    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      return date;
-    }
-  }
-  const dt = new Date(date);
-  if (isNaN(dt.getTime())) return "";
-
-  const y = dt.getFullYear();
-  const m = String(dt.getMonth() + 1).padStart(2, "0");
-  const d = String(dt.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+  return toDateKey(date);
 }
 
 export type BatchStatus = "Upcoming" | "Active" | "Completed" | "Cancelled";
@@ -37,10 +26,15 @@ export function computeBatchStatus(
   startDate: Date | string | null | undefined,
   endDate: Date | string | null | undefined,
   currentStatus?: string,
-  referenceDate: Date = new Date()
+  referenceDate: Date = new Date(),
+  statusLocked?: boolean
 ): BatchStatus {
   if (currentStatus === "Cancelled") {
     return "Cancelled";
+  }
+  // Marked Completed by hand (e.g. finished early): keep it until someone changes it back
+  if (statusLocked && currentStatus === "Completed") {
+    return "Completed";
   }
 
   if (!startDate) {
