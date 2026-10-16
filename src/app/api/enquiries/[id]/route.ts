@@ -7,6 +7,7 @@ import LostLeadCounter from "@/models/LostLeadCounter";
 import User from "@/models/User";
 import { sendWhatsAppTeacherDemoAlert, formatDDMMYYYY } from "@/lib/msg91";
 import { syncEnquiryRefs } from "@/lib/referenceHelper";
+import { guardEnquiryAccess } from "@/lib/dataScope";
 import { getUserFromCookies } from "@/lib/helper";
 import { logAuditEntry, diffAndLogAudit } from "@/lib/auditLogger";
 import { brandSendsTeacherDemoAlert } from "@/lib/brandDefaults";
@@ -18,6 +19,8 @@ export async function PATCH(
   try {
     await dbConnect();
     const { id } = await params;
+    const denied = await guardEnquiryAccess(id);
+    if (denied) return denied;
     const body = await req.json();
 
     // Normalize courses array if updating course fields
@@ -185,6 +188,8 @@ export async function DELETE(
   try {
     await dbConnect();
     const { id } = await params;
+    const denied = await guardEnquiryAccess(id);
+    if (denied) return denied;
 
     const existingEnquiry = await Enquiry.findById(id);
     if (!existingEnquiry) {

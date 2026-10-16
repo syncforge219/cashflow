@@ -98,13 +98,13 @@ export async function proxy(request: NextRequest) {
       // Marketing Executive: leads, spend and lead connectors only. Everything else (finance,
       // admissions, students, reports, users, AI assistant...) is refused even if called directly.
       if (isMarketingExecutive(user.role) && !isMarketingApiAllowed(normalizedPath, method)) {
-        return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+        return NextResponse.json({ success: false, error: "Forbidden", message: "Forbidden" }, { status: 403 });
       }
 
       // One-off data maintenance endpoints rewrite records in bulk: admins only.
       if (normalizedPath.startsWith("/api/admin/")) {
         if (role !== "superadmin" && role !== "admin") {
-          return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+          return NextResponse.json({ success: false, error: "Forbidden", message: "Forbidden" }, { status: 403 });
         }
       }
 
@@ -115,7 +115,7 @@ export async function proxy(request: NextRequest) {
       ) {
         const allowed = ["superadmin", "admin", "manager", "brandmanager", "centrehead", "centerhead", "branchhead", "marketingexecutive"];
         if (!allowed.includes(role)) {
-          return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+          return NextResponse.json({ success: false, error: "Forbidden", message: "Forbidden" }, { status: 403 });
         }
       }
       return NextResponse.next();
@@ -123,13 +123,13 @@ export async function proxy(request: NextRequest) {
   } catch (error) {
     console.error("[proxy] Session validation failed:", error);
     return NextResponse.json(
-      { success: false, error: "Authentication service unavailable" },
+      { success: false, error: "Authentication service unavailable", message: "Authentication service unavailable" },
       { status: 503 }
     );
   }
 
   return NextResponse.json(
-    { success: false, error: "Unauthorized. Please login again." },
+    { success: false, error: "Unauthorized. Please login again.", message: "Unauthorized. Please login again." },
     { status: 401 }
   );
 }

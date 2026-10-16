@@ -439,12 +439,13 @@ export async function ingestFacebookLead(lead: FacebookLead, config: any, opts: 
       .join(" | ");
 
     const courses = matchedCourse ? [matchedCourse] : ["General Course"];
+    const enquiryDate = todayKey();
     const enquiry: any = await Enquiry.create({
       // Attributed to the marketing user who set up this connector (if any)
       addedByUserId: (config as any).connectedByUserId || null,
       addedByName: (config as any).connectedByName || "",
       studentFullName,
-      date: todayKey(),
+      date: enquiryDate,
       primaryPhoneMobile: mobile.display,
       emailAddress: parsed.email,
       currentCity: parsed.city || "N/A",
@@ -463,6 +464,20 @@ export async function ingestFacebookLead(lead: FacebookLead, config: any, opts: 
       leadTags: ["Facebook Lead Ads", platform, opts.sourceType === "SIMULATION_TEST" ? "Simulation" : ""].filter(
         (t): t is string => Boolean(t)
       ),
+      followUpDate: enquiryDate,
+      followUps: [
+        {
+          date: enquiryDate,
+          time: "11:00 AM",
+          priority: "High",
+          typeOfContact: "Initial Contact",
+          remarks: `New ${platform || "Facebook"} lead for ${targetBrand} - ${matchedCourse || "General Course"}.`,
+          status: "Pending",
+          plannedBy: assignedCounselor || "System",
+          isCompleted: false,
+          createdAt: new Date(),
+        },
+      ],
     });
 
     await FacebookLeadLog.updateOne(

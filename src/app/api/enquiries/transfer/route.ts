@@ -185,10 +185,16 @@ export async function POST(req: Request) {
     // Also update any standalone Task documents linked to these enquiries
     if (transferredEnquiryIds.length > 0 || query._id) {
       try {
+        // Bug Fix: Include both enquiryId strings (e.g. "ENQ000025") and MongoDB _id strings
+        // since Task.linkedEnquiryId may contain either format.
+        const allLinkedIds = [
+          ...transferredEnquiryIds,
+          ...matchingEnquiries.map((e) => e._id.toString()),
+        ];
         await Task.updateMany(
           {
             $or: [
-              { linkedEnquiryId: { $in: transferredEnquiryIds } },
+              { linkedEnquiryId: { $in: allLinkedIds } },
               { linkedStudentId: { $in: matchingEnquiries.map((e) => e._id.toString()) } },
             ],
             status: { $in: ["Pending", "In Progress", "Overdue"] },

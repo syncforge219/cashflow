@@ -4,6 +4,7 @@ import dbConnect from "@/lib/db";
 import Enquiry from "@/models/Enquiry";
 import Notification from "@/models/Notification";
 import { getAuthenticatedUser } from "@/lib/auth";
+import { guardEnquiryAccess } from "@/lib/dataScope";
 
 export async function POST(
   req: Request,
@@ -12,6 +13,8 @@ export async function POST(
   try {
     await dbConnect();
     const { id } = await params;
+    const denied = await guardEnquiryAccess(id);
+    if (denied) return denied;
     const body = await req.json();
 
     // Session tokens are opaque (not JWTs), so look the user up via the session.
@@ -31,6 +34,8 @@ export async function POST(
       recurringRule = "none",
       callStart,
       callEnd,
+      currentDate,
+      currentTime,
       selectedCourses,
       leadType,
     } = body;
@@ -51,6 +56,9 @@ export async function POST(
       recurringRule: recurringRule || "none",
       callStart,
       callEnd,
+      // "Call Logged At" (when the call happened), separate from date/time (when the next one is due)
+      loggedDate: toDateKey(currentDate) || todayKey(),
+      loggedTime: typeof currentTime === "string" ? currentTime : undefined,
       createdAt: new Date(),
     };
 
@@ -104,6 +112,25 @@ export async function POST(
         setFields.targetCourses = coursesList;
         setFields.targetCourse = coursesList.join(", ");
         setFields.isLookingForJob = coursesList.length === 1 && coursesList[0] === "Looking for Job";
+      }
+    }
+
+    // Bug Fix: Close out any existing open/pending follow-ups before adding a new one
+    // so the lead doesn't remain permanently stuck in the "Overdue" tab.
+    const enquiryDoc = await Enquiry.findById(id);
+    if (enquiryDoc && Array.isArray(enquiryDoc.followUps)) {
+      let changed = false;
+      enquiryDoc.followUps.forEach((item: any) => {
+        const s = (item.status || "").toLowerCase();
+        if (!item.isCompleted && s !== "completed" && s !== "cancelled") {
+          item.status = "Completed";
+          item.isCompleted = true;
+          item.completedAt = new Date();
+          changed = true;
+        }
+      });
+      if (changed) {
+        await enquiryDoc.save();
       }
     }
 
@@ -163,6 +190,8 @@ export async function PATCH(
   try {
     await dbConnect();
     const { id } = await params;
+    const denied = await guardEnquiryAccess(id);
+    if (denied) return denied;
     const body = await req.json();
 
     const { followupIndex, status, isCompleted, remarks, priority, assignedTo, escalatedToManager } = body;
@@ -197,13 +226,18 @@ export async function PATCH(
 
       if (enquiry.followUps && enquiry.followUps.length > 0) {
         if (targetCompleted) {
-          // Close only the open follow-ups; history (completed/cancelled) keeps its own status and completedAt
+          // Bug Fix: Only close open follow-ups whose scheduled date is on or before today,
+          // leaving future recurring touchpoints intact.
+          const todayStr = todayKey();
           enquiry.followUps.forEach((item: any) => {
             const s = (item.status || "").toLowerCase();
             if (item.isCompleted || s === "completed" || s === "cancelled") return;
-            item.status = targetStatus;
-            item.isCompleted = true;
-            item.completedAt = new Date();
+            const itemDateStr = toDateKey(item.date) || todayStr;
+            if (itemDateStr <= todayStr) {
+              item.status = targetStatus;
+              item.isCompleted = true;
+              item.completedAt = new Date();
+            }
           });
         } else {
           // Re-opening: only the most recent follow-up goes back to pending, not the whole history

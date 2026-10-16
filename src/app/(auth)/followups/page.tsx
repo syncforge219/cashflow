@@ -216,17 +216,6 @@ export default function FollowupPage() {
   const [feesTab, setFeesTab] = useState<"today" | "overdue" | "upcoming">("today");
   const [selectedNewLeadDate, setSelectedNewLeadDate] = useState<string>(todayKey());
 
-  // Helper for local YYYY-MM-DD date string
-  const getLocalDateStr = (dateVal?: string | Date) => {
-    if (!dateVal) return "";
-    const d = new Date(dateVal);
-    if (isNaN(d.getTime())) return "";
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
-  };
-
   // User Brand Scope Resolution
   const userScopeRaw = (user?.brandScope || "").toLowerCase().trim();
   const isUserBrandRestricted = Boolean(
@@ -638,13 +627,13 @@ export default function FollowupPage() {
       if (pendingDates.length > 0) {
         dueDateStr = pendingDates[0];
         hasScheduledFollowup = true;
-      } else if (toDateKey(e.nextFollowUpDate)) {
-        dueDateStr = toDateKey(e.nextFollowUpDate);
+      } else if (toDateKey(e.followUpDate || e.nextFollowUpDate)) {
+        dueDateStr = toDateKey(e.followUpDate || e.nextFollowUpDate);
         hasScheduledFollowup = true;
       } else if (toDateKey(lastFollowup?.date)) {
         dueDateStr = toDateKey(lastFollowup.date);
       } else if (e.createdAt) {
-        dueDateStr = getLocalDateStr(e.createdAt);
+        dueDateStr = toDateKey(e.createdAt) || todayStr;
       } else {
         dueDateStr = todayStr;
       }
@@ -747,7 +736,7 @@ export default function FollowupPage() {
       // Tab filtering
       if (enquiryTab === "new") {
         if (statusLower.includes("lost") || statusLower.includes("do not") || isCompletedLead) return false;
-        const createdDateStr = getLocalDateStr(rec.createdAt);
+        const createdDateStr = toDateKey(rec.createdAt) || todayStr;
         if (createdDateStr !== selectedNewLeadDate) return false;
       } else if (enquiryTab === "today") {
         if (statusLower.includes("lost") || statusLower.includes("admitted") || statusLower.includes("do not") || isCompletedLead) return false;
@@ -879,7 +868,7 @@ export default function FollowupPage() {
 
       const recTime = rec.dueDateStr ? new Date(rec.dueDateStr).getTime() : 0;
       const statusLower = (rec.status || "").toLowerCase();
-      const createdDateStr = getLocalDateStr(rec.createdAt);
+      const createdDateStr = toDateKey(rec.createdAt) || todayStr;
       const isCompletedLead =
         statusLower.includes("completed") ||
         (Array.isArray(rec.followUps) && rec.followUps.length > 0 && rec.followUps.every((f: any) => f.isCompleted || (f.status || "").toLowerCase() === "completed" || (f.status || "").toLowerCase() === "cancelled"));
@@ -924,7 +913,9 @@ export default function FollowupPage() {
 
         if (unpaidInstallments.length > 0) {
           unpaidInstallments.forEach((inst: any, idx: number) => {
-            const feesDueDateStr = inst.dueDate ? toDateKey(new Date(inst.dueDate)) : todayStr;
+            // Bug Fix: Prefer nextFollowupDate or ptpDate from fee follow-up over original EMI dueDate
+            const activeDueDate = adm.nextFollowupDate || adm.ptpDate || inst.dueDate;
+            const feesDueDateStr = activeDueDate ? toDateKey(new Date(activeDueDate)) : todayStr;
             list.push({
               _id: adm._id,
               admissionId: adm.admissionId || "ADM-N/A",

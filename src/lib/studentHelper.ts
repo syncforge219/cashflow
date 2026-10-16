@@ -38,6 +38,16 @@ export async function findOrCreateStudentForEnquiry(
     enquiryDocOrData.mobileNumber
   );
 
+  // If a valid phone is present, look for an existing Student record first to avoid duplicates
+  if (phone && phone !== "0000000000" && phone.length >= 10) {
+    const query = Student.findOne({ primaryPhone: phone });
+    if (session) query.session(session);
+    const existing = await query;
+    if (existing) {
+      return existing._id as mongoose.Types.ObjectId;
+    }
+  }
+
   const fullName = (
     enquiryDocOrData.studentFullName ||
     enquiryDocOrData.fullName ||
@@ -106,12 +116,21 @@ export async function resolveStudentForAdmission(
     }
   }
 
-  // 2. Direct Admission without Enquiry: create a new Student record
+  // 2. Direct Admission without Enquiry: check existing or create a new Student record
   const phone = normalizePhone(
     admissionDocOrData.mobileNumber ||
     admissionDocOrData.primaryPhoneMobile ||
     admissionDocOrData.phone
   );
+
+  if (phone && phone !== "0000000000" && phone.length >= 10) {
+    const query = Student.findOne({ primaryPhone: phone });
+    if (session) query.session(session);
+    const existing = await query;
+    if (existing) {
+      return existing._id as mongoose.Types.ObjectId;
+    }
+  }
 
   const fullName = (
     admissionDocOrData.fullName ||

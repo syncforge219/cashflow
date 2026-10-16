@@ -222,9 +222,7 @@ export default function AdminDashboard() {
     roleLower === "director" ||
     (roleLower.includes("admin") && !roleLower.includes("centre") && !roleLower.includes("center"));
 
-  if (!user || !isAdminUser) return null;
-
-  const initialLetter = user.name ? user.name.charAt(0).toUpperCase() : "A";
+  const initialLetter = user?.name ? user.name.charAt(0).toUpperCase() : "A";
 
   // Data for Metric Cards with Hover Color Gradients
   const metrics = [
@@ -451,6 +449,8 @@ export default function AdminDashboard() {
       setIsDeleting(false);
     }
   };
+
+  if (!user || !isAdminUser) return null;
 
   return (
     <div className="flex h-screen bg-[#f8faff] text-slate-800 overflow-hidden font-sans transition-colors duration-200">

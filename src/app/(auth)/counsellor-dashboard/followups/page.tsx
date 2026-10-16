@@ -1,6 +1,6 @@
 "use client";
 
-import CounsellorEnquiriesDisplay from "@/components/CounsellorEnquitiesDisplay";
+import CounsellorEnquiriesDisplay from "@/components/CounsellorEnquiriesDisplay";
 import CounsellorSidebar from "@/components/CounsellorSidebar";
 import React from "react";
 

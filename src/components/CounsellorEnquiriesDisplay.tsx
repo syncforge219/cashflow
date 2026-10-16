@@ -799,6 +799,7 @@ export default function CounsellorEnquiriesDisplay() {
             <AddEnquiryModal
                 isOpen={isAddModalOpen}
                 onClose={() => setIsAddModalOpen(false)}
+                defaultBrand={user?.brandScope && user.brandScope !== "All Brands" ? user.brandScope : undefined}
                 onSuccess={() => {
                     setIsAddModalOpen(false);
                     fetchEnquiries();

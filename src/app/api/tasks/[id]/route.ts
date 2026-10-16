@@ -1,6 +1,18 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Task from "@/models/Task";
+import { getUserFromCookies } from "@/lib/helper";
+import { getOwnerScope } from "@/lib/dataScope";
+
+async function taskForbidden(task: any) {
+  const scope = getOwnerScope(await getUserFromCookies());
+  if (!scope) return null;
+  const assignee = String(task?.assignedTo || "").trim();
+  if (assignee && !scope.nameRegex.test(assignee)) {
+    return NextResponse.json({ success: false, error: "You can only access tasks assigned to you." }, { status: 403 });
+  }
+  return null;
+}
 
 export async function PATCH(
   req: Request,
@@ -18,6 +30,8 @@ export async function PATCH(
         { status: 404 }
       );
     }
+    const denied = await taskForbidden(task);
+    if (denied) return denied;
 
     const {
       status,
@@ -102,6 +116,10 @@ export async function DELETE(
   try {
     await dbConnect();
     const { id } = await params;
+
+    const existing = await Task.findById(id).lean();
+    const denied = await taskForbidden(existing);
+    if (denied) return denied;
 
     const deleted = await Task.findByIdAndDelete(id);
     if (!deleted) {

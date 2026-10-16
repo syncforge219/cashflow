@@ -36,14 +36,15 @@ export default function AddFollowupModal({
   const [activeTab, setActiveTab] = useState<"add" | "history">("add");
 
   const todayYYYYMMDD = todayKey();
-  const currentTimeStr = new Date().toLocaleTimeString("en-US", {
+  // 24h HH:MM for the "Call Logged At" time input
+  const currentTimeStr = new Date().toLocaleTimeString("en-GB", {
     hour: "2-digit",
     minute: "2-digit",
   });
 
   // Form Fields State
   const [nextDate, setNextDate] = useState(todayYYYYMMDD);
-  const [nextTime, setNextTime] = useState("03:47 PM");
+  const [nextTime, setNextTime] = useState("11:00 AM");
   const [followupRemark, setFollowupRemark] = useState("");
   const [currentDate, setCurrentDate] = useState(todayYYYYMMDD);
   const [currentTime, setCurrentTime] = useState(currentTimeStr);
@@ -153,7 +154,7 @@ export default function AddFollowupModal({
       setCallStart("");
       setCallEnd("");
       setNextDate(todayYYYYMMDD);
-      setNextTime("03:47 PM");
+      setNextTime("11:00 AM");
 
       fetchRealData();
       if (record) {
@@ -367,7 +368,7 @@ export default function AddFollowupModal({
             <div className="grid grid-cols-12 items-center gap-4">
               <div className="col-span-4 text-right pr-2">
                 <label className="block font-bold text-slate-800 leading-tight">
-                  Next Follow-up Date
+                  Next Follow-up Due
                 </label>
                 <span className="text-[10px] text-indigo-500 font-semibold">
                   (DD/MM/YYYY)
@@ -395,7 +396,6 @@ export default function AddFollowupModal({
                   <option value="11:00 AM">11:00 AM</option>
                   <option value="12:00 PM">12:00 PM</option>
                   <option value="02:00 PM">02:00 PM</option>
-                  <option value="03:47 PM">03:47 PM</option>
                   <option value="05:00 PM">05:00 PM</option>
                   <option value="06:30 PM">06:30 PM</option>
                 </select>
@@ -466,7 +466,7 @@ export default function AddFollowupModal({
             <div className="grid grid-cols-12 items-center gap-4">
               <div className="col-span-4 text-right pr-2">
                 <label className="block font-bold text-slate-800 leading-tight">
-                  Follow Up Date
+                  Call Logged At
                 </label>
                 <span className="text-[10px] text-indigo-500 font-semibold">
                   (DD/MM/YYYY)
@@ -485,16 +485,12 @@ export default function AddFollowupModal({
                   />
                 </div>
 
-                <select
+                <input
+                  type="time"
                   value={currentTime}
                   onChange={(e) => setCurrentTime(e.target.value)}
-                  className="w-40 px-3.5 py-2.5 border border-slate-300 rounded-xl text-slate-800 font-semibold outline-none bg-white shadow-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 cursor-pointer"
-                >
-                  <option value="10:00 AM">10:00 AM</option>
-                  <option value="11:00 AM">11:00 AM</option>
-                  <option value="03:47 PM">03:47 PM</option>
-                  <option value="05:00 PM">05:00 PM</option>
-                </select>
+                  className="w-40 px-3.5 py-2.5 border border-slate-300 rounded-xl text-slate-800 font-semibold outline-none bg-white shadow-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
+                />
               </div>
             </div>
 

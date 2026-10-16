@@ -46,6 +46,7 @@ export async function GET(request: Request) {
 
     const counsellorStats: Record<string, {
       total: number;
+      totalLeads: number;
       completed: number;
       pending: number;
       missed: number;
@@ -63,6 +64,7 @@ export async function GET(request: Request) {
       if (!counsellorStats[advisor]) {
         counsellorStats[advisor] = {
           total: 0,
+          totalLeads: 0,
           completed: 0,
           pending: 0,
           missed: 0,
@@ -72,6 +74,8 @@ export async function GET(request: Request) {
           respondedCount: 0,
         };
       }
+
+      counsellorStats[advisor].totalLeads += 1;
 
       if ((e.status || "").toLowerCase().includes("admitted") || (e.status || "").toLowerCase().includes("converted")) {
         counsellorStats[advisor].admitted += 1;
@@ -119,7 +123,8 @@ export async function GET(request: Request) {
 
     const counsellorBreakdown = Object.entries(counsellorStats).map(([name, stats]) => {
       const rate = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
-      const conversionRate = stats.total > 0 ? Math.round((stats.admitted / stats.total) * 100) : 0;
+      // Conversion is admitted leads out of distinct leads handled, not out of call touchpoints
+      const conversionRate = stats.totalLeads > 0 ? Math.round((stats.admitted / stats.totalLeads) * 100) : 0;
       const avgResponseHours = stats.respondedCount > 0
         ? Math.round((stats.totalResponseTimeMs / stats.respondedCount) / (1000 * 60 * 60) * 10) / 10
         : 2.4;
@@ -127,6 +132,7 @@ export async function GET(request: Request) {
       return {
         counsellor: name,
         total: stats.total,
+        totalLeads: stats.totalLeads,
         completed: stats.completed,
         pending: stats.pending,
         missed: stats.missed,

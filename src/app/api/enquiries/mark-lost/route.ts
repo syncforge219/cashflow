@@ -41,8 +41,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "Cannot mark an enquiry as lost while an active student admission record exists." }, { status: 400 });
     }
 
-    // 1. Mark lost and soft-delete (same as DELETE /api/enquiries/[id]?lostLead=true).
-    //    A hard delete here bypassed the soft-delete/restore and audit trail and lost the lead for good.
+    // 1. Mark lost but keep the enquiry visible (isDeleted stays false), exactly like
+    //    PATCH /api/enquiries/[id] with status "Lost". Soft-deleting it hid the lead from
+    //    GET /api/enquiries, so it never showed up in the "Do Not Follow Up / Lost" tab or reports.
     const user = await getUserFromCookies();
     const userId = (user as any)?._id || null;
     const oldStatus = enquiryDoc.status ?? null;
@@ -54,28 +55,24 @@ export async function POST(req: Request) {
         f.isCompleted = true;
       }
     });
-    enquiryDoc.isDeleted = true;
-    enquiryDoc.deletedAt = new Date();
-    enquiryDoc.deletedBy = userId;
     const enquiry = await existingEnquiry.save();
 
     await logAuditEntry({
       collectionName: "enquiries",
       docId: existingEnquiry._id,
-      action: "SOFT_DELETE",
-      changedFields: [
-        { field: "status", oldValue: oldStatus, newValue: "Lost" },
-        { field: "isDeleted", oldValue: false, newValue: true },
-      ],
+      action: "UPDATE",
+      changedFields: [{ field: "status", oldValue: oldStatus, newValue: "Lost" }],
       userId,
     });
 
-    // 2. Increment the lost lead counter for the given date
-    await LostLeadCounter.findOneAndUpdate(
-      { date: date },
-      { $inc: { count: 1 } },
-      { new: true, upsert: true }
-    );
+    // 2. Increment the lost lead counter for the given date (once per lead)
+    if (oldStatus !== "Lost") {
+      await LostLeadCounter.findOneAndUpdate(
+        { date: date },
+        { $inc: { count: 1 } },
+        { new: true, upsert: true }
+      );
+    }
 
     return NextResponse.json({ message: "Lead marked as lost successfully", enquiry });
   } catch (error: any) {

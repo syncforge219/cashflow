@@ -10,6 +10,7 @@ import { getUserFromCookies } from "@/lib/helper";
 import { sendWhatsAppDemoReminder, sendWhatsAppTeacherDemoAlert, sendWhatsAppWelcomeEnquiry, sendWhatsAppSuperAdminEnquiryAlert } from "@/lib/msg91";
 import { verifyRecaptchaToken } from "@/lib/recaptcha";
 import { syncEnquiryRefs } from "@/lib/referenceHelper";
+import { getOwnerScope, enquiryOwnerCondition } from "@/lib/dataScope";
 import { logAuditEntry } from "@/lib/auditLogger";
 import { validateDeletedAccess } from "@/lib/softDeleteAccess";
 import { resolveBrandName, brandSendsTeacherDemoAlert } from "@/lib/brandDefaults";
@@ -27,8 +28,9 @@ export async function POST(req: Request) {
       const recaptchaCheck = await verifyRecaptchaToken(recaptchaToken, "public_enquiry_submit", 0.5);
       if (!recaptchaCheck.success) {
         console.warn(`[reCAPTCHA Blocked] Enquiry API blocked: ${recaptchaCheck.error}`);
+        const msg = recaptchaCheck.error || "reCAPTCHA verification failed.";
         return NextResponse.json(
-          { success: false, message: recaptchaCheck.error || "reCAPTCHA verification failed." },
+          { success: false, message: msg, error: msg },
           { status: 400 }
         );
       }
@@ -50,7 +52,7 @@ export async function POST(req: Request) {
     const fullName = body.studentFullName?.trim();
     if (!fullName) {
       return NextResponse.json(
-        { success: false, message: "Student full name is required." },
+        { success: false, message: "Student full name is required.", error: "Student full name is required." },
         { status: 400 }
       );
     }
@@ -106,10 +108,12 @@ export async function POST(req: Request) {
         }).select("_id").lean();
 
         if (existingEnquiry) {
+          const dupMsg = `A lead with primary phone number '${body.primaryPhoneMobile}' already exists for one of the selected courses.`;
           return NextResponse.json(
             { 
               success: false, 
-              message: `A lead with primary phone number '${body.primaryPhoneMobile}' already exists for one of the selected courses.` 
+              message: dupMsg,
+              error: dupMsg 
             },
             { status: 400 }
           );
@@ -308,8 +312,9 @@ export async function POST(req: Request) {
     );
   } catch (error: any) {
     console.error("Error creating enquiry:", error);
+    const errText = error?.message || "Failed to create enquiry";
     return NextResponse.json(
-      { success: false, message: error.message || "Failed to create enquiry" },
+      { success: false, message: errText, error: errText },
       { status: 500 }
     );
   }
@@ -343,6 +348,12 @@ export async function GET(req: Request) {
 
     if (deletedAccess.onlyDeleted) {
       andClauses.push({ isDeleted: true });
+    }
+
+    // Counsellors / sales executives only get their own leads, whatever filters the client sends
+    const ownerScope = getOwnerScope(user);
+    if (ownerScope) {
+      andClauses.push(enquiryOwnerCondition(ownerScope));
     }
 
     let brandNamesToMatch: string[] = [];

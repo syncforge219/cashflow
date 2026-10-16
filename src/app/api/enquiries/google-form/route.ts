@@ -219,9 +219,10 @@ export async function POST(req: Request) {
     }
 
     // 3. Create Enquiry Document
+    const enquiryDate = body.date?.trim() || todayKey();
     const newEnquiry = await Enquiry.create({
       studentFullName,
-      date: body.date?.trim() || todayKey(),
+      date: enquiryDate,
       primaryPhoneMobile,
       emailAddress,
       currentCity,
@@ -234,6 +235,20 @@ export async function POST(req: Request) {
       priorityLevel: "High",
       remarks,
       status: "New",
+      followUpDate: enquiryDate,
+      followUps: [
+        {
+          date: enquiryDate,
+          time: "11:00 AM",
+          priority: "High",
+          typeOfContact: "Initial Contact",
+          remarks: `New lead received from Google Form (${targetBrand} - ${targetCourse}).`,
+          status: "Pending",
+          plannedBy: assignedAdvisor || "System",
+          isCompleted: false,
+          createdAt: new Date(),
+        },
+      ],
     });
 
     // 4. Create Task for Assigned Advisor & Send WhatsApp Welcome

@@ -116,16 +116,20 @@ function ReceiptBarcode() {
   );
 }
 
-export default function PaymentReceiptModal({
+export default function PaymentReceiptModal(props: PaymentReceiptModalProps) {
+  if (!props.isOpen || !props.receipt || !props.student) return null;
+  return <PaymentReceiptModalInner {...props} />;
+}
+
+function PaymentReceiptModalInner({
   isOpen,
   onClose,
   receipt,
   student,
   paymentsHistory,
 }: PaymentReceiptModalProps) {
-  if (!isOpen || !receipt || !student) return null;
-
-  const receiptNo = receipt.receiptNo || `REC-${Date.now().toString().slice(-6)}`;
+  const [fallbackReceiptNo] = React.useState(() => `REC-${Date.now().toString().slice(-6)}`);
+  const receiptNo = receipt.receiptNo || fallbackReceiptNo;
 
   const getReceiptFormattedDate = () => {
     // 1. Prefer createdAt for exact system timestamp

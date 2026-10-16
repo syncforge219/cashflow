@@ -39,8 +39,6 @@ export default function SourcePerformanceModal({
   const [sortBy, setSortBy] = useState<"cvr" | "total" | "converted" | "name">("cvr");
   const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
 
-  if (!isOpen) return null;
-
   // Filtered & Sorted sources
   const processedSources = useMemo(() => {
     let list = sources.filter((s) =>
@@ -76,6 +74,8 @@ export default function SourcePerformanceModal({
     if (sources.length === 0) return null;
     return [...sources].sort((a, b) => b.total - a.total)[0];
   }, [sources]);
+
+  if (!isOpen) return null;
 
   const handleToggleSort = (column: "cvr" | "total" | "converted" | "name") => {
     if (sortBy === column) {

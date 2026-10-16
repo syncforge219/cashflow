@@ -79,7 +79,7 @@ export default function SoftwareDevelopersDisplay() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" />
               </svg>
             </span>
-            // SOFTWARE_DEVELOPER_ROSTER
+            {"// SOFTWARE_DEVELOPER_ROSTER"}
           </h1>
           <p className="text-xs text-slate-400 mt-1 max-w-xl font-medium">
             Manage engineering personnel, platform credentials, system access roles, and software developer accounts.
@@ -152,7 +152,7 @@ export default function SoftwareDevelopersDisplay() {
       <div className="bg-[#090E1A] border border-slate-800 rounded-2xl p-5 shadow-xl flex-1">
         <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
           <div>
-            <h2 className="text-base font-black text-white">// REGISTERED_DEVELOPERS_GRID</h2>
+            <h2 className="text-base font-black text-white">{"// REGISTERED_DEVELOPERS_GRID"}</h2>
             <p className="text-xs text-slate-400 font-medium">List of software developers registered in MongoDB cluster</p>
           </div>
           <span className="text-xs font-bold bg-slate-900 text-emerald-400 border border-slate-800 px-3 py-1 rounded-lg">
@@ -227,7 +227,7 @@ export default function SoftwareDevelopersDisplay() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
           <div className="bg-[#0B0F19] border border-emerald-500/30 rounded-2xl max-w-md w-full p-6 shadow-[0_0_50px_rgba(0,0,0,0.9)] space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <h3 className="text-base font-black text-white">// PROVISION_SOFTWARE_DEVELOPER</h3>
+              <h3 className="text-base font-black text-white">{"// PROVISION_SOFTWARE_DEVELOPER"}</h3>
               <button onClick={() => setIsAddModalOpen(false)} className="text-slate-500 hover:text-slate-300 p-1 rounded-lg">
                 ✕
               </button>

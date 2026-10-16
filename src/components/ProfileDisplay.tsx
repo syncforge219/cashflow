@@ -11,8 +11,12 @@ interface ProfileDisplayProps {
   logout: () => Promise<void>;
 }
 
-export default function ProfileDisplay({ isOpen, onClose, user, logout }: ProfileDisplayProps) {
-  if (!user) return null;
+export default function ProfileDisplay(props: ProfileDisplayProps) {
+  if (!props.user) return null;
+  return <ProfileDisplayInner {...props} user={props.user} />;
+}
+
+function ProfileDisplayInner({ isOpen, onClose, user, logout }: ProfileDisplayProps & { user: User }) {
   const { login } = useUser();
 
   const roleLower = (user.role || "").toLowerCase().trim();

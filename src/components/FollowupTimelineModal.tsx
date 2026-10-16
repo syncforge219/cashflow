@@ -42,7 +42,17 @@ export default function FollowupTimelineModal({
 
   const filteredItems = followUps.filter((item: any) => {
     if (filterType === "All") return true;
-    return (item.typeOfContact || "").toLowerCase() === filterType.toLowerCase();
+    // Saved values vary ("Phone Call", "Telephonic", "WhatsApp Message", "In-Person Meeting", ...),
+    // so match on keywords per filter bucket instead of exact strings.
+    const t = (item.typeOfContact || "").toLowerCase();
+    const keywords: Record<string, string[]> = {
+      telephonic: ["phone", "call", "telephon"],
+      whatsapp: ["whatsapp"],
+      email: ["email", "e-mail", "mail"],
+      walkin: ["walk", "in-person", "in person", "visit", "meeting"],
+    };
+    const wanted = keywords[filterType.toLowerCase()] || [filterType.toLowerCase()];
+    return wanted.some((k) => t.includes(k));
   });
 
   return (

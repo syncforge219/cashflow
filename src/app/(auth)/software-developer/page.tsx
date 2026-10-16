@@ -282,7 +282,7 @@ export default function SoftwareDeveloperPage() {
                 {/* Developer System Operations Matrix */}
                 <div className="pt-2">
                   <h4 className="text-xs font-black text-emerald-400 uppercase tracking-widest mb-3">
-                    // PERMISSION_MATRIX & SUBSYSTEM_ACCESS
+                    {"// PERMISSION_MATRIX & SUBSYSTEM_ACCESS"}
                   </h4>
                   <div className="border border-slate-800 rounded-xl overflow-hidden text-xs">
                     <table className="w-full text-left border-collapse">
@@ -387,7 +387,7 @@ export default function SoftwareDeveloperPage() {
                 {/* Quick Action Tech Tool Buttons */}
                 <div className="bg-[#090E1A] border border-slate-800 rounded-2xl p-5 shadow-xl space-y-3">
                   <h4 className="text-xs font-black text-slate-300 uppercase tracking-widest border-b border-slate-800 pb-2">
-                    // DEV_TOOLS_PANEL
+                    {"// DEV_TOOLS_PANEL"}
                   </h4>
 
                   <div className="space-y-2 text-xs">
@@ -417,7 +417,7 @@ export default function SoftwareDeveloperPage() {
                 {/* Tech Stack Matrix */}
                 <div className="bg-[#090E1A] border border-slate-800 rounded-2xl p-5 shadow-xl space-y-3">
                   <h4 className="text-xs font-black text-slate-300 uppercase tracking-widest border-b border-slate-800 pb-2">
-                    // TECH_STACK_MATRIX
+                    {"// TECH_STACK_MATRIX"}
                   </h4>
 
                   <div className="space-y-2 text-xs">

@@ -688,7 +688,7 @@ export default function SoftwareDocsPage() {
           {/* Quick Endpoint Index List (Left Column) */}
           <div className="lg:col-span-4 bg-[#090E1A] border border-slate-800 rounded-2xl p-4 space-y-2 lg:sticky lg:top-4 h-fit max-h-[85vh] overflow-y-auto custom-scrollbar">
             <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2 mb-3">
-              // ENDPOINTS_DIRECTORY ({filteredEndpoints.length})
+              {"// ENDPOINTS_DIRECTORY"} ({filteredEndpoints.length})
             </div>
 
             {filteredEndpoints.map((endpoint) => {

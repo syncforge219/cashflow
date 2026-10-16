@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Enquiry from "@/models/Enquiry";
+import LostLeadCounter from "@/models/LostLeadCounter";
+import { todayKey } from "@/lib/dates";
+import { guardEnquiryAccess } from "@/lib/dataScope";
 
 export async function PATCH(
   req: Request,
@@ -9,6 +12,8 @@ export async function PATCH(
   try {
     await dbConnect();
     const { id, taskId } = await params;
+    const denied = await guardEnquiryAccess(id);
+    if (denied) return denied;
     const body = await req.json();
     const { isCompleted, remarks, conversionChance, leadStatus, status } = body;
 
@@ -37,6 +42,11 @@ export async function PATCH(
       );
     }
 
+    // Remember the previous status so a lead is counted as lost only once
+    const previousStatus = leadStatus === "Lost"
+      ? (await Enquiry.findById(id).select("status").lean() as any)?.status
+      : undefined;
+
     const updatedEnquiry = await Enquiry.findOneAndUpdate(
       { _id: id, "followUps._id": taskId },
       { $set: setObj },
@@ -47,6 +57,14 @@ export async function PATCH(
       return NextResponse.json(
         { success: false, error: "Enquiry or Task not found" },
         { status: 404 }
+      );
+    }
+
+    if (leadStatus === "Lost" && previousStatus !== "Lost") {
+      await LostLeadCounter.findOneAndUpdate(
+        { date: todayKey() },
+        { $inc: { count: 1 } },
+        { upsert: true, new: true }
       );
     }
 
@@ -70,6 +88,8 @@ export async function DELETE(
   try {
     await dbConnect();
     const { id, taskId } = await params;
+    const denied = await guardEnquiryAccess(id);
+    if (denied) return denied;
 
     const updatedEnquiry = await Enquiry.findByIdAndUpdate(
       id,

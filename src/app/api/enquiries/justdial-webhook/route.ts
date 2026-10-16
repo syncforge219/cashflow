@@ -518,12 +518,13 @@ async function handleJustdialLead(req: NextRequest, isSimulation = false) {
 
     // 6-7. Create Enquiry Document (enquiryId is assigned atomically by the Enquiry pre-save sequence;
     // a count-based ID collides with the unique index once any enquiry is deleted or two leads arrive together)
+    const enquiryDate = todayKey();
     const newEnquiry: any = await Enquiry.create({
       // Attributed to the marketing user who set up this connector (if any)
       addedByUserId: (config as any).connectedByUserId || null,
       addedByName: (config as any).connectedByName || "",
       studentFullName,
-      date: todayKey(),
+      date: enquiryDate,
       primaryPhoneMobile,
       emailAddress,
       currentCity: currentCity || "N/A",
@@ -540,6 +541,20 @@ async function handleJustdialLead(req: NextRequest, isSimulation = false) {
       utmMedium: "push_webhook",
       utmCampaign: justdialCategory || "justdial_leads",
       leadTags: ["Justdial", justdialCategory].filter(Boolean),
+      followUpDate: enquiryDate,
+      followUps: [
+        {
+          date: enquiryDate,
+          time: "11:00 AM",
+          priority: "High",
+          typeOfContact: "Initial Contact",
+          remarks: `New Justdial lead for ${targetBrand} - ${matchedCourse || justdialCategory}.`,
+          status: "Pending",
+          plannedBy: matchedCounselor || "System",
+          isCompleted: false,
+          createdAt: new Date(),
+        },
+      ],
     });
 
     // 8. Update JustdialConfig Stats

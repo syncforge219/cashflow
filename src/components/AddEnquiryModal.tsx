@@ -107,8 +107,21 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
       fetch("/api/brands")
         .then(res => res.json())
         .then(data => {
-          if (data.success) {
+          if (data.success && Array.isArray(data.brands)) {
             setBrands(data.brands);
+            const target = (initialBrand || userBrand || defaultBrand || "").trim().toLowerCase();
+            if (target) {
+              const matched = data.brands.find((b: any) => {
+                const bName = String(b.name || "").toLowerCase().trim();
+                const bCode = String(b.code || "").toLowerCase().trim();
+                return bName === target || bCode === target || bName.includes(target) || target.includes(bName);
+              });
+              if (matched?.name) {
+                setSelectedBrand(matched.name);
+              }
+            } else if (data.brands.length === 1) {
+              setSelectedBrand(data.brands[0].name);
+            }
           }
         })
         .catch(console.error);
@@ -153,10 +166,19 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
 
   useEffect(() => {
     if (!isOpen) return;
-    if (!isSuperAdmin && userBrand && selectedBrand !== userBrand) {
-      setSelectedBrand(userBrand);
+    if (!isSuperAdmin && userBrand) {
+      const uBrand = String(userBrand).toLowerCase().trim();
+      const matched = brands.find((b: any) => {
+        const bName = String(b.name || "").toLowerCase().trim();
+        const bCode = String(b.code || "").toLowerCase().trim();
+        return bName === uBrand || bCode === uBrand || bName.includes(uBrand) || uBrand.includes(bName);
+      });
+      const canonicalName = matched ? matched.name : userBrand;
+      if (selectedBrand !== canonicalName) {
+        setSelectedBrand(canonicalName);
+      }
     }
-  }, [isOpen, isSuperAdmin, userBrand, selectedBrand]);
+  }, [isOpen, isSuperAdmin, userBrand, selectedBrand, brands]);
 
   const activeBrandForCounsellors = useMemo(() => {
     if (selectedBrand && selectedBrand !== "All Brands" && selectedBrand !== "All") {
@@ -253,8 +275,8 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
     const formData = new FormData(e.currentTarget);
     const data = Object.fromEntries(formData.entries());
 
-    const studentFullName = String(data.studentFullName || "").trim();
-    if (!studentFullName) {
+    const studentFullNameToSave = String(studentFullName || data.studentFullName || "").trim();
+    if (!studentFullNameToSave) {
       alert("Student Full Name is required.");
       setIsSubmitting(false);
       return;
@@ -272,6 +294,21 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
     if (data.parentsPhoneNumber) {
       data.parentsPhoneNumber = formatPhoneForSubmission(String(data.parentsPhoneNumber));
     }
+
+    // Explicitly sync all critical demographic & routing fields
+    (data as any).studentFullName = studentFullNameToSave;
+    (data as any).date = enquiryDate || String(data.date || "").trim() || todayKey();
+    (data as any).emailAddress = emailAddress || String(data.emailAddress || "").trim();
+    (data as any).currentCity = currentCity || String(data.currentCity || "").trim() || "N/A";
+
+    const targetBrandToSave = selectedBrand || activeBrandForCounsellors || String(data.targetBrand || "").trim();
+    (data as any).targetBrand = targetBrandToSave;
+
+    const advisorToSave = selectedAdvisor || String(data.assignedCrmAdvisor || "").trim() || user?.name || "Unassigned";
+    (data as any).assignedCrmAdvisor = advisorToSave;
+
+    const leadSourceToSave = selectedLeadSource || String(data.leadSource || "").trim() || "Google Ads";
+    (data as any).leadSource = leadSourceToSave;
 
     // Attach multi-selected courses array or looking for job
     if (isLookingForJob) {
@@ -310,8 +347,8 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
           remarks: followUpNotesStr,
           nextAction: reminderStr && reminderStr !== "None" ? `Reminder: ${reminderStr}` : "",
           status: "Pending",
-          plannedBy: user?.name || (data.assignedCrmAdvisor ? String(data.assignedCrmAdvisor) : "System"),
-          assignedTo: data.assignedCrmAdvisor ? String(data.assignedCrmAdvisor) : (user?.name || "Unassigned"),
+          plannedBy: user?.name || advisorToSave || "System",
+          assignedTo: advisorToSave || "Unassigned",
           isCompleted: false,
           isRecurring: false,
           recurringRule: "none",
@@ -334,13 +371,38 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
         if (onSuccess) onSuccess();
         else onClose();
       } else {
-        const errorData = await response.json();
-        console.error("Failed to save enquiry:", errorData.message);
-        alert("Failed to save enquiry: " + errorData.message);
+        let errorMessage = "";
+        try {
+          const errorData = await response.json();
+          errorMessage =
+            errorData.message ||
+            errorData.error ||
+            (Array.isArray(errorData.errors) ? errorData.errors.map((e: any) => e.message || e).join(", ") : "") ||
+            (typeof errorData === "string" ? errorData : "");
+        } catch {
+          // Response body is not JSON
+        }
+
+        if (!errorMessage) {
+          if (response.status === 401) {
+            errorMessage = "Your session has expired. Please refresh the page and log in again.";
+          } else if (response.status === 403) {
+            errorMessage = "You do not have permission to register this lead.";
+          } else if (response.status === 404) {
+            errorMessage = "Enquiry service endpoint was not found.";
+          } else if (response.status >= 500) {
+            errorMessage = `Internal server error (${response.status}). Please try again or contact administrator.`;
+          } else {
+            errorMessage = `Request failed (${response.status} ${response.statusText || ""}).`;
+          }
+        }
+
+        console.error("Failed to save enquiry:", errorMessage);
+        alert("Failed to save enquiry: " + errorMessage);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error submitting form:", error);
-      alert("Error submitting form");
+      alert("Error submitting form: " + (error?.message || "Network connection error"));
     } finally {
       setIsSubmitting(false);
     }
@@ -492,7 +554,7 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">Target Brand</label>
-                  {!isSuperAdmin && (
+                  {!isSuperAdmin && userBrand && (
                     <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
                       🔒 Assigned Brand
                     </span>
@@ -500,16 +562,14 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
                 </div>
                 <select 
                   name="targetBrand" 
-                  disabled={!isSuperAdmin}
+                  disabled={!isSuperAdmin && Boolean(userBrand && selectedBrand)}
                   value={selectedBrand}
                   onChange={(e) => {
-                    if (isSuperAdmin) {
-                      setSelectedBrand(e.target.value);
-                      if (user?.name) {
-                        setSelectedAdvisor(user.name);
-                      } else {
-                        setSelectedAdvisor("");
-                      }
+                    setSelectedBrand(e.target.value);
+                    if (user?.name) {
+                      setSelectedAdvisor(user.name);
+                    } else {
+                      setSelectedAdvisor("");
                     }
                   }}
                   className="w-full text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 disabled:bg-slate-100 disabled:text-slate-600 disabled:cursor-not-allowed disabled:border-slate-200 disabled:opacity-90"
@@ -518,6 +578,9 @@ export default function AddEnquiryModal({ isOpen, onClose, onSuccess, defaultBra
                   {brands.map(b => (
                     <option key={b._id || b.name} value={b.name}>{b.name}</option>
                   ))}
+                  {selectedBrand && !brands.some(b => (b.name || "").toLowerCase() === selectedBrand.toLowerCase()) && (
+                    <option value={selectedBrand}>{selectedBrand}</option>
+                  )}
                 </select>
               </div>
               <div>

@@ -221,7 +221,7 @@ export default function SoftwaresDisplay() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M14.25 7.756a3.375 3.375 0 0 1 0 8.488M16.5 5.5a6 6 0 0 1 0 13m-11.25-13A6 6 0 0 0 2.25 12a6 6 0 0 0 3 5.25m3.75-10.5a3.375 3.375 0 0 0 0 8.488M8.25 12h7.5" />
               </svg>
             </span>
-            // SOFTWARE_PROJECTS_REGISTRY
+            {"// SOFTWARE_PROJECTS_REGISTRY"}
           </h1>
           <p className="text-xs text-slate-400 mt-1 max-w-xl font-medium">
             Register, edit, and manage software products, tech stack arrays, domains, and assigned developer teams.
@@ -294,7 +294,7 @@ export default function SoftwaresDisplay() {
       <div className="bg-[#090E1A] border border-slate-800 rounded-2xl p-5 shadow-xl flex-1">
         <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
           <div>
-            <h2 className="text-base font-black text-white">// REGISTERED_SOFTWARE_CATALOG</h2>
+            <h2 className="text-base font-black text-white">{"// REGISTERED_SOFTWARE_CATALOG"}</h2>
             <p className="text-xs text-slate-400 font-medium">Software projects with tech stack arrays and developer assignments</p>
           </div>
           <span className="text-xs font-bold bg-slate-900 text-emerald-400 border border-slate-800 px-3 py-1 rounded-lg">

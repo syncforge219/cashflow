@@ -85,9 +85,7 @@ export default function TeacherDashboard() {
     fetchTeacherDashboardData();
   }, [user]);
 
-  if (!user) return null;
-
-  const initialLetter = user.name ? user.name.charAt(0).toUpperCase() : "T";
+  const initialLetter = user?.name ? user.name.charAt(0).toUpperCase() : "T";
 
   // 100% Dynamic KPI Metrics Data derived strictly from MongoDB
   const metrics = [
@@ -202,6 +200,8 @@ export default function TeacherDashboard() {
       />
     );
   });
+
+  if (!user) return null;
 
   return (
     <div className="flex h-screen bg-[#f8faff] text-slate-800 overflow-hidden font-sans transition-colors duration-200">

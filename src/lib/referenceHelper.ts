@@ -397,10 +397,21 @@ export async function syncEnquiryRefs(
 
   // 2. AssignedCrmAdvisor <-> AssignedCrmAdvisorId
   if (target.assignedCrmAdvisorId) {
+    const res = await lookupUser(target.assignedCrmAdvisorId, session);
     if (!target.assignedCrmAdvisor) {
-      const res = await lookupUser(target.assignedCrmAdvisorId, session);
       if (res.status === "matched" && res.record?.name) {
         target.assignedCrmAdvisor = res.record.name;
+      }
+    } else if (
+      res.status === "matched" &&
+      res.record?.name &&
+      String(res.record.name).trim().toLowerCase() !== String(target.assignedCrmAdvisor).trim().toLowerCase()
+    ) {
+      // The advisor name was changed but the old id was left behind: the name is what callers
+      // edit, so re-resolve the id from it instead of keeping the previous advisor's id.
+      const byName = await lookupUser(target.assignedCrmAdvisor, session);
+      if (byName.status === "matched" && byName.record?._id) {
+        target.assignedCrmAdvisorId = byName.record._id;
       }
     }
   } else if (target.assignedCrmAdvisor) {

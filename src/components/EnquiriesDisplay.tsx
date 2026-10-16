@@ -99,8 +99,8 @@ export default function EnquiriesDisplay() {
 
   // 2. Full Filtered Enquiries (dropdowns + search)
   const filteredEnquiries = dateFilteredEnquiries.filter((lead) => {
-    if (brandFilter && lead.targetBrand !== brandFilter) return false;
-    if (advisorFilter && lead.assignedCrmAdvisor !== advisorFilter) return false;
+    if (brandFilter && (lead.targetBrand || "").trim().toLowerCase() !== brandFilter.trim().toLowerCase()) return false;
+    if (advisorFilter && (lead.assignedCrmAdvisor || "").trim().toLowerCase() !== advisorFilter.trim().toLowerCase()) return false;
     if (sourceFilter && lead.leadSource !== sourceFilter) return false;
     if (priorityFilter && lead.priorityLevel !== priorityFilter) return false;
     if (statusFilter && lead.status !== statusFilter) return false;
@@ -308,7 +308,7 @@ export default function EnquiriesDisplay() {
   });
 
   const finalAdmissions = dateFilteredAdmissions.filter((adm) => {
-    if (brandFilter && adm.brand !== brandFilter) return false;
+    if (brandFilter && (adm.brand || "").trim().toLowerCase() !== brandFilter.trim().toLowerCase()) return false;
     return true;
   });
 
@@ -372,8 +372,8 @@ export default function EnquiriesDisplay() {
   const enquiriesForSourceAnalysis = React.useMemo(() => {
     if (sourceFilter) {
       return dateFilteredEnquiries.filter((lead) => {
-        if (brandFilter && lead.targetBrand !== brandFilter) return false;
-        if (advisorFilter && lead.assignedCrmAdvisor !== advisorFilter) return false;
+        if (brandFilter && (lead.targetBrand || "").trim().toLowerCase() !== brandFilter.trim().toLowerCase()) return false;
+        if (advisorFilter && (lead.assignedCrmAdvisor || "").trim().toLowerCase() !== advisorFilter.trim().toLowerCase()) return false;
         if (priorityFilter && lead.priorityLevel !== priorityFilter) return false;
         if (statusFilter && lead.status !== statusFilter) return false;
         return true;
@@ -984,6 +984,7 @@ export default function EnquiriesDisplay() {
       <AddEnquiryModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
+        defaultBrand={brandFilter && brandFilter !== "All Brands" ? brandFilter : undefined}
         onSuccess={() => {
           setIsAddModalOpen(false);
           fetchEnquiries();

@@ -116,6 +116,8 @@ const EnquirySchema = new Schema(
         completedAt: Date,
         callStart: String,
         callEnd: String,
+        loggedDate: String, // when the call was actually made (vs. date/time = when it is due)
+        loggedTime: String,
         createdAt: { type: Date, default: Date.now },
       },
     ],

@@ -111,6 +111,7 @@ export async function POST(req: Request) {
 
       finalLeads.push({
         studentFullName: String(row.name).trim(),
+        date: todayDate,
         primaryPhoneMobile: mobileStr,
         parentsFullName: row.parentName ? String(row.parentName).trim() : "",
         parentsPhoneNumber: row.parentMobile ? String(row.parentMobile).trim() : "",
@@ -119,7 +120,7 @@ export async function POST(req: Request) {
         targetCourse: String(row.course).trim(),
         targetBrand: leadBrand,
         leadSource: row.leadSource ? String(row.leadSource).trim() : "Bulk Import",
-        leadPriority: row.priority ? String(row.priority).trim() : "Medium",
+        priorityLevel: row.priority ? String(row.priority).trim() : "Medium",
         expectedCourseFee: feeVal,
         remarks: row.remarks ? String(row.remarks).trim() : "",
         assignedCrmAdvisor: assignedName,
@@ -147,13 +148,18 @@ export async function POST(req: Request) {
     }
 
     // 2. Database duplicate check
-    const phonesToCheck = finalLeads.map((c) => c.primaryPhoneMobile);
-    const existingLeads = await Enquiry.find({ primaryPhoneMobile: { $in: phonesToCheck } }).select("primaryPhoneMobile").lean();
-    const existingPhones = new Set(existingLeads.map((c: any) => c.primaryPhoneMobile));
+    // Compare on the last 10 digits so "+91 98765 43210" and "9876543210" count as the same number
+    const last10 = (v: any) => String(v ?? "").replace(/\D/g, "").slice(-10);
+    const phoneRegex = (digits: string) => new RegExp(digits.split("").join("\\D*") + "\\D*$");
+    const digitsToCheck = Array.from(new Set(finalLeads.map((c) => last10(c.primaryPhoneMobile)).filter((d) => d.length >= 7)));
+    const existingLeads = digitsToCheck.length > 0
+      ? await Enquiry.find({ $or: digitsToCheck.map((d) => ({ primaryPhoneMobile: phoneRegex(d) })) }).select("primaryPhoneMobile").lean()
+      : [];
+    const existingPhones = new Set(existingLeads.map((c: any) => last10(c.primaryPhoneMobile)));
 
     const leadsToInsert: any[] = [];
     finalLeads.forEach((c) => {
-      if (existingPhones.has(c.primaryPhoneMobile)) {
+      if (existingPhones.has(last10(c.primaryPhoneMobile))) {
         errors.push(`Lead with phone '${c.primaryPhoneMobile}' already exists in database.`);
       } else {
         leadsToInsert.push(c);

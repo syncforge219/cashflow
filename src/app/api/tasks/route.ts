@@ -4,6 +4,8 @@ import dbConnect from "@/lib/db";
 import Task from "@/models/Task";
 import Enquiry from "@/models/Enquiry";
 import Admission from "@/models/Admission";
+import { getUserFromCookies, escapeRegex } from "@/lib/helper";
+import { getOwnerScope } from "@/lib/dataScope";
 
 export async function GET(req: Request) {
   try {
@@ -18,8 +20,12 @@ export async function GET(req: Request) {
 
     const query: any = {};
 
-    if (assignedTo) {
-      query.assignedTo = { $regex: new RegExp(assignedTo, "i") };
+    // Counsellors / sales executives only see tasks assigned to them, regardless of the filter sent
+    const ownerScope = getOwnerScope(await getUserFromCookies());
+    if (ownerScope) {
+      query.assignedTo = ownerScope.nameRegex;
+    } else if (assignedTo) {
+      query.assignedTo = { $regex: new RegExp(escapeRegex(assignedTo), "i") };
     }
 
     const now = new Date();
