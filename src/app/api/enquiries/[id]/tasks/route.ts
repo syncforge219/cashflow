@@ -95,6 +95,12 @@ export async function POST(
     // Enquiry-level fields go in an explicit $set so the model's pre-update hook can
     // re-resolve assignedCrmAdvisorId from the new advisor name.
     const setFields: any = {};
+    if (newFollowup.date) {
+      setFields.followUpDate = newFollowup.date;
+    }
+    if (remarks) {
+      setFields.followUpNotes = remarks;
+    }
     if (assignedTo) {
       setFields.assignedCrmAdvisor = assignedTo;
     }

@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { escapeRegex } from "@/lib/helper";
 import { normalizeRole } from "@/lib/roles";
 
@@ -11,7 +12,7 @@ import { normalizeRole } from "@/lib/roles";
 
 export interface OwnerScope {
   id: any;
-  /** Case-insensitive, exact-match regex of the user's name (never a substring match). */
+  /** Flexible, whitespace-tolerant regex of the user's name. */
   nameRegex: RegExp;
   name: string;
 }
@@ -30,43 +31,101 @@ export function getOwnerScope(user: any): OwnerScope | null {
   if (!user) return null;
   const role = user.role || user.crmRole || user.designation;
   if (!isOwnRecordsRole(role)) return null;
-  const name = String(user.name || "").trim();
+  const rawName = String(user.name || "").trim();
+  const normalizedName = rawName.replace(/\s+/g, " ");
+  const words = normalizedName.split(" ").filter(Boolean).map(escapeRegex);
+  const pattern = words.length > 0 ? words.join("\\s+") : escapeRegex(rawName || "__no_name__");
+
   return {
-    id: user._id,
-    name,
-    nameRegex: new RegExp(`^${escapeRegex(name || "__no_name__")}$`, "i"),
+    id: user._id || user.id,
+    name: normalizedName,
+    nameRegex: new RegExp(pattern, "i"),
   };
 }
 
-/** Mongo condition for Enquiry documents. Unassigned leads stay visible so they can be picked up. */
+/** Helper to generate ObjectId and string ID clauses */
+function buildIdClauses(field: string, id: any): any[] {
+  if (!id) return [];
+  const clauses: any[] = [{ [field]: id }];
+  const idStr = String(id);
+  if (mongoose.Types.ObjectId.isValid(idStr)) {
+    try {
+      clauses.push({ [field]: new mongoose.Types.ObjectId(idStr) });
+    } catch {
+      // ignore
+    }
+  }
+  return clauses;
+}
+
+/** Mongo condition for Enquiry documents. Unassigned leads and leads with tasks for this user stay visible. */
 export function enquiryOwnerCondition(scope: OwnerScope) {
+  const idClauses = buildIdClauses("assignedCrmAdvisorId", scope.id);
+
   return {
     $or: [
-      { assignedCrmAdvisorId: scope.id },
+      ...idClauses,
       { assignedCrmAdvisor: scope.nameRegex },
-      { assignedCrmAdvisor: { $in: [null, "", "Unassigned", "unassigned"] } },
+      { "followUps.assignedTo": scope.nameRegex },
+      { "followUps.plannedBy": scope.nameRegex },
+      { assignedCrmAdvisor: { $in: [null, "", "Unassigned", "unassigned", "N/A", "n/a"] } },
       { assignedCrmAdvisor: { $exists: false } },
     ],
   };
 }
 
-/** True when an already-loaded enquiry belongs to the scoped user (or is unassigned). */
+/** True when an already-loaded enquiry belongs to the scoped user (or has a follow-up for them, or is unassigned). */
 export function enquiryVisibleTo(scope: OwnerScope, enquiry: any): boolean {
   const adv = String(enquiry?.assignedCrmAdvisor || "").trim();
-  if (!adv || adv.toLowerCase() === "unassigned") return true;
-  if (enquiry?.assignedCrmAdvisorId && String(enquiry.assignedCrmAdvisorId) === String(scope.id)) return true;
-  return scope.nameRegex.test(adv);
+  if (!adv || ["unassigned", "n/a", "none"].includes(adv.toLowerCase())) return true;
+
+  if (enquiry?.assignedCrmAdvisorId && String(enquiry.assignedCrmAdvisorId) === String(scope.id)) {
+    return true;
+  }
+  if (scope.nameRegex.test(adv)) return true;
+
+  // Check if any subdocument in followUps is assigned to or planned by this user
+  if (Array.isArray(enquiry?.followUps)) {
+    const hasMyFollowup = enquiry.followUps.some((f: any) => {
+      const assigned = String(f?.assignedTo || "").trim();
+      const planned = String(f?.plannedBy || "").trim();
+      return scope.nameRegex.test(assigned) || scope.nameRegex.test(planned);
+    });
+    if (hasMyFollowup) return true;
+  }
+
+  // Name partial match fallback (e.g. "Kashish" matching "Kashish Naqvi")
+  const lowerName = scope.name.toLowerCase();
+  const lowerAdv = adv.toLowerCase();
+  if (lowerName && lowerAdv && (lowerName.includes(lowerAdv) || lowerAdv.includes(lowerName))) {
+    return true;
+  }
+
+  return false;
 }
 
 /** Mongo condition for Admission documents. */
 export function admissionOwnerCondition(scope: OwnerScope) {
-  return { $or: [{ counsellorId: scope.id }, { counsellor: scope.nameRegex }] };
+  const idClauses = buildIdClauses("counsellorId", scope.id);
+  return {
+    $or: [
+      ...idClauses,
+      { counsellor: scope.nameRegex },
+      { counsellor: { $in: [null, "", "Unassigned", "unassigned"] } },
+      { counsellor: { $exists: false } },
+    ],
+  };
 }
 
 /** True when an already-loaded admission belongs to the scoped user. */
 export function admissionVisibleTo(scope: OwnerScope, admission: any): boolean {
   if (admission?.counsellorId && String(admission.counsellorId) === String(scope.id)) return true;
-  return scope.nameRegex.test(String(admission?.counsellor || "").trim());
+  const c = String(admission?.counsellor || "").trim();
+  if (!c || ["unassigned", "n/a"].includes(c.toLowerCase())) return true;
+  if (scope.nameRegex.test(c)) return true;
+  const lowerName = scope.name.toLowerCase();
+  const lowerC = c.toLowerCase();
+  return Boolean(lowerName && lowerC && (lowerName.includes(lowerC) || lowerC.includes(lowerName)));
 }
 
 /**
@@ -81,7 +140,7 @@ export async function guardEnquiryAccess(enquiryId: string): Promise<Response | 
 
   const { default: Enquiry } = await import("@/models/Enquiry");
   const enquiry: any = await Enquiry.findById(enquiryId)
-    .select("assignedCrmAdvisor assignedCrmAdvisorId")
+    .select("assignedCrmAdvisor assignedCrmAdvisorId followUps")
     .lean();
   if (!enquiry) return null; // let the route return its own 404
   if (enquiryVisibleTo(scope, enquiry)) return null;

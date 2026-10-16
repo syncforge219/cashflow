@@ -1,7 +1,7 @@
 "use client";
 
 import { todayKey, toDateKey, daysBetween, addDaysKey, formatDate } from "@/lib/dates";
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import Sidebar from "@/components/Sidebar";
 import ProfileDisplay from "@/components/ProfileDisplay";
 import { useUser } from "@/app/component/context/user-context";
@@ -229,6 +229,7 @@ export default function FollowupPage() {
   const [brandsList, setBrandsList] = useState<any[]>([]);
   const [filterBrand, setFilterBrand] = useState("All");
   const [filterAdvisor, setFilterAdvisor] = useState("All");
+  const [onlyMyFollowups, setOnlyMyFollowups] = useState(false);
   const [filterCourse, setFilterCourse] = useState("All");
   const [filterStage, setFilterStage] = useState("All");
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
@@ -287,6 +288,14 @@ export default function FollowupPage() {
     userRole === "super admin" ||
     userRole === "manager";
 
+  const isStaffOrAdmin =
+    isCentreHead ||
+    userRole.includes("admin") ||
+    userRole.includes("manager") ||
+    userRole.includes("head") ||
+    userRole.includes("cfo") ||
+    userRole.includes("director");
+
   // Fetch counsellors
   const fetchCounsellors = async () => {
     try {
@@ -332,6 +341,18 @@ export default function FollowupPage() {
     });
     return Array.from(set);
   }, [enquiries]);
+
+  // Combined sorted list of all counsellors available for filtering
+  const allCounsellorNames = useMemo(() => {
+    const set = new Set<string>();
+    counsellorsList.forEach((c: any) => {
+      if (c.name && c.name.trim()) set.add(c.name.trim());
+    });
+    allCurrentAdvisors.forEach((name) => {
+      if (name && name.trim()) set.add(name.trim());
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [counsellorsList, allCurrentAdvisors]);
 
   // Bulk selection toggle handlers
   const handleToggleSelectAll = (isChecked: boolean, pageRecords: EnquiryFollowupRecord[]) => {
@@ -717,6 +738,49 @@ export default function FollowupPage() {
     return false;
   };
 
+  // Helper to test if a record is owned by or assigned to a specific user (flexible matching)
+  const isRecordOwnedByUser = useCallback((rec: any, targetUser: any) => {
+    if (!targetUser) return false;
+    const uName = (targetUser.name || "").trim().toLowerCase();
+    const uId = String(targetUser._id || targetUser.id || "");
+    if (!uName && !uId) return false;
+
+    // Direct advisor ID match
+    if (rec.assignedCrmAdvisorId && uId && String(rec.assignedCrmAdvisorId) === uId) {
+      return true;
+    }
+
+    // Direct advisor name match (tolerant of spaces / full name / first name)
+    const adv = (rec.assignedCrmAdvisor || "").trim().toLowerCase();
+    if (adv && !["unassigned", "n/a", "none"].includes(adv)) {
+      if (adv === uName || adv.includes(uName) || uName.includes(adv)) return true;
+      const uWords = uName.split(/\s+/).filter(Boolean);
+      if (uWords.some((w: string) => adv.includes(w) || w.includes(adv))) return true;
+    }
+
+    // Subdocument follow-up assignment or plannedBy match
+    if (Array.isArray(rec.followUps)) {
+      const hasMatchingTask = rec.followUps.some((f: any) => {
+        const assigned = (f.assignedTo || "").trim().toLowerCase();
+        const planned = (f.plannedBy || "").trim().toLowerCase();
+        if (assigned && !["unassigned", "n/a", "none"].includes(assigned)) {
+          if (assigned === uName || assigned.includes(uName) || uName.includes(assigned)) return true;
+          const uWords = uName.split(/\s+/).filter(Boolean);
+          if (uWords.some((w: string) => assigned.includes(w) || w.includes(assigned))) return true;
+        }
+        if (planned) {
+          if (planned === uName || planned.includes(uName) || uName.includes(planned)) return true;
+          const uWords = uName.split(/\s+/).filter(Boolean);
+          if (uWords.some((w: string) => planned.includes(w) || w.includes(planned))) return true;
+        }
+        return false;
+      });
+      if (hasMatchingTask) return true;
+    }
+
+    return false;
+  }, []);
+
   // Filtered Enquiry Records based on Tab & Search & Advanced Filters & Strict Brand Isolation
   const filteredEnquiryRecords = useMemo(() => {
     const todayStr = todayKey();
@@ -751,14 +815,18 @@ export default function FollowupPage() {
         if (!statusLower.includes("lost") && !statusLower.includes("do not")) return false;
       }
 
-      // Counsellor Role Isolation: Counsellors only see their own assigned follow-ups (or unassigned)
-      const uName = (user?.name || "").trim().toLowerCase();
+      // Counsellor Role Isolation or "My Follow-ups" filter toggle
       const uRole = (user?.role || "").trim().toLowerCase();
       const isStaffOrAdmin = uRole.includes("admin") || uRole.includes("manager") || uRole.includes("head") || uRole.includes("cfo");
+      const isOwned = isRecordOwnedByUser(rec, user);
 
-      if (!isStaffOrAdmin && uName) {
+      if (onlyMyFollowups) {
+        if (!isOwned) return false;
+      } else if (!isStaffOrAdmin) {
+        // Counsellors see their own records or unassigned leads
         const adv = (rec.assignedCrmAdvisor || "").trim().toLowerCase();
-        if (adv && adv !== "unassigned" && adv !== "n/a" && adv !== uName && !adv.includes(uName) && !uName.includes(adv)) {
+        const isUnassigned = !adv || ["unassigned", "n/a", "none"].includes(adv);
+        if (!isOwned && !isUnassigned) {
           return false;
         }
       }
@@ -777,8 +845,19 @@ export default function FollowupPage() {
         return false;
       }
 
-      // Advanced Modal Filters
-      if (filterAdvisor !== "All" && (rec.assignedCrmAdvisor || "").toLowerCase() !== filterAdvisor.toLowerCase()) return false;
+      // 3. Interactive Counsellor Filter Dropdown
+      if (filterAdvisor !== "All") {
+        const targetAdv = filterAdvisor.trim().toLowerCase();
+        const adv = (rec.assignedCrmAdvisor || "").trim().toLowerCase();
+        const hasTaskWithAdvisor = Array.isArray(rec.followUps) && rec.followUps.some((f: any) => {
+          const a = (f.assignedTo || "").trim().toLowerCase();
+          return a === targetAdv || a.includes(targetAdv) || targetAdv.includes(a);
+        });
+        if (adv !== targetAdv && !adv.includes(targetAdv) && !targetAdv.includes(adv) && !hasTaskWithAdvisor) {
+          return false;
+        }
+      }
+
       if (filterCourse !== "All" && (rec.targetCourse || "").toLowerCase() !== filterCourse.toLowerCase()) return false;
       if (filterStage !== "All" && (rec.status || "").toLowerCase() !== filterStage.toLowerCase()) return false;
 
@@ -830,13 +909,12 @@ export default function FollowupPage() {
 
       return true;
     });
-  }, [processedEnquiryFollowups, enquiryTab, selectedNewLeadDate, searchQuery, filterBrand, filterAdvisor, filterCourse, filterStage, advancedFilters, isUserBrandRestricted, allowedUserBrands, user?.name, user?.role, admittedPhoneSet, admittedEnquiryIdSet]);
+  }, [processedEnquiryFollowups, enquiryTab, selectedNewLeadDate, searchQuery, filterBrand, filterAdvisor, filterCourse, filterStage, advancedFilters, isUserBrandRestricted, allowedUserBrands, onlyMyFollowups, user, isRecordOwnedByUser, admittedPhoneSet, admittedEnquiryIdSet]);
 
-  // Tab Counters for Enquiry Mode strictly isolated by active Brand / Scope
+  // Tab Counters for Enquiry Mode strictly isolated by active Brand / Scope / My Followups
   const enquiryCounts = useMemo(() => {
     const todayStr = todayKey();
     const todayTime = new Date(todayStr).getTime();
-    const uName = (user?.name || "").trim().toLowerCase();
     const uRole = (user?.role || "").trim().toLowerCase();
     const isStaffOrAdmin = uRole.includes("admin") || uRole.includes("manager") || uRole.includes("head") || uRole.includes("cfo");
 
@@ -858,10 +936,27 @@ export default function FollowupPage() {
         return;
       }
 
-      // 2. Counsellor Role Isolation
-      if (!isStaffOrAdmin && uName) {
+      // 2. Counsellor Role Isolation or "My Follow-ups" filter toggle
+      const isOwned = isRecordOwnedByUser(rec, user);
+      if (onlyMyFollowups) {
+        if (!isOwned) return;
+      } else if (!isStaffOrAdmin) {
         const adv = (rec.assignedCrmAdvisor || "").trim().toLowerCase();
-        if (adv && adv !== "unassigned" && adv !== "n/a" && adv !== uName && !adv.includes(uName) && !uName.includes(adv)) {
+        const isUnassigned = !adv || ["unassigned", "n/a", "none"].includes(adv);
+        if (!isOwned && !isUnassigned) {
+          return;
+        }
+      }
+
+      // 3. Counsellor Dropdown Filter
+      if (filterAdvisor !== "All") {
+        const targetAdv = filterAdvisor.trim().toLowerCase();
+        const adv = (rec.assignedCrmAdvisor || "").trim().toLowerCase();
+        const hasTaskWithAdvisor = Array.isArray(rec.followUps) && rec.followUps.some((f: any) => {
+          const a = (f.assignedTo || "").trim().toLowerCase();
+          return a === targetAdv || a.includes(targetAdv) || targetAdv.includes(a);
+        });
+        if (adv !== targetAdv && !adv.includes(targetAdv) && !targetAdv.includes(adv) && !hasTaskWithAdvisor) {
           return;
         }
       }
@@ -895,7 +990,13 @@ export default function FollowupPage() {
     });
 
     return { today, newLeads, pending, upcoming, donot };
-  }, [processedEnquiryFollowups, selectedNewLeadDate, isUserBrandRestricted, allowedUserBrands, filterBrand, user?.name, user?.role, admittedPhoneSet, admittedEnquiryIdSet]);
+  }, [processedEnquiryFollowups, selectedNewLeadDate, isUserBrandRestricted, allowedUserBrands, filterBrand, filterAdvisor, onlyMyFollowups, user, isRecordOwnedByUser, isAdmittedLead]);
+
+  // Overall count of followups belonging to the currently signed-in user
+  const myFollowupTotal = useMemo(() => {
+    if (!user) return 0;
+    return processedEnquiryFollowups.filter((rec) => !isAdmittedLead(rec) && isRecordOwnedByUser(rec, user)).length;
+  }, [processedEnquiryFollowups, user, isRecordOwnedByUser, isAdmittedLead]);
 
   // -------------------------------------------------------------
   // PROCESSED FEES FOLLOWUPS DATA
@@ -1341,6 +1442,54 @@ export default function FollowupPage() {
             </select>
           </label>
 
+          {isStaffOrAdmin && allCounsellorNames.length > 0 && (
+            <label className="flex items-center gap-1.5 shrink-0 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Counsellor</span>
+              <select
+                id="followup-counsellor-filter"
+                value={filterAdvisor}
+                onChange={(e) => {
+                  setFilterAdvisor(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="bg-transparent text-xs font-extrabold outline-none text-slate-800 cursor-pointer max-w-[140px] truncate"
+              >
+                <option value="All">All Counsellors</option>
+                {allCounsellorNames.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          <button
+            type="button"
+            onClick={() => {
+              setOnlyMyFollowups((prev) => !prev);
+              setCurrentPage(1);
+            }}
+            className={`px-3 py-1.5 border font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+              onlyMyFollowups
+                ? "bg-indigo-600 border-indigo-600 text-white shadow-2xs"
+                : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+            }`}
+            title="Toggle to view only follow-ups assigned to you"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+            </svg>
+            <span>My Follow-ups</span>
+            {myFollowupTotal > 0 && (
+              <span className={`px-1.5 rounded-full text-[10px] font-black ${
+                onlyMyFollowups ? "bg-white text-indigo-700" : "bg-indigo-100 text-indigo-700"
+              }`}>
+                {myFollowupTotal}
+              </span>
+            )}
+          </button>
+
           {activeMode === "enquiry" && (
             <button
               onClick={() => setIsFilterModalOpen(true)}
@@ -1536,6 +1685,28 @@ export default function FollowupPage() {
                 className="p-1 hover:bg-white/20 rounded-lg transition-colors cursor-pointer text-white font-bold"
               >
                 ✕
+              </button>
+            </div>
+          )}
+
+          {/* Overdue Leads Notice Banner when in "Due today" tab */}
+          {activeMode === "enquiry" && enquiryTab === "today" && enquiryCounts.pending > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 px-4 flex items-center justify-between mb-3 shrink-0 shadow-2xs">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-2.5 w-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+                <p className="text-xs text-amber-900 font-medium">
+                  Notice: You have <strong className="font-bold text-amber-950">{enquiryCounts.pending}</strong> pending overdue follow-up{enquiryCounts.pending > 1 ? "s" : ""} from earlier dates waiting in the Overdue tab.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setEnquiryTab("pending");
+                  setCurrentPage(1);
+                }}
+                className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl transition-all cursor-pointer shadow-xs shrink-0 ml-3"
+              >
+                View Overdue ({enquiryCounts.pending}) →
               </button>
             </div>
           )}
