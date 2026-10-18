@@ -71,6 +71,44 @@ export async function POST(req: Request) {
 
     if (transferScope === "selected" && Array.isArray(enquiryIds) && enquiryIds.length > 0) {
       query._id = { $in: enquiryIds };
+    } else if (transferScope === "course_wise" || transferScope === "course_pending") {
+      if (!course || typeof course !== "string" || !course.trim() || course.toLowerCase() === "all") {
+        return NextResponse.json(
+          { success: false, error: "A specific course name is required for course-wise transfer." },
+          { status: 400 }
+        );
+      }
+      query.status = { $nin: ["Lost", "Admitted", "Do Not Call", "Do Not Followup", "Completed"] };
+      if (sourceAdvisor || sourceUser) {
+        const sRegex = sourceAdvisor ? new RegExp(`^${sourceAdvisor.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") : null;
+        if (sourceUser) {
+          query.$or = [{ assignedCrmAdvisorId: sourceUser._id }];
+          if (sRegex) query.$or.push({ assignedCrmAdvisor: sRegex });
+        } else if (sRegex) {
+          query.assignedCrmAdvisor = sRegex;
+        }
+      }
+      if (!isGlobalBrand) {
+        const bRegex = new RegExp(effectiveBrand.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+        if (brandDoc) {
+          const brandClause = { $or: [{ targetBrandId: brandDoc._id }, { targetBrand: bRegex }] };
+          if (query.$or) {
+            query.$and = [{ $or: query.$or }, brandClause];
+            delete query.$or;
+          } else {
+            query.$or = brandClause.$or;
+          }
+        } else {
+          query.targetBrand = bRegex;
+        }
+      }
+      if (Array.isArray(enquiryIds) && enquiryIds.length > 0) {
+        if (query.$and) {
+          query.$and.push({ _id: { $in: enquiryIds } });
+        } else {
+          query._id = { $in: enquiryIds };
+        }
+      }
     } else if (transferScope === "counsellor_pending" && (sourceAdvisor || sourceUser)) {
       const sRegex = sourceAdvisor ? new RegExp(`^${sourceAdvisor.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") : null;
       if (sourceUser) {

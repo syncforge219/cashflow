@@ -275,6 +275,8 @@ export default function FollowupPage() {
   const [selectedEnquiryIds, setSelectedEnquiryIds] = useState<string[]>([]);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [leadsForTransferModal, setLeadsForTransferModal] = useState<TransferLeadItem[]>([]);
+  const [transferModalInitialMode, setTransferModalInitialMode] = useState<"single_lead" | "course_wise" | "selected" | "counsellor_pending" | "all_pending">("single_lead");
+  const [transferModalInitialCourse, setTransferModalInitialCourse] = useState("");
   const [quickTargetCounsellor, setQuickTargetCounsellor] = useState("");
   const [isTransferringQuick, setIsTransferringQuick] = useState(false);
   const [transferToastMessage, setTransferToastMessage] = useState("");
@@ -421,6 +423,8 @@ export default function FollowupPage() {
   };
 
   const handleOpenTransferModalForSingleLead = (rec: EnquiryFollowupRecord) => {
+    setTransferModalInitialMode("single_lead");
+    setTransferModalInitialCourse(rec.targetCourse || "");
     setLeadsForTransferModal([
       {
         _id: rec._id,
@@ -438,6 +442,8 @@ export default function FollowupPage() {
   };
 
   const handleOpenTransferModalForBulk = () => {
+    setTransferModalInitialMode(selectedEnquiryIds.length > 1 ? "selected" : "single_lead");
+    setTransferModalInitialCourse(filterCourse !== "All" && filterCourse !== "All Courses" ? filterCourse : "");
     if (selectedEnquiryIds.length > 0) {
       const selectedRecords = filteredEnquiryRecords
         .filter((r) => selectedEnquiryIds.includes(r._id))
@@ -456,6 +462,13 @@ export default function FollowupPage() {
     } else {
       setLeadsForTransferModal([]);
     }
+    setIsTransferModalOpen(true);
+  };
+
+  const handleOpenTransferModalCourseWise = () => {
+    setTransferModalInitialMode("course_wise");
+    setTransferModalInitialCourse(filterCourse !== "All" && filterCourse !== "All Courses" ? filterCourse : "");
+    setLeadsForTransferModal([]);
     setIsTransferModalOpen(true);
   };
 
@@ -1658,6 +1671,14 @@ export default function FollowupPage() {
               <>
                 <button
                   type="button"
+                  onClick={handleOpenTransferModalCourseWise}
+                  className="px-3 py-1.5 bg-white hover:bg-indigo-50/60 text-indigo-700 border border-indigo-200 font-bold text-xs rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  title="Transfer pending follow-ups course wise to another counsellor"
+                >
+                  📚 Transfer by Course
+                </button>
+                <button
+                  type="button"
                   onClick={handleOpenTransferModalForBulk}
                   className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
                   title="Move follow-ups to another counsellor in your branch"
@@ -2535,6 +2556,8 @@ export default function FollowupPage() {
         allCounsellors={eligibleCounsellors}
         allAdvisorsOnLeads={allCurrentAdvisors}
         userBrandScope={user?.brandScope}
+        initialMode={transferModalInitialMode}
+        initialCourse={transferModalInitialCourse}
         onSuccess={(targetAdvisor, count) => {
           playChimeSound("success");
           setTransferToastMessage(`✓ Successfully transferred ${count} lead(s) to ${targetAdvisor}!`);

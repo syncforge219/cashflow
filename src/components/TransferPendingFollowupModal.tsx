@@ -23,6 +23,8 @@ interface TransferPendingFollowupModalProps {
   allCounsellors: any[];
   allAdvisorsOnLeads?: string[];
   userBrandScope?: string;
+  initialMode?: "single_lead" | "course_wise" | "selected" | "counsellor_pending" | "all_pending";
+  initialCourse?: string;
   onSuccess: (targetAdvisor: string, count: number) => void;
 }
 
@@ -34,15 +36,21 @@ export default function TransferPendingFollowupModal({
   allCounsellors = [],
   allAdvisorsOnLeads = [],
   userBrandScope = "",
+  initialMode,
+  initialCourse = "",
   onSuccess,
 }: TransferPendingFollowupModalProps) {
-  const [transferMode, setTransferMode] = useState<"single_lead" | "selected" | "counsellor_pending" | "all_pending">("single_lead");
+  const [transferMode, setTransferMode] = useState<"single_lead" | "course_wise" | "selected" | "counsellor_pending" | "all_pending">("single_lead");
   const [sourceCounsellor, setSourceCounsellor] = useState("");
   const [targetCounsellor, setTargetCounsellor] = useState("");
   const [transferRemarks, setTransferRemarks] = useState("");
   const [rescheduleDate, setRescheduleDate] = useState("");
   const [shouldReschedule, setShouldReschedule] = useState(false);
   const [filterCourse, setFilterCourse] = useState<string>("All");
+
+  // Course-Wise transfer states
+  const [selectedCourseForTransfer, setSelectedCourseForTransfer] = useState<string>(initialCourse || "");
+  const [sourceCounsellorForCourse, setSourceCounsellorForCourse] = useState<string>("All");
 
   // Single Lead (One by One) states
   const [singleLeadToTransfer, setSingleLeadToTransfer] = useState<TransferLeadItem | null>(null);
@@ -137,8 +145,22 @@ export default function TransferPendingFollowupModal({
       setShouldReschedule(false);
       setLeadSearchQuery("");
       setFilterCourse("All");
+      setSourceCounsellorForCourse("All");
 
-      if (selectedLeads.length === 1) {
+      if (initialCourse) {
+        setSelectedCourseForTransfer(initialCourse);
+      } else if (allPendingCourses.length > 0) {
+        setSelectedCourseForTransfer(allPendingCourses[0].name);
+      }
+
+      if (initialMode) {
+        setTransferMode(initialMode);
+        if (initialMode === "single_lead") {
+          setSingleLeadToTransfer(selectedLeads[0] || allPendingLeads[0] || null);
+        } else {
+          setSingleLeadToTransfer(null);
+        }
+      } else if (selectedLeads.length === 1) {
         setTransferMode("single_lead");
         setSingleLeadToTransfer(selectedLeads[0]);
       } else if (selectedLeads.length > 1) {
@@ -159,7 +181,7 @@ export default function TransferPendingFollowupModal({
         setSourceCounsellor(allAdvisorsOnLeads[0]);
       }
     }
-  }, [isOpen, selectedLeads, allPendingLeads, eligibleCounsellors, allAdvisorsOnLeads]);
+  }, [isOpen, selectedLeads, allPendingLeads, eligibleCounsellors, allAdvisorsOnLeads, initialMode, initialCourse]);
 
   // Filtered leads for One by One search
   const filteredSearchLeads = useMemo(() => {
@@ -240,6 +262,36 @@ export default function TransferPendingFollowupModal({
     ).length;
   }, [availableLeadsPool, filterCourse]);
 
+  // Matching leads for dedicated Course-Wise transfer
+  const matchingCourseWiseLeads = useMemo(() => {
+    if (!selectedCourseForTransfer) return [];
+    const cLower = selectedCourseForTransfer.trim().toLowerCase();
+    return availableLeadsPool.filter((l) => {
+      const courseMatches = (l.targetCourse || "").toLowerCase().includes(cLower);
+      if (!courseMatches) return false;
+      if (sourceCounsellorForCourse && sourceCounsellorForCourse !== "All") {
+        return (l.assignedCrmAdvisor || "").trim().toLowerCase() === sourceCounsellorForCourse.trim().toLowerCase();
+      }
+      return true;
+    });
+  }, [availableLeadsPool, selectedCourseForTransfer, sourceCounsellorForCourse]);
+
+  // Counsellors who currently hold leads for the selected course
+  const counsellorsWithSelectedCourse = useMemo(() => {
+    if (!selectedCourseForTransfer) return [];
+    const cLower = selectedCourseForTransfer.trim().toLowerCase();
+    const map = new Map<string, number>();
+    availableLeadsPool.forEach((l) => {
+      if ((l.targetCourse || "").toLowerCase().includes(cLower)) {
+        const adv = l.assignedCrmAdvisor ? l.assignedCrmAdvisor.trim() : "Unassigned";
+        map.set(adv, (map.get(adv) || 0) + 1);
+      }
+    });
+    return Array.from(map.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [availableLeadsPool, selectedCourseForTransfer]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -255,6 +307,17 @@ export default function TransferPendingFollowupModal({
     if (transferMode === "single_lead" && !singleLeadToTransfer) {
       setError("Please search and select a student lead to transfer.");
       return;
+    }
+
+    if (transferMode === "course_wise") {
+      if (!selectedCourseForTransfer) {
+        setError("Please select a course to transfer follow-ups.");
+        return;
+      }
+      if (matchingCourseWiseLeads.length === 0) {
+        setError(`No pending follow-up leads found for course "${selectedCourseForTransfer}".`);
+        return;
+      }
     }
 
     if (transferMode === "selected" && selectedLeads.length === 0) {
@@ -284,6 +347,8 @@ export default function TransferPendingFollowupModal({
           ? [singleLeadToTransfer._id]
           : transferMode === "selected"
           ? selectedLeads.map((l) => l._id)
+          : transferMode === "course_wise"
+          ? matchingCourseWiseLeads.map((l) => l._id)
           : [];
 
       const effectiveScope =
@@ -293,12 +358,22 @@ export default function TransferPendingFollowupModal({
         enquiryIds: enquiryIdsToSend,
         targetAdvisor: targetCounsellor,
         targetAdvisorId: selectedUserObj?._id || selectedUserObj?.id,
-        sourceAdvisor: transferMode === "counsellor_pending" ? sourceCounsellor : undefined,
+        sourceAdvisor:
+          transferMode === "counsellor_pending"
+            ? sourceCounsellor
+            : transferMode === "course_wise" && sourceCounsellorForCourse !== "All"
+            ? sourceCounsellorForCourse
+            : undefined,
         transferScope: effectiveScope,
         transferRemarks: transferRemarks.trim() || undefined,
         rescheduleDate: shouldReschedule && rescheduleDate ? rescheduleDate : undefined,
         brandScope: userBrandScope && !isGlobalUser ? userBrandScope : undefined,
-        course: (transferMode === "counsellor_pending" || transferMode === "all_pending") && filterCourse !== "All" ? filterCourse : undefined,
+        course:
+          transferMode === "course_wise"
+            ? selectedCourseForTransfer
+            : (transferMode === "counsellor_pending" || transferMode === "all_pending") && filterCourse !== "All"
+            ? filterCourse
+            : undefined,
       };
 
       const res = await fetch("/api/enquiries/transfer", {
@@ -313,11 +388,18 @@ export default function TransferPendingFollowupModal({
         const count =
           transferMode === "single_lead"
             ? 1
-            : data.transferredCount || (transferMode === "selected" ? selectedLeads.length : 1);
+            : data.transferredCount ||
+              (transferMode === "course_wise"
+                ? matchingCourseWiseLeads.length
+                : transferMode === "selected"
+                ? selectedLeads.length
+                : 1);
 
         const transferredName =
           transferMode === "single_lead" && singleLeadToTransfer
             ? `lead "${singleLeadToTransfer.studentFullName || "Student"}"`
+            : transferMode === "course_wise"
+            ? `${count} lead(s) for course "${selectedCourseForTransfer}"`
             : `${count} pending lead(s)`;
 
         setSuccessMsg(data.message || `Successfully transferred ${transferredName} to ${targetCounsellor}!`);
@@ -394,12 +476,9 @@ export default function TransferPendingFollowupModal({
               <label className="block text-[11px] font-black text-slate-600 uppercase tracking-wider">
                 Transfer Scope
               </label>
-              <span className="text-[10px] text-slate-400 font-bold">
-                Choose One-by-One or Bulk mode
-              </span>
             </div>
 
-            <div className={`grid ${selectedLeads.length > 1 ? "grid-cols-4" : "grid-cols-3"} gap-2`}>
+            <div className={`grid ${selectedLeads.length > 1 ? "grid-cols-5" : "grid-cols-4"} gap-2`}>
               {/* Option 1: One by One */}
               <button
                 type="button"
@@ -414,7 +493,26 @@ export default function TransferPendingFollowupModal({
                 <span className="block truncate">Single Lead</span>
               </button>
 
-              {/* Option 2: Bulk By Advisor */}
+              {/* Option 2: By Course (Course Wise) */}
+              <button
+                type="button"
+                onClick={() => {
+                  setTransferMode("course_wise");
+                  if (!selectedCourseForTransfer && allPendingCourses.length > 0) {
+                    setSelectedCourseForTransfer(allPendingCourses[0].name);
+                  }
+                }}
+                className={`p-2.5 rounded-xl border text-xs font-extrabold transition-all text-center cursor-pointer ${
+                  transferMode === "course_wise"
+                    ? "bg-indigo-50 border-indigo-400 text-indigo-700 shadow-xs ring-1 ring-indigo-400/40"
+                    : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                <span className="block text-[10px] uppercase font-bold text-slate-400">By Course</span>
+                <span className="block truncate">Course Wise</span>
+              </button>
+
+              {/* Option 3: Bulk By Advisor */}
               <button
                 type="button"
                 onClick={() => setTransferMode("counsellor_pending")}
@@ -428,7 +526,7 @@ export default function TransferPendingFollowupModal({
                 <span className="block truncate">From Counsellor</span>
               </button>
 
-              {/* Option 3: Bulk All Pending */}
+              {/* Option 4: Bulk All Pending */}
               <button
                 type="button"
                 onClick={() => setTransferMode("all_pending")}
@@ -442,7 +540,7 @@ export default function TransferPendingFollowupModal({
                 <span className="block truncate">All Pending</span>
               </button>
 
-              {/* Option 4: Bulk Selected from Table Checkboxes */}
+              {/* Option 5: Bulk Selected from Table Checkboxes */}
               {selectedLeads.length > 1 && (
                 <button
                   type="button"
@@ -579,7 +677,134 @@ export default function TransferPendingFollowupModal({
             </div>
           )}
 
-          {/* MODE 2: SOURCE COUNSELLOR DROPDOWN (BULK BY ADVISOR) */}
+          {/* MODE 2: COURSE WISE LEAD TRANSFER */}
+          {transferMode === "course_wise" && (
+            <div className="space-y-3 bg-gradient-to-br from-indigo-50/70 via-indigo-50/40 to-white p-4 rounded-2xl border border-indigo-200/90 shadow-2xs animate-in fade-in duration-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-indigo-600 text-white rounded-lg shadow-2xs">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+                    </svg>
+                  </div>
+                  <label className="block text-xs font-black text-indigo-950 uppercase tracking-wider">
+                    Select Course to Transfer <span className="text-rose-500">*</span>
+                  </label>
+                </div>
+                <span className="text-[10px] font-bold text-indigo-800 bg-indigo-100/80 px-2 py-0.5 rounded border border-indigo-200">
+                  {allPendingCourses.length} Courses with Pending Leads
+                </span>
+              </div>
+
+              {allPendingCourses.length === 0 ? (
+                <div className="p-4 text-center text-xs text-slate-400 bg-white rounded-xl border border-dashed border-indigo-200">
+                  No courses with active pending leads found in this branch scope.
+                </div>
+              ) : (
+                <select
+                  value={selectedCourseForTransfer}
+                  onChange={(e) => {
+                    setSelectedCourseForTransfer(e.target.value);
+                    setSourceCounsellorForCourse("All");
+                  }}
+                  required
+                  className="w-full text-xs font-bold text-slate-900 bg-white border border-indigo-300 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-600 cursor-pointer shadow-2xs"
+                >
+                  <option value="">-- Choose Course to Reassign --</option>
+                  {allPendingCourses.map((c) => (
+                    <option key={c.name} value={c.name}>
+                      {c.name} ({c.count} pending lead{c.count === 1 ? "" : "s"})
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {/* Optional Filter by Source Counsellor */}
+              {selectedCourseForTransfer && counsellorsWithSelectedCourse.length > 1 && (
+                <div className="pt-2.5 border-t border-indigo-100 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[11px] font-black text-indigo-900 uppercase tracking-wider">
+                      From Specific Counsellor (Optional)
+                    </label>
+                    <span className="text-[10px] text-indigo-600 font-bold">
+                      {sourceCounsellorForCourse === "All" ? "All Advisors" : sourceCounsellorForCourse}
+                    </span>
+                  </div>
+                  <select
+                    value={sourceCounsellorForCourse}
+                    onChange={(e) => setSourceCounsellorForCourse(e.target.value)}
+                    className="w-full text-xs font-bold text-slate-800 bg-white border border-indigo-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer"
+                  >
+                    <option value="All">
+                      All Counsellors ({counsellorsWithSelectedCourse.reduce((acc, curr) => acc + curr.count, 0)} leads)
+                    </option>
+                    {counsellorsWithSelectedCourse.map((adv) => (
+                      <option key={adv.name} value={adv.name}>
+                        {adv.name} ({adv.count} lead{adv.count === 1 ? "" : "s"})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Preview of Matching Leads */}
+              {selectedCourseForTransfer && (
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-extrabold text-indigo-950 flex items-center gap-1.5">
+                      <span className="text-emerald-600">●</span>
+                      <span>
+                        Found <strong className="text-indigo-700 font-black">{matchingCourseWiseLeads.length}</strong> pending lead{matchingCourseWiseLeads.length === 1 ? "" : "s"}
+                      </span>
+                    </span>
+                    <span className="text-[10px] font-bold text-indigo-600 bg-white px-2 py-0.5 rounded border border-indigo-200">
+                      Brand: {userBrandScope || "All Branches"}
+                    </span>
+                  </div>
+
+                  {matchingCourseWiseLeads.length === 0 ? (
+                    <div className="p-3 text-center text-xs text-slate-400 bg-white rounded-xl border border-dashed border-indigo-200">
+                      No pending leads match this course and counsellor filter.
+                    </div>
+                  ) : (
+                    <div className="max-h-36 overflow-y-auto divide-y divide-indigo-50 bg-white rounded-xl border border-indigo-200 shadow-inner pr-1">
+                      {matchingCourseWiseLeads.map((lead) => (
+                        <div key={lead._id} className="p-2.5 flex items-center justify-between text-xs hover:bg-indigo-50/40 transition-colors">
+                          <div className="min-w-0 pr-2">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-slate-900 truncate">
+                                {lead.studentFullName || "Student"}
+                              </span>
+                              {lead.enquiryId && (
+                                <span className="text-[9px] font-mono text-slate-400 bg-slate-100 px-1 py-0.2 rounded shrink-0">
+                                  {lead.enquiryId}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[10px] text-slate-500 flex items-center gap-2 mt-0.5">
+                              <span>📞 {lead.primaryPhoneMobile}</span>
+                              <span>•</span>
+                              <span className="text-indigo-600 font-semibold truncate">{lead.targetCourse}</span>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="text-[10px] font-bold text-slate-600 block truncate max-w-[120px]">
+                              👤 {lead.assignedCrmAdvisor || "Unassigned"}
+                            </span>
+                            <span className="text-[9px] font-semibold text-rose-600">
+                              {lead.dueDateStr || "Due Today"}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* MODE 3: SOURCE COUNSELLOR DROPDOWN (BULK BY ADVISOR) */}
           {transferMode === "counsellor_pending" && (
             <div className="space-y-1.5 bg-amber-50/60 p-3.5 rounded-2xl border border-amber-200">
               <div className="flex items-center justify-between">
@@ -804,7 +1029,12 @@ export default function TransferPendingFollowupModal({
             </button>
             <button
               type="submit"
-              disabled={isLoading || eligibleCounsellors.length === 0 || (transferMode === "single_lead" && !singleLeadToTransfer)}
+              disabled={
+                isLoading ||
+                eligibleCounsellors.length === 0 ||
+                (transferMode === "single_lead" && !singleLeadToTransfer) ||
+                (transferMode === "course_wise" && (!selectedCourseForTransfer || matchingCourseWiseLeads.length === 0))
+              }
               className="flex items-center gap-2 px-5 py-2.5 text-xs font-black text-white bg-gradient-to-r from-rose-600 via-indigo-600 to-violet-600 hover:from-rose-700 hover:to-violet-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-md shadow-indigo-600/20 transition-all active:scale-95 cursor-pointer"
             >
               {isLoading && (
@@ -818,6 +1048,8 @@ export default function TransferPendingFollowupModal({
                   ? "Confirm & Transfer This Lead"
                   : transferMode === "selected"
                   ? `Confirm & Transfer ${selectedLeads.length} Leads`
+                  : transferMode === "course_wise"
+                  ? `Confirm & Transfer ${matchingCourseWiseLeads.length} Lead${matchingCourseWiseLeads.length === 1 ? "" : "s"} (${selectedCourseForTransfer || "Course"})`
                   : transferMode === "counsellor_pending"
                   ? "Confirm & Transfer Counsellor's Leads"
                   : "Confirm & Transfer All Leads"}
