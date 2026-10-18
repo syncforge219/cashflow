@@ -1154,16 +1154,22 @@ export default function AdminDashboard() {
               </div>
             ) : (
               <div className="space-y-3.5 pt-1">
-                {filteredCourseStats.map((item: any, idx: number) => {
-                  const maxCourseLeads = Math.max(
-                    ...(data?.courseWiseStats?.map((c: any) => c.leads) || [1]),
+                {(() => {
+                  const maxScale = Math.max(
+                    ...(data?.courseWiseStats?.flatMap((c: any) => [c.leads || 0, c.admissions || 0]) || [1]),
                     1
                   );
-                  const leadsPct = Math.min(100, Math.max(6, (item.leads / maxCourseLeads) * 100));
-                  const admissionsPct = Math.min(100, Math.max(3, (item.admissions / maxCourseLeads) * 100));
 
-                  return (
-                    <div key={idx} className="group space-y-1.5 bg-slate-50/60 p-3 rounded-xl border border-slate-100 hover:border-indigo-200 transition-all hover:bg-gradient-to-r hover:from-blue-50/30 hover:to-indigo-50/20">
+                  return filteredCourseStats.map((item: any, idx: number) => {
+                    const leadsPct = item.leads > 0
+                      ? Math.min(100, Math.max(4, (item.leads / maxScale) * 100))
+                      : 0;
+                    const admissionsPct = item.admissions > 0
+                      ? Math.min(100, Math.max(4, (item.admissions / maxScale) * 100))
+                      : 0;
+
+                    return (
+                      <div key={idx} className="group space-y-1.5 bg-slate-50/60 p-3 rounded-xl border border-slate-100 hover:border-indigo-200 transition-all hover:bg-gradient-to-r hover:from-blue-50/30 hover:to-indigo-50/20">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-slate-800 tracking-tight group-hover:text-indigo-600 transition-colors">
@@ -1211,7 +1217,8 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                   );
-                })}
+                });
+              })()}
               </div>
             )}
           </div>
