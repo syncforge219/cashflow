@@ -43,6 +43,10 @@ export default function TransferPendingFollowupModal({
   const [transferMode, setTransferMode] = useState<"single_lead" | "course_wise" | "selected" | "counsellor_pending" | "all_pending">("single_lead");
   const [sourceCounsellor, setSourceCounsellor] = useState("");
   const [targetCounsellor, setTargetCounsellor] = useState("");
+  const [targetSelectionMode, setTargetSelectionMode] = useState<"single" | "multiple">("single");
+  const [selectedTargetCounsellors, setSelectedTargetCounsellors] = useState<string[]>([]);
+  const [counsellorSearch, setCounsellorSearch] = useState("");
+  const [distributionPercent, setDistributionPercent] = useState<number>(50);
   const [transferRemarks, setTransferRemarks] = useState("");
   const [rescheduleDate, setRescheduleDate] = useState("");
   const [shouldReschedule, setShouldReschedule] = useState(false);
@@ -177,6 +181,11 @@ export default function TransferPendingFollowupModal({
         setTargetCounsellor("");
       }
 
+      setTargetSelectionMode("single");
+      setSelectedTargetCounsellors([]);
+      setCounsellorSearch("");
+      setDistributionPercent(50);
+
       if (allAdvisorsOnLeads.length > 0) {
         setSourceCounsellor(allAdvisorsOnLeads[0]);
       }
@@ -292,6 +301,86 @@ export default function TransferPendingFollowupModal({
       .sort((a, b) => b.count - a.count);
   }, [availableLeadsPool, selectedCourseForTransfer]);
 
+  // Filter counsellors by search query for multi-select
+  const filteredTargetCounsellors = useMemo(() => {
+    const q = counsellorSearch.trim().toLowerCase();
+    if (!q) return eligibleCounsellors;
+    return eligibleCounsellors.filter(
+      (c: any) =>
+        (c.name || "").toLowerCase().includes(q) ||
+        (c.email || "").toLowerCase().includes(q) ||
+        (c.role || "").toLowerCase().includes(q) ||
+        (c.brandScope || "").toLowerCase().includes(q)
+    );
+  }, [eligibleCounsellors, counsellorSearch]);
+
+  // Total eligible leads for the active transfer mode
+  const totalEligibleLeadsCount = useMemo(() => {
+    if (transferMode === "single_lead") return singleLeadToTransfer ? 1 : 0;
+    if (transferMode === "course_wise") return matchingCourseWiseLeads.length;
+    if (transferMode === "counsellor_pending") return matchingCourseCountForSource;
+    if (transferMode === "all_pending") return matchingCourseCountForAll;
+    if (transferMode === "selected") return selectedLeads.length;
+    return 0;
+  }, [
+    transferMode,
+    singleLeadToTransfer,
+    matchingCourseWiseLeads.length,
+    matchingCourseCountForSource,
+    matchingCourseCountForAll,
+    selectedLeads.length,
+  ]);
+
+  // Number of leads to actually transfer based on distribution percentage
+  const leadsToTransferCount = useMemo(() => {
+    if (transferMode === "single_lead") return 1;
+    if (totalEligibleLeadsCount === 0) return 0;
+    if (distributionPercent >= 100) return totalEligibleLeadsCount;
+    return Math.max(1, Math.min(totalEligibleLeadsCount, Math.round(totalEligibleLeadsCount * (distributionPercent / 100))));
+  }, [transferMode, totalEligibleLeadsCount, distributionPercent]);
+
+  // Number of leads remaining with their current counsellor
+  const leadsRemainingCount = useMemo(() => {
+    return Math.max(0, totalEligibleLeadsCount - leadsToTransferCount);
+  }, [totalEligibleLeadsCount, leadsToTransferCount]);
+
+  // Leads distribution allocation map across selected target counsellors
+  const counsellorAllocationMap = useMemo(() => {
+    const map = new Map<string, number>();
+    if (targetSelectionMode === "single") {
+      if (targetCounsellor) map.set(targetCounsellor, leadsToTransferCount);
+      return map;
+    }
+    if (selectedTargetCounsellors.length === 0) return map;
+
+    selectedTargetCounsellors.forEach((name) => map.set(name, 0));
+
+    for (let i = 0; i < leadsToTransferCount; i++) {
+      const targetName = selectedTargetCounsellors[i % selectedTargetCounsellors.length];
+      map.set(targetName, (map.get(targetName) || 0) + 1);
+    }
+    return map;
+  }, [targetSelectionMode, targetCounsellor, selectedTargetCounsellors, leadsToTransferCount]);
+
+  const handleToggleTargetCounsellor = (cName: string) => {
+    setSelectedTargetCounsellors((prev) => {
+      if (prev.includes(cName)) {
+        return prev.filter((n) => n !== cName);
+      } else {
+        return [...prev, cName];
+      }
+    });
+  };
+
+  const handleSelectAllCounsellors = () => {
+    const allNames = filteredTargetCounsellors.map((c: any) => c.name).filter(Boolean);
+    setSelectedTargetCounsellors(allNames);
+  };
+
+  const handleDeselectAllCounsellors = () => {
+    setSelectedTargetCounsellors([]);
+  };
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -299,8 +388,13 @@ export default function TransferPendingFollowupModal({
     setError("");
     setSuccessMsg("");
 
-    if (!targetCounsellor) {
+    if (targetSelectionMode === "single" && !targetCounsellor) {
       setError("Please select a target counsellor/employee from the dropdown.");
+      return;
+    }
+
+    if (targetSelectionMode === "multiple" && selectedTargetCounsellors.length === 0) {
+      setError("Please select at least one target counsellor to receive leads.");
       return;
     }
 
@@ -330,7 +424,11 @@ export default function TransferPendingFollowupModal({
       return;
     }
 
-    if (transferMode === "counsellor_pending" && sourceCounsellor.toLowerCase() === targetCounsellor.toLowerCase()) {
+    if (
+      transferMode === "counsellor_pending" &&
+      targetSelectionMode === "single" &&
+      sourceCounsellor.toLowerCase() === targetCounsellor.toLowerCase()
+    ) {
       setError("Source and target counsellor cannot be the same person.");
       return;
     }
@@ -338,17 +436,40 @@ export default function TransferPendingFollowupModal({
     setIsLoading(true);
 
     try {
-      const selectedUserObj = eligibleCounsellors.find(
-        (c) => (c.name || "").toLowerCase() === targetCounsellor.toLowerCase()
-      );
+      const targetAdvisorsToSend =
+        targetSelectionMode === "multiple"
+          ? selectedTargetCounsellors.map((name) => {
+              const u = eligibleCounsellors.find(
+                (c: any) => (c.name || "").toLowerCase() === name.toLowerCase()
+              );
+              return { name, id: u?._id || u?.id };
+            })
+          : [
+              {
+                name: targetCounsellor,
+                id: eligibleCounsellors.find(
+                  (c: any) => (c.name || "").toLowerCase() === targetCounsellor.toLowerCase()
+                )?._id,
+              },
+            ];
+
+      const primaryTargetName =
+        targetSelectionMode === "multiple"
+          ? selectedTargetCounsellors.join(", ")
+          : targetCounsellor;
+
+      const leadsToTransferSlice =
+        transferMode === "course_wise"
+          ? matchingCourseWiseLeads.slice(0, leadsToTransferCount)
+          : transferMode === "selected"
+          ? selectedLeads.slice(0, leadsToTransferCount)
+          : [];
 
       const enquiryIdsToSend =
         transferMode === "single_lead" && singleLeadToTransfer
           ? [singleLeadToTransfer._id]
-          : transferMode === "selected"
-          ? selectedLeads.map((l) => l._id)
-          : transferMode === "course_wise"
-          ? matchingCourseWiseLeads.map((l) => l._id)
+          : leadsToTransferSlice.length > 0
+          ? leadsToTransferSlice.map((l) => l._id)
           : [];
 
       const effectiveScope =
@@ -356,8 +477,10 @@ export default function TransferPendingFollowupModal({
 
       const payload = {
         enquiryIds: enquiryIdsToSend,
-        targetAdvisor: targetCounsellor,
-        targetAdvisorId: selectedUserObj?._id || selectedUserObj?.id,
+        targetAdvisor: primaryTargetName,
+        targetAdvisorId: targetSelectionMode === "single" ? targetAdvisorsToSend[0]?.id : undefined,
+        targetAdvisors: targetAdvisorsToSend,
+        distributionPercent: transferMode === "single_lead" ? 100 : distributionPercent,
         sourceAdvisor:
           transferMode === "counsellor_pending"
             ? sourceCounsellor
@@ -388,12 +511,12 @@ export default function TransferPendingFollowupModal({
         const count =
           transferMode === "single_lead"
             ? 1
-            : data.transferredCount ||
-              (transferMode === "course_wise"
-                ? matchingCourseWiseLeads.length
-                : transferMode === "selected"
-                ? selectedLeads.length
-                : 1);
+            : data.transferredCount || leadsToTransferCount;
+
+        const targetSummary =
+          targetSelectionMode === "multiple" && selectedTargetCounsellors.length > 1
+            ? `${selectedTargetCounsellors.length} counsellors (${selectedTargetCounsellors.join(", ")})`
+            : targetCounsellor;
 
         const transferredName =
           transferMode === "single_lead" && singleLeadToTransfer
@@ -402,10 +525,10 @@ export default function TransferPendingFollowupModal({
             ? `${count} lead(s) for course "${selectedCourseForTransfer}"`
             : `${count} pending lead(s)`;
 
-        setSuccessMsg(data.message || `Successfully transferred ${transferredName} to ${targetCounsellor}!`);
+        setSuccessMsg(data.message || `Successfully transferred ${transferredName} to ${targetSummary}!`);
 
         setTimeout(() => {
-          onSuccess(targetCounsellor, count);
+          onSuccess(primaryTargetName, count);
           onClose();
         }, 1200);
       } else {
@@ -421,7 +544,7 @@ export default function TransferPendingFollowupModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs font-sans animate-in fade-in duration-200">
-      <div className="relative w-full max-w-xl overflow-hidden bg-white rounded-3xl shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+      <div className="relative w-full max-w-2xl overflow-hidden bg-white rounded-3xl shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
         
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-rose-50/80 via-indigo-50/50 to-white shrink-0">
@@ -768,35 +891,59 @@ export default function TransferPendingFollowupModal({
                     </div>
                   ) : (
                     <div className="max-h-36 overflow-y-auto divide-y divide-indigo-50 bg-white rounded-xl border border-indigo-200 shadow-inner pr-1">
-                      {matchingCourseWiseLeads.map((lead) => (
-                        <div key={lead._id} className="p-2.5 flex items-center justify-between text-xs hover:bg-indigo-50/40 transition-colors">
-                          <div className="min-w-0 pr-2">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-bold text-slate-900 truncate">
-                                {lead.studentFullName || "Student"}
-                              </span>
-                              {lead.enquiryId && (
-                                <span className="text-[9px] font-mono text-slate-400 bg-slate-100 px-1 py-0.2 rounded shrink-0">
-                                  {lead.enquiryId}
+                      {matchingCourseWiseLeads.map((lead, idx) => {
+                        const isTransferred = idx < leadsToTransferCount;
+                        const targetRecipient =
+                          targetSelectionMode === "single"
+                            ? targetCounsellor || "New Counsellor"
+                            : selectedTargetCounsellors.length > 0
+                            ? selectedTargetCounsellors[idx % selectedTargetCounsellors.length]
+                            : "New Counsellor";
+
+                        return (
+                          <div
+                            key={lead._id}
+                            className={`p-2.5 flex items-center justify-between text-xs transition-colors ${
+                              isTransferred ? "hover:bg-indigo-50/50 bg-white" : "bg-slate-50/70 opacity-60"
+                            }`}
+                          >
+                            <div className="min-w-0 pr-2">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-bold text-slate-900 truncate">
+                                  {lead.studentFullName || "Student"}
                                 </span>
-                              )}
+                                {lead.enquiryId && (
+                                  <span className="text-[9px] font-mono text-slate-400 bg-slate-100 px-1 py-0.2 rounded shrink-0">
+                                    {lead.enquiryId}
+                                  </span>
+                                )}
+                                {isTransferred ? (
+                                  <span className="text-[9px] font-black text-indigo-700 bg-indigo-100 px-1.5 py-0.2 rounded shrink-0">
+                                    → Transfers ({targetRecipient})
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] font-bold text-slate-500 bg-slate-200 px-1.5 py-0.2 rounded shrink-0">
+                                    ● Remains ({lead.assignedCrmAdvisor || "Current"})
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[10px] text-slate-500 flex items-center gap-2 mt-0.5">
+                                <span>📞 {lead.primaryPhoneMobile}</span>
+                                <span>•</span>
+                                <span className="text-indigo-600 font-semibold truncate">{lead.targetCourse}</span>
+                              </div>
                             </div>
-                            <div className="text-[10px] text-slate-500 flex items-center gap-2 mt-0.5">
-                              <span>📞 {lead.primaryPhoneMobile}</span>
-                              <span>•</span>
-                              <span className="text-indigo-600 font-semibold truncate">{lead.targetCourse}</span>
+                            <div className="text-right shrink-0">
+                              <span className="text-[10px] font-bold text-slate-600 block truncate max-w-[120px]">
+                                👤 {lead.assignedCrmAdvisor || "Unassigned"}
+                              </span>
+                              <span className="text-[9px] font-semibold text-rose-600">
+                                {lead.dueDateStr || "Due Today"}
+                              </span>
                             </div>
                           </div>
-                          <div className="text-right shrink-0">
-                            <span className="text-[10px] font-bold text-slate-600 block truncate max-w-[120px]">
-                              👤 {lead.assignedCrmAdvisor || "Unassigned"}
-                            </span>
-                            <span className="text-[9px] font-semibold text-rose-600">
-                              {lead.dueDateStr || "Due Today"}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -923,58 +1070,397 @@ export default function TransferPendingFollowupModal({
                 </span>
               </div>
               <div className="max-h-32 overflow-y-auto divide-y divide-slate-200/60 pr-1">
-                {selectedLeads.map((lead) => (
-                  <div key={lead._id} className="py-1.5 flex items-center justify-between text-xs">
-                    <div className="min-w-0 pr-2">
-                      <span className="font-bold text-slate-900 block truncate">
-                        {lead.studentFullName || "Unnamed Student"}
-                      </span>
-                      <span className="text-[10px] text-slate-400 block truncate">
-                        {lead.enquiryId} • {lead.targetCourse || "Course"} • {lead.primaryPhoneMobile}
+                {selectedLeads.map((lead, idx) => {
+                  const isTransferred = idx < leadsToTransferCount;
+                  return (
+                    <div
+                      key={lead._id}
+                      className={`py-1.5 flex items-center justify-between text-xs ${
+                        isTransferred ? "opacity-100" : "opacity-60 bg-slate-100/50"
+                      }`}
+                    >
+                      <div className="min-w-0 pr-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-slate-900 block truncate">
+                            {lead.studentFullName || "Unnamed Student"}
+                          </span>
+                          {isTransferred ? (
+                            <span className="text-[9px] font-black text-indigo-700 bg-indigo-100 px-1.5 py-0.2 rounded shrink-0">
+                              → Transfer
+                            </span>
+                          ) : (
+                            <span className="text-[9px] font-bold text-slate-500 bg-slate-200 px-1.5 py-0.2 rounded shrink-0">
+                              ● Retain
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-slate-400 block truncate">
+                          {lead.enquiryId} • {lead.targetCourse || "Course"} • {lead.primaryPhoneMobile}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200 shrink-0">
+                        Currently: {lead.assignedCrmAdvisor || "Unassigned"}
                       </span>
                     </div>
-                    <span className="text-[10px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200 shrink-0">
-                      Currently: {lead.assignedCrmAdvisor || "Unassigned"}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
 
-          {/* TARGET COUNSELLOR SELECTION DROPDOWN */}
-          <div className="space-y-1.5 bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100">
-            <div className="flex items-center justify-between">
-              <label className="block text-xs font-black text-indigo-950 uppercase tracking-wider">
-                Target Counsellor (Transfer To) <span className="text-rose-500">*</span>
-              </label>
+          {/* SECTION: REDISTRIBUTION VOLUME / PERCENTAGE SELECTOR (For bulk & course modes) */}
+          {transferMode !== "single_lead" && totalEligibleLeadsCount > 0 && (
+            <div className="space-y-3 bg-gradient-to-br from-violet-50/80 via-indigo-50/40 to-white p-4 rounded-2xl border border-violet-200/90 shadow-2xs">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-violet-600 text-white rounded-lg shadow-2xs">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-black text-violet-950 uppercase tracking-wider">
+                      Redistribute Volume & Split Percentage
+                    </label>
+                    <span className="text-[10px] text-violet-700 font-semibold">
+                      Choose what portion of pending leads to reassign
+                    </span>
+                  </div>
+                </div>
+                <span className="text-xs font-black px-2.5 py-1 rounded-full bg-violet-100 text-violet-800 border border-violet-200 shadow-2xs">
+                  ⚡ {leadsToTransferCount} of {totalEligibleLeadsCount} Leads ({distributionPercent}%)
+                </span>
+              </div>
+
+              {/* Quick Preset Buttons */}
+              <div className="grid grid-cols-4 gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setDistributionPercent(50)}
+                  className={`p-2 rounded-xl text-xs font-black transition-all cursor-pointer border flex flex-col items-center justify-center ${
+                    distributionPercent === 50
+                      ? "bg-gradient-to-r from-violet-600 to-indigo-600 text-white border-violet-600 shadow-sm shadow-violet-500/20 ring-2 ring-violet-400/40"
+                      : "bg-white text-slate-700 border-slate-200 hover:border-violet-300 hover:bg-violet-50/50"
+                  }`}
+                >
+                  <span className="flex items-center gap-1">
+                    <span>50% Split</span>
+                    <span className={`text-[9px] px-1 py-0.2 rounded font-black ${distributionPercent === 50 ? "bg-white/20 text-white" : "bg-violet-100 text-violet-700"}`}>
+                      Half
+                    </span>
+                  </span>
+                  <span className="text-[10px] font-bold opacity-80 mt-0.5">
+                    {Math.round(totalEligibleLeadsCount * 0.5)} leads
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setDistributionPercent(25)}
+                  className={`p-2 rounded-xl text-xs font-black transition-all cursor-pointer border flex flex-col items-center justify-center ${
+                    distributionPercent === 25
+                      ? "bg-gradient-to-r from-violet-600 to-indigo-600 text-white border-violet-600 shadow-sm shadow-violet-500/20 ring-2 ring-violet-400/40"
+                      : "bg-white text-slate-700 border-slate-200 hover:border-violet-300 hover:bg-violet-50/50"
+                  }`}
+                >
+                  <span>25% Quarter</span>
+                  <span className="text-[10px] font-bold opacity-80 mt-0.5">
+                    {Math.round(totalEligibleLeadsCount * 0.25)} leads
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setDistributionPercent(75)}
+                  className={`p-2 rounded-xl text-xs font-black transition-all cursor-pointer border flex flex-col items-center justify-center ${
+                    distributionPercent === 75
+                      ? "bg-gradient-to-r from-violet-600 to-indigo-600 text-white border-violet-600 shadow-sm shadow-violet-500/20 ring-2 ring-violet-400/40"
+                      : "bg-white text-slate-700 border-slate-200 hover:border-violet-300 hover:bg-violet-50/50"
+                  }`}
+                >
+                  <span>75% Majority</span>
+                  <span className="text-[10px] font-bold opacity-80 mt-0.5">
+                    {Math.round(totalEligibleLeadsCount * 0.75)} leads
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setDistributionPercent(100)}
+                  className={`p-2 rounded-xl text-xs font-black transition-all cursor-pointer border flex flex-col items-center justify-center ${
+                    distributionPercent === 100
+                      ? "bg-gradient-to-r from-violet-600 to-indigo-600 text-white border-violet-600 shadow-sm shadow-violet-500/20 ring-2 ring-violet-400/40"
+                      : "bg-white text-slate-700 border-slate-200 hover:border-violet-300 hover:bg-violet-50/50"
+                  }`}
+                >
+                  <span>100% (All)</span>
+                  <span className="text-[10px] font-bold opacity-80 mt-0.5">
+                    {totalEligibleLeadsCount} leads
+                  </span>
+                </button>
+              </div>
+
+              {/* Slider and Input */}
+              <div className="flex items-center gap-3 pt-1">
+                <input
+                  type="range"
+                  min={1}
+                  max={100}
+                  value={distributionPercent}
+                  onChange={(e) => setDistributionPercent(Number(e.target.value))}
+                  className="w-full h-2 bg-violet-200 rounded-lg appearance-none cursor-pointer accent-violet-600"
+                />
+                <div className="flex items-center gap-1 shrink-0">
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={distributionPercent}
+                    onChange={(e) => {
+                      const val = Math.max(1, Math.min(100, Number(e.target.value) || 1));
+                      setDistributionPercent(val);
+                    }}
+                    className="w-14 text-center text-xs font-black text-slate-900 bg-white border border-violet-300 rounded-lg py-1 px-1.5 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                  <span className="text-xs font-black text-violet-800">%</span>
+                </div>
+              </div>
+
+              {/* Distribution Visual Ratio Bar */}
+              <div className="space-y-1 pt-1">
+                <div className="w-full h-3 rounded-full overflow-hidden bg-slate-200 flex">
+                  <div
+                    style={{ width: `${distributionPercent}%` }}
+                    className="bg-gradient-to-r from-violet-600 to-indigo-600 transition-all duration-300 h-full"
+                  />
+                  <div
+                    style={{ width: `${100 - distributionPercent}%` }}
+                    className="bg-slate-300 transition-all duration-300 h-full"
+                  />
+                </div>
+                <div className="flex items-center justify-between text-[10px] font-bold">
+                  <span className="text-violet-700 flex items-center gap-1">
+                    <span className="inline-block w-2 h-2 rounded-full bg-violet-600"></span>
+                    Reassign: <strong>{leadsToTransferCount} leads</strong> ({distributionPercent}%)
+                  </span>
+                  <span className="text-slate-500 flex items-center gap-1">
+                    <span className="inline-block w-2 h-2 rounded-full bg-slate-400"></span>
+                    Keep with current: <strong>{leadsRemainingCount} leads</strong> ({100 - distributionPercent}%)
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TARGET COUNSELLOR SELECTION: SINGLE OR MULTIPLE */}
+          <div className="space-y-3 bg-indigo-50/50 p-4 rounded-2xl border border-indigo-200 shadow-2xs">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <label className="block text-xs font-black text-indigo-950 uppercase tracking-wider">
+                  Target Counsellor(s) (Transfer To) <span className="text-rose-500">*</span>
+                </label>
+                <span className="text-[10px] text-indigo-700 font-semibold">
+                  {targetSelectionMode === "single"
+                    ? "Transfer leads directly to a single counsellor"
+                    : "Distribute leads evenly across multiple selected counsellors"}
+                </span>
+              </div>
               <span className="text-[10px] font-bold text-indigo-600 bg-white border border-indigo-200 px-2 py-0.5 rounded-md">
                 Brand: {userBrandScope || "All Branches"}
               </span>
             </div>
 
-            {eligibleCounsellors.length === 0 ? (
-              <div className="p-3 text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl">
-                ⚠️ No counsellors found matching brand &ldquo;{userBrandScope}&rdquo;. Please verify counsellor brand settings in Staff management.
-              </div>
-            ) : (
-              <select
-                value={targetCounsellor}
-                onChange={(e) => setTargetCounsellor(e.target.value)}
-                required
-                className="w-full text-xs font-bold text-slate-900 bg-white border border-indigo-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-600 cursor-pointer shadow-xs"
+            {/* Single vs Multiple Counsellor Toggle */}
+            <div className="grid grid-cols-2 gap-2 p-1 bg-indigo-100/60 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setTargetSelectionMode("single")}
+                className={`py-1.5 px-3 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                  targetSelectionMode === "single"
+                    ? "bg-white text-indigo-950 shadow-xs"
+                    : "text-indigo-700 hover:text-indigo-950 hover:bg-white/50"
+                }`}
               >
-                <option value="">-- Select Counsellor / Employee --</option>
-                {eligibleCounsellors.map((c) => (
-                  <option key={c._id || c.id || c.email} value={c.name}>
-                    {c.name} {c.role ? `(${c.role})` : ""} - {c.brandScope || "All Brands"} [{c.email}]
-                  </option>
-                ))}
-              </select>
+                <span>👤 Single Counsellor</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTargetSelectionMode("multiple");
+                  if (selectedTargetCounsellors.length === 0 && targetCounsellor) {
+                    setSelectedTargetCounsellors([targetCounsellor]);
+                  }
+                }}
+                className={`py-1.5 px-3 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                  targetSelectionMode === "multiple"
+                    ? "bg-white text-indigo-950 shadow-xs ring-1 ring-indigo-300"
+                    : "text-indigo-700 hover:text-indigo-950 hover:bg-white/50"
+                }`}
+              >
+                <span>👥 Multiple Counsellors (Redistribute)</span>
+                {selectedTargetCounsellors.length > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full bg-indigo-600 text-white text-[9px] font-black">
+                    {selectedTargetCounsellors.length}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Option A: Single Counsellor Dropdown */}
+            {targetSelectionMode === "single" && (
+              <div className="space-y-1.5">
+                {eligibleCounsellors.length === 0 ? (
+                  <div className="p-3 text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl">
+                    ⚠️ No counsellors found matching brand &ldquo;{userBrandScope}&rdquo;. Please verify counsellor brand settings in Staff management.
+                  </div>
+                ) : (
+                  <select
+                    value={targetCounsellor}
+                    onChange={(e) => setTargetCounsellor(e.target.value)}
+                    required
+                    className="w-full text-xs font-bold text-slate-900 bg-white border border-indigo-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-600 cursor-pointer shadow-xs"
+                  >
+                    <option value="">-- Select Counsellor / Employee --</option>
+                    {eligibleCounsellors.map((c) => (
+                      <option key={c._id || c.id || c.email} value={c.name}>
+                        {c.name} {c.role ? `(${c.role})` : ""} - {c.brandScope || "All Brands"} [{c.email}]
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <p className="text-[10px] text-indigo-700/80 font-medium">
+                  {leadsToTransferCount} lead(s) will be transferred directly to this counsellor.
+                </p>
+              </div>
             )}
-            <p className="text-[10px] text-indigo-700/80 font-medium">
-              The selected counsellor will immediately see {transferMode === "single_lead" ? "this lead" : "these leads"} in their pending follow-up dashboard.
-            </p>
+
+            {/* Option B: Multiple Counsellors Multi-Select */}
+            {targetSelectionMode === "multiple" && (
+              <div className="space-y-2.5 animate-in fade-in duration-150">
+                <div className="flex items-center justify-between gap-2">
+                  <input
+                    type="text"
+                    value={counsellorSearch}
+                    onChange={(e) => setCounsellorSearch(e.target.value)}
+                    placeholder="Filter counsellors by name or email..."
+                    className="flex-1 text-xs font-semibold px-3 py-1.5 rounded-lg border border-indigo-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  />
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleSelectAllCounsellors}
+                      className="px-2 py-1 text-[10px] font-bold text-indigo-700 bg-indigo-100 hover:bg-indigo-200 rounded-md cursor-pointer transition-colors"
+                    >
+                      Select All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDeselectAllCounsellors}
+                      className="px-2 py-1 text-[10px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-md cursor-pointer transition-colors"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+
+                {eligibleCounsellors.length === 0 ? (
+                  <div className="p-3 text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl">
+                    ⚠️ No counsellors found matching brand &ldquo;{userBrandScope}&rdquo;.
+                  </div>
+                ) : (
+                  <div className="max-h-48 overflow-y-auto divide-y divide-indigo-100/80 border border-indigo-200 rounded-xl bg-white shadow-inner">
+                    {filteredTargetCounsellors.map((c: any) => {
+                      const isSelected = selectedTargetCounsellors.includes(c.name);
+                      const allocatedCount = counsellorAllocationMap.get(c.name) || 0;
+                      const initials = (c.name || "C")
+                        .split(" ")
+                        .map((w: string) => w[0])
+                        .join("")
+                        .slice(0, 2)
+                        .toUpperCase();
+
+                      return (
+                        <div
+                          key={c._id || c.id || c.email}
+                          onClick={() => handleToggleTargetCounsellor(c.name)}
+                          className={`p-2.5 flex items-center justify-between gap-2.5 cursor-pointer transition-colors ${
+                            isSelected ? "bg-indigo-50/70 hover:bg-indigo-100/70" : "hover:bg-slate-50"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => {}} // handled by parent onClick
+                              className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                            />
+                            <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 text-white font-black text-[10px] flex items-center justify-center shrink-0 shadow-2xs">
+                              {initials}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-black text-slate-900 truncate">
+                                  {c.name}
+                                </span>
+                                {c.role && (
+                                  <span className="text-[9px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.2 rounded shrink-0">
+                                    {c.role}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[10px] text-slate-400 truncate">
+                                {c.email || c.brandScope || "Branch Staff"}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="shrink-0 text-right">
+                            {isSelected ? (
+                              <span className="text-[10px] font-black bg-indigo-600 text-white px-2 py-0.5 rounded-full shadow-2xs">
+                                ⚡ Receives {allocatedCount} lead{allocatedCount === 1 ? "" : "s"}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                                + Select
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Allocation breakdown pill summary */}
+                {selectedTargetCounsellors.length > 0 && (
+                  <div className="p-3 bg-white rounded-xl border border-indigo-200 shadow-2xs space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px] font-black text-indigo-950">
+                      <span>⚡ Round-Robin Allocation Preview:</span>
+                      <span className="text-indigo-600">{selectedTargetCounsellors.length} Counsellors Selected</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {selectedTargetCounsellors.map((name) => {
+                        const count = counsellorAllocationMap.get(name) || 0;
+                        return (
+                          <span
+                            key={name}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-200 text-xs font-bold text-indigo-900"
+                          >
+                            <span>👤 {name}:</span>
+                            <span className="font-black text-indigo-600 bg-white px-1.5 py-0.2 rounded border border-indigo-200 shadow-2xs">
+                              {count} leads
+                            </span>
+                          </span>
+                        );
+                      })}
+                    </div>
+                    <p className="text-[10px] text-indigo-700/80 font-medium">
+                      The {leadsToTransferCount} leads will be distributed in equal round-robin turns across these {selectedTargetCounsellors.length} counsellors.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Optional Reschedule Date */}
@@ -1032,8 +1518,11 @@ export default function TransferPendingFollowupModal({
               disabled={
                 isLoading ||
                 eligibleCounsellors.length === 0 ||
+                (targetSelectionMode === "single" && !targetCounsellor) ||
+                (targetSelectionMode === "multiple" && selectedTargetCounsellors.length === 0) ||
                 (transferMode === "single_lead" && !singleLeadToTransfer) ||
-                (transferMode === "course_wise" && (!selectedCourseForTransfer || matchingCourseWiseLeads.length === 0))
+                (transferMode === "course_wise" && (!selectedCourseForTransfer || matchingCourseWiseLeads.length === 0)) ||
+                leadsToTransferCount === 0
               }
               className="flex items-center gap-2 px-5 py-2.5 text-xs font-black text-white bg-gradient-to-r from-rose-600 via-indigo-600 to-violet-600 hover:from-rose-700 hover:to-violet-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-md shadow-indigo-600/20 transition-all active:scale-95 cursor-pointer"
             >
@@ -1046,13 +1535,9 @@ export default function TransferPendingFollowupModal({
               <span>
                 {transferMode === "single_lead"
                   ? "Confirm & Transfer This Lead"
-                  : transferMode === "selected"
-                  ? `Confirm & Transfer ${selectedLeads.length} Leads`
-                  : transferMode === "course_wise"
-                  ? `Confirm & Transfer ${matchingCourseWiseLeads.length} Lead${matchingCourseWiseLeads.length === 1 ? "" : "s"} (${selectedCourseForTransfer || "Course"})`
-                  : transferMode === "counsellor_pending"
-                  ? "Confirm & Transfer Counsellor's Leads"
-                  : "Confirm & Transfer All Leads"}
+                  : targetSelectionMode === "multiple" && selectedTargetCounsellors.length > 0
+                  ? `Confirm & Redistribute ${leadsToTransferCount} Leads (${distributionPercent}%) across ${selectedTargetCounsellors.length} Counsellor${selectedTargetCounsellors.length === 1 ? "" : "s"}`
+                  : `Confirm & Transfer ${leadsToTransferCount} Leads (${distributionPercent}%) to ${targetCounsellor || "Counsellor"}`}
               </span>
             </button>
           </div>

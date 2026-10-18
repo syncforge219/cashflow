@@ -18,6 +18,8 @@ export async function POST(req: Request) {
       enquiryIds = [],
       targetAdvisor,
       targetAdvisorId,
+      targetAdvisors,
+      distributionPercent,
       sourceAdvisor,
       sourceAdvisorId,
       transferScope = "selected", // "selected" | "counsellor_pending" | "all_pending"
@@ -27,23 +29,47 @@ export async function POST(req: Request) {
       course, // Optional course filter: "All" or specific course name e.g. "AutoCAD"
     } = body;
 
-    if (!targetAdvisor || typeof targetAdvisor !== "string" || !targetAdvisor.trim()) {
+    // Normalize target advisors list (supports multiple counsellors or single counsellor)
+    let targetList: Array<{ name: string; id?: string; userDoc?: any }> = [];
+    if (Array.isArray(targetAdvisors) && targetAdvisors.length > 0) {
+      for (const item of targetAdvisors) {
+        if (typeof item === "string" && item.trim()) {
+          targetList.push({ name: item.trim() });
+        } else if (item && typeof item === "object" && item.name && typeof item.name === "string" && item.name.trim()) {
+          targetList.push({ name: item.name.trim(), id: item.id || item._id });
+        }
+      }
+    } else if (targetAdvisor && typeof targetAdvisor === "string" && targetAdvisor.trim()) {
+      const parts = targetAdvisor.split(",").map((p: string) => p.trim()).filter(Boolean);
+      if (parts.length > 1) {
+        targetList = parts.map((name: string) => ({ name }));
+      } else {
+        targetList = [{ name: targetAdvisor.trim(), id: targetAdvisorId }];
+      }
+    }
+
+    if (targetList.length === 0) {
       return NextResponse.json(
         { success: false, error: "Target counsellor / employee name is required." },
         { status: 400 }
       );
     }
 
-    const cleanTargetAdvisor = targetAdvisor.trim();
-
-    // Verify target counsellor user if targetAdvisorId provided
-    let targetUser: any = null;
-    if (targetAdvisorId && mongoose.Types.ObjectId.isValid(targetAdvisorId)) {
-      targetUser = await User.findById(targetAdvisorId).select("name email role brandScope");
-    } else {
-      targetUser = await User.findOne({
-        name: new RegExp(`^${cleanTargetAdvisor.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"),
-      }).select("name email role brandScope");
+    // Resolve User documents for each target counsellor
+    for (const t of targetList) {
+      let tUser: any = null;
+      if (t.id && mongoose.Types.ObjectId.isValid(t.id)) {
+        tUser = await User.findById(t.id).select("name email role brandScope");
+      } else {
+        tUser = await User.findOne({
+          name: new RegExp(`^${t.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"),
+        }).select("name email role brandScope");
+      }
+      t.userDoc = tUser;
+      if (tUser) {
+        t.id = tUser._id.toString();
+        t.name = tUser.name || t.name;
+      }
     }
 
     let sourceUser: any = null;
@@ -183,16 +209,45 @@ export async function POST(req: Request) {
       );
     }
 
+    const totalFound = matchingEnquiries.length;
+    const numericPercent =
+      typeof distributionPercent === "number" && !isNaN(distributionPercent) && distributionPercent > 0 && distributionPercent <= 100
+        ? distributionPercent
+        : 100;
+
+    // Slice leads to transfer according to percentage
+    const leadsToTransferCount =
+      numericPercent < 100
+        ? Math.max(1, Math.min(totalFound, Math.round(totalFound * (numericPercent / 100))))
+        : totalFound;
+
+    const enquiriesToTransfer = matchingEnquiries.slice(0, leadsToTransferCount);
+
     const todayStr = todayKey();
-    const nowIso = new Date().toISOString();
     const performerName = currentUser?.name ? `${currentUser.name} (${currentUser.role || "Centre Head"})` : "Centre Head";
     const courseNote = course && course !== "All" ? ` [Course: ${course.trim()}]` : "";
     const noteText = `${courseNote}${transferRemarks?.trim() ? ` Note: ${transferRemarks.trim()}` : ""}`;
 
     let updatedCount = 0;
-    const transferredEnquiryIds: string[] = [];
+    const countByAdvisor: Record<string, number> = {};
+    const idsByAdvisor: Record<string, string[]> = {};
 
-    for (const enq of matchingEnquiries) {
+    for (const t of targetList) {
+      countByAdvisor[t.name] = 0;
+      idsByAdvisor[t.name] = [];
+    }
+
+    // Reassign leads round-robin across selected target counsellors
+    for (let i = 0; i < enquiriesToTransfer.length; i++) {
+      const enq = enquiriesToTransfer[i];
+      const assignedTarget = targetList[i % targetList.length];
+      const cleanTargetAdvisor = assignedTarget.name;
+      const targetUser = assignedTarget.userDoc;
+
+      countByAdvisor[cleanTargetAdvisor] = (countByAdvisor[cleanTargetAdvisor] || 0) + 1;
+      idsByAdvisor[cleanTargetAdvisor].push(enq._id.toString());
+      if (enq.enquiryId) idsByAdvisor[cleanTargetAdvisor].push(enq.enquiryId);
+
       const oldAdvisor = enq.assignedCrmAdvisor || "Unassigned";
       enq.assignedCrmAdvisor = cleanTargetAdvisor;
       if (targetUser?._id) {
@@ -241,44 +296,54 @@ export async function POST(req: Request) {
 
       await enq.save();
       updatedCount++;
-      if (enq.enquiryId) transferredEnquiryIds.push(enq.enquiryId);
     }
 
-    // Also update any standalone Task documents linked to these enquiries
-    if (transferredEnquiryIds.length > 0 || query._id) {
-      try {
-        // Bug Fix: Include both enquiryId strings (e.g. "ENQ000025") and MongoDB _id strings
-        // since Task.linkedEnquiryId may contain either format.
-        const allLinkedIds = [
-          ...transferredEnquiryIds,
-          ...matchingEnquiries.map((e) => e._id.toString()),
-        ];
-        await Task.updateMany(
-          {
-            $or: [
-              { linkedEnquiryId: { $in: allLinkedIds } },
-              { linkedStudentId: { $in: matchingEnquiries.map((e) => e._id.toString()) } },
-            ],
-            status: { $in: ["Pending", "In Progress", "Overdue"] },
-          },
-          {
-            $set: {
-              assignedTo: cleanTargetAdvisor,
-              assignedRole: targetUser?.role || "counsellor",
+    // Update standalone Task documents linked to these enquiries for each counsellor
+    for (const target of targetList) {
+      const linkedIds = idsByAdvisor[target.name] || [];
+      if (linkedIds.length > 0) {
+        try {
+          await Task.updateMany(
+            {
+              $or: [
+                { linkedEnquiryId: { $in: linkedIds } },
+                { linkedStudentId: { $in: linkedIds } },
+              ],
+              status: { $in: ["Pending", "In Progress", "Overdue"] },
             },
-          }
-        );
-      } catch (taskErr) {
-        console.error("Non-critical error updating Task models on lead transfer:", taskErr);
+            {
+              $set: {
+                assignedTo: target.name,
+                assignedRole: target.userDoc?.role || "counsellor",
+              },
+            }
+          );
+        } catch (taskErr) {
+          console.error("Non-critical error updating Task models on lead transfer:", taskErr);
+        }
       }
     }
 
     const courseMsg = course && course !== "All" ? ` in course "${course.trim()}"` : "";
+    const advisorsSummary = targetList.map((t) => `${t.name} (${countByAdvisor[t.name] || 0} leads)`).join(", ");
+
+    let successMessage = "";
+    if (targetList.length > 1) {
+      successMessage = `Successfully transferred ${updatedCount} of ${totalFound} lead(s) (${numericPercent}%)${courseMsg} distributed across ${targetList.length} counsellors: ${advisorsSummary}.`;
+    } else {
+      successMessage = numericPercent < 100
+        ? `Successfully transferred ${updatedCount} of ${totalFound} lead(s) (${numericPercent}%)${courseMsg} to ${targetList[0].name}.`
+        : `Successfully transferred ${updatedCount} lead(s)${courseMsg} to ${targetList[0].name}.`;
+    }
+
     return NextResponse.json({
       success: true,
-      message: `Successfully transferred ${updatedCount} lead(s)${courseMsg} to ${cleanTargetAdvisor}.`,
+      message: successMessage,
       transferredCount: updatedCount,
-      targetAdvisor: cleanTargetAdvisor,
+      totalCount: totalFound,
+      distributionPercent: numericPercent,
+      targetAdvisor: targetList.length === 1 ? targetList[0].name : targetList.map((t) => t.name).join(", "),
+      targetAdvisors: targetList.map((t) => ({ name: t.name, count: countByAdvisor[t.name] || 0 })),
     });
   } catch (error: any) {
     console.error("Enquiry Followup Transfer API Error:", error);
