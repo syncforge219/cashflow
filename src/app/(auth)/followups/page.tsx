@@ -804,7 +804,7 @@ export default function FollowupPage() {
     const todayStr = todayKey();
     const todayTime = new Date(todayStr).getTime();
 
-    return processedEnquiryFollowups.filter((rec) => {
+    const filtered: EnquiryFollowupRecord[] = processedEnquiryFollowups.filter((rec) => {
       // Never show admitted students in any prospective lead follow-up queues
       if (isAdmittedLead(rec)) return false;
 
@@ -826,10 +826,13 @@ export default function FollowupPage() {
         if (createdDateStr !== selectedNewLeadDate) return false;
       } else if (enquiryTab === "today") {
         if (statusLower.includes("lost") || statusLower.includes("admitted") || statusLower.includes("do not") || isCompletedLead) return false;
-        if (!rec.hasScheduledFollowup || rec.dueDateStr !== todayStr) return false;
+        // Due today queue shows follow-ups scheduled for today AS WELL AS overdue follow-ups
+        const isDueToday = rec.dueDateStr === todayStr;
+        const isOverdue = rec.isOverdue || recTime < todayTime;
+        if (!rec.hasScheduledFollowup || (!isDueToday && !isOverdue)) return false;
       } else if (enquiryTab === "pending") {
         if (statusLower.includes("lost") || statusLower.includes("admitted") || statusLower.includes("do not") || isCompletedLead) return false;
-        if (!rec.hasScheduledFollowup || recTime >= todayTime) return false; // Past due
+        if (!rec.hasScheduledFollowup || (!rec.isOverdue && recTime >= todayTime)) return false; // Past due
       } else if (enquiryTab === "upcoming") {
         if (statusLower.includes("lost") || statusLower.includes("admitted") || statusLower.includes("do not") || isCompletedLead) return false;
         if (!rec.hasScheduledFollowup || recTime <= todayTime) return false; // Future due
@@ -942,6 +945,25 @@ export default function FollowupPage() {
 
       return true;
     });
+
+    // In the "Due today" view, sort overdue follow-ups first so counsellors prioritize late follow-ups immediately
+    if (enquiryTab === "today") {
+      return [...filtered].sort((a, b) => {
+        const aTime = a.dueDateStr ? new Date(a.dueDateStr).getTime() : 0;
+        const bTime = b.dueDateStr ? new Date(b.dueDateStr).getTime() : 0;
+        const aOverdue = Boolean(a.isOverdue || (aTime > 0 && aTime < todayTime));
+        const bOverdue = Boolean(b.isOverdue || (bTime > 0 && bTime < todayTime));
+        if (aOverdue && !bOverdue) return -1;
+        if (!aOverdue && bOverdue) return 1;
+        if (aOverdue && bOverdue) {
+          // Oldest overdue first
+          return (a.dueDateStr || "").localeCompare(b.dueDateStr || "");
+        }
+        return 0;
+      });
+    }
+
+    return filtered;
   }, [processedEnquiryFollowups, enquiryTab, completedFilter, selectedNewLeadDate, searchQuery, filterBrand, filterAdvisor, filterCourse, filterStage, advancedFilters, isUserBrandRestricted, allowedUserBrands, onlyMyFollowups, user, isRecordOwnedByUser, admittedPhoneSet, admittedEnquiryIdSet]);
 
   // Tab Counters for Enquiry Mode strictly isolated by active Brand / Scope / My Followups
@@ -1020,9 +1042,13 @@ export default function FollowupPage() {
       } else if (isCompletedLead) {
         // Exclude completed leads from active follow-up tab counts
       } else if (rec.hasScheduledFollowup) {
-        if (rec.dueDateStr === todayStr) {
+        const isOverdue = rec.isOverdue || (rec.dueDateStr && rec.dueDateStr < todayStr) || recTime < todayTime;
+        const isDueToday = rec.dueDateStr === todayStr;
+        // Overdue follow-ups are counted in Due Today as well as Overdue
+        if (isDueToday || isOverdue) {
           today++;
-        } else if (recTime < todayTime) {
+        }
+        if (isOverdue) {
           pending++;
         } else if (recTime > todayTime) {
           upcoming++;
@@ -1280,7 +1306,7 @@ export default function FollowupPage() {
   };
 
   const enquiryTabs = [
-    { key: "today", label: "Due today", count: enquiryCounts.today, hint: "Follow-ups scheduled for today", activeClass: "border-orange-500 text-orange-600", badgeClass: "bg-orange-100 text-orange-700" },
+    { key: "today", label: "Due today", count: enquiryCounts.today, hint: enquiryCounts.pending > 0 ? `Follow-ups scheduled for today (including ${enquiryCounts.pending} overdue)` : "Follow-ups scheduled for today", activeClass: "border-orange-500 text-orange-600", badgeClass: "bg-orange-100 text-orange-700" },
     { key: "pending", label: "Overdue", count: enquiryCounts.pending, hint: "Follow-ups whose date has passed", activeClass: "border-rose-500 text-rose-600", badgeClass: "bg-rose-100 text-rose-700" },
     { key: "upcoming", label: "Upcoming", count: enquiryCounts.upcoming, hint: "Follow-ups scheduled after today", activeClass: "border-blue-500 text-blue-600", badgeClass: "bg-blue-100 text-blue-700" },
     { key: "new", label: "New leads", count: enquiryCounts.newLeads, hint: "Leads created on the chosen day", activeClass: "border-emerald-500 text-emerald-600", badgeClass: "bg-emerald-100 text-emerald-700" },
@@ -1300,7 +1326,7 @@ export default function FollowupPage() {
     }
     switch (enquiryTab) {
       case "today":
-        return "Nothing due today. 🎉 Check the Overdue tab for anything missed.";
+        return "Nothing due today and no overdue follow-ups. 🎉";
       case "pending":
         return "No overdue follow-ups. 🎉";
       case "upcoming":
@@ -1740,11 +1766,13 @@ export default function FollowupPage() {
 
           {/* Overdue Leads Notice Banner when in "Due today" tab */}
           {activeMode === "enquiry" && enquiryTab === "today" && enquiryCounts.pending > 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 px-4 flex items-center justify-between mb-3 shrink-0 shadow-2xs">
+            <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3 px-4 flex items-center justify-between mb-3 shrink-0 shadow-2xs">
               <div className="flex items-center gap-2.5">
-                <span className="flex h-2.5 w-2.5 rounded-full bg-amber-500 animate-pulse"></span>
-                <p className="text-xs text-amber-900 font-medium">
-                  Notice: You have <strong className="font-bold text-amber-950">{enquiryCounts.pending}</strong> pending overdue follow-up{enquiryCounts.pending > 1 ? "s" : ""} from earlier dates waiting in the Overdue tab.
+                <span className="flex h-2.5 w-2.5 rounded-full bg-rose-600 animate-ping"></span>
+                <p className="text-xs text-rose-950 font-medium">
+                  <strong className="font-bold text-rose-900">⚠️ Attention:</strong> You have{" "}
+                  <strong className="font-extrabold text-rose-700">{enquiryCounts.pending} overdue follow-up{enquiryCounts.pending > 1 ? "s" : ""}</strong>{" "}
+                  highlighted in red below along with today&apos;s follow-ups.
                 </p>
               </div>
               <button
@@ -1753,9 +1781,9 @@ export default function FollowupPage() {
                   setEnquiryTab("pending");
                   setCurrentPage(1);
                 }}
-                className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl transition-all cursor-pointer shadow-xs shrink-0 ml-3"
+                className="px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition-all cursor-pointer shadow-xs shrink-0 ml-3"
               >
-                View Overdue ({enquiryCounts.pending}) →
+                View Only Overdue ({enquiryCounts.pending}) →
               </button>
             </div>
           )}
@@ -1881,7 +1909,7 @@ export default function FollowupPage() {
                             onClick={() => setSelectedLead(rec)}
                             className={`bg-white rounded-2xl border transition-all duration-300 shadow-xs hover:shadow-xl hover:-translate-y-1 overflow-hidden flex flex-col justify-between cursor-pointer group ${
                               rec.isOverdue
-                                ? "border-rose-400 border-l-4 border-l-rose-500 bg-rose-50/20"
+                                ? "border-rose-300 border-l-[6px] border-l-rose-600 bg-rose-50/30 ring-1 ring-rose-200/60"
                                 : "border-slate-200/90 hover:border-indigo-500/50"
                             }`}
                           >
@@ -1917,7 +1945,7 @@ export default function FollowupPage() {
                               {/* Overdue / Escalated Status Pills */}
                               <div className="flex flex-wrap items-center gap-1.5 pt-1">
                                 {rec.isOverdue && (
-                                  <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 font-black text-[10px] animate-pulse">
+                                  <span className="px-2.5 py-0.5 rounded-md bg-rose-600 text-white font-black text-[10px] shadow-2xs animate-pulse flex items-center gap-1">
                                     🚨 OVERDUE
                                   </span>
                                 )}
@@ -1945,9 +1973,15 @@ export default function FollowupPage() {
                               </div>
 
                               {/* Due Date & Course Details */}
-                              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-1.5 text-xs">
+                              <div className={`p-3 rounded-xl border space-y-1.5 text-xs ${
+                                rec.isOverdue ? "bg-rose-50/60 border-rose-200" : "bg-slate-50 border-slate-100"
+                              }`}>
                                 <div className="flex items-center justify-between text-[11px]">
-                                  <span className="text-slate-400 font-semibold uppercase text-[9px] tracking-wider">Due</span>
+                                  <span className={`font-bold uppercase text-[9px] tracking-wider ${
+                                    rec.isOverdue ? "text-rose-700" : "text-slate-400"
+                                  }`}>
+                                    {rec.isOverdue ? "Overdue" : "Due"}
+                                  </span>
                                   <span className={`font-black ${describeDue(rec).className}`} title={formatDate(rec.dueDateStr)}>
                                     📅 {describeDue(rec).label}
                                   </span>
@@ -2092,21 +2126,22 @@ export default function FollowupPage() {
                           const isDone = isFollowupDone(rec);
                           const due = describeDue(rec);
                           const isSelected = selectedEnquiryIds.includes(rec._id);
+                          const isOverdue = Boolean(rec.isOverdue && !isDone);
                           return (
                             <tr
                               key={rec._id}
                               onClick={() => setSelectedLead(rec)}
                               className={`transition-colors cursor-pointer ${
                                 isSelected
-                                  ? "bg-rose-50/90"
-                                  : rec.isOverdue && !isDone
-                                  ? "bg-rose-50/40 hover:bg-rose-50"
-                                  : "hover:bg-slate-50"
+                                  ? "bg-rose-100/90 border-b border-rose-200"
+                                  : isOverdue
+                                  ? "bg-rose-50/70 hover:bg-rose-100/80 border-b border-rose-100"
+                                  : "hover:bg-slate-50 border-b border-slate-100"
                               } ${isDone ? "opacity-60" : ""}`}
                               title="Click to open the lead profile"
                             >
                               {isCentreHead && (
-                                <td className="py-3 px-3 text-center" onClick={(e) => e.stopPropagation()}>
+                                <td className={`py-3 px-3 text-center ${isOverdue ? "border-l-4 border-l-rose-600" : ""}`} onClick={(e) => e.stopPropagation()}>
                                   <input
                                     type="checkbox"
                                     checked={isSelected}
@@ -2116,7 +2151,7 @@ export default function FollowupPage() {
                                   />
                                 </td>
                               )}
-                              <td className="py-3 px-3 text-center" onClick={(e) => e.stopPropagation()}>
+                              <td className={`py-3 px-3 text-center ${!isCentreHead && isOverdue ? "border-l-4 border-l-rose-600" : ""}`} onClick={(e) => e.stopPropagation()}>
                                 <input
                                   type="checkbox"
                                   checked={isDone}
@@ -2127,9 +2162,18 @@ export default function FollowupPage() {
                                 />
                               </td>
                               <td className="py-3 px-4 whitespace-nowrap">
-                                <div className="flex flex-col">
-                                  <span className={`font-black ${due.className}`}>{due.label}</span>
-                                  <span className="text-[10px] text-slate-400 font-semibold">{formatDate(rec.dueDateStr)}</span>
+                                <div className="flex flex-col gap-0.5">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className={`font-black ${due.className}`}>{due.label}</span>
+                                    {isOverdue && (
+                                      <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-black bg-rose-600 text-white uppercase tracking-wider shadow-2xs">
+                                        OVERDUE
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className={`text-[10px] font-bold ${isOverdue ? "text-rose-600 font-mono" : "text-slate-400 font-semibold"}`}>
+                                    {formatDate(rec.dueDateStr)}
+                                  </span>
                                   {rec.isEscalated && !isDone && (
                                     <span className="text-[9px] font-black text-purple-700 tracking-wider">⚡ ESCALATED</span>
                                   )}

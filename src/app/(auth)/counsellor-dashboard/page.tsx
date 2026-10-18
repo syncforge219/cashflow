@@ -202,19 +202,34 @@ export default function CounsellorDashboardPage() {
             e.followUps.forEach((f: any) => {
               const fStatus = (f.status || "").toLowerCase();
               if (!f.isCompleted && fStatus !== "completed" && fStatus !== "cancelled") {
-                followupsDueCount++;
-                todayFollowupsList.push({
-                  id: e._id,
-                  enquiry: e,
-                  studentName: e.studentFullName,
-                  phone: e.primaryPhoneMobile,
-                  course: e.targetCourse,
-                  action: f.typeOfContact || "Call",
-                  date: f.date || "Today"
-                });
+                const fDateKey = toDateKey(f.date);
+                const isOverdue = Boolean(fDateKey && fDateKey < todayStr);
+                const isDueToday = !fDateKey || fDateKey === todayStr;
+
+                if (isDueToday || isOverdue) {
+                  followupsDueCount++;
+                  todayFollowupsList.push({
+                    id: e._id,
+                    enquiry: e,
+                    studentName: e.studentFullName,
+                    phone: e.primaryPhoneMobile,
+                    course: e.targetCourse,
+                    action: f.typeOfContact || "Call",
+                    date: f.date || "Today",
+                    dateKey: fDateKey || todayStr,
+                    isOverdue
+                  });
+                }
               }
             });
           }
+        });
+
+        // Sort overdue follow-ups first so counsellor handles late leads urgently
+        todayFollowupsList.sort((a, b) => {
+          if (a.isOverdue && !b.isOverdue) return -1;
+          if (!a.isOverdue && b.isOverdue) return 1;
+          return a.dateKey.localeCompare(b.dateKey);
         });
 
         // Pending Admissions (Negotiation / Hot Leads that are not yet admitted)
@@ -244,7 +259,7 @@ export default function CounsellorDashboardPage() {
           monthlyAchieved: monthlyAchievedSum
         });
 
-        setTodayFollowups(todayFollowupsList.slice(0, 5));
+        setTodayFollowups(todayFollowupsList.slice(0, 8));
         setTodayDemos(todaysDemosList.slice(0, 4));
         setRecentLeads(myEnquiries.slice(0, 5));
         setMyAdmissions(counsellorAdmissions);
@@ -330,10 +345,25 @@ export default function CounsellorDashboardPage() {
                               setSelectedLead(f.enquiry);
                               setIsNotificationsOpen(false);
                             }}
-                            className="p-2.5 bg-indigo-50/70 hover:bg-indigo-100/70 border border-indigo-100 rounded-xl text-xs space-y-0.5 cursor-pointer transition-colors"
+                            className={`p-2.5 border rounded-xl text-xs space-y-0.5 cursor-pointer transition-colors ${
+                              f.isOverdue
+                                ? "bg-rose-50/80 hover:bg-rose-100/80 border-rose-200 border-l-4 border-l-rose-500"
+                                : "bg-indigo-50/70 hover:bg-indigo-100/70 border-indigo-100"
+                            }`}
                           >
-                            <span className="font-bold text-indigo-900 block">📞 Follow-up Due: {f.studentName}</span>
-                            <span className="text-[10px] text-indigo-700 block font-medium">{f.course} • {f.phone}</span>
+                            <div className="flex items-center justify-between gap-1">
+                              <span className={`font-bold block ${f.isOverdue ? "text-rose-900" : "text-indigo-900"}`}>
+                                📞 {f.isOverdue ? "🚨 Overdue: " : "Follow-up Due: "}{f.studentName}
+                              </span>
+                              {f.isOverdue && (
+                                <span className="text-[9px] font-black px-1.5 py-0.2 bg-rose-600 text-white rounded">
+                                  OVERDUE
+                                </span>
+                              )}
+                            </div>
+                            <span className={`text-[10px] block font-medium ${f.isOverdue ? "text-rose-700" : "text-indigo-700"}`}>
+                              {f.course} • {f.phone}
+                            </span>
                           </div>
                         ))
                       ) : (
@@ -608,13 +638,28 @@ export default function CounsellorDashboardPage() {
                     <div
                       key={idx}
                       onClick={() => setSelectedLead(item.enquiry)}
-                      className="p-3.5 bg-slate-50 hover:bg-indigo-50/40 border border-slate-200/80 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
+                      className={`p-3.5 border rounded-xl flex items-center justify-between cursor-pointer transition-colors ${
+                        item.isOverdue
+                          ? "bg-rose-50/80 hover:bg-rose-100/80 border-rose-200 border-l-4 border-l-rose-500 shadow-2xs"
+                          : "bg-slate-50 hover:bg-indigo-50/40 border-slate-200/80"
+                      }`}
                     >
                       <div>
-                        <span className="text-xs font-bold text-slate-800 block">{item.studentName}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-800 block">{item.studentName}</span>
+                          {item.isOverdue && (
+                            <span className="text-[9px] font-black px-1.5 py-0.5 bg-rose-600 text-white rounded uppercase tracking-wider">
+                              🚨 OVERDUE
+                            </span>
+                          )}
+                        </div>
                         <span className="text-[11px] text-slate-500 font-medium">{item.course} • {item.phone}</span>
                       </div>
-                      <span className="text-[10px] font-bold px-2.5 py-1 bg-indigo-100 text-indigo-700 rounded-lg">
+                      <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg ${
+                        item.isOverdue
+                          ? "bg-rose-100 text-rose-800 border border-rose-200 font-black"
+                          : "bg-indigo-100 text-indigo-700"
+                      }`}>
                         {item.action}
                       </span>
                     </div>
