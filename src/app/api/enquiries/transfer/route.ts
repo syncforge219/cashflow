@@ -24,6 +24,7 @@ export async function POST(req: Request) {
       transferRemarks,
       rescheduleDate,
       brandScope,
+      course, // Optional course filter: "All" or specific course name e.g. "AutoCAD"
     } = body;
 
     if (!targetAdvisor || typeof targetAdvisor !== "string" || !targetAdvisor.trim()) {
@@ -112,12 +113,34 @@ export async function POST(req: Request) {
       );
     }
 
+    // Optional course filter: only transfer leads matching this course
+    if (course && typeof course === "string" && course.trim() && course !== "All" && course !== "all") {
+      const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const cRegex = new RegExp(escapeRegex(course.trim()), "i");
+      const courseClause = {
+        $or: [
+          { targetCourse: cRegex },
+          { courses: cRegex },
+          { targetCourses: cRegex },
+        ],
+      };
+      if (query.$and) {
+        query.$and.push(courseClause);
+      } else if (query.$or) {
+        query.$and = [{ $or: query.$or }, courseClause];
+        delete query.$or;
+      } else {
+        query.$and = [courseClause];
+      }
+    }
+
     // Fetch matching enquiries
     const matchingEnquiries = await Enquiry.find(query);
 
     if (!matchingEnquiries || matchingEnquiries.length === 0) {
+      const courseNotFoundMsg = course && course !== "All" ? ` for course "${course.trim()}"` : "";
       return NextResponse.json(
-        { success: false, error: "No matching pending leads found to transfer." },
+        { success: false, error: `No matching pending leads found to transfer${courseNotFoundMsg}.` },
         { status: 404 }
       );
     }
@@ -125,7 +148,8 @@ export async function POST(req: Request) {
     const todayStr = todayKey();
     const nowIso = new Date().toISOString();
     const performerName = currentUser?.name ? `${currentUser.name} (${currentUser.role || "Centre Head"})` : "Centre Head";
-    const noteText = transferRemarks?.trim() ? ` Note: ${transferRemarks.trim()}` : "";
+    const courseNote = course && course !== "All" ? ` [Course: ${course.trim()}]` : "";
+    const noteText = `${courseNote}${transferRemarks?.trim() ? ` Note: ${transferRemarks.trim()}` : ""}`;
 
     let updatedCount = 0;
     const transferredEnquiryIds: string[] = [];
@@ -211,9 +235,10 @@ export async function POST(req: Request) {
       }
     }
 
+    const courseMsg = course && course !== "All" ? ` in course "${course.trim()}"` : "";
     return NextResponse.json({
       success: true,
-      message: `Successfully transferred ${updatedCount} lead(s) to ${cleanTargetAdvisor}.`,
+      message: `Successfully transferred ${updatedCount} lead(s)${courseMsg} to ${cleanTargetAdvisor}.`,
       transferredCount: updatedCount,
       targetAdvisor: cleanTargetAdvisor,
     });

@@ -42,6 +42,7 @@ export default function TransferPendingFollowupModal({
   const [transferRemarks, setTransferRemarks] = useState("");
   const [rescheduleDate, setRescheduleDate] = useState("");
   const [shouldReschedule, setShouldReschedule] = useState(false);
+  const [filterCourse, setFilterCourse] = useState<string>("All");
 
   // Single Lead (One by One) states
   const [singleLeadToTransfer, setSingleLeadToTransfer] = useState<TransferLeadItem | null>(null);
@@ -135,6 +136,7 @@ export default function TransferPendingFollowupModal({
       setRescheduleDate("");
       setShouldReschedule(false);
       setLeadSearchQuery("");
+      setFilterCourse("All");
 
       if (selectedLeads.length === 1) {
         setTransferMode("single_lead");
@@ -180,6 +182,63 @@ export default function TransferPendingFollowupModal({
       (l) => (l.assignedCrmAdvisor || "").toLowerCase() === sourceCounsellor.toLowerCase()
     ).length;
   }, [availableLeadsPool, sourceCounsellor]);
+
+  // Source counsellor's specific pending leads
+  const sourceAdvisorPendingLeads = useMemo(() => {
+    if (!sourceCounsellor) return [];
+    const s = sourceCounsellor.trim().toLowerCase();
+    return availableLeadsPool.filter(
+      (l) => (l.assignedCrmAdvisor || "").trim().toLowerCase() === s
+    );
+  }, [availableLeadsPool, sourceCounsellor]);
+
+  // Unique courses with lead counts for the selected source counsellor
+  const sourceCounsellorCourses = useMemo(() => {
+    const map = new Map<string, number>();
+    sourceAdvisorPendingLeads.forEach((l) => {
+      const raw = l.targetCourse || "General Course";
+      raw.split(",").forEach((c) => {
+        const clean = c.trim();
+        if (clean) map.set(clean, (map.get(clean) || 0) + 1);
+      });
+    });
+    return Array.from(map.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [sourceAdvisorPendingLeads]);
+
+  // Unique courses with lead counts across all pending leads
+  const allPendingCourses = useMemo(() => {
+    const map = new Map<string, number>();
+    availableLeadsPool.forEach((l) => {
+      const raw = l.targetCourse || "General Course";
+      raw.split(",").forEach((c) => {
+        const clean = c.trim();
+        if (clean) map.set(clean, (map.get(clean) || 0) + 1);
+      });
+    });
+    return Array.from(map.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [availableLeadsPool]);
+
+  // Count of leads matching the course filter in counsellor_pending mode
+  const matchingCourseCountForSource = useMemo(() => {
+    if (filterCourse === "All") return sourceAdvisorPendingLeads.length;
+    const fc = filterCourse.trim().toLowerCase();
+    return sourceAdvisorPendingLeads.filter((l) =>
+      (l.targetCourse || "").toLowerCase().includes(fc)
+    ).length;
+  }, [sourceAdvisorPendingLeads, filterCourse]);
+
+  // Count of leads matching the course filter in all_pending mode
+  const matchingCourseCountForAll = useMemo(() => {
+    if (filterCourse === "All") return availableLeadsPool.length;
+    const fc = filterCourse.trim().toLowerCase();
+    return availableLeadsPool.filter((l) =>
+      (l.targetCourse || "").toLowerCase().includes(fc)
+    ).length;
+  }, [availableLeadsPool, filterCourse]);
 
   if (!isOpen) return null;
 
@@ -239,6 +298,7 @@ export default function TransferPendingFollowupModal({
         transferRemarks: transferRemarks.trim() || undefined,
         rescheduleDate: shouldReschedule && rescheduleDate ? rescheduleDate : undefined,
         brandScope: userBrandScope && !isGlobalUser ? userBrandScope : undefined,
+        course: (transferMode === "counsellor_pending" || transferMode === "all_pending") && filterCourse !== "All" ? filterCourse : undefined,
       };
 
       const res = await fetch("/api/enquiries/transfer", {
@@ -534,7 +594,10 @@ export default function TransferPendingFollowupModal({
               </div>
               <select
                 value={sourceCounsellor}
-                onChange={(e) => setSourceCounsellor(e.target.value)}
+                onChange={(e) => {
+                  setSourceCounsellor(e.target.value);
+                  setFilterCourse("All");
+                }}
                 required
                 className="w-full text-xs font-bold text-slate-800 bg-white border border-amber-300 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 cursor-pointer"
               >
@@ -545,15 +608,42 @@ export default function TransferPendingFollowupModal({
                   </option>
                 ))}
               </select>
-              <p className="text-[10px] text-amber-700 font-medium">
-                All uncompleted and pending follow-ups currently handled by this advisor will be reassigned.
-              </p>
+
+              {/* Optional Course Filter for Source Counsellor */}
+              <div className="pt-2 border-t border-amber-200/80 space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="block text-[11px] font-black text-amber-900 uppercase tracking-wider flex items-center gap-1">
+                    <span>📚</span>
+                    <span>Filter By Course (Optional)</span>
+                  </label>
+                  <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">
+                    {matchingCourseCountForSource} of {sourceAdvisorPendingCount} lead(s) match
+                  </span>
+                </div>
+                <select
+                  value={filterCourse}
+                  onChange={(e) => setFilterCourse(e.target.value)}
+                  className="w-full text-xs font-bold text-slate-800 bg-white border border-amber-300 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 cursor-pointer"
+                >
+                  <option value="All">All Courses ({sourceAdvisorPendingCount} leads)</option>
+                  {sourceCounsellorCourses.map((c) => (
+                    <option key={c.name} value={c.name}>
+                      {c.name} ({c.count} lead{c.count === 1 ? "" : "s"})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-amber-700 font-medium">
+                  {filterCourse === "All"
+                    ? "Transfer all pending follow-ups regardless of course."
+                    : `Only leads for "${filterCourse}" (${matchingCourseCountForSource} leads) will be transferred.`}
+                </p>
+              </div>
             </div>
           )}
 
           {/* MODE 3: BULK ALL PENDING SUMMARY */}
           {transferMode === "all_pending" && (
-            <div className="p-3.5 bg-indigo-50/60 border border-indigo-200 rounded-2xl space-y-1">
+            <div className="p-3.5 bg-indigo-50/60 border border-indigo-200 rounded-2xl space-y-2">
               <div className="flex items-center gap-2">
                 <span className="text-base">📦</span>
                 <span className="text-xs font-black text-indigo-950 uppercase tracking-wider">
@@ -561,8 +651,38 @@ export default function TransferPendingFollowupModal({
                 </span>
               </div>
               <p className="text-xs text-indigo-700 font-medium">
-                Every pending follow-up across all counsellors for brand &ldquo;{userBrandScope || "All Branches"}&rdquo; ({availableLeadsPool.length} leads) will be reassigned in bulk to the target counsellor.
+                Reassign pending follow-ups across all counsellors for brand &ldquo;{userBrandScope || "All Branches"}&rdquo; to the target counsellor.
               </p>
+
+              {/* Optional Course Filter for All Pending */}
+              <div className="pt-2 border-t border-indigo-200/80 space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="block text-[11px] font-black text-indigo-950 uppercase tracking-wider flex items-center gap-1">
+                    <span>📚</span>
+                    <span>Filter By Course (Optional)</span>
+                  </label>
+                  <span className="text-[10px] font-bold text-indigo-800 bg-indigo-100 px-2 py-0.5 rounded">
+                    {matchingCourseCountForAll} of {availableLeadsPool.length} lead(s) match
+                  </span>
+                </div>
+                <select
+                  value={filterCourse}
+                  onChange={(e) => setFilterCourse(e.target.value)}
+                  className="w-full text-xs font-bold text-slate-800 bg-white border border-indigo-300 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 cursor-pointer"
+                >
+                  <option value="All">All Courses ({availableLeadsPool.length} leads)</option>
+                  {allPendingCourses.map((c) => (
+                    <option key={c.name} value={c.name}>
+                      {c.name} ({c.count} lead{c.count === 1 ? "" : "s"})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-indigo-700 font-medium">
+                  {filterCourse === "All"
+                    ? "Transfer all pending leads across every course."
+                    : `Only leads for "${filterCourse}" (${matchingCourseCountForAll} leads) will be transferred.`}
+                </p>
+              </div>
             </div>
           )}
 

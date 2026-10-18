@@ -10,6 +10,7 @@ import SidebarAiButton from "@/components/SidebarAiButton";
 import { compressImageFile } from "@/lib/imageCompressor";
 import CounsellorSidebar from "@/components/CounsellorSidebar";
 import ManagerSidebar from "@/components/ManagerSidebar";
+import TeacherSidebar from "@/components/TeacherSidebar";
 import { canManageBilling } from "@/lib/billing";
 
 interface SidebarItem {
@@ -473,12 +474,22 @@ export default function Sidebar() {
   const isManagerUser =
     !isCfoUser && !isCounsellorUser && (roleLowerStr.includes("manager") || roleLowerStr.includes("head") || roleLowerStr.includes("brand-manager"));
 
+  const isTeacherUser =
+    roleLowerStr.includes("teacher") ||
+    roleLowerStr.includes("faculty") ||
+    roleLowerStr.includes("instructor") ||
+    roleLowerStr.includes("trainer");
+
   if (isCounsellorUser) {
     return <CounsellorSidebar />;
   }
 
   if (isManagerUser) {
     return <ManagerSidebar />;
+  }
+
+  if (isTeacherUser) {
+    return <TeacherSidebar />;
   }
 
   const cfoGroups: SidebarGroup[] = [

@@ -17,6 +17,7 @@ import {
   findTeacherClash,
   isTeacherRole,
   nextBatchCode,
+  normalizeBatchTiming,
   userBrandList,
   userCanUseBrand,
 } from "@/lib/batchRules";
@@ -74,23 +75,38 @@ export async function GET(request: Request) {
       and.push({ $or: [{ brandId: { $in: brandDocs.map((b) => b._id) } }, { brand: { $in: nameRegexes } }] });
     }
 
-    // Teachers see their own batches unless ?all=true
-    if (!teacherId && user && isTeacherRole(user.role) && all !== "true") {
-      teacherId = user._id ? user._id.toString() : (user as any)?.id || "";
+    // If teacherId is explicitly requested (e.g. ?teacherId=me or ?teacherId=<id>), filter by that faculty.
+    // Otherwise, faculties/teachers can view all batches within their brand scope (just like admin).
+    if (teacherId === "me" || teacherId === "mine") {
+      teacherId = user?._id ? user._id.toString() : (user as any)?.id || "";
     }
-    if (teacherId) {
+
+    if (teacherId && !/^(all|any|\*)$/i.test(teacherId)) {
       let teacherName = "";
       if (mongoose.Types.ObjectId.isValid(teacherId)) {
         const teacherUser: any = await User.findById(teacherId).select("name").lean();
         teacherName = teacherUser?.name || "";
+      } else {
+        teacherName = teacherId;
       }
+
       const teacherOr: any[] = [];
-      if (mongoose.Types.ObjectId.isValid(teacherId)) teacherOr.push({ teacherId: new mongoose.Types.ObjectId(teacherId) });
-      if (teacherName) teacherOr.push({ teacherName: new RegExp(`^${escapeRegex(teacherName.trim())}$`, "i") });
-      if (teacherOr.length === 0) {
-        return NextResponse.json({ success: true, count: 0, data: [], batches: [] });
+      if (mongoose.Types.ObjectId.isValid(teacherId)) {
+        teacherOr.push({ teacherId: new mongoose.Types.ObjectId(teacherId) });
+        teacherOr.push({ teacherId: String(teacherId) });
+      } else {
+        teacherOr.push({ teacherId: String(teacherId) });
       }
-      and.push({ $or: teacherOr });
+
+      if (teacherName && teacherName.trim()) {
+        const tTrim = teacherName.trim();
+        teacherOr.push({ teacherName: new RegExp(`^${escapeRegex(tTrim)}$`, "i") });
+        teacherOr.push({ teacherName: new RegExp(escapeRegex(tTrim), "i") });
+      }
+
+      if (teacherOr.length > 0) {
+        and.push({ $or: teacherOr });
+      }
     }
 
     if (course) {
@@ -131,10 +147,12 @@ export async function GET(request: Request) {
       if (!b.timing || !String(b.timing).trim()) {
         updates.timing = "10:00 AM - 12:00 PM";
         b.timing = updates.timing;
-      } else if (/12:00\s*AM/i.test(b.timing)) {
-        // Classes never run at midnight: "12:00 AM" is a typo for noon
-        updates.timing = b.timing.replace(/12:00\s*AM/gi, "12:00 PM");
-        b.timing = updates.timing;
+      } else {
+        const normalized = normalizeBatchTiming(b.timing, b.batchName);
+        if (normalized && normalized !== b.timing) {
+          updates.timing = normalized;
+          b.timing = normalized;
+        }
       }
 
       if (!b.startDate) {

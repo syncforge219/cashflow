@@ -16,6 +16,8 @@ export default function TeacherBatchesPage() {
   const { user } = useUser();
   const [students, setStudents] = useState<any[]>([]);
   const [batches, setBatches] = useState<any[]>([]);
+  const [allBatches, setAllBatches] = useState<any[]>([]);
+  const [batchScope, setBatchScope] = useState<"my" | "all">("my");
   const [courses, setCourses] = useState<string[]>([]);
   const [isLoadingStudents, setIsLoadingStudents] = useState(true);
 
@@ -39,7 +41,10 @@ export default function TeacherBatchesPage() {
       setIsLoadingStudents(true);
       const userId = user?._id || user?.id;
       const userName = (user?.name || "").trim().toLowerCase();
-      const batchesUrl = userId ? `/api/batches?teacherId=${userId}` : "/api/batches";
+      const brandQuery = user?.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "ALL BRANDS" && user.brandScope !== "All"
+        ? `&brand=${encodeURIComponent(user.brandScope)}`
+        : "";
+      const batchesUrl = `/api/batches?all=true${brandQuery}`;
 
       const [batchesRes, admissionsRes] = await Promise.all([
         fetch(batchesUrl).then((r) => r.json().catch(() => ({}))),
@@ -53,11 +58,13 @@ export default function TeacherBatchesPage() {
         if (!userId && !userName) return true;
         const bTeacherId = b.teacherId ? String(b.teacherId._id || b.teacherId.id || b.teacherId) : "";
         const idMatch = Boolean(userId && bTeacherId && bTeacherId === String(userId));
-        const nameMatch = Boolean(userName && b.teacherName && b.teacherName.trim().toLowerCase().includes(userName));
+        const bTeacherName = (b.teacherName || "").trim().toLowerCase();
+        const nameMatch = Boolean(userName && bTeacherName && (bTeacherName.includes(userName) || userName.includes(bTeacherName)));
         return idMatch || nameMatch;
       });
 
       setBatches(teacherBatches);
+      setAllBatches(fetchedBatches);
 
       const teacherBatchNames = new Set(teacherBatches.map((b: any) => (b.batchName || "").trim().toLowerCase()));
       const fetchedAdmissions = admissionsRes.success ? (admissionsRes.data || admissionsRes.admissions || []) : [];
@@ -118,7 +125,8 @@ export default function TeacherBatchesPage() {
 
     setUpdatingStudentId(studentId);
     try {
-      const selectedB = batches.find((b: any) => (b.batchId || b._id) === targetBatchVal || String(b._id) === targetBatchVal);
+      const availableBatches = allBatches.length > 0 ? allBatches : batches;
+      const selectedB = availableBatches.find((b: any) => (b.batchId || b._id) === targetBatchVal || String(b._id) === targetBatchVal);
       const isUnassigning = targetBatchVal === "Unassigned" || targetBatchVal === "" || !selectedB;
       const targetBatchName = selectedB ? selectedB.batchName : (isUnassigning ? "Unassigned" : targetBatchVal);
       const targetBatchId = selectedB ? (selectedB.batchId || selectedB._id) : "";
@@ -219,16 +227,32 @@ export default function TeacherBatchesPage() {
           </div>
 
           {/* View Tab Buttons */}
-          <div className="flex items-center bg-slate-200/60 p-1 rounded-2xl gap-1 shrink-0 self-start sm:self-auto">
+          <div className="flex items-center bg-slate-200/60 p-1 rounded-2xl gap-1 shrink-0 self-start sm:self-auto flex-wrap">
             <button
-              onClick={() => setActiveTab("batches")}
+              onClick={() => {
+                setActiveTab("batches");
+                setBatchScope("my");
+              }}
               className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all ${
-                activeTab === "batches"
+                activeTab === "batches" && batchScope === "my"
                   ? "bg-white text-indigo-600 shadow-sm"
                   : "text-slate-600 hover:text-slate-900 cursor-pointer"
               }`}
             >
               📁 My Batches ({batches.length})
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab("batches");
+                setBatchScope("all");
+              }}
+              className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all ${
+                activeTab === "batches" && batchScope === "all"
+                  ? "bg-white text-indigo-600 shadow-sm"
+                  : "text-slate-600 hover:text-slate-900 cursor-pointer"
+              }`}
+            >
+              🏢 All Institute Batches ({allBatches.length})
             </button>
             <button
               onClick={() => setActiveTab("students")}
@@ -311,7 +335,7 @@ export default function TeacherBatchesPage() {
                     : "bg-slate-100 hover:bg-slate-200 text-slate-700"
                 }`}
               >
-                All ({batches.length})
+                All ({(batchScope === "all" ? allBatches : batches).length})
               </button>
               <button
                 onClick={() => setBatchSlotFilter("morning")}
@@ -322,7 +346,7 @@ export default function TeacherBatchesPage() {
                 }`}
               >
                 <span>🌅</span>
-                <span>Morning ({batches.filter((b) => getBatchSlotInfo(b.timing).slotKey === "morning").length})</span>
+                <span>Morning ({(batchScope === "all" ? allBatches : batches).filter((b) => getBatchSlotInfo(b.timing).slotKey === "morning").length})</span>
               </button>
               <button
                 onClick={() => setBatchSlotFilter("afternoon")}
@@ -333,7 +357,7 @@ export default function TeacherBatchesPage() {
                 }`}
               >
                 <span>☀️</span>
-                <span>Afternoon ({batches.filter((b) => getBatchSlotInfo(b.timing).slotKey === "afternoon").length})</span>
+                <span>Afternoon ({(batchScope === "all" ? allBatches : batches).filter((b) => getBatchSlotInfo(b.timing).slotKey === "afternoon").length})</span>
               </button>
               <button
                 onClick={() => setBatchSlotFilter("evening")}
@@ -344,22 +368,34 @@ export default function TeacherBatchesPage() {
                 }`}
               >
                 <span>🌆</span>
-                <span>Evening ({batches.filter((b) => getBatchSlotInfo(b.timing).slotKey === "evening").length})</span>
+                <span>Evening ({(batchScope === "all" ? allBatches : batches).filter((b) => getBatchSlotInfo(b.timing).slotKey === "evening").length})</span>
               </button>
             </div>
 
-            {/* List of Batches assigned to teacher */}
+            {/* List of Batches */}
             <div className="space-y-4">
               {isLoadingStudents ? (
                 <div className="bg-white rounded-2xl p-12 text-center text-slate-400 font-semibold border border-slate-200/80">
-                  Loading your assigned batches and student rosters...
+                  Loading batches and student rosters...
                 </div>
-              ) : batches.length === 0 ? (
-                <div className="bg-white rounded-2xl p-12 text-center text-slate-400 font-semibold border border-slate-200/80">
-                  No active batches assigned to you at the moment.
+              ) : (batchScope === "all" ? allBatches : batches).length === 0 ? (
+                <div className="bg-white rounded-2xl p-12 text-center text-slate-500 font-semibold border border-slate-200/80 space-y-3">
+                  <p className="text-sm">
+                    {batchScope === "my"
+                      ? "No batches specifically assigned to you at the moment."
+                      : "No institute batches found matching your brand."}
+                  </p>
+                  {batchScope === "my" && allBatches.length > 0 && (
+                    <button
+                      onClick={() => setBatchScope("all")}
+                      className="px-4 py-2 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5"
+                    >
+                      <span>🏢</span> View All Institute Batches ({allBatches.length})
+                    </button>
+                  )}
                 </div>
               ) : (
-                sortBatchesByTiming(batches)
+                sortBatchesByTiming(batchScope === "all" ? allBatches : batches)
                   .filter((b) => {
                     if (batchSlotFilter !== "all") {
                       if (getBatchSlotInfo(b.timing).slotKey !== batchSlotFilter) return false;
@@ -629,11 +665,14 @@ export default function TeacherBatchesPage() {
                                       className="w-full max-w-xs text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-1.5 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 cursor-pointer"
                                     >
                                       <option value="">Select Batch Assignment...</option>
-                                      {batches.map((b) => (
-                                        <option key={b._id || b.batchId} value={b.batchId || b._id}>
-                                          {b.batchId ? `[${b.batchId}] ` : ""}{b.batchName} {b.timing ? `(${b.timing})` : ""}
-                                        </option>
-                                      ))}
+                                      {(allBatches.length > 0 ? allBatches : batches).map((b) => {
+                                        const isMine = batches.some((tb) => String(tb._id) === String(b._id) || (tb.batchId && tb.batchId === b.batchId));
+                                        return (
+                                          <option key={b._id || b.batchId} value={b.batchId || b._id}>
+                                            {isMine ? "★ [My Batch] " : ""}{b.batchId ? `[${b.batchId}] ` : ""}{b.batchName} {b.timing ? `(${b.timing})` : ""}
+                                          </option>
+                                        );
+                                      })}
                                     </select>
                                   </td>
                                   <td className="py-3 px-4 text-right">
@@ -790,11 +829,14 @@ export default function TeacherBatchesPage() {
                               >
                                 <option value="">Select Batch Assignment...</option>
                                 <option value="Unassigned">Unassigned (No Batch)</option>
-                                {batches.map((b) => (
-                                  <option key={b._id || b.batchId} value={b.batchId || b._id}>
-                                    {b.batchId ? `[${b.batchId}] ` : ""}{b.batchName} {b.timing ? `(${b.timing})` : ""}
-                                  </option>
-                                ))}
+                                {(allBatches.length > 0 ? allBatches : batches).map((b) => {
+                                  const isMine = batches.some((tb) => String(tb._id) === String(b._id) || (tb.batchId && tb.batchId === b.batchId));
+                                  return (
+                                    <option key={b._id || b.batchId} value={b.batchId || b._id}>
+                                      {isMine ? "★ [My Batch] " : ""}{b.batchId ? `[${b.batchId}] ` : ""}{b.batchName} {b.timing ? `(${b.timing})` : ""}
+                                    </option>
+                                  );
+                                })}
                               </select>
                             </td>
                             <td className="py-4 px-6 text-right">

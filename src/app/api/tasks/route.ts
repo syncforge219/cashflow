@@ -17,12 +17,26 @@ export async function GET(req: Request) {
     const priority = searchParams.get("priority");
     const isEscalated = searchParams.get("isEscalated");
     const search = searchParams.get("search");
+    const linkedEnquiryId = searchParams.get("linkedEnquiryId");
 
     const query: any = {};
 
-    // Counsellors / sales executives only see tasks assigned to them, regardless of the filter sent
+    if (linkedEnquiryId) {
+      const cleanId = linkedEnquiryId.trim();
+      const idClauses: any[] = [
+        { linkedEnquiryId: cleanId },
+        { linkedStudentId: cleanId },
+      ];
+      if (mongoose.Types.ObjectId.isValid(cleanId)) {
+        idClauses.push({ linkedEnquiryId: new mongoose.Types.ObjectId(cleanId) });
+        idClauses.push({ linkedStudentId: new mongoose.Types.ObjectId(cleanId) });
+      }
+      query.$or = idClauses;
+    }
+
+    // Counsellors / sales executives only see tasks assigned to them, regardless of the filter sent (unless querying specific linked enquiry)
     const ownerScope = getOwnerScope(await getUserFromCookies());
-    if (ownerScope) {
+    if (ownerScope && !linkedEnquiryId) {
       query.assignedTo = ownerScope.nameRegex;
     } else if (assignedTo) {
       query.assignedTo = { $regex: new RegExp(escapeRegex(assignedTo), "i") };

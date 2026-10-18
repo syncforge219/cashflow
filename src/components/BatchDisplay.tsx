@@ -30,12 +30,21 @@ export default function BatchDisplay() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedBrandFilter, setSelectedBrandFilter] = useState("All Brands");
   const [selectedStatusFilter, setSelectedStatusFilter] = useState("All Status");
+  const [teacherFilter, setTeacherFilter] = useState<"all" | "my">("all");
+
+  const roleLowerStr = (user?.role || "").toLowerCase().trim();
+  const isTeacher =
+    roleLowerStr.includes("teacher") ||
+    roleLowerStr.includes("faculty") ||
+    roleLowerStr.includes("instructor") ||
+    roleLowerStr.includes("trainer");
 
   const fetchBatches = async () => {
     try {
       setIsLoading(true);
       let url = "/api/batches";
       const queryParams = new URLSearchParams();
+      queryParams.append("all", "true");
       if (user?.brandScope && user.brandScope !== "All Brands" && user.brandScope !== "ALL BRANDS" && user.brandScope !== "All") {
         queryParams.append("brand", user.brandScope);
       }
@@ -115,6 +124,16 @@ export default function BatchDisplay() {
 
     if (selectedStatusFilter !== "All Status" && b.status !== selectedStatusFilter) {
       return false;
+    }
+
+    if (isTeacher && teacherFilter === "my") {
+      const uId = String(user?._id || user?.id || "");
+      const uName = (user?.name || "").trim().toLowerCase();
+      const bTeacherId = b.teacherId ? String(b.teacherId._id || b.teacherId.id || b.teacherId) : "";
+      const bTeacherName = (b.teacherName || "").trim().toLowerCase();
+      const idMatch = Boolean(uId && bTeacherId && bTeacherId === uId);
+      const nameMatch = Boolean(uName && bTeacherName && (bTeacherName.includes(uName) || uName.includes(bTeacherName)));
+      if (!idMatch && !nameMatch) return false;
     }
 
     if (!searchTerm.trim()) return true;
@@ -249,7 +268,30 @@ export default function BatchDisplay() {
               />
             </div>
 
-            <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="flex items-center gap-3 w-full sm:w-auto flex-wrap">
+              {isTeacher && (
+                <div className="flex items-center p-0.5 bg-slate-100 border border-slate-200 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => setTeacherFilter("all")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      teacherFilter === "all" ? "bg-white text-slate-800 shadow-xs" : "text-slate-500 hover:text-slate-900"
+                    }`}
+                  >
+                    All Batches ({batches.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTeacherFilter("my")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      teacherFilter === "my" ? "bg-indigo-600 text-white shadow-xs" : "text-slate-500 hover:text-slate-900"
+                    }`}
+                  >
+                    My Batches
+                  </button>
+                </div>
+              )}
+
               {!userBrandScope && (
                 <select
                   value={selectedBrandFilter}

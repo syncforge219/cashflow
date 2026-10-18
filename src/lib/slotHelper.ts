@@ -65,6 +65,62 @@ export function parseTimeToMinutes(timeStr: string, isEnd = false): number | nul
 }
 
 /**
+ * Normalizes batch timing strings and auto-heals common user typos, such as:
+ * - "12:00 AM" for noon -> "12:00 PM"
+ * - "10:30 AM - 11:30 PM" -> "10:30 AM - 11:30 AM" (accidental PM on morning class)
+ * - Matching explicit AM/PM from batch name (e.g. "HISTORY 10:30-11:30AM")
+ */
+export function normalizeBatchTiming(timingStr: unknown, batchName?: unknown): string {
+  if (!timingStr || typeof timingStr !== "string") return "";
+  let t = timingStr.trim();
+  if (!t) return "";
+
+  // 1. Fix "12:00 AM" typo for noon (12:00 PM)
+  if (/12:00\s*AM/i.test(t)) {
+    t = t.replace(/12:00\s*AM/gi, "12:00 PM");
+  }
+
+  // 2. If batchName contains an explicit timing with AM/PM (e.g. "HISTORY 10:30-11:30AM")
+  const bName = typeof batchName === "string" ? batchName : "";
+  const nameMatch = bName.match(/(\d{1,2}(?::\d{2})?)\s*(?:am|pm)?\s*[-–—]\s*(\d{1,2}(?::\d{2})?)\s*(am|pm)/i);
+  if (nameMatch) {
+    const endMeridiem = nameMatch[3].toUpperCase();
+    if (endMeridiem === "AM") {
+      t = t.replace(/(\d{1,2}:\d{2})\s*PM/gi, (m, time) => {
+        const hour = parseInt(time.split(":")[0], 10);
+        if (hour >= 8 && hour <= 11) {
+          return `${time} AM`;
+        }
+        return m;
+      });
+    }
+  }
+
+  // 3. Detect and fix 11:xx PM typo when start is in the morning (e.g. "10:30 AM - 11:30 PM" or "10:00 AM - 11:00 PM")
+  const parts = t.split(/[-–—]|(?:\s+to\s+)/i);
+  if (parts.length >= 2) {
+    const startStr = parts[0].trim();
+    const endStr = parts[1].trim();
+    const startMatch = startStr.match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?/i);
+    const endMatch = endStr.match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?/i);
+
+    if (startMatch && endMatch) {
+      const sHour = parseInt(startMatch[1], 10);
+      const sMeridiem = (startMatch[3] || (sHour >= 8 && sHour <= 11 ? "AM" : "")).toUpperCase();
+      const eHour = parseInt(endMatch[1], 10);
+      const eMeridiem = (endMatch[3] || "").toUpperCase();
+
+      // If start is morning (8 AM to 11 AM) and end is entered as 11:xx PM (13-hour class):
+      if (sMeridiem === "AM" && sHour >= 8 && sHour <= 11 && eHour === 11 && eMeridiem === "PM") {
+        t = t.replace(/11:(\d{2})\s*PM/i, "11:$1 AM");
+      }
+    }
+  }
+
+  return t;
+}
+
+/**
  * Parses batch timing range strings:
  * e.g., "11:00 AM - 12:00 PM", "12:00 AM - 1:00 PM", "2:00 PM - 3:00 PM", "10:00 AM to 1:00 PM"
  */
@@ -110,10 +166,12 @@ export function parseBatchTimingRange(timingStr: string): { startMin: number; en
   }
 
   // Sanity check: If calculated duration is > 6 hours (unrealistic for a single coaching batch),
-  // check if start was 12:00 (720 min)
+  // check if start was 12:00 (720 min) or end was entered with PM instead of AM (e.g. 11:xx PM instead of 11:xx AM)
   if (endMin - startMin > 360) {
     if (startMin < 480 && endMin >= 720) {
       startMin = 720;
+    } else if (endMin >= 720 && (endMin - 720) > startMin && ((endMin - 720) - startMin) <= 360) {
+      endMin -= 720;
     }
   }
 

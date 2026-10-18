@@ -16,6 +16,7 @@ export async function POST(request: Request) {
       transferEnquiries = true,
       transferAdmissions = true,
       transferTasks = true,
+      course,
     } = body;
 
     if (!fromCounsellorId || !toCounsellorId) {
@@ -87,45 +88,76 @@ export async function POST(request: Request) {
     const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const nameOrEmailPatterns = sourceNames.map((n) => new RegExp(escapeRegex(n.trim()), "i"));
 
+    let courseRegex: RegExp | null = null;
+    if (course && typeof course === "string" && course.trim() && course !== "All" && course !== "all") {
+      courseRegex = new RegExp(escapeRegex(course.trim()), "i");
+    }
+
     // 1. Transfer Enquiries
     if (transferEnquiries) {
-      const result = await Enquiry.updateMany(
-        {
-          $or: [
-            { assignedCrmAdvisorId: sourceUser._id },
-            ...nameOrEmailPatterns.map((pattern) => ({
-              assignedCrmAdvisor: pattern,
-            })),
-          ],
+      const counsellorEnquiryFilter = {
+        $or: [
+          { assignedCrmAdvisorId: sourceUser._id },
+          ...nameOrEmailPatterns.map((pattern) => ({
+            assignedCrmAdvisor: pattern,
+          })),
+        ],
+      };
+      const enquiryFilter: any = courseRegex
+        ? {
+            $and: [
+              counsellorEnquiryFilter,
+              {
+                $or: [
+                  { targetCourse: courseRegex },
+                  { courses: courseRegex },
+                  { targetCourses: courseRegex },
+                ],
+              },
+            ],
+          }
+        : counsellorEnquiryFilter;
+
+      const result = await Enquiry.updateMany(enquiryFilter, {
+        $set: {
+          assignedCrmAdvisor: targetName,
+          assignedCrmAdvisorId: targetUser._id,
         },
-        {
-          $set: {
-            assignedCrmAdvisor: targetName,
-            assignedCrmAdvisorId: targetUser._id,
-          },
-        }
-      );
+      });
       enquiriesTransferred = result.modifiedCount || 0;
     }
 
     // 2. Transfer Admissions
     if (transferAdmissions) {
-      const result = await Admission.updateMany(
-        {
-          $or: [
-            { counsellorId: sourceUser._id },
-            ...nameOrEmailPatterns.map((pattern) => ({
-              counsellor: pattern,
-            })),
-          ],
+      const counsellorAdmFilter = {
+        $or: [
+          { counsellorId: sourceUser._id },
+          ...nameOrEmailPatterns.map((pattern) => ({
+            counsellor: pattern,
+          })),
+        ],
+      };
+      const admissionFilter: any = courseRegex
+        ? {
+            $and: [
+              counsellorAdmFilter,
+              {
+                $or: [
+                  { course: courseRegex },
+                  { targetCourse: courseRegex },
+                  { courses: courseRegex },
+                ],
+              },
+            ],
+          }
+        : counsellorAdmFilter;
+
+      const result = await Admission.updateMany(admissionFilter, {
+        $set: {
+          counsellor: targetName,
+          counsellorId: targetUser._id,
         },
-        {
-          $set: {
-            counsellor: targetName,
-            counsellorId: targetUser._id,
-          },
-        }
-      );
+      });
       admissionsTransferred = result.modifiedCount || 0;
     }
 

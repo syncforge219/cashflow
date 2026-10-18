@@ -3,7 +3,8 @@ import Batch from "@/models/Batch";
 import Counter from "@/models/Counter";
 import { getNextSequence } from "@/lib/sequenceHelper";
 import { computeBatchStatus } from "@/lib/batchHelper";
-import { isBatchScheduledOnDay, parseBatchTimingRange } from "@/lib/slotHelper";
+import { isBatchScheduledOnDay, parseBatchTimingRange, normalizeBatchTiming } from "@/lib/slotHelper";
+export { normalizeBatchTiming } from "@/lib/slotHelper";
 import { parseDateOnly, toDateKey } from "@/lib/dates";
 
 /**
@@ -30,7 +31,7 @@ export const normalizeRole = (role: unknown) => String(role || "").toLowerCase()
 
 export function isTeacherRole(role: unknown) {
   const r = normalizeRole(role);
-  return r === "teacher" || r === "faculty" || r === "instructor";
+  return r === "teacher" || r === "faculty" || r === "instructor" || r === "trainer";
 }
 
 /** Who may delete a batch (others can cancel it instead). */
@@ -141,7 +142,8 @@ export async function findTeacherClash(input: {
   endDate?: Date | null;
   excludeBatchId?: any;
 }) {
-  const range = parseBatchTimingRange(input.timing);
+  const normalizedInputTiming = normalizeBatchTiming(input.timing);
+  const range = parseBatchTimingRange(normalizedInputTiming);
   if (!range || !input.teacherId) return null;
 
   const query: any = { teacherId: input.teacherId, status: { $nin: ["Cancelled", "Completed"] } };
@@ -163,9 +165,23 @@ export async function findTeacherClash(input: {
         : input.days.some((d) => isBatchScheduledOnDay(other, d));
     if (!sharesDay) continue;
 
-    const o = parseBatchTimingRange(other.timing);
+    // Normalize other batch's timing to eliminate stored typos (e.g. 10:30 AM - 11:30 PM)
+    const normalizedOtherTiming = normalizeBatchTiming(other.timing, other.batchName);
+    const o = parseBatchTimingRange(normalizedOtherTiming);
     if (!o) continue;
-    if (Math.max(range.startMin, o.startMin) < Math.min(range.endMin, o.endMin)) return other;
+
+    // Auto-heal the malformed batch timing in MongoDB if it had a typo
+    if (normalizedOtherTiming && normalizedOtherTiming !== other.timing && other._id) {
+      Batch.updateOne({ _id: other._id }, { $set: { timing: normalizedOtherTiming } }).catch(() => {});
+      other.timing = normalizedOtherTiming;
+    }
+
+    if (Math.max(range.startMin, o.startMin) < Math.min(range.endMin, o.endMin)) {
+      return {
+        ...other,
+        timing: normalizedOtherTiming || other.timing,
+      };
+    }
   }
   return null;
 }
@@ -275,11 +291,15 @@ export async function cleanBatchFields(body: any, partial: boolean): Promise<Cle
   }
 
   if (!partial || has("timing")) {
-    const timing = String(body.timing || "").trim();
+    let timing = String(body.timing || "").trim();
     if (!timing) throw new BatchRuleError("Class timing is required.");
+    timing = normalizeBatchTiming(timing, body.batchName);
     const range = parseBatchTimingRange(timing);
     if (!range) throw new BatchRuleError('Write the timing as a range, e.g. "10:00 AM - 12:00 PM".');
     if (range.endMin <= range.startMin) throw new BatchRuleError("Class timing must end after it starts.");
+    if (range.endMin - range.startMin > 480) {
+      throw new BatchRuleError("Class duration cannot exceed 8 hours. Please check your start and end times (AM/PM).");
+    }
     out.timing = timing;
   }
 

@@ -107,10 +107,14 @@ const describeDueKey = (dueKey?: string): { label: string; className: string } =
   return { label: `${-diff} days overdue`, className: "text-rose-700" };
 };
 
-const describeDue = (rec: EnquiryFollowupRecord) =>
-  rec.hasScheduledFollowup && rec.dueDateStr
+const describeDue = (rec: EnquiryFollowupRecord) => {
+  if (isFollowupDone(rec)) {
+    return { label: "Done", className: "text-emerald-700 font-extrabold" };
+  }
+  return rec.hasScheduledFollowup && rec.dueDateStr
     ? describeDueKey(rec.dueDateStr)
     : { label: "Not scheduled", className: "text-slate-400" };
+};
 
 const feeReminderText = (rec: FeesFollowupRecord) =>
   `Hello ${rec.fullName}, this is a reminder that your fee instalment of ₹${rec.dueAmount.toLocaleString("en-IN")} for ${rec.course} ` +
@@ -212,8 +216,9 @@ export default function FollowupPage() {
   const [currentPage, setCurrentPage] = useState(1);
 
   // Tab Selection
-  const [enquiryTab, setEnquiryTab] = useState<"today" | "new" | "pending" | "upcoming" | "donot">("today");
+  const [enquiryTab, setEnquiryTab] = useState<"today" | "new" | "pending" | "upcoming" | "completed" | "donot">("today");
   const [feesTab, setFeesTab] = useState<"today" | "overdue" | "upcoming">("today");
+  const [completedFilter, setCompletedFilter] = useState<"all" | "today" | "yesterday">("all");
   const [selectedNewLeadDate, setSelectedNewLeadDate] = useState<string>(todayKey());
 
   // User Brand Scope Resolution
@@ -797,6 +802,10 @@ export default function FollowupPage() {
         statusLower.includes("completed") ||
         (Array.isArray(rec.followUps) && rec.followUps.length > 0 && rec.followUps.every((f: any) => f.isCompleted || (f.status || "").toLowerCase() === "completed" || (f.status || "").toLowerCase() === "cancelled"));
 
+      const hasMadeFollowup =
+        isCompletedLead ||
+        (Array.isArray(rec.followUps) && rec.followUps.some((f: any) => f.isCompleted || (f.status || "").toLowerCase() === "completed"));
+
       // Tab filtering
       if (enquiryTab === "new") {
         if (statusLower.includes("lost") || statusLower.includes("do not") || isCompletedLead) return false;
@@ -811,6 +820,17 @@ export default function FollowupPage() {
       } else if (enquiryTab === "upcoming") {
         if (statusLower.includes("lost") || statusLower.includes("admitted") || statusLower.includes("do not") || isCompletedLead) return false;
         if (!rec.hasScheduledFollowup || recTime <= todayTime) return false; // Future due
+      } else if (enquiryTab === "completed") {
+        if (statusLower.includes("lost") || statusLower.includes("do not")) return false;
+        if (!hasMadeFollowup) return false;
+        if (completedFilter !== "all") {
+          const completedDates = (rec.followUps || [])
+            .filter((f: any) => f.isCompleted || (f.status || "").toLowerCase() === "completed")
+            .map((f: any) => toDateKey(f.completedAt || f.loggedDate || f.date))
+            .filter(Boolean);
+          if (completedFilter === "today" && !completedDates.includes(todayStr)) return false;
+          if (completedFilter === "yesterday" && !completedDates.includes(addDaysKey(todayStr, -1))) return false;
+        }
       } else if (enquiryTab === "donot") {
         if (!statusLower.includes("lost") && !statusLower.includes("do not")) return false;
       }
@@ -909,7 +929,7 @@ export default function FollowupPage() {
 
       return true;
     });
-  }, [processedEnquiryFollowups, enquiryTab, selectedNewLeadDate, searchQuery, filterBrand, filterAdvisor, filterCourse, filterStage, advancedFilters, isUserBrandRestricted, allowedUserBrands, onlyMyFollowups, user, isRecordOwnedByUser, admittedPhoneSet, admittedEnquiryIdSet]);
+  }, [processedEnquiryFollowups, enquiryTab, completedFilter, selectedNewLeadDate, searchQuery, filterBrand, filterAdvisor, filterCourse, filterStage, advancedFilters, isUserBrandRestricted, allowedUserBrands, onlyMyFollowups, user, isRecordOwnedByUser, admittedPhoneSet, admittedEnquiryIdSet]);
 
   // Tab Counters for Enquiry Mode strictly isolated by active Brand / Scope / My Followups
   const enquiryCounts = useMemo(() => {
@@ -918,7 +938,7 @@ export default function FollowupPage() {
     const uRole = (user?.role || "").trim().toLowerCase();
     const isStaffOrAdmin = uRole.includes("admin") || uRole.includes("manager") || uRole.includes("head") || uRole.includes("cfo");
 
-    let today = 0, newLeads = 0, pending = 0, upcoming = 0, donot = 0;
+    let today = 0, newLeads = 0, pending = 0, upcoming = 0, completed = 0, donot = 0;
 
     processedEnquiryFollowups.forEach((rec) => {
       // Exclude admitted students from active follow-up tab counts
@@ -968,6 +988,14 @@ export default function FollowupPage() {
         statusLower.includes("completed") ||
         (Array.isArray(rec.followUps) && rec.followUps.length > 0 && rec.followUps.every((f: any) => f.isCompleted || (f.status || "").toLowerCase() === "completed" || (f.status || "").toLowerCase() === "cancelled"));
 
+      const hasMadeFollowup =
+        isCompletedLead ||
+        (Array.isArray(rec.followUps) && rec.followUps.some((f: any) => f.isCompleted || (f.status || "").toLowerCase() === "completed"));
+
+      if (hasMadeFollowup && !statusLower.includes("lost") && !statusLower.includes("do not")) {
+        completed++;
+      }
+
       if (createdDateStr === selectedNewLeadDate) {
         if (!statusLower.includes("lost") && !statusLower.includes("do not") && !isCompletedLead) {
           newLeads++;
@@ -989,7 +1017,7 @@ export default function FollowupPage() {
       }
     });
 
-    return { today, newLeads, pending, upcoming, donot };
+    return { today, newLeads, pending, upcoming, completed, donot };
   }, [processedEnquiryFollowups, selectedNewLeadDate, isUserBrandRestricted, allowedUserBrands, filterBrand, filterAdvisor, onlyMyFollowups, user, isRecordOwnedByUser, isAdmittedLead]);
 
   // Overall count of followups belonging to the currently signed-in user

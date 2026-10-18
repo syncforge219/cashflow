@@ -21,6 +21,8 @@ export default function TransferCounsellorModal({
   const [transferEnquiries, setTransferEnquiries] = useState(true);
   const [transferAdmissions, setTransferAdmissions] = useState(true);
   const [transferTasks, setTransferTasks] = useState(true);
+  const [selectedCourse, setSelectedCourse] = useState("All");
+  const [coursesList, setCoursesList] = useState<string[]>([]);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -61,7 +63,19 @@ export default function TransferCounsellorModal({
       setError("");
       setSuccessMsg("");
       setIsLoading(false);
+      setSelectedCourse("All");
       setSelectedTargetId(eligibleTargetCounsellors[0]?.id || "");
+
+      // Fetch course list for filtering
+      fetch("/api/courses")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && Array.isArray(data.data)) {
+            const names = data.data.map((c: any) => c.name || c.title || "").filter(Boolean);
+            setCoursesList(Array.from(new Set(names)).sort((a: any, b: any) => a.localeCompare(b)) as string[]);
+          }
+        })
+        .catch(() => {});
     }
   }, [isOpen, eligibleTargetCounsellors]);
 
@@ -94,14 +108,16 @@ export default function TransferCounsellorModal({
           transferEnquiries,
           transferAdmissions,
           transferTasks,
+          course: selectedCourse !== "All" ? selectedCourse : undefined,
         }),
       });
 
       const data = await res.json();
 
       if (res.ok && data.success) {
+        const courseNotice = selectedCourse !== "All" ? ` for course "${selectedCourse}"` : "";
         setSuccessMsg(
-          `Data transferred successfully! (${data.transferred.enquiries} Enquiries, ${data.transferred.admissions} Admissions, ${data.transferred.tasks} Tasks)`
+          `Data transferred successfully${courseNotice}! (${data.transferred.enquiries} Enquiries, ${data.transferred.admissions} Admissions, ${data.transferred.tasks} Tasks)`
         );
         setTimeout(() => {
           onSuccess();
@@ -219,6 +235,36 @@ export default function TransferCounsellorModal({
                 ))}
               </select>
             )}
+          </div>
+
+          {/* Optional Course Filter */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1">
+                <span>📚</span>
+                <span>Transfer by Course (Optional)</span>
+              </label>
+              <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                {selectedCourse === "All" ? "All Courses" : selectedCourse}
+              </span>
+            </div>
+            <select
+              value={selectedCourse}
+              onChange={(e) => setSelectedCourse(e.target.value)}
+              className="w-full text-xs font-semibold text-slate-800 bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer"
+            >
+              <option value="All">All Courses (Transfer everything)</option>
+              {coursesList.map((course) => (
+                <option key={course} value={course}>
+                  {course}
+                </option>
+              ))}
+            </select>
+            <p className="text-[10px] text-slate-500 font-medium">
+              {selectedCourse === "All"
+                ? "Data across all courses will be transferred."
+                : `Only records matching course "${selectedCourse}" will be transferred.`}
+            </p>
           </div>
 
           {/* Data Checkboxes */}

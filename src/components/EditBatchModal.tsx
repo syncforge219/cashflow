@@ -5,6 +5,7 @@ import React, { useState, useEffect } from "react";
 import { useUser } from "@/app/component/context/user-context";
 import CourseSearchSelect from "./CourseSearchSelect";
 import { computeBatchStatus } from "@/lib/batchHelper";
+import { normalizeBatchTiming } from "@/lib/slotHelper";
 
 interface EditBatchModalProps {
   isOpen: boolean;
@@ -148,7 +149,7 @@ export default function EditBatchModal({
           brand,
           startDate,
           endDate: endDate || null,
-          timing,
+          timing: normalizeBatchTiming(timing, batchName) || timing,
           days: selectedDays,
           status,
           maxCapacity,
@@ -338,6 +339,10 @@ export default function EditBatchModal({
                 type="text"
                 value={timing}
                 onChange={(e) => setTiming(e.target.value)}
+                onBlur={() => {
+                  const norm = normalizeBatchTiming(timing, batchName);
+                  if (norm && norm !== timing) setTiming(norm);
+                }}
                 className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-semibold"
               />
             </div>

@@ -4,6 +4,7 @@ import { todayKey } from "@/lib/dates";
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useUser } from "@/app/component/context/user-context";
 import CourseSearchSelect from "./CourseSearchSelect";
+import { normalizeBatchTiming } from "@/lib/slotHelper";
 
 interface AddBatchModalProps {
   isOpen: boolean;
@@ -203,7 +204,7 @@ export default function AddBatchModal({
           brand,
           startDate,
           endDate: endDate || undefined,
-          timing,
+          timing: normalizeBatchTiming(timing, batchName) || timing,
           days: selectedDays,
           maxCapacity,
           notes: notes.trim(),
@@ -417,6 +418,10 @@ export default function AddBatchModal({
                 required
                 value={timing}
                 onChange={(e) => setTiming(e.target.value)}
+                onBlur={() => {
+                  const norm = normalizeBatchTiming(timing, batchName);
+                  if (norm && norm !== timing) setTiming(norm);
+                }}
                 placeholder="e.g. 10:00 AM - 12:00 PM"
                 className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-semibold transition-all"
               />

@@ -8,6 +8,7 @@ import Batch from "@/models/Batch";
 import Attendance from "@/models/Attendance";
 import { getUserFromCookies } from "@/lib/helper";
 import { computeBatchStatus, isBatchActiveOnDate, getLocalDateStr } from "@/lib/batchHelper";
+import { userBrandList } from "@/lib/batchRules";
 
 export async function GET(req: Request) {
   try {
@@ -50,6 +51,8 @@ export async function GET(req: Request) {
       userBrandScope !== "*" &&
       userBrandScope !== "global";
 
+    const allowedBrands = userBrandList(currentUser);
+
     const teacherNameLower = norm(currentUser?.name);
     const teacherIdStr = currentUser?._id ? currentUser._id.toString() : "";
 
@@ -57,10 +60,15 @@ export async function GET(req: Request) {
     const teacherBatches = allBatches.filter((b: any) => {
       const bTeacherId = b.teacherId ? (b.teacherId._id || b.teacherId.id || b.teacherId).toString() : "";
       const idMatch = Boolean(teacherIdStr && bTeacherId && bTeacherId === teacherIdStr);
-      const nameMatch = Boolean(teacherNameLower && norm(b.teacherName).includes(teacherNameLower));
+      const bTeacherName = norm(b.teacherName);
+      const nameMatch = Boolean(
+        teacherNameLower &&
+        bTeacherName &&
+        (bTeacherName.includes(teacherNameLower) || teacherNameLower.includes(bTeacherName))
+      );
       const isAssigned = Boolean(idMatch || nameMatch);
 
-      const brandMatch = !isBrandRestricted || norm(b.brand) === userBrandScope;
+      const brandMatch = !allowedBrands || allowedBrands.some((ab) => norm(ab) === norm(b.brand));
 
       return isAssigned && brandMatch;
     });
@@ -82,7 +90,7 @@ export async function GET(req: Request) {
 
     // 3. Filter courses strictly assigned to this teacher (assigned subjects + courses of assigned batches)
     const matchedCourses = allCourses.filter((c: any) => {
-      const brandMatch = !isBrandRestricted || !c.brand || norm(c.brand) === userBrandScope;
+      const brandMatch = !allowedBrands || !c.brand || allowedBrands.some((ab) => norm(ab) === norm(c.brand));
       if (!brandMatch) return false;
 
       const cNameNorm = norm(c.name);

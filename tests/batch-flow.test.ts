@@ -215,4 +215,28 @@ describe("Batch creation and student assignment", () => {
     await send("PUT", admission.PUT, `/api/admissions/${s._id}`, { batch: "Unassigned", batchId: "" }, { id: String(s._id) });
     assert.equal((await call(batch.DELETE, `/api/batches/${b._id}`, { method: "DELETE" }, { id: b._id })).status, 200);
   });
+
+  test("auto-heals 10:30 AM - 11:30 PM typo to 10:30 AM - 11:30 AM and allows scheduling next batch at 11:35 AM - 1:00 PM", async () => {
+    const tC = (await db().collection("users").insertOne({ name: "Vedika Gupta", role: "teacher", email: "vedika@example.com" })).insertedId;
+    const teacherC = { _id: tC };
+
+    const res1 = await create({
+      batchName: "HISTORY 10:30-11:30AM",
+      teacherId: String(teacherC._id),
+      timing: "10:30 AM - 11:30 PM",
+      days: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+    });
+    assert.equal(res1.status, 201, JSON.stringify(res1.json));
+    const b1 = res1.json.data;
+    assert.equal(b1.timing, "10:30 AM - 11:30 AM");
+
+    const b2 = await create({
+      batchName: "TEXTILE 11:35AM-1PM",
+      teacherId: String(teacherC._id),
+      timing: "11:35 AM - 1:00 PM",
+      days: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+    });
+    assert.equal(b2.status, 201, JSON.stringify(b2.json));
+    assert.equal(b2.json.success, true);
+  });
 });
