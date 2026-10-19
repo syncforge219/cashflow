@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import { useUser } from "@/app/component/context/user-context";
+import { isTeacherRole } from "@/lib/batchRules";
 
 interface BatchStudentsModalProps {
   isOpen: boolean;
@@ -13,6 +15,8 @@ export default function BatchStudentsModal({
   onClose,
   batch,
 }: BatchStudentsModalProps) {
+  const { user } = useUser();
+  const isTeacher = isTeacherRole(user?.role);
   const [activeTab, setActiveTab] = useState<"roster" | "allocate">("roster");
   const [students, setStudents] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -112,7 +116,10 @@ export default function BatchStudentsModal({
     if (!batch) return;
     setIsLoadingBrandStudents(true);
     try {
-      const brandParam = batch.brand ? `?brand=${encodeURIComponent(batch.brand)}&limit=1000` : "?limit=1000";
+      let brandParam = batch.brand ? `?brand=${encodeURIComponent(batch.brand)}&limit=1000` : "?limit=1000";
+      if (batch.course && typeof batch.course === "string" && batch.course.trim()) {
+        brandParam += `&course=${encodeURIComponent(batch.course.trim())}`;
+      }
       const res = await fetch(`/api/admissions${brandParam}`);
       const json = await res.json();
       if (res.ok && json.success && Array.isArray(json.data)) {
@@ -244,12 +251,75 @@ export default function BatchStudentsModal({
     const currentBatchId = String(batch?.batchId || batch?._id || "").trim();
     const currentMongoId = batch?._id ? String(batch._id).trim() : "";
 
+    // Extract batch courses
+    const batchCourses: string[] = [];
+    const addBatchCourse = (val: any) => {
+      if (Array.isArray(val)) val.forEach(addBatchCourse);
+      else if (typeof val === "string" && val.trim()) {
+        val.split(",").forEach((c) => {
+          const tr = c.trim().toLowerCase();
+          if (tr) batchCourses.push(tr);
+        });
+      }
+    };
+    addBatchCourse(batch?.course);
+    addBatchCourse(batch?.courses);
+
+    // Extract teacher courses if teacher
+    const teacherCourses: string[] = [];
+    if (isTeacher) {
+      const addTC = (val: any) => {
+        if (Array.isArray(val)) val.forEach(addTC);
+        else if (typeof val === "string" && val.trim()) {
+          val.split(",").forEach((c) => {
+            const tr = c.trim().toLowerCase();
+            if (tr) teacherCourses.push(tr);
+          });
+        }
+      };
+      addTC(user?.subjects);
+      addTC(user?.subject);
+      batchCourses.forEach((bc) => teacherCourses.push(bc));
+    }
+
     return allBrandStudents.filter((s: any) => {
       const sBatchId = String(s.batchId || "").trim();
       const sBatchName = (s.batch || "").trim();
       const isAlreadyInBatch = (currentBatchId && sBatchId === currentBatchId) ||
                                (currentMongoId && sBatchId === currentMongoId) ||
                                (sBatchName === batch?.batchName && currentBatchId && sBatchId === currentBatchId);
+
+      // Course restriction check: students must match batch course (and teacher course if teacher)
+      if (!isAlreadyInBatch) {
+        const studentCourses: string[] = [];
+        const addSC = (val: any) => {
+          if (Array.isArray(val)) val.forEach(addSC);
+          else if (typeof val === "string" && val.trim()) {
+            val.split(",").forEach((c) => {
+              const tr = c.trim().toLowerCase();
+              if (tr) studentCourses.push(tr);
+            });
+          }
+        };
+        addSC(s.course);
+        addSC(s.courses);
+        addSC(s.targetCourse);
+        addSC(s.targetCourses);
+
+        if (batchCourses.length > 0) {
+          const matchesBatch = studentCourses.some((sc) =>
+            batchCourses.some((bc) => sc === bc || sc.includes(bc) || bc.includes(sc))
+          );
+          if (!matchesBatch) return false;
+        }
+
+        if (isTeacher && teacherCourses.length > 0) {
+          const matchesTeacher = studentCourses.some((sc) =>
+            teacherCourses.some((tc) => sc === tc || sc.includes(tc) || tc.includes(sc))
+          );
+          if (!matchesTeacher) return false;
+        }
+      }
 
       const isUnassigned = !sBatchName || sBatchName === "Unassigned" || sBatchName === "General Batch" || !sBatchId;
 
@@ -266,12 +336,12 @@ export default function BatchStudentsModal({
         (s.batch || "").toLowerCase().includes(q)
       );
     });
-  }, [allBrandStudents, addSearchQuery, filterType, batch]);
+  }, [allBrandStudents, addSearchQuery, filterType, batch, isTeacher, user]);
 
   if (!isOpen || !batch) return null;
 
   const currentBatchIdentifier = String(batch.batchId || batch._id || "").trim();
-  const unassignedCount = allBrandStudents.filter((s) => !s.batch || s.batch === "Unassigned" || s.batch === "General Batch" || !s.batchId).length;
+  const unassignedCount = filteredBrandStudents.filter((s) => !s.batch || s.batch === "Unassigned" || s.batch === "General Batch" || !s.batchId).length;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">

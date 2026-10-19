@@ -67,6 +67,62 @@ export default function TeacherBatchesPage() {
       setAllBatches(fetchedBatches);
 
       const teacherBatchNames = new Set(teacherBatches.map((b: any) => (b.batchName || "").trim().toLowerCase()));
+      const teacherBatchIds = new Set(
+        teacherBatches
+          .flatMap((b: any) => [b.batchId, b._id ? String(b._id) : ""])
+          .filter(Boolean)
+          .map((id: string) => String(id).trim())
+      );
+
+      // Extract all courses taught by the teacher (from subjects & assigned batches)
+      const teacherCoursesSet = new Set<string>();
+      const addCourseToken = (val: any) => {
+        if (Array.isArray(val)) {
+          val.forEach((v) => addCourseToken(v));
+        } else if (typeof val === "string" && val.trim()) {
+          val.split(",").forEach((s) => {
+            const trimmed = s.trim();
+            if (trimmed) teacherCoursesSet.add(trimmed);
+          });
+        }
+      };
+      addCourseToken(user?.subjects);
+      addCourseToken(user?.subject);
+      teacherBatches.forEach((b: any) => {
+        addCourseToken(b.course);
+        addCourseToken(b.courses);
+      });
+      const teacherCourses = Array.from(teacherCoursesSet);
+
+      const studentBelongsToTeacherCourses = (adm: any): boolean => {
+        if (teacherCourses.length === 0) return false;
+        const studentCourses: string[] = [];
+        const addStudentCourse = (val: any) => {
+          if (Array.isArray(val)) {
+            val.forEach((v) => addStudentCourse(v));
+          } else if (typeof val === "string" && val.trim()) {
+            val.split(",").forEach((s) => {
+              const trimmed = s.trim().toLowerCase();
+              if (trimmed) studentCourses.push(trimmed);
+            });
+          }
+        };
+        addStudentCourse(adm.course);
+        addStudentCourse(adm.courses);
+        addStudentCourse(adm.targetCourse);
+        addStudentCourse(adm.targetCourses);
+
+        if (studentCourses.length === 0) return false;
+
+        return teacherCourses.some((tc) => {
+          const tcLower = tc.trim().toLowerCase();
+          if (!tcLower) return false;
+          return studentCourses.some(
+            (sc) => sc === tcLower || sc.includes(tcLower) || tcLower.includes(sc)
+          );
+        });
+      };
+
       const fetchedAdmissions = admissionsRes.success ? (admissionsRes.data || admissionsRes.admissions || []) : [];
       
       // Filter students by teacher's assigned brand / courses if scope exists
@@ -79,20 +135,35 @@ export default function TeacherBatchesPage() {
           if (admBrand && admBrand !== userBrand) return false;
         }
 
-        // If student is assigned to a specific batch, ensure it belongs to this teacher
-        if (!isBatchUnassigned(adm.batch)) {
-          const studentBatch = (adm.batch || "").trim().toLowerCase();
-          if (teacherBatchNames.size > 0 && !teacherBatchNames.has(studentBatch)) {
-            return false;
-          }
-        }
-        return true;
+        const isUnassigned = isBatchUnassigned(adm.batch);
+        const studentBatchName = (adm.batch || "").trim().toLowerCase();
+        const studentBatchId = String(adm.batchId || "").trim();
+
+        const isInTeacherBatch =
+          (!isUnassigned && teacherBatchNames.has(studentBatchName)) ||
+          (studentBatchId && teacherBatchIds.has(studentBatchId));
+
+        const matchesCourse = studentBelongsToTeacherCourses(adm);
+
+        // If enrolled in one of this teacher's batches, always include in batch view
+        if (isInTeacherBatch) return true;
+
+        // If assigned to another batch (not belonging to this teacher), exclude
+        if (!isUnassigned) return false;
+
+        // If unassigned, strictly require the student's enrolled course to match one of the teacher's courses
+        return matchesCourse;
       });
 
       setStudents(relevantStudents);
 
-      // Extract unique course list
-      const uniqueCourses = Array.from(new Set(relevantStudents.map((s: any) => s.course).filter(Boolean))) as string[];
+      // Extract unique course list (combining teacher's courses and active students' courses)
+      const uniqueCourses = Array.from(
+        new Set([
+          ...teacherCourses,
+          ...relevantStudents.map((s: any) => s.course).filter(Boolean),
+        ])
+      ) as string[];
       setCourses(uniqueCourses);
 
       // Initialize batch selection map for each student using batchId
@@ -169,13 +240,75 @@ export default function TeacherBatchesPage() {
     });
   };
 
+  // Helper to determine available batches for a student based on their enrolled course
+  const getAvailableBatchesForStudent = (student: any) => {
+    const candidateBatches = allBatches.length > 0 ? allBatches : batches;
+    const studentCourses: string[] = [];
+    const addStudentCourse = (val: any) => {
+      if (Array.isArray(val)) {
+        val.forEach((v) => addStudentCourse(v));
+      } else if (typeof val === "string" && val.trim()) {
+        val.split(",").forEach((s) => {
+          const trimmed = s.trim().toLowerCase();
+          if (trimmed) studentCourses.push(trimmed);
+        });
+      }
+    };
+    addStudentCourse(student?.course);
+    addStudentCourse(student?.courses);
+    addStudentCourse(student?.targetCourse);
+    addStudentCourse(student?.targetCourses);
+
+    let matching = candidateBatches;
+    if (studentCourses.length > 0) {
+      const filtered = candidateBatches.filter((b: any) => {
+        const batchCourses: string[] = [];
+        if (b.course && typeof b.course === "string") {
+          b.course.split(",").forEach((c: string) => {
+            if (c.trim()) batchCourses.push(c.trim().toLowerCase());
+          });
+        }
+        if (Array.isArray(b.courses)) {
+          b.courses.forEach((c: any) => {
+            if (typeof c === "string" && c.trim()) batchCourses.push(c.trim().toLowerCase());
+          });
+        }
+        return batchCourses.some((bc) =>
+          studentCourses.some((sc) => sc === bc || sc.includes(bc) || bc.includes(sc))
+        );
+      });
+      if (filtered.length > 0) {
+        matching = filtered;
+      }
+    }
+
+    if (matching.length === 0) {
+      matching = batches;
+    }
+
+    return [...matching].sort((a, b) => {
+      const aMine = batches.some((tb) => String(tb._id) === String(a._id) || (tb.batchId && tb.batchId === a.batchId));
+      const bMine = batches.some((tb) => String(tb._id) === String(b._id) || (tb.batchId && tb.batchId === b.batchId));
+      if (aMine && !bMine) return -1;
+      if (!aMine && bMine) return 1;
+      return (a.batchName || "").localeCompare(b.batchName || "");
+    });
+  };
+
   // Unassigned students
   const unassignedStudents = students.filter((s) => isBatchUnassigned(s.batch));
   const unassignedCount = unassignedStudents.length;
 
   // Filtered Students List for Directory View
   const filteredStudents = students.filter((s) => {
-    if (selectedCourseFilter !== "All Courses" && s.course !== selectedCourseFilter) return false;
+    if (selectedCourseFilter !== "All Courses") {
+      const targetC = selectedCourseFilter.toLowerCase().trim();
+      const matchC =
+        (s.course && (s.course.toLowerCase().trim() === targetC || s.course.toLowerCase().includes(targetC))) ||
+        (Array.isArray(s.courses) && s.courses.some((c: string) => c.toLowerCase().trim() === targetC || c.toLowerCase().includes(targetC))) ||
+        (s.targetCourse && (s.targetCourse.toLowerCase().trim() === targetC || s.targetCourse.toLowerCase().includes(targetC)));
+      if (!matchC) return false;
+    }
     if (selectedBatchFilter !== "All Batches") {
       if (selectedBatchFilter === "Unassigned") {
         if (!isBatchUnassigned(s.batch)) return false;
@@ -544,13 +677,16 @@ export default function TeacherBatchesPage() {
                                               >
                                                 <option value={batch.batchId || batch._id || batch.batchName}>{batch.batchId ? `[${batch.batchId}] ` : ""}{batch.batchName} (Current)</option>
                                                 <option value="Unassigned">Unassigned (Remove from batch)</option>
-                                                {batches
-                                                  .filter((b) => (b.batchId || b._id) !== (batch.batchId || batch._id))
-                                                  .map((b) => (
-                                                    <option key={b._id || b.batchId} value={b.batchId || b._id}>
-                                                      Move to: {b.batchId ? `[${b.batchId}] ` : ""}{b.batchName} ({b.timing || b.course})
-                                                    </option>
-                                                  ))}
+                                                {getAvailableBatchesForStudent(student)
+                                                  .filter((b) => (b.batchId || b._id) !== (batch.batchId || batch._id) && String(b._id) !== String(batch._id))
+                                                  .map((b) => {
+                                                    const isMine = batches.some((tb) => String(tb._id) === String(b._id) || (tb.batchId && tb.batchId === b.batchId));
+                                                    return (
+                                                      <option key={b._id || b.batchId} value={b.batchId || b._id}>
+                                                        Move to: {isMine ? "★ " : ""}{b.batchId ? `[${b.batchId}] ` : ""}{b.batchName} ({b.timing || b.course})
+                                                      </option>
+                                                    );
+                                                  })}
                                               </select>
                                               {isChanged && (
                                                 <button
@@ -665,11 +801,11 @@ export default function TeacherBatchesPage() {
                                       className="w-full max-w-xs text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-1.5 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 cursor-pointer"
                                     >
                                       <option value="">Select Batch Assignment...</option>
-                                      {(allBatches.length > 0 ? allBatches : batches).map((b) => {
+                                      {getAvailableBatchesForStudent(student).map((b) => {
                                         const isMine = batches.some((tb) => String(tb._id) === String(b._id) || (tb.batchId && tb.batchId === b.batchId));
                                         return (
                                           <option key={b._id || b.batchId} value={b.batchId || b._id}>
-                                            {isMine ? "★ [My Batch] " : ""}{b.batchId ? `[${b.batchId}] ` : ""}{b.batchName} {b.timing ? `(${b.timing})` : ""}
+                                            {isMine ? "★ [My Batch] " : ""}{b.batchId ? `[${b.batchId}] ` : ""}{b.batchName} ({b.course || "Course"}) {b.timing ? `• ${b.timing}` : ""}
                                           </option>
                                         );
                                       })}
@@ -829,11 +965,11 @@ export default function TeacherBatchesPage() {
                               >
                                 <option value="">Select Batch Assignment...</option>
                                 <option value="Unassigned">Unassigned (No Batch)</option>
-                                {(allBatches.length > 0 ? allBatches : batches).map((b) => {
+                                {getAvailableBatchesForStudent(student).map((b) => {
                                   const isMine = batches.some((tb) => String(tb._id) === String(b._id) || (tb.batchId && tb.batchId === b.batchId));
                                   return (
                                     <option key={b._id || b.batchId} value={b.batchId || b._id}>
-                                      {isMine ? "★ [My Batch] " : ""}{b.batchId ? `[${b.batchId}] ` : ""}{b.batchName} {b.timing ? `(${b.timing})` : ""}
+                                      {isMine ? "★ [My Batch] " : ""}{b.batchId ? `[${b.batchId}] ` : ""}{b.batchName} ({b.course || "Course"}) {b.timing ? `• ${b.timing}` : ""}
                                     </option>
                                   );
                                 })}

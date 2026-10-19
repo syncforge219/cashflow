@@ -14,7 +14,7 @@ import { syncAdmissionRefs } from "@/lib/referenceHelper";
 import { getStudentBalance, recomputeAndStoreAdmissionBalance } from "@/lib/studentBalanceService";
 import { logAuditEntry, diffAndLogAudit } from "@/lib/auditLogger";
 import { withOptionalTransaction } from "@/lib/transactionHelper";
-import { BatchRuleError, findBatchByAnyId, resolveBatchForAssignment } from "@/lib/batchRules";
+import { BatchRuleError, findBatchByAnyId, resolveBatchForAssignment, isTeacherRole } from "@/lib/batchRules";
 
 export async function GET(
   req: Request,
@@ -292,6 +292,91 @@ export async function PUT(
     let assignedBatchName = body.batch !== undefined ? String(body.batch ?? "").trim() : existingDoc.batch;
     let assignedBatchId: any = body.batchId !== undefined ? body.batchId : existingDoc.batchId;
     const batchTouched = body.batch !== undefined || body.batchId !== undefined;
+
+    if (batchTouched && isTeacherRole(user?.role)) {
+      const extractSubs = (val: any): string[] => {
+        if (Array.isArray(val)) return val.map((s: any) => String(s).trim()).filter(Boolean);
+        if (typeof val === "string" && val.trim()) {
+          return val.split(",").map((s: string) => s.trim()).filter(Boolean);
+        }
+        return [];
+      };
+
+      const teacherSubjects = Array.from(
+        new Set([...extractSubs(user?.subjects), ...extractSubs(user?.subject)])
+      );
+
+      const teacherIdMatches: any[] = [];
+      const uid = (user as any)?._id || (user as any)?.id;
+      if (uid) {
+        teacherIdMatches.push({ teacherId: uid });
+        if (mongoose.Types.ObjectId.isValid(uid)) {
+          teacherIdMatches.push({ teacherId: new mongoose.Types.ObjectId(uid) });
+        }
+      }
+      if (user?.name) {
+        teacherIdMatches.push({ teacherName: new RegExp(`^${user.name.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") });
+      }
+
+      const Batch = (await import("@/models/Batch")).default;
+      const teacherBatches = teacherIdMatches.length > 0
+        ? await Batch.find({ $or: teacherIdMatches }).select("course courses batchName batchId _id").lean()
+        : [];
+
+      const teacherBatchCourses: string[] = [];
+      const teacherBatchIds = new Set<string>();
+      const teacherBatchNames = new Set<string>();
+
+      teacherBatches.forEach((b: any) => {
+        if (b.course && typeof b.course === "string" && b.course.trim()) {
+          teacherBatchCourses.push(b.course.trim());
+        }
+        if (Array.isArray(b.courses)) {
+          b.courses.forEach((c: any) => {
+            if (c && typeof c === "string" && c.trim()) {
+              teacherBatchCourses.push(c.trim());
+            }
+          });
+        }
+        if (b.batchId) teacherBatchIds.add(String(b.batchId).trim());
+        if (b._id) teacherBatchIds.add(String(b._id).trim());
+        if (b.batchName) teacherBatchNames.add(b.batchName.trim().toLowerCase());
+      });
+
+      const allTeacherCourses = Array.from(
+        new Set([...teacherSubjects, ...teacherBatchCourses])
+      ).map((c) => c.toLowerCase());
+
+      const studentCourses: string[] = [];
+      const addSC = (v: any) => {
+        if (Array.isArray(v)) v.forEach(addSC);
+        else if (typeof v === "string" && v.trim()) {
+          v.split(",").forEach((t) => {
+            const tr = t.trim().toLowerCase();
+            if (tr) studentCourses.push(tr);
+          });
+        }
+      };
+      addSC(existingDoc.course);
+      addSC(existingDoc.courses);
+      addSC(existingDoc.targetCourse);
+      addSC(existingDoc.targetCourses);
+
+      const studentInTeacherBatch =
+        (existingDoc.batchId && teacherBatchIds.has(String(existingDoc.batchId).trim())) ||
+        (existingDoc.batch && teacherBatchNames.has(String(existingDoc.batch).trim().toLowerCase()));
+
+      const studentMatchesCourses = allTeacherCourses.some((tc) =>
+        studentCourses.some((sc) => sc === tc || sc.includes(tc) || tc.includes(sc))
+      );
+
+      if (!studentInTeacherBatch && !studentMatchesCourses) {
+        return NextResponse.json(
+          { success: false, message: "You can only assign students who are enrolled in your courses." },
+          { status: 403 }
+        );
+      }
+    }
 
     if (
       batchTouched &&

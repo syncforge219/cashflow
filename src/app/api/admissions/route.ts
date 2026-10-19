@@ -21,7 +21,7 @@ import { validateDeletedAccess } from "@/lib/softDeleteAccess";
 import { withOptionalTransaction } from "@/lib/transactionHelper";
 import { studentBalanceLookupStages } from "@/lib/studentBalanceService";
 import { resolveBrandName } from "@/lib/brandDefaults";
-import { BatchRuleError, resolveBatchForAssignment } from "@/lib/batchRules";
+import { BatchRuleError, resolveBatchForAssignment, isTeacherRole } from "@/lib/batchRules";
 
 export async function POST(req: NextRequest) {
   try {
@@ -598,7 +598,7 @@ export async function GET(req: Request) {
     const startDateParam = searchParams.get("startDate");
     const endDateParam = searchParams.get("endDate");
     const filterParam = searchParams.get("filter");
-    const batchParam = searchParams.get("batch");
+    const batchParam = searchParams.get("batch") || searchParams.get("batchId");
     const companyParam = searchParams.get("company");
     const counsellorParam = searchParams.get("counsellor") || searchParams.get("counsellorId");
 
@@ -634,6 +634,17 @@ export async function GET(req: Request) {
       }
     }
 
+    if (batchParam && batchParam !== "all" && batchParam !== "All") {
+      const bRegex = new RegExp(`^${escapeRegex(batchParam.trim())}$`, "i");
+      andConditions.push({
+        $or: [
+          { batchId: batchParam.trim() },
+          { batch: bRegex },
+          ...(mongoose.Types.ObjectId.isValid(batchParam.trim()) ? [{ batchId: new mongoose.Types.ObjectId(batchParam.trim()) }] : []),
+        ],
+      });
+    }
+
     if (counsellorParam && counsellorParam !== "all" && counsellorParam !== "All") {
       const coRegex = new RegExp(`^${counsellorParam.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i");
       const userDoc = (mongoose.Types.ObjectId.isValid(counsellorParam)
@@ -643,6 +654,101 @@ export async function GET(req: Request) {
         andConditions.push({ $or: [{ counsellorId: userDoc._id }, { counsellor: coRegex }] });
       } else {
         andConditions.push({ counsellor: coRegex });
+      }
+    }
+
+    const courseParam = searchParams.get("course");
+    if (courseParam && courseParam !== "all" && courseParam !== "All" && courseParam !== "All Courses") {
+      const cRegex = new RegExp(escapeRegex(courseParam.trim()), "i");
+      andConditions.push({
+        $or: [
+          { course: cRegex },
+          { courses: cRegex },
+          { targetCourse: cRegex },
+          { targetCourses: cRegex },
+        ],
+      });
+    }
+
+    // Teacher course restriction: teachers must only see students in their assigned courses or batches
+    if (isTeacherRole(user?.role)) {
+      const extractSubs = (val: any): string[] => {
+        if (Array.isArray(val)) return val.map((s: any) => String(s).trim()).filter(Boolean);
+        if (typeof val === "string" && val.trim()) {
+          return val.split(",").map((s: string) => s.trim()).filter(Boolean);
+        }
+        return [];
+      };
+
+      const teacherSubjects = Array.from(
+        new Set([...extractSubs(user?.subjects), ...extractSubs(user?.subject)])
+      );
+
+      // Find batches assigned to this teacher to get their courses and batch IDs
+      const teacherIdMatches: any[] = [];
+      const uid = (user as any)?._id || (user as any)?.id;
+      if (uid) {
+        teacherIdMatches.push({ teacherId: uid });
+        if (mongoose.Types.ObjectId.isValid(uid)) {
+          teacherIdMatches.push({ teacherId: new mongoose.Types.ObjectId(uid) });
+        }
+      }
+      if (user?.name) {
+        teacherIdMatches.push({ teacherName: new RegExp(`^${escapeRegex(user.name.trim())}$`, "i") });
+      }
+
+      const teacherBatches = teacherIdMatches.length > 0
+        ? await Batch.find({ $or: teacherIdMatches }).select("course courses batchName batchId _id").lean()
+        : [];
+
+      const teacherBatchCourses: string[] = [];
+      const teacherBatchIds: any[] = [];
+      const teacherBatchNames: string[] = [];
+
+      teacherBatches.forEach((b: any) => {
+        if (b.course && typeof b.course === "string" && b.course.trim()) {
+          teacherBatchCourses.push(b.course.trim());
+        }
+        if (Array.isArray(b.courses)) {
+          b.courses.forEach((c: any) => {
+            if (c && typeof c === "string" && c.trim()) {
+              teacherBatchCourses.push(c.trim());
+            }
+          });
+        }
+        if (b.batchId) teacherBatchIds.push(b.batchId);
+        if (b._id) {
+          teacherBatchIds.push(b._id);
+          teacherBatchIds.push(b._id.toString());
+        }
+        if (b.batchName) teacherBatchNames.push(b.batchName.trim());
+      });
+
+      const allTeacherCourses = Array.from(
+        new Set([...teacherSubjects, ...teacherBatchCourses])
+      ).filter(Boolean);
+
+      if (allTeacherCourses.length > 0 || teacherBatchIds.length > 0) {
+        const courseRegexes = allTeacherCourses.map((c) => new RegExp(escapeRegex(c), "i"));
+        const batchNameRegexes = teacherBatchNames.map((bn) => new RegExp(`^${escapeRegex(bn)}$`, "i"));
+
+        andConditions.push({
+          $or: [
+            ...(courseRegexes.length > 0
+              ? [
+                  { course: { $in: courseRegexes } },
+                  { courses: { $in: courseRegexes } },
+                  { targetCourse: { $in: courseRegexes } },
+                  { targetCourses: { $in: courseRegexes } },
+                ]
+              : []),
+            ...(teacherBatchIds.length > 0 ? [{ batchId: { $in: teacherBatchIds } }] : []),
+            ...(batchNameRegexes.length > 0 ? [{ batch: { $in: batchNameRegexes } }] : []),
+          ],
+        });
+      } else {
+        // Teacher has neither subjects nor batches assigned: cannot see any student admissions
+        andConditions.push({ _id: null });
       }
     }
 

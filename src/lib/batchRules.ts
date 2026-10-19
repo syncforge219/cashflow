@@ -31,7 +31,16 @@ export const normalizeRole = (role: unknown) => String(role || "").toLowerCase()
 
 export function isTeacherRole(role: unknown) {
   const r = normalizeRole(role);
-  return r === "teacher" || r === "faculty" || r === "instructor" || r === "trainer";
+  return (
+    r === "teacher" ||
+    r === "faculty" ||
+    r === "instructor" ||
+    r === "trainer" ||
+    r.includes("teacher") ||
+    r.includes("faculty") ||
+    r.includes("instructor") ||
+    r.includes("trainer")
+  );
 }
 
 /** Who may delete a batch (others can cancel it instead). */
