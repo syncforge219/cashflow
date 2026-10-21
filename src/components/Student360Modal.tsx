@@ -1,6 +1,6 @@
 "use client";
 
-import { todayKey, toDateKey } from "@/lib/dates";
+import { todayKey, toDateKey, isDateKey, addMonthsKey } from "@/lib/dates";
 import React, { useState, useEffect } from "react";
 import PaymentReceiptModal from "@/components/PaymentReceiptModal";
 import DeletePaymentConfirmModal from "@/components/DeletePaymentConfirmModal";
@@ -104,6 +104,7 @@ export default function Student360Modal({
     remarks: "",
   });
   const [isSavingPaymentEdit, setIsSavingPaymentEdit] = useState(false);
+  const [isSavingEmiPlan, setIsSavingEmiPlan] = useState(false);
 
   const handleOpenEditPayment = (payment: any) => {
     setEditingPayment(payment);
@@ -437,57 +438,151 @@ export default function Student360Modal({
 
   // EMI Helper Functions
   const handleAutoGenerateEmi = () => {
-    const count = Number(formData.numInstallments) || 2;
-    const balance = computedBalance > 0 ? computedBalance : Number(formData.finalFee) || 0;
-    const perEmi = Math.round(balance / count);
+    const count = Math.max(1, Number(formData.numInstallments) || 2);
+    const bal = computedBalance > 0 ? computedBalance : Number(formData.finalFee) || 0;
+    const baseAmt = Math.floor(bal / count);
+    const remainder = bal - baseAmt * count;
 
-    const plan = [];
-    const baseDate = new Date();
+    // Preserve existing paid installments if any
+    const existingPaid = (formData.customEmiPlan || []).filter((e: any) => e.isPaid);
+
+    // Determine starting date key for new installments
+    let startDateKey = "";
+    if (existingPaid.length > 0) {
+      const lastPaid = existingPaid[existingPaid.length - 1];
+      if (lastPaid.dueDate && isDateKey(lastPaid.dueDate)) {
+        startDateKey = lastPaid.dueDate;
+      }
+    }
+    if (!startDateKey) {
+      startDateKey = isDateKey(formData.admissionDate)
+        ? formData.admissionDate
+        : isDateKey(formData.downpaymentDueDate)
+        ? formData.downpaymentDueDate
+        : todayKey();
+    }
+
+    const newUnpaidPlan = [];
     for (let i = 0; i < count; i++) {
-      const d = new Date(baseDate);
-      d.setMonth(d.getMonth() + (i + 1));
-      plan.push({
-        dueDate: toDateKey(d),
-        amount: perEmi,
+      const nextDue = addMonthsKey(startDateKey, i + 1);
+      const amt = i === count - 1 ? baseAmt + remainder : baseAmt;
+      newUnpaidPlan.push({
+        dueDate: nextDue,
+        amount: amt,
         isPaid: false,
         paidDate: "",
       });
     }
 
+    const fullPlan = [...existingPaid, ...newUnpaidPlan];
     setFormData({
       ...formData,
       hasEmi: true,
-      numInstallments: count,
-      installmentAmount: perEmi,
-      customEmiPlan: plan,
+      numInstallments: fullPlan.length,
+      installmentAmount: baseAmt,
+      customEmiPlan: fullPlan,
+      remainingBalance: bal,
     });
-    showToast(`Generated ${count} monthly EMI installments of ₹${perEmi.toLocaleString("en-IN")}`);
+    showToast(`Generated ${count} monthly EMI installments totaling ₹${bal.toLocaleString("en-IN")}`);
+  };
+
+  const handleDistributeEvenly = () => {
+    const currentPlan = [...(formData.customEmiPlan || [])];
+    if (currentPlan.length === 0) return;
+
+    // Remaining balance to be paid
+    const bal = computedBalance > 0 ? computedBalance : Number(formData.finalFee) || 0;
+
+    // Find unpaid installments
+    const unpaidIndices = currentPlan
+      .map((item, idx) => (!item.isPaid ? idx : -1))
+      .filter((idx) => idx !== -1);
+
+    if (unpaidIndices.length === 0) {
+      showToast("All installments are already marked as Paid.");
+      return;
+    }
+
+    const count = unpaidIndices.length;
+    const baseAmt = Math.floor(bal / count);
+    const remainder = bal - baseAmt * count;
+
+    unpaidIndices.forEach((planIdx, i) => {
+      currentPlan[planIdx] = {
+        ...currentPlan[planIdx],
+        amount: i === count - 1 ? baseAmt + remainder : baseAmt,
+      };
+    });
+
+    const unpaidSum = currentPlan
+      .filter((e: any) => !e.isPaid)
+      .reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
+
+    setFormData({
+      ...formData,
+      remainingBalance: unpaidSum,
+      customEmiPlan: currentPlan,
+    });
+    showToast(`✓ Distributed ₹${bal.toLocaleString("en-IN")} across ${count} unpaid installments!`);
   };
 
   const handleAddEmiRow = () => {
-    const nextD = new Date();
-    nextD.setMonth(nextD.getMonth() + 1);
-    const currentPlan = formData.customEmiPlan || [];
+    const currentPlan = [...(formData.customEmiPlan || [])];
+
+    // Determine next sequential monthly date by checking previous installments
+    let nextDateKey = "";
+    if (currentPlan.length > 0) {
+      const lastWithDate = [...currentPlan].reverse().find((e: any) => e.dueDate && isDateKey(e.dueDate));
+      if (lastWithDate && lastWithDate.dueDate) {
+        nextDateKey = addMonthsKey(lastWithDate.dueDate, 1);
+      }
+    }
+
+    if (!nextDateKey) {
+      const baseKey = isDateKey(formData.admissionDate)
+        ? formData.admissionDate
+        : isDateKey(formData.downpaymentDueDate)
+        ? formData.downpaymentDueDate
+        : todayKey();
+      nextDateKey = addMonthsKey(baseKey, currentPlan.length + 1);
+    }
+
+    // Default amount starts at 0 so no unwanted default amount is automatically generated
+    const updatedPlan = [
+      ...currentPlan,
+      {
+        dueDate: nextDateKey,
+        amount: 0,
+        isPaid: false,
+        paidDate: "",
+      },
+    ];
+
+    const unpaidSum = updatedPlan
+      .filter((e: any) => !e.isPaid)
+      .reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
+
     setFormData({
       ...formData,
       hasEmi: true,
-      customEmiPlan: [
-        ...currentPlan,
-        {
-          dueDate: toDateKey(nextD),
-          amount: Number(formData.installmentAmount) || 5000,
-          isPaid: false,
-          paidDate: "",
-        },
-      ],
+      numInstallments: updatedPlan.length,
+      remainingBalance: unpaidSum,
+      customEmiPlan: updatedPlan,
     });
   };
 
   const handleRemoveEmiRow = (index: number) => {
     const currentPlan = [...(formData.customEmiPlan || [])];
     currentPlan.splice(index, 1);
+
+    const unpaidSum = currentPlan
+      .filter((e: any) => !e.isPaid)
+      .reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
+
     setFormData({
       ...formData,
+      numInstallments: currentPlan.length,
+      remainingBalance: unpaidSum,
       customEmiPlan: currentPlan,
     });
   };
@@ -512,6 +607,43 @@ export default function Student360Modal({
       remainingBalance: unpaidSum,
       customEmiPlan: currentPlan,
     });
+  };
+
+  const handleSaveEmiPlan = async () => {
+    if (!admissionId) return;
+    setIsSavingEmiPlan(true);
+    try {
+      const currentPlan = formData.customEmiPlan || [];
+      const unpaidCount = Math.max(1, currentPlan.filter((e: any) => !e.isPaid).length);
+      const unpaidSum = currentPlan
+        .filter((e: any) => !e.isPaid)
+        .reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
+
+      const res = await fetch(`/api/admissions/${admissionId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          hasEmi: Boolean(formData.hasEmi),
+          numInstallments: currentPlan.length,
+          installmentAmount: currentPlan.length > 0 ? Math.round(unpaidSum / unpaidCount) : 0,
+          customEmiPlan: currentPlan,
+          remainingBalance: unpaidSum,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setStudentData(json.data);
+        if (onRefresh) onRefresh();
+        showToast("✓ EMI schedule updated & saved successfully!");
+      } else {
+        alert(json.message || "Failed to save EMI schedule.");
+      }
+    } catch (err: any) {
+      console.error("Error saving EMI schedule:", err);
+      alert("Failed to save EMI schedule.");
+    } finally {
+      setIsSavingEmiPlan(false);
+    }
   };
 
   const handleEmiStatusChange = async (index: number, isPaid: boolean) => {
@@ -591,6 +723,9 @@ export default function Student360Modal({
   const cleanPhone = (phone?: string) => (phone || "").replace(/[^0-9]/g, "");
 
   const emiPlanToRender = formData.customEmiPlan || [];
+  const scheduledTotal = emiPlanToRender.reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
+  const unpaidScheduledTotal = emiPlanToRender.filter((e: any) => !e.isPaid).reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
+  const emiBalanceDiff = computedBalance - unpaidScheduledTotal;
 
   if (!isOpen) return null;
 
@@ -1454,20 +1589,39 @@ export default function Student360Modal({
                         <p className="text-[11px] font-medium text-slate-400 mt-0.5">Configure custom EMI dates, installment amounts, and payment statuses.</p>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <button
                           type="button"
                           onClick={handleAutoGenerateEmi}
                           className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white font-extrabold text-[11px] rounded-xl border border-indigo-200/80 transition-all cursor-pointer shadow-xs"
+                          title="Auto-generate monthly EMI schedule"
                         >
-                          ⚡ Auto-Generate Monthly EMIs
+                          ⚡ Auto-Generate EMIs
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleDistributeEvenly}
+                          className="px-3 py-1.5 bg-purple-50 hover:bg-purple-600 text-purple-700 hover:text-white font-extrabold text-[11px] rounded-xl border border-purple-200/80 transition-all cursor-pointer shadow-xs"
+                          title="Distribute remaining balance evenly across unpaid installments"
+                        >
+                          ⚖ Distribute Evenly
                         </button>
                         <button
                           type="button"
                           onClick={handleAddEmiRow}
                           className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white font-bold text-[11px] rounded-xl transition-all cursor-pointer shadow-xs"
+                          title="Add next monthly installment"
                         >
                           + Add Row
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSaveEmiPlan}
+                          disabled={isSavingEmiPlan}
+                          className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[11px] rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1"
+                          title="Save EMI schedule directly"
+                        >
+                          <span>{isSavingEmiPlan ? "Saving..." : "💾 Save EMI"}</span>
                         </button>
                       </div>
                     </div>
@@ -1496,7 +1650,7 @@ export default function Student360Modal({
                       </div>
 
                       <div>
-                        <label className="block text-slate-500 font-bold mb-1">Default Amount / Installment (₹)</label>
+                        <label className="block text-slate-500 font-bold mb-1">Target / Avg Installment (₹)</label>
                         <input
                           type="number"
                           value={formData.installmentAmount}
@@ -1506,10 +1660,39 @@ export default function Student360Modal({
                       </div>
                     </div>
 
+                    {/* EMI Balance Comparison / Status Bar */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200/80 text-xs">
+                      <div className="flex items-center gap-4 flex-wrap">
+                        <div>
+                          <span className="text-slate-400 font-semibold text-[11px]">Remaining Balance: </span>
+                          <span className="font-extrabold text-slate-900">₹{computedBalance.toLocaleString("en-IN")}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 font-semibold text-[11px]">Scheduled Unpaid: </span>
+                          <span className="font-extrabold text-indigo-700">₹{unpaidScheduledTotal.toLocaleString("en-IN")}</span>
+                        </div>
+                      </div>
+                      <div>
+                        {emiBalanceDiff === 0 ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-extrabold text-[11px]">
+                            ✓ Schedule Matches Balance Exactly
+                          </span>
+                        ) : emiBalanceDiff > 0 ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-extrabold text-[11px]">
+                            ⚠ ₹{emiBalanceDiff.toLocaleString("en-IN")} remaining to schedule
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 font-extrabold text-[11px]">
+                            ⚠ Exceeds balance by ₹{Math.abs(emiBalanceDiff).toLocaleString("en-IN")}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
                     {/* Installments Table */}
                     {emiPlanToRender.length === 0 ? (
                       <div className="text-center py-8 text-slate-400 font-bold text-xs bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                        No custom EMI installments configured yet. Click &quot;Auto-Generate Monthly EMIs&quot; or &quot;+ Add Row&quot; above to set up schedule.
+                        No custom EMI installments configured yet. Click &quot;Auto-Generate EMIs&quot; or &quot;+ Add Row&quot; above to set up schedule.
                       </div>
                     ) : (
                       <div className="overflow-x-auto">
@@ -1532,7 +1715,7 @@ export default function Student360Modal({
                                 <td className="pr-3">
                                   <input
                                     type="date"
-                                    value={emi.dueDate}
+                                    value={emi.dueDate || ""}
                                     onChange={(e) => handleEmiFieldChange(idx, "dueDate", e.target.value)}
                                     className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500/20 text-xs"
                                   />
@@ -1540,8 +1723,9 @@ export default function Student360Modal({
                                 <td className="pr-3">
                                   <input
                                     type="number"
-                                    value={emi.amount}
-                                    onChange={(e) => handleEmiFieldChange(idx, "amount", Number(e.target.value))}
+                                    value={emi.amount === 0 ? "" : emi.amount}
+                                    placeholder="0"
+                                    onChange={(e) => handleEmiFieldChange(idx, "amount", e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)))}
                                     className="w-28 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500/20 text-xs"
                                   />
                                 </td>

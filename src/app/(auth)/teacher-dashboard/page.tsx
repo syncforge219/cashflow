@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/app/component/context/user-context";
 import TeacherSidebar from "@/components/TeacherSidebar";
@@ -234,6 +235,16 @@ export default function TeacherDashboard() {
               <span className="flex items-center pointer-events-none text-[9px] font-bold text-slate-400/80 uppercase">
                 CTRL+K
               </span>
+            </button>
+
+            {/* Navigation Hub Quick Access Button */}
+            <button
+              onClick={() => setIsAttendanceAutoPopupOpen(true)}
+              className="px-3 py-1.5 text-xs font-extrabold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs shrink-0"
+              title="Open Faculty Navigation Hub"
+            >
+              <span>📋</span>
+              <span className="hidden sm:inline">Navigation Hub</span>
             </button>
 
             {/* Notification Bell Button in Top Header */}
@@ -741,7 +752,8 @@ export default function TeacherDashboard() {
         </div>
       )}
 
-      {/* Auto-Triggered Student Attendance Prompt Modal on Dashboard Load */}
+
+      {/* Faculty Navigation Hub Modal */}
       {isAttendanceAutoPopupOpen && (
         <div
           onClick={() => setIsAttendanceAutoPopupOpen(false)}
@@ -765,6 +777,7 @@ export default function TeacherDashboard() {
                 type="button"
                 onClick={() => setIsAttendanceAutoPopupOpen(false)}
                 className="text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition-colors font-bold text-sm cursor-pointer"
+                title="Close"
               >
                 ✕
               </button>
@@ -775,13 +788,11 @@ export default function TeacherDashboard() {
             </p>
 
             <div className="space-y-3 font-sans">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsAttendanceAutoPopupOpen(false);
-                  router.push("/attendance");
-                }}
-                className="w-full flex items-center justify-between p-3.5 bg-emerald-50 hover:bg-emerald-100/90 border border-emerald-200 text-emerald-950 rounded-2xl transition-all cursor-pointer text-left group shadow-xs"
+              {/* Option 1: Go to Student Attendance */}
+              <Link
+                href="/attendance"
+                onClick={() => setIsAttendanceAutoPopupOpen(false)}
+                className="w-full flex items-center justify-between p-3.5 bg-emerald-50 hover:bg-emerald-100/90 border border-emerald-200 text-emerald-950 rounded-2xl transition-all cursor-pointer text-left group shadow-xs block no-underline"
               >
                 <div>
                   <div className="font-extrabold text-xs flex items-center gap-2 text-emerald-900">
@@ -793,15 +804,13 @@ export default function TeacherDashboard() {
                   </div>
                 </div>
                 <span className="text-lg group-hover:translate-x-1 transition-transform text-emerald-700">→</span>
-              </button>
+              </Link>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setIsAttendanceAutoPopupOpen(false);
-                  router.push("/teacher-dashboard/batches");
-                }}
-                className="w-full flex items-center justify-between p-3.5 bg-indigo-50 hover:bg-indigo-100/90 border border-indigo-200 text-indigo-950 rounded-2xl transition-all cursor-pointer text-left group shadow-xs"
+              {/* Option 2: Go to Assign Batches */}
+              <Link
+                href="/teacher-dashboard/batches"
+                onClick={() => setIsAttendanceAutoPopupOpen(false)}
+                className="w-full flex items-center justify-between p-3.5 bg-indigo-50 hover:bg-indigo-100/90 border border-indigo-200 text-indigo-950 rounded-2xl transition-all cursor-pointer text-left group shadow-xs block no-underline"
               >
                 <div>
                   <div className="font-extrabold text-xs flex items-center gap-2 text-indigo-900">
@@ -813,6 +822,27 @@ export default function TeacherDashboard() {
                   </div>
                 </div>
                 <span className="text-lg group-hover:translate-x-1 transition-transform text-indigo-700">→</span>
+              </Link>
+
+              {/* Option 3: Quick Mark Attendance right here */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAttendanceAutoPopupOpen(false);
+                  setIsAttendanceModalOpen(true);
+                }}
+                className="w-full flex items-center justify-between p-3.5 bg-purple-50 hover:bg-purple-100/90 border border-purple-200 text-purple-950 rounded-2xl transition-all cursor-pointer text-left group shadow-xs"
+              >
+                <div>
+                  <div className="font-extrabold text-xs flex items-center gap-2 text-purple-900">
+                    <span>⚡ Quick Mark Batch Attendance</span>
+                    <span className="text-[9px] bg-purple-600 text-white font-black px-2 py-0.5 rounded-full">Quick Marker</span>
+                  </div>
+                  <div className="text-[11px] text-purple-700 font-medium mt-0.5">
+                    Instantly log present/absent for today's batch right here
+                  </div>
+                </div>
+                <span className="text-lg group-hover:translate-x-1 transition-transform text-purple-700">→</span>
               </button>
             </div>
 
@@ -820,7 +850,7 @@ export default function TeacherDashboard() {
               <button
                 type="button"
                 onClick={() => setIsAttendanceAutoPopupOpen(false)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer border border-slate-200"
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer border border-slate-200 transition-colors"
               >
                 Cancel / Stay on Dashboard
               </button>
