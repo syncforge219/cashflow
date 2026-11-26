@@ -139,9 +139,9 @@ jobs:
 
           git fetch origin
 
-          echo "📥 Pulling latest changes..."
+          echo "📥 Resetting to origin/main (server copy always matches GitHub)..."
 
-          git pull --ff-only origin main
+          git reset --hard origin/main
 
           # ========================================================
           # Node.js
