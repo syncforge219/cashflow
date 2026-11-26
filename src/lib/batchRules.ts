@@ -48,6 +48,16 @@ export function canDeleteBatch(role: unknown) {
   return ["superadmin", "admin", "director", "brandmanager", "manager", "centrehead", "centerhead"].includes(normalizeRole(role));
 }
 
+/** Teachers may view batches and take attendance, but not edit or reschedule them. */
+export function canEditBatch(role: unknown) {
+  return !isTeacherRole(role);
+}
+
+/** Roles that may take attendance for any batch in their brand (teachers only for their own batches). */
+export function canTakeAnyAttendance(role: unknown) {
+  return canDeleteBatch(role);
+}
+
 /** The specific brands a user is limited to, or null when they can see all brands. */
 export function userBrandList(user: any): string[] | null {
   const scope = String(user?.brandScope || user?.brand || "").trim();
@@ -140,6 +150,28 @@ export async function resolveBatchForAssignment(
 }
 
 /**
+ * Second half of the seat check. resolveBatchForAssignment checks capacity BEFORE the student is
+ * saved, so two simultaneous assignments can both pass. Call this AFTER the save: if the student is
+ * not among the first `maxCapacity` occupants (oldest admission first, so concurrent requests
+ * agree on who loses), the assignment is undone and a 409 is raised.
+ */
+export async function enforceSeatAfterAssign(batchRef: any, admissionId: any) {
+  if (!batchRef || !admissionId) return;
+  const batch = await findBatchByAnyId(batchRef);
+  const capacity = Number(batch?.maxCapacity) || 0;
+  if (!batch || capacity <= 0) return;
+  const Admission = (await import("@/models/Admission")).default;
+  const occupants: any[] = await Admission.find({ $or: batchRefConditions(batch), status: { $nin: INACTIVE_ADMISSION_STATUSES } })
+    .select("_id")
+    .sort({ _id: 1 })
+    .limit(capacity)
+    .lean();
+  if (occupants.some((o) => String(o._id) === String(admissionId))) return;
+  await Admission.updateOne({ _id: admissionId }, { $set: { batch: "Unassigned", batchId: null } });
+  throw new BatchRuleError(`Batch "${batch.batchName}" just filled up (${capacity}/${capacity} seats). Pick another batch.`, 409);
+}
+
+/**
  * Another active batch of the same teacher that runs on a shared day, at an overlapping time,
  * during overlapping dates. Returns that batch, or null when the teacher is free.
  */
@@ -192,6 +224,24 @@ export async function findTeacherClash(input: {
       };
     }
   }
+  return null;
+}
+
+/**
+ * Second half of the teacher-clash check (see enforceSeatAfterAssign). After the batch is saved, look
+ * again: if another batch now clashes and it was created first (lower _id), this one loses and is
+ * deleted by the caller. Two simultaneous creates therefore can't both survive.
+ */
+export async function lostTeacherClashRace(saved: any) {
+  const clash: any = await findTeacherClash({
+    teacherId: saved.teacherId,
+    timing: saved.timing,
+    days: saved.days || [],
+    startDate: saved.startDate,
+    endDate: saved.endDate,
+    excludeBatchId: saved._id,
+  });
+  if (clash && clash._id && String(clash._id) < String(saved._id)) return clash;
   return null;
 }
 
@@ -275,6 +325,9 @@ export async function cleanBatchFields(body: any, partial: boolean): Promise<Cle
     if (!mongoose.Types.ObjectId.isValid(tId)) throw new BatchRuleError("Select the faculty / teacher for this batch.");
     const teacher: any = await User.findById(tId).select("name role").lean();
     if (!teacher) throw new BatchRuleError("The selected teacher no longer exists.");
+    if (!isTeacherRole(teacher.role)) {
+      throw new BatchRuleError(`${teacher.name || "That user"} is not a faculty / teacher account (role: ${teacher.role || "none"}). Pick a teacher.`);
+    }
     out.teacherId = teacher._id;
     out.teacherName = teacher.name || "Faculty";
   }
