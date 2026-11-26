@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { useUser } from "@/app/component/context/user-context";
-import { isTeacherRole } from "@/lib/batchRules";
+import { isTeacherRole } from "@/lib/roleRules";
 
 interface BatchStudentsModalProps {
   isOpen: boolean;
