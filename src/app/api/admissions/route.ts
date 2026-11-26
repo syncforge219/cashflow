@@ -21,7 +21,7 @@ import { validateDeletedAccess } from "@/lib/softDeleteAccess";
 import { withOptionalTransaction } from "@/lib/transactionHelper";
 import { studentBalanceLookupStages } from "@/lib/studentBalanceService";
 import { resolveBrandName } from "@/lib/brandDefaults";
-import { BatchRuleError, resolveBatchForAssignment, isTeacherRole } from "@/lib/batchRules";
+import { BatchRuleError, enforceSeatAfterAssign, resolveBatchForAssignment, isTeacherRole } from "@/lib/batchRules";
 
 export async function POST(req: NextRequest) {
   try {
@@ -573,8 +573,22 @@ export async function POST(req: NextRequest) {
         .catch((err) => console.error("[Admission API] Brand welcome WhatsApp error:", err));
     }
 
+    // Two admissions saved at the same moment can both pass the pre-save seat check. If this student
+    // lost the last seat, keep the admission (money is already recorded) but leave them unassigned.
+    let seatWarning: string | undefined;
+    if (finalBatchId) {
+      try {
+        await enforceSeatAfterAssign(finalBatchId, admission._id);
+      } catch (err: any) {
+        if (!(err instanceof BatchRuleError)) throw err;
+        seatWarning = `Admission saved, but the batch filled up at the same moment, so the student is unassigned. ${err.message}`;
+        admission.batch = "Unassigned";
+        admission.batchId = null;
+      }
+    }
+
     return NextResponse.json(
-      { success: true, message: "Admission generated successfully", data: admission, payment: initialPaymentObj },
+      { success: true, message: seatWarning || "Admission generated successfully", warning: seatWarning, data: admission, payment: initialPaymentObj },
       { status: 201 }
     );
   } catch (error: any) {
