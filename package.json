@@ -11,7 +11,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "node --test --experimental-test-module-mocks --test-concurrency=1 tests/**/*.test.ts",
-    "backfill:refs": "node scripts/backfill-refs.ts"
+    "backfill:refs": "node scripts/backfill-refs.ts",
+    "repair:batches": "node scripts/repair-batches.ts"
   },
   "dependencies": {
     "@types/nodemailer": "^8.0.1",

@@ -14,7 +14,7 @@ import { syncAdmissionRefs } from "@/lib/referenceHelper";
 import { getStudentBalance, recomputeAndStoreAdmissionBalance } from "@/lib/studentBalanceService";
 import { logAuditEntry, diffAndLogAudit } from "@/lib/auditLogger";
 import { withOptionalTransaction } from "@/lib/transactionHelper";
-import { BatchRuleError, findBatchByAnyId, resolveBatchForAssignment, isTeacherRole } from "@/lib/batchRules";
+import { BatchRuleError, enforceSeatAfterAssign, findBatchByAnyId, resolveBatchForAssignment, isTeacherRole } from "@/lib/batchRules";
 
 export async function GET(
   req: Request,
@@ -437,6 +437,10 @@ export async function PUT(
         { $set: { batch: assignedBatchName, batchId: assignedBatchId } },
         { new: true }
       );
+      // Only for a newly assigned student: someone already in the batch is never bumped by an unrelated edit
+      if (assignedBatchId && String(existingDoc.batchId || "") !== String(assignedBatchId)) {
+        await enforceSeatAfterAssign(assignedBatchId, existingDoc._id);
+      }
       return NextResponse.json({
         success: true,
         message: assignedBatchName === "Unassigned" ? "Student removed from batch successfully" : "Student allocated to batch successfully",
@@ -725,12 +729,19 @@ export async function PUT(
         }
       });
 
+    if (assignedBatchId && String(existingDoc.batchId || "") !== String(assignedBatchId)) {
+      await enforceSeatAfterAssign(assignedBatchId, existingDoc._id);
+    }
+
     return NextResponse.json({
       success: true,
       message: "Student record updated successfully",
       data: updatedDoc
     });
   } catch (error: any) {
+    if (error instanceof BatchRuleError) {
+      return NextResponse.json({ success: false, message: error.message, error: error.message }, { status: error.status });
+    }
     console.error("Error in PUT /api/admissions/[id]:", error);
     return NextResponse.json(
       { success: false, message: error.message || "Failed to update student details" },
