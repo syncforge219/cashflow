@@ -239,4 +239,93 @@ describe("Batch creation and student assignment", () => {
     assert.equal(b2.status, 201, JSON.stringify(b2.json));
     assert.equal(b2.json.success, true);
   });
+
+  test("only a teacher account can be assigned as a batch's teacher", async () => {
+    const c = (await db().collection("users").insertOne({ name: "Not Faculty", role: "counsellor", email: "c@example.com" })).insertedId;
+    const res = await create({ teacherId: String(c), days: ["Sat"], timing: "7:00 AM - 8:00 AM" });
+    assert.equal(res.status, 400, JSON.stringify(res.json));
+    assert.match(res.json.error, /not a faculty/i);
+  });
+
+  test("teachers can't edit batches; managers can", async () => {
+    const b = (await create({ teacherId: String(teacherB._id), days: ["Fri"], timing: "8:00 AM - 9:00 AM" })).json.data;
+    currentUser = { _id: teacherB._id, name: "Teacher B", role: "teacher", brandScope: "BRAND A" };
+    const denied = await send("PATCH", batch.PATCH, `/api/batches/${b._id}`, { notes: "x" }, { id: b._id });
+    assert.equal(denied.status, 403);
+    currentUser = admin;
+    const ok = await send("PATCH", batch.PATCH, `/api/batches/${b._id}`, { notes: "x" }, { id: b._id });
+    assert.equal(ok.status, 200, JSON.stringify(ok.json));
+  });
+
+  test("teacherId filter matches by id, not by a similar teacher name", async () => {
+    const [ann, joanne] = [
+      (await db().collection("users").insertOne({ name: "Ann", role: "teacher", email: "ann@example.com" })).insertedId,
+      (await db().collection("users").insertOne({ name: "Joanne", role: "teacher", email: "jo@example.com" })).insertedId,
+    ];
+    const bj = (await create({ teacherId: String(joanne), days: ["Sat"], timing: "9:00 AM - 10:00 AM" })).json.data;
+    const list = await call(batches.GET, `/api/batches?teacherId=${ann}`);
+    assert.ok(!list.json.data.some((b: any) => b._id === bj._id), "Ann's filter must not return Joanne's batch");
+  });
+
+  test("GET /api/batches does not write to the database", async () => {
+    const id = (await db().collection("batches").insertOne({
+      batchName: "Stale", brand: "BRAND A", teacherId: teacherA._id, teacherName: "Teacher A",
+      startDate: new Date(Date.now() - 30 * 864e5), endDate: new Date(Date.now() - 864e5), status: "Active", timing: "10:30 AM - 11:30 PM", days: ["Mon"],
+    })).insertedId;
+    const list = await call(batches.GET, "/api/batches");
+    const row = list.json.data.find((b: any) => b._id === String(id));
+    assert.equal(row.status, "Completed", "response shows the real status");
+    const stored = await db().collection("batches").findOne({ _id: id });
+    assert.equal(stored!.status, "Active", "stored value untouched until the repair script runs");
+    assert.equal(stored!.batchId, undefined);
+  });
+
+  test("a student who loses a seat race is unassigned (enforceSeatAfterAssign)", async () => {
+    const { enforceSeatAfterAssign } = await import("../src/lib/batchRules");
+    const b = (await create({ maxCapacity: 1, teacherId: String(teacherB._id), days: ["Thu"], timing: "3:00 PM - 4:00 PM" })).json.data;
+    const first = await addStudent({ fullName: "First", batch: b.batchName, batchId: b._id });
+    const second = await addStudent({ fullName: "Second", batch: b.batchName, batchId: b._id }); // slipped past the pre-check
+    await enforceSeatAfterAssign(b._id, first._id); // the earlier admission keeps its seat
+    await assert.rejects(() => enforceSeatAfterAssign(b._id, second._id), /filled up/);
+    const st = await db().collection("admissions").findOne({ _id: second._id });
+    assert.equal(st!.batch, "Unassigned");
+  });
+
+  describe("attendance", () => {
+    let att: any;
+    const post = (body: any) => send("POST", att.POST, "/api/attendance", body);
+    before(async () => {
+      att = await import("../src/app/api/attendance/route");
+    });
+
+    test("requires login, the batch's own teacher or a manager, and valid dates", async () => {
+      const b = (await create({ teacherId: String(teacherA._id), days: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], timing: "5:00 AM - 6:00 AM" })).json.data;
+      const body = { batchId: b._id, date: day(0), records: [{ studentName: "S", admissionId: "A1", status: "Present" }] };
+
+      currentUser = null;
+      assert.equal((await post(body)).status, 401);
+
+      currentUser = { _id: teacherB._id, name: "Teacher B", role: "teacher", brandScope: "BRAND A" };
+      assert.equal((await post(body)).status, 403, "another teacher");
+      currentUser = { _id: new mongoose.Types.ObjectId(), name: "C", role: "counsellor", brandScope: "BRAND A" };
+      assert.equal((await post(body)).status, 403, "counsellor");
+
+      currentUser = { _id: teacherA._id, name: "Teacher A", role: "teacher", brandScope: "BRAND A" };
+      const ok = await post(body);
+      assert.equal(ok.status, 200, JSON.stringify(ok.json));
+      assert.equal(ok.json.data.batchName, b.batchName, "batch name comes from the database");
+      assert.equal(ok.json.data.totalPresent, 1);
+
+      assert.equal((await post({ ...body, date: day(3) })).status, 400, "future date");
+      assert.equal((await post({ ...body, records: [{ studentName: "S", status: "Maybe" }] })).status, 400, "bad status");
+      assert.equal((await post({ ...body, records: [{ studentName: "S", admissionId: "A1", status: "Present" }, { studentName: "S", admissionId: "A1", status: "Absent" }] })).status, 400, "duplicate student");
+      currentUser = admin;
+    });
+
+    test("rejects dates before the batch starts", async () => {
+      const b = (await create({ teacherId: String(teacherA._id), startDate: day(-2), days: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], timing: "4:00 AM - 5:00 AM" })).json.data;
+      const r = await post({ batchId: b._id, date: day(-10), records: [] });
+      assert.equal(r.status, 400);
+    });
+  });
 });
