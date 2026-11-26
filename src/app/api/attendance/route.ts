@@ -7,7 +7,9 @@ import Batch from "@/models/Batch";
 import Admission from "@/models/Admission";
 import Enquiry from "@/models/Enquiry";
 
-import { getUserFromCookies } from "@/lib/helper";
+import { getUserFromCookies, escapeRegex as escapeRegexSafe } from "@/lib/helper";
+import { canTakeAnyAttendance, findBatchByAnyId, userCanUseBrand } from "@/lib/batchRules";
+import { computeBatchStatus, isBatchActiveOnDate } from "@/lib/batchHelper";
 
 export async function GET(request: Request) {
   try {
@@ -208,7 +210,7 @@ export async function GET(request: Request) {
         }
       }
     }
-    if (batchName) query.batchName = { $regex: new RegExp(`^${batchName.trim()}$`, "i") };
+    if (batchName) query.batchName = { $regex: new RegExp(`^${escapeRegexSafe(batchName.trim())}$`, "i") };
     if (dateStr) query.dateStr = dateStr;
     if (teacherId) query.teacherId = teacherId;
     if (brand && brand !== "All Brands") query.brand = brand;
@@ -230,96 +232,104 @@ export async function GET(request: Request) {
   }
 }
 
+const ATTENDANCE_STATUSES = ["Present", "Absent", "Late", "Excused"];
+const DAY_BY_INDEX = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
 export async function POST(request: Request) {
   try {
     await dbConnect();
+    const user: any = await getUserFromCookies();
+    if (!user) return NextResponse.json({ success: false, error: "Not signed in" }, { status: 401 });
     const body = await request.json();
+    const { batchId, date, records, notes, course, extraClass } = body;
 
-    const {
-      batchId,
-      batchName,
-      course,
-      date,
-      teacherId,
-      teacherName,
-      brand,
-      records,
-      notes,
-    } = body;
+    if (!batchId || !date || !Array.isArray(records)) {
+      return NextResponse.json({ success: false, error: "Batch, Date and Student Records are required." }, { status: 400 });
+    }
 
-    if (!batchId || !batchName || !date || !teacherId || !teacherName || !Array.isArray(records)) {
+    // The batch comes from the database; its name, brand and course are never taken from the request
+    const batch: any = await findBatchByAnyId(batchId);
+    if (!batch) return NextResponse.json({ success: false, error: "Batch not found." }, { status: 404 });
+    if (!userCanUseBrand(user, batch.brand)) {
+      return NextResponse.json({ success: false, error: "Batch not found." }, { status: 404 });
+    }
+
+    // Only the batch's own teacher, or a manager / admin, may take attendance
+    const isOwnTeacher = String(batch.teacherId) === String(user._id || user.id);
+    if (!isOwnTeacher && !canTakeAnyAttendance(user.role)) {
+      return NextResponse.json({ success: false, error: "You can only take attendance for your own batches." }, { status: 403 });
+    }
+
+    const dateObj = new Date(date);
+    if (Number.isNaN(dateObj.getTime())) {
+      return NextResponse.json({ success: false, error: "Date is not valid." }, { status: 400 });
+    }
+    const dateStr = toDateKey(dateObj);
+    if (dateStr > toDateKey(new Date())) {
+      return NextResponse.json({ success: false, error: "Attendance can't be taken for a future date." }, { status: 400 });
+    }
+
+    const status = computeBatchStatus(batch.startDate, batch.endDate, batch.status, new Date(), batch.statusLocked);
+    if (status === "Cancelled") {
+      return NextResponse.json({ success: false, error: "This batch is cancelled." }, { status: 409 });
+    }
+    // Inside the batch's start / end dates
+    if (!isBatchActiveOnDate(batch, dateStr)) {
+      return NextResponse.json({ success: false, error: "That date is outside this batch's start and end dates." }, { status: 400 });
+    }
+    // On one of the batch's class days, unless it is flagged as an extra / make-up class
+    const dayOfWeek = DAY_BY_INDEX[new Date(`${dateStr}T12:00:00+05:30`).getUTCDay()];
+    if (!extraClass && !isBatchActiveOnDate(batch, dateStr, dayOfWeek)) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "Batch, Date, Faculty, and Student Records are required.",
-        },
+        { success: false, error: `${dayOfWeek} is not a class day for this batch. Mark it as an extra class to continue.` },
         { status: 400 }
       );
     }
 
-    let finalBatchMongoId = batchId;
-    if (!mongoose.Types.ObjectId.isValid(batchId)) {
-      const foundBatch = await Batch.findOne({ batchId: batchId.trim() }).lean();
-      if (foundBatch && foundBatch._id) {
-        finalBatchMongoId = foundBatch._id;
+    if (records.length > 1000) {
+      return NextResponse.json({ success: false, error: "Too many student records." }, { status: 400 });
+    }
+    const seen = new Set<string>();
+    for (const rec of records) {
+      if (!ATTENDANCE_STATUSES.includes(rec?.status)) {
+        return NextResponse.json({ success: false, error: `Invalid attendance status "${rec?.status}".` }, { status: 400 });
+      }
+      const key = String(rec.admissionId || rec.studentId || rec.studentName || "");
+      if (key) {
+        if (seen.has(key)) return NextResponse.json({ success: false, error: `Student ${key} is listed twice.` }, { status: 400 });
+        seen.add(key);
       }
     }
 
-    // Normalize dateStr to YYYY-MM-DD
-    const dateObj = new Date(date);
-    const dateStr = toDateKey(dateObj);
-
-    // Compute totals
-    let totalPresent = 0;
-    let totalAbsent = 0;
-    let totalLate = 0;
-    let totalExcused = 0;
-
-    records.forEach((rec: any) => {
-      if (rec.status === "Present") totalPresent++;
-      else if (rec.status === "Absent") totalAbsent++;
-      else if (rec.status === "Late") totalLate++;
-      else if (rec.status === "Excused") totalExcused++;
-    });
-
-    const totalStudents = records.length;
+    const count = (s: string) => records.filter((r: any) => r.status === s).length;
 
     // Upsert (update if attendance already taken for this batch & date, else create)
     const attendanceDoc = await Attendance.findOneAndUpdate(
-      { batchId: finalBatchMongoId, dateStr },
+      { batchId: batch._id, dateStr },
       {
-        batchId: finalBatchMongoId,
-        batchName,
-        course: course || "",
+        batchId: batch._id,
+        batchName: batch.batchName,
+        course: batch.course || course || "",
         date: dateObj,
         dateStr,
-        teacherId,
-        teacherName,
-        brand: brand || "",
+        // Who took it comes from the session
+        teacherId: user._id || user.id,
+        teacherName: user.name || batch.teacherName,
+        brand: batch.brand || "",
         records,
-        totalStudents,
-        totalPresent,
-        totalAbsent,
-        totalLate,
-        totalExcused,
-        notes: notes || "",
+        totalStudents: records.length,
+        totalPresent: count("Present"),
+        totalAbsent: count("Absent"),
+        totalLate: count("Late"),
+        totalExcused: count("Excused"),
+        notes: typeof notes === "string" ? notes : "",
       },
       { upsert: true, new: true, runValidators: true }
     );
 
-    return NextResponse.json(
-      {
-        success: true,
-        message: "Attendance saved successfully",
-        data: attendanceDoc,
-      },
-      { status: 200 }
-    );
+    return NextResponse.json({ success: true, message: "Attendance saved successfully", data: attendanceDoc }, { status: 200 });
   } catch (error: any) {
     console.error("POST /api/attendance Error:", error);
-    return NextResponse.json(
-      { success: false, error: error.message || "Failed to save attendance" },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: error.message || "Failed to save attendance" }, { status: 500 });
   }
 }
