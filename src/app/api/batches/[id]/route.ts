@@ -9,6 +9,7 @@ import {
   assertUniqueBatchName,
   batchRefConditions,
   canDeleteBatch,
+  canEditBatch,
   cleanBatchFields,
   countEnrolled,
   findBatchByAnyId,
@@ -60,6 +61,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     await dbConnect();
     const user = await getUserFromCookies();
     if (!user) return NextResponse.json({ success: false, error: "Not signed in" }, { status: 401 });
+    if (!canEditBatch(user.role)) {
+      return NextResponse.json({ success: false, error: "Teachers can't edit batches. Ask a manager or admin." }, { status: 403 });
+    }
     const { id } = await params;
     const body = await request.json();
 
