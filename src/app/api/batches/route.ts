@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
 import Batch from "@/models/Batch";
-import User from "@/models/User";
 import Brand from "@/models/Brand";
 import { getUserFromCookies } from "@/lib/helper";
 import { computeBatchStatus } from "@/lib/batchHelper";
@@ -16,6 +15,7 @@ import {
   cleanBatchFields,
   findTeacherClash,
   isTeacherRole,
+  lostTeacherClashRace,
   nextBatchCode,
   normalizeBatchTiming,
   userBrandList,
@@ -82,26 +82,13 @@ export async function GET(request: Request) {
     }
 
     if (teacherId && !/^(all|any|\*)$/i.test(teacherId)) {
-      let teacherName = "";
+      const teacherOr: any[] = [{ teacherId: String(teacherId) }];
       if (mongoose.Types.ObjectId.isValid(teacherId)) {
-        const teacherUser: any = await User.findById(teacherId).select("name").lean();
-        teacherName = teacherUser?.name || "";
-      } else {
-        teacherName = teacherId;
-      }
-
-      const teacherOr: any[] = [];
-      if (mongoose.Types.ObjectId.isValid(teacherId)) {
+        // A real id matches on the id only; matching by name would also pick up other people with similar names
         teacherOr.push({ teacherId: new mongoose.Types.ObjectId(teacherId) });
-        teacherOr.push({ teacherId: String(teacherId) });
       } else {
-        teacherOr.push({ teacherId: String(teacherId) });
-      }
-
-      if (teacherName && teacherName.trim()) {
-        const tTrim = teacherName.trim();
-        teacherOr.push({ teacherName: new RegExp(`^${escapeRegex(tTrim)}$`, "i") });
-        teacherOr.push({ teacherName: new RegExp(escapeRegex(tTrim), "i") });
+        // Legacy: a plain name was passed; exact (not partial) match
+        teacherOr.push({ teacherName: new RegExp(`^${escapeRegex(teacherId.trim())}$`, "i") });
       }
 
       if (teacherOr.length > 0) {
@@ -127,44 +114,18 @@ export async function GET(request: Request) {
 
     let batches: any[] = await Batch.find(and.length ? { $and: and } : {}).sort({ createdAt: -1 }).lean();
 
-    // Keep stored data in step: missing codes, lifecycle status, timing typo, missing start date
-    const updatePromises: Promise<any>[] = [];
+    // Normalise for display only. GET never writes: stored fixes (missing codes, stale status,
+    // timing typos, missing start dates) are applied by scripts/repair-batches.ts, so a page load
+    // can't contend with edits or invent data.
     for (const b of batches) {
-      const updates: any = {};
-
-      if (!b.batchId) {
-        // One at a time through the counter; the old "highest + 1" gave every un-coded batch the same code
-        updates.batchId = await nextBatchCode();
-        b.batchId = updates.batchId;
-      }
-
-      const calculatedStatus = computeBatchStatus(b.startDate, b.endDate, b.status, new Date(), b.statusLocked);
-      if (calculatedStatus !== b.status) {
-        updates.status = calculatedStatus;
-        b.status = calculatedStatus;
-      }
-
+      b.status = computeBatchStatus(b.startDate, b.endDate, b.status, new Date(), b.statusLocked);
       if (!b.timing || !String(b.timing).trim()) {
-        updates.timing = "10:00 AM - 12:00 PM";
-        b.timing = updates.timing;
+        b.timing = "10:00 AM - 12:00 PM";
       } else {
         const normalized = normalizeBatchTiming(b.timing, b.batchName);
-        if (normalized && normalized !== b.timing) {
-          updates.timing = normalized;
-          b.timing = normalized;
-        }
-      }
-
-      if (!b.startDate) {
-        updates.startDate = b.createdAt ? new Date(b.createdAt) : new Date();
-        b.startDate = updates.startDate;
-      }
-
-      if (Object.keys(updates).length > 0) {
-        updatePromises.push(Batch.updateOne({ _id: b._id }, { $set: updates }));
+        if (normalized) b.timing = normalized;
       }
     }
-    if (updatePromises.length > 0) await Promise.all(updatePromises);
 
     if (status && status !== "All Status") {
       batches = batches.filter((b) => b.status === status);
@@ -297,6 +258,16 @@ export async function POST(request: Request) {
     };
     await syncBatchRefs(payload);
     const newBatch = await Batch.create(payload);
+
+    // Another request may have booked the same teacher slot at the same moment; the later one backs out
+    const lost = await lostTeacherClashRace(newBatch);
+    if (lost) {
+      await Batch.deleteOne({ _id: newBatch._id });
+      throw new BatchRuleError(
+        `${fields.teacherName} was just booked for "${lost.batchName}" (${lost.batchId}) at ${lost.timing}. Pick another time or teacher.`,
+        409
+      );
+    }
 
     return NextResponse.json({ success: true, message: "Faculty batch created successfully", data: newBatch }, { status: 201 });
   } catch (error: any) {
