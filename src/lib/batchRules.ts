@@ -27,21 +27,8 @@ export const DAY_CODES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as co
 export const INACTIVE_ADMISSION_STATUSES = ["Cancelled", "Refunded", "Dropped", "Transferred"];
 
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-export const normalizeRole = (role: unknown) => String(role || "").toLowerCase().replace(/[\s_-]+/g, "");
-
-export function isTeacherRole(role: unknown) {
-  const r = normalizeRole(role);
-  return (
-    r === "teacher" ||
-    r === "faculty" ||
-    r === "instructor" ||
-    r === "trainer" ||
-    r.includes("teacher") ||
-    r.includes("faculty") ||
-    r.includes("instructor") ||
-    r.includes("trainer")
-  );
-}
+import { normalizeRole, isTeacherRole } from "@/lib/roleRules";
+export { normalizeRole, isTeacherRole };
 
 /** Who may delete a batch (others can cancel it instead). */
 export function canDeleteBatch(role: unknown) {
